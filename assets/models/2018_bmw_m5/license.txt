@@ -1,0 +1,11 @@
+Model Information:
+* title:	2018 BMW M5
+* source:	https://sketchfab.com/3d-models/2018-bmw-m5-30fa0c4408bc43be8c3a67c51fcc6184
+* author:	Outlaw Games™ (https://sketchfab.com/Outlaw_Games)
+
+Model License:
+* license type:	CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+* requirements:	Author must be credited. No commercial use.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "2018 BMW M5" (https://sketchfab.com/3d-models/2018-bmw-m5-30fa0c4408bc43be8c3a67c51fcc6184) by Outlaw Games™ (https://sketchfab.com/Outlaw_Games) licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)

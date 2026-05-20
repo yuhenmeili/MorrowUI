@@ -1,0 +1,3 @@
+QNX_HOST=/home/lance/qnx800/host/linux/x86_64
+QNX_TARGET=/home/lance/qnx800/target/qnx
+MAKEFLAGS=-I/home/lance/qnx800/target/qnx/usr/include

@@ -1,0 +1,5 @@
+rgbmRange=64
+mipCount=5
+specularMipWidths=512,256,128,64,32
+specularMipHeights=256,128,64,32,16
+specularMipOffsetsY=0,256,384,448,480

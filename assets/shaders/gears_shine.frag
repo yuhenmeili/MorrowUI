@@ -1,0 +1,14 @@
+#version 460
+precision highp float;
+precision highp int;
+
+layout (location = 0) in vec4 v_color;
+
+uniform float u_alpha;
+
+layout (location = 0) out vec4 fragColor;
+void main()
+{
+    fragColor = v_color;
+    fragColor.a *= u_alpha;
+}
