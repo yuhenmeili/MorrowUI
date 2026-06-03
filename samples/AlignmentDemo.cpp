@@ -18,7 +18,7 @@ int main() {
 
     FontInfo fontInfo = {
         .name = "default",
-        .path = "../assets/fonts/MorrowSansCN1.1-Regular.otf",
+        .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
         .fontSize = 32.0f
     };
     engine->addFonts({fontInfo});

@@ -15,7 +15,7 @@ int main() {
     window->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     auto texture = Texture::create(ImageType::IMAGE);
-    texture->setImageUrl("../assets/textures/bounce/aeb_r.png");
+    texture->setImageUrl("assets/textures/bounce/aeb_r.png");
 
     auto widget = MRBounce::create();
     auto transform = widget->getComponent<Transform>();

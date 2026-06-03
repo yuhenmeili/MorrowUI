@@ -549,7 +549,7 @@ bool IBLPrecompute::bake(const IBLPrecomputeOptions& options, IBLPrecomputeResul
     resolved.inputHDRPath = normalizePath(resolved.inputHDRPath);
     resolved.outputDirectory = normalizePath(resolved.outputDirectory);
     if (resolved.outputDirectory.empty()) {
-        resolved.outputDirectory = joinPath("../assets/textures/ibl", fileStem(resolved.inputHDRPath));
+        resolved.outputDirectory = joinPath("assets/textures/ibl", fileStem(resolved.inputHDRPath));
     }
 
     FloatImage environment;

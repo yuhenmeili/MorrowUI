@@ -10,7 +10,7 @@ namespace morrow
 void FontManager::initialize() {
     FontInfo fontInfo = {
         .name = "MorrowSansCN1.1-Regular.otf",
-        .path = "../assets/fonts/MorrowSansCN1.1-Regular.otf",
+        .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
         .fontSize = 32.0f
     };
     addFonts({fontInfo});

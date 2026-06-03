@@ -16,13 +16,13 @@ int main()
     window->setClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     auto brakePedalTexture = Texture::create(ImageType::IMAGE);
-    brakePedalTexture->setImageUrl("../assets/textures/brake_pedal/brakePedal.png");
+    brakePedalTexture->setImageUrl("assets/textures/brake_pedal/brakePedal.png");
 
     auto whiteTexture = Texture::create(ImageType::IMAGE);
-    whiteTexture->setImageUrl("../assets/textures/brake_pedal/whiteCircle.png");
+    whiteTexture->setImageUrl("assets/textures/brake_pedal/whiteCircle.png");
 
     auto grayTexture = Texture::create(ImageType::IMAGE);
-    grayTexture->setImageUrl("../assets/textures/brake_pedal/grayCircle.png");
+    grayTexture->setImageUrl("assets/textures/brake_pedal/grayCircle.png");
 
     auto widget = MRBrakePedal::create();
     auto transform = widget->getComponent<Transform>();

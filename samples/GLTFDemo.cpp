@@ -8,9 +8,9 @@
 using namespace morrow;
 
 int main(int argc, char** argv) {
-    const std::string modelPath = (argc > 1) ? argv[1] : "../assets/models/2018_bmw_m5/scene.gltf";
-    // const std::string modelPath = (argc > 1) ? argv[1] : "../assets/models/box/box.gltf";
-    const std::string iblDirectory = (argc > 2) ? argv[2] : "../assets/textures/ibl/symmetrical_garden_1k";
+    const std::string modelPath = (argc > 1) ? argv[1] : "assets/models/2018_bmw_m5/scene.gltf";
+    // const std::string modelPath = (argc > 1) ? argv[1] : "assets/models/box/box.gltf";
+    const std::string iblDirectory = (argc > 2) ? argv[2] : "assets/textures/ibl/symmetrical_garden_1k";
 
     WindowInfo windowInfo;
     windowInfo.name = "GLTFDemo";

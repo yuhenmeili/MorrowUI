@@ -17,7 +17,7 @@ int main()
     window->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     auto textAtlas = Texture::create(ImageType::IMAGE);
-    textAtlas->setImageUrl("../assets/textures/img.jpg");
+    textAtlas->setImageUrl("assets/textures/img.jpg");
 
     auto widget = MRAnchorPointScale::create();
     auto transform = widget->getComponent<Transform>();

@@ -17,7 +17,7 @@ int main()
     auto window = engine->getWindow();
     window->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-    auto atlas = std::make_shared<TextureAtlas>("../assets/textures/frame_animation/atlas_cube.atlas", "../assets/textures/frame_animation/", false);
+    auto atlas = std::make_shared<TextureAtlas>("assets/textures/frame_animation/atlas_cube.atlas", "assets/textures/frame_animation/", false);
     auto animation = MRFrameAnimation::create();
     animation->setTextureAtlas(atlas);
 

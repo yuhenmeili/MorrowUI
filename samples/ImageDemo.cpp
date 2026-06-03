@@ -23,7 +23,7 @@ int main()
     window->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     auto textAtlas = Texture::create(ImageType::IMAGE);
-    textAtlas->setImageUrl("../assets/textures/img.bmp");
+    textAtlas->setImageUrl("assets/textures/img.bmp");
 
     for (int index = 0; index < 10; index++) {
         auto im1 = MRImage::create();

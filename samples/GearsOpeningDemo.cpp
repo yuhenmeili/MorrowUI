@@ -18,7 +18,7 @@ int main() {
     transform->setSize(198.0f, 708.0f);
 
     auto texture = Texture::create(ImageType::IMAGE);
-    texture->setImageUrl("../assets/textures/gearBG.png");
+    texture->setImageUrl("assets/textures/gearBG.png");
 
     auto meshRenderer = widget->getComponent<MeshRenderer>();
     auto material = meshRenderer->getMaterial();

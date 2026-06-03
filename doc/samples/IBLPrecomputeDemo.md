@@ -34,7 +34,7 @@ cmake --build "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw" --target 
 指定 HDR 输入和输出目录：
 
 ```powershell
-& "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw\IBLPrecomputeDemo.exe" "../assets/textures/hdr/symmetrical_garden_1k.hdr" "../assets/textures/ibl/generated"
+& "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw\IBLPrecomputeDemo.exe" "assets/textures/hdr/symmetrical_garden_1k.hdr" "assets/textures/ibl/generated"
 ```
 
 ## 示例做了什么

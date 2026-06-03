@@ -55,7 +55,10 @@ foreach(FILE_PATH ${DEMO_LIST})
     get_filename_component(FILE_NAME ${FILE_PATH} NAME_WE)
     add_executable(${FILE_NAME} ${FILE_PATH})
     target_link_libraries(${FILE_NAME} morrow)
-    #    set_target_properties(${FILE_NAME} PROPERTIES
-    #            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-    #    )
+    add_custom_command(TARGET ${FILE_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/assets"
+        "$<TARGET_FILE_DIR:${FILE_NAME}>/assets"
+        COMMENT "Copying assets to $<TARGET_FILE_DIR:${FILE_NAME}>/assets"
+    )
 endforeach()

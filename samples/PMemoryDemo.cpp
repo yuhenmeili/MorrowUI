@@ -20,7 +20,7 @@ int main() {
 
     void* pmem_hdl;
 
-    bool loadData = global_tools::loadPmemData(pmem_hdl, "../assets/textures/d_p.rgb");
+    bool loadData = global_tools::loadPmemData(pmem_hdl, "assets/textures/d_p.rgb");
     auto texture = Texture::create(ImageType::OES);
     if (loadData) {
         texture->setTextureData(pmem_hdl, TEST_BUFFER_WIDTH, TEST_BUFFER_HEIGHT, PixelDataFormat::RGB, 0);

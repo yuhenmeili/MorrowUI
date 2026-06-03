@@ -6,7 +6,7 @@
 using namespace morrow;
 
 int main(int argc, char** argv) {
-    const std::string defaultHDR = "../assets/textures/hdr/symmetrical_garden_1k.hdr";
+    const std::string defaultHDR = "assets/textures/hdr/symmetrical_garden_1k.hdr";
     const std::string inputHDR = (argc > 1) ? argv[1] : defaultHDR;
     const std::string outputDirectory = (argc > 2) ? argv[2] : std::string();
 

@@ -34,7 +34,7 @@ cmake --build "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw" --target 
 指定模型和 IBL 目录：
 
 ```powershell
-& "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw\GLTFDemo.exe" "../assets/models/2018_bmw_m5/scene.gltf" "../assets/textures/ibl/symmetrical_garden_1k"
+& "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw\GLTFDemo.exe" "assets/models/2018_bmw_m5/scene.gltf" "assets/textures/ibl/symmetrical_garden_1k"
 ```
 
 ## 示例做了什么

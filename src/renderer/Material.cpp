@@ -339,8 +339,8 @@ bool Material::isSSBOShader() const {
 }
 
 void Material::loadShader() {
-    std::string vertexShaderPath = "../assets/shaders/" + m_shaderName + ".vert";
-    std::string fragmentShaderPath = "../assets/shaders/" + m_shaderName + ".frag";
+    std::string vertexShaderPath = "assets/shaders/" + m_shaderName + ".vert";
+    std::string fragmentShaderPath = "assets/shaders/" + m_shaderName + ".frag";
 
     std::ifstream vertexShaderFile(vertexShaderPath);
     m_vertexShaderResource = std::string((std::istreambuf_iterator<char>(vertexShaderFile)), std::istreambuf_iterator<char>());
