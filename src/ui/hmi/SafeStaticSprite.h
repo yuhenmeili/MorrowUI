@@ -20,6 +20,7 @@
 #define MORROW_SAFE_STATIC_SPRITE_H
 
 #include "base/UIWidget.h"
+#include "StaticAtlasManager.h"
 #include "Texture.h"
 #include "Vector2.h"
 
@@ -27,21 +28,6 @@
 #include <unordered_map>
 
 namespace morrow {
-
-// ---------------------------------------------------------------------------
-// SafeSpriteDef — 单个精灵在 Atlas 中的硬编码描述
-// ---------------------------------------------------------------------------
-struct SafeSpriteDef {
-    const char* name;       // 精灵名称（如 "speed_0", "gear_P", "warning_abs"）
-    float u;                // 左 UV（归一化 0..1）
-    float v;                // 上 UV（归一化 0..1）
-    float u2;               // 右 UV（归一化 0..1）
-    float v2;               // 下 UV（归一化 0..1）
-    float offsetX;          // 在 Atlas 中的像素偏移 X
-    float offsetY;          // 在 Atlas 中的像素偏移 Y
-    float spriteWidth;      // 精灵原始宽度（像素）
-    float spriteHeight;     // 精灵原始高度（像素）
-};
 
 // ---------------------------------------------------------------------------
 // SafeStaticSprite
@@ -52,7 +38,8 @@ using SafeStaticSpriteSharedPtr = std::shared_ptr<SafeStaticSprite>;
 class SafeStaticSprite : public UIWidget {
 public:
     /// 工厂方法
-    static SafeStaticSpriteSharedPtr create();
+    /// @param atlasName  图集名称（需事先通过 StaticAtlasManager::registerAtlas 注册）
+    static SafeStaticSpriteSharedPtr create(const std::string& atlasName = "default");
 
     virtual ~SafeStaticSprite() = default;
 
@@ -78,49 +65,32 @@ public:
     void debugTexture() override;
 
 protected:
-    SafeStaticSprite();
+    explicit SafeStaticSprite(const std::string& atlasName);
 
     // -----------------------------------------------------------------------
-    // 初始化：创建 ROM 纹理 + ROM 着色器 + 查找表
+    // 初始化：从 StaticAtlasManager 获取纹理和精灵表
     // -----------------------------------------------------------------------
-    void initHardcodedTexture();
-    void initHardcodedShader();
+    void initTexture();
+
+    void initShader();
+
     void initSpriteTable();
 
-    /// 获取全局共享的 ROM 纹理（所有 SafeStaticSprite 实例共用同一张 GPU 纹理）
-    static TextureSharedPtr getSharedROMTexture();
-
-    // -----------------------------------------------------------------------
-    // 硬编码数据访问（编译期常量，位于 .rodata）
-    // -----------------------------------------------------------------------
-
-    /// @return 硬编码的 Atlas RGBA 像素数据首地址
-    static const unsigned char* getHardcodedAtlasData();
-
-    /// @return Atlas 宽度（像素）
-    static int getHardcodedAtlasWidth();
-
-    /// @return Atlas 高度（像素）
-    static int getHardcodedAtlasHeight();
-
-    /// @return 硬编码的顶点着色器源码
+    /// 获取着色器源码（引擎内置，不依赖外部数据）
     static const char* getHardcodedVertexShader();
 
-    /// @return 硬编码的片元着色器源码
+    /// 获取着色器源码（引擎内置，不依赖外部数据）
     static const char* getHardcodedFragmentShader();
 
-    /// @return 硬编码精灵定义表
-    static const std::vector<SafeSpriteDef>& getHardcodedSpriteTable();
-
 private:
-    TextureSharedPtr    m_romTexture;           // 由硬编码像素数据创建的纹理
-    std::string         m_currentSpriteName;    // 当前精灵名
-    SafeSpriteDef       m_currentSpriteDef;     // 当前精灵定义（缓存）
+    std::string m_atlasName;            // 绑定的图集名称
+    TextureSharedPtr m_romTexture;       // 图集 GPU 纹理（由 StaticAtlasManager 惰性创建）
+    std::string m_currentSpriteName;    // 当前精灵名
+    SafeSpriteDef m_currentSpriteDef;    // 当前精灵定义（缓存）
 
     // 精灵名 → 精灵定义 哈希表（编译期数据拷入，查找 O(1)）
     std::unordered_map<std::string, const SafeSpriteDef*> m_spriteMap;
 };
-
 } // namespace morrow
 
 #endif // MORROW_SAFE_STATIC_SPRITE_H

@@ -13,6 +13,8 @@
 
 #include "Engine.h"
 #include "hmi/SafeStaticSprite.h"
+#include "hmi/SafeStaticSpriteAtlas.h"
+#include "StaticAtlasManager.h"
 #include "base/Transform.h"
 
 #include <cmath>
@@ -21,6 +23,56 @@
 
 using namespace morrow;
 using namespace morrow::Math;
+
+// =========================================================================
+// 硬编码图集像素数据 — 由外部工具链从 PNG 图集自动生成
+// （参见 tools/generate_atlas_c_array.py）
+// 图集规格：64×32 像素，RGBA8，共 8 KB
+// =========================================================================
+
+static constexpr int kAtlasWidth  = 64;
+static constexpr int kAtlasHeight = 32;
+
+// 编译期静态断言：确保图集数据大小正确
+static_assert(sizeof(kAtlasPixelData) == kAtlasWidth * kAtlasHeight * 4,
+              "Atlas pixel data size mismatch!");
+
+// =========================================================================
+// 硬编码精灵 UV 定义表
+// UV 计算公式：u = offsetX / atlasWidth, v = offsetY / atlasHeight
+// =========================================================================
+
+static const SafeSpriteDef kSpriteTable[] = {
+    // ---- 数字时速表（0-9），每数字 6×8 像素 ----
+    { "speed_0",   0.00000f, 0.00000f, 0.09375f, 0.25000f,   0,  0,  6,  8 },
+    { "speed_1",   0.09375f, 0.00000f, 0.18750f, 0.25000f,   6,  0,  6,  8 },
+    { "speed_2",   0.18750f, 0.00000f, 0.28125f, 0.25000f,  12,  0,  6,  8 },
+    { "speed_3",   0.28125f, 0.00000f, 0.37500f, 0.25000f,  18,  0,  6,  8 },
+    { "speed_4",   0.37500f, 0.00000f, 0.46875f, 0.25000f,  24,  0,  6,  8 },
+    { "speed_5",   0.46875f, 0.00000f, 0.56250f, 0.25000f,  30,  0,  6,  8 },
+    { "speed_6",   0.56250f, 0.00000f, 0.65625f, 0.25000f,  36,  0,  6,  8 },
+    { "speed_7",   0.65625f, 0.00000f, 0.75000f, 0.25000f,  42,  0,  6,  8 },
+    { "speed_8",   0.75000f, 0.00000f, 0.84375f, 0.25000f,  48,  0,  6,  8 },
+    { "speed_9",   0.84375f, 0.00000f, 0.93750f, 0.25000f,  54,  0,  6,  8 },
+
+    // ---- 档位显示（P/R/N/D），每档位 16×8 像素 ----
+    { "gear_P",    0.00000f, 0.25000f, 0.25000f, 0.50000f,   0,  8, 16,  8 },
+    { "gear_R",    0.25000f, 0.25000f, 0.50000f, 0.50000f,  16,  8, 16,  8 },
+    { "gear_N",    0.50000f, 0.25000f, 0.75000f, 0.50000f,  32,  8, 16,  8 },
+    { "gear_D",    0.75000f, 0.25000f, 1.00000f, 0.50000f,  48,  8, 16,  8 },
+
+    // ---- 报警灯图标，每灯 8×8 像素 ----
+    { "warning_engine",      0.00000f, 0.50000f, 0.12500f, 0.75000f,   0, 16,  8,  8 },
+    { "warning_oil",         0.12500f, 0.50000f, 0.25000f, 0.75000f,   8, 16,  8,  8 },
+    { "warning_battery",     0.25000f, 0.50000f, 0.37500f, 0.75000f,  16, 16,  8,  8 },
+    { "warning_brake",       0.37500f, 0.50000f, 0.50000f, 0.75000f,  24, 16,  8,  8 },
+    { "warning_seatbelt",    0.50000f, 0.50000f, 0.62500f, 0.75000f,  32, 16,  8,  8 },
+    { "warning_abs",         0.62500f, 0.50000f, 0.75000f, 0.75000f,  40, 16,  8,  8 },
+    { "warning_airbag",      0.75000f, 0.50000f, 0.87500f, 0.75000f,  48, 16,  8,  8 },
+    { "warning_tire",        0.87500f, 0.50000f, 1.00000f, 0.75000f,  56, 16,  8,  8 },
+};
+
+static constexpr int kSpriteTableSize = sizeof(kSpriteTable) / sizeof(kSpriteTable[0]);
 
 int main() {
     // 初始化随机种子
@@ -38,12 +90,21 @@ int main() {
     window->setClearColor(0.1f, 0.1f, 0.15f, 1.0f);  // 深色仪表盘背景
 
     // -----------------------------------------------------------------------
+    // 0. 向 StaticAtlasManager 注册图集数据（必须在创建任何 SafeStaticSprite 之前调用）
+    // -----------------------------------------------------------------------
+    StaticAtlasManager::getInstance().registerAtlas(
+        "hmi_main",
+        kAtlasPixelData, kAtlasWidth, kAtlasHeight,
+        kSpriteTable, kSpriteTableSize
+    );
+
+    // -----------------------------------------------------------------------
     // 1. 数字时速表 — 3 位数字（百位、十位、个位）
     // -----------------------------------------------------------------------
     SafeStaticSpriteSharedPtr speedDigits[3];
 
     for (int i = 0; i < 3; ++i) {
-        speedDigits[i] = SafeStaticSprite::create();
+        speedDigits[i] = SafeStaticSprite::create("hmi_main");
         auto t = speedDigits[i]->getComponent<Transform>();
         t->setPosition(200.0f + i * 80.0f, 100.0f, 0.0f);
         t->setSize(60.0f, 80.0f);  // 原始 6×8 → 放大到 60×80
@@ -54,7 +115,7 @@ int main() {
     // -----------------------------------------------------------------------
     // 2. 档位显示 — 单个大字
     // -----------------------------------------------------------------------
-    auto gearSprite = SafeStaticSprite::create();
+    auto gearSprite = SafeStaticSprite::create("hmi_main");
     auto gearTransform = gearSprite->getComponent<Transform>();
     gearTransform->setPosition(200.0f, 220.0f, 0.0f);
     gearTransform->setSize(128.0f, 64.0f);  // 原始 16×8 → 放大到 128×64
@@ -72,7 +133,7 @@ int main() {
     SafeStaticSpriteSharedPtr warningSprites[kWarningCount];
 
     for (int i = 0; i < kWarningCount; ++i) {
-        warningSprites[i] = SafeStaticSprite::create();
+        warningSprites[i] = SafeStaticSprite::create("hmi_main");
         auto t = warningSprites[i]->getComponent<Transform>();
         t->setPosition(100.0f + i * 90.0f, 350.0f, 0.0f);
         t->setSize(64.0f, 64.0f);  // 原始 8×8 → 放大到 64×64
