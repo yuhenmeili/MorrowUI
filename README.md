@@ -116,6 +116,44 @@ Recommended build dirs:
 - QNX: `cmake-build-qnx`
 - Windows: `cmake-build-win`
 
+## Demos
+
+Sample programs are under `samples/`. Each demo has a corresponding preview video in `doc/videos/`.
+
+| Demo | Preview |
+|------|---------|
+| **AlignmentDemo** — UI alignment & layout | <video width="320" muted controls><source src="doc/videos/AlignmentDemo.mp4" type="video/mp4"></video> |
+| **AnchorPointScaleDemo** — Anchor point & scaling transforms | <video width="320" muted controls><source src="doc/videos/AnchorPointScaleDemo.mp4" type="video/mp4"></video> |
+| **BounceDemo** — Bounce / spring animation | <video width="320" muted controls><source src="doc/videos/BounceDemo.mp4" type="video/mp4"></video> |
+| **BrakePedalDemo** — Brake pedal gauge | <video width="320" muted controls><source src="doc/videos/BrakePedalDemo.mp4" type="video/mp4"></video> |
+| **ButtonDemo** — Interactive button | <video width="320" muted controls><source src="doc/videos/ButtonDemo.mp4" type="video/mp4"></video> |
+| **FlowlightDemo** — Flowing light sweep effect | <video width="320" muted controls><source src="doc/videos/FlowlightDemo.mp4" type="video/mp4"></video> |
+| **FrameAnimation** — Sprite-sheet frame animation | <video width="320" muted controls><source src="doc/videos/FrameAnimation.mp4" type="video/mp4"></video> |
+| **GearsGridsDemo** — Gears & grids effect | <video width="320" muted controls><source src="doc/videos/GearsGridsDemo.mp4" type="video/mp4"></video> |
+| **GearsIrisDemo** — Gears iris transition | <video width="320" muted controls><source src="doc/videos/GearsIrisDemo.mp4" type="video/mp4"></video> |
+| **GearsOpening3DDemo** — Gears opening (3D) | <video width="320" muted controls><source src="doc/videos/GearsOpening3DDemo.mp4" type="video/mp4"></video> |
+| **GearsOpeningDemo** — Gears opening transition | <video width="320" muted controls><source src="doc/videos/GearsOpeningDemo.mp4" type="video/mp4"></video> |
+| **GearsSelectDemo** — Gears selection UI | <video width="320" muted controls><source src="doc/videos/GearsSelectDemo.mp4" type="video/mp4"></video> |
+| **GearsShineDemo** — Gears shine / highlight | <video width="320" muted controls><source src="doc/videos/GearsShineDemo.mp4" type="video/mp4"></video> |
+| **GLTFDemo** — glTF 3D model rendering | <video width="320" muted controls><source src="doc/videos/GLTFDemo.mp4" type="video/mp4"></video> |
+| **IBLPrecomputeDemo** — Image-based lighting precomputation | <video width="320" muted controls><source src="doc/videos/IBLPrecomputeDemo.mp4" type="video/mp4"></video> |
+| **ImageDemo** — Image rendering | <video width="320" muted controls><source src="doc/videos/ImageDemo.mp4" type="video/mp4"></video> |
+| **PMemoryDemo** — Custom memory allocator | <video width="320" muted controls><source src="doc/videos/PMemoryDemo.mp4" type="video/mp4"></video> |
+| **SafeDynamicVectorCanvasDemo** — Thread-safe dynamic vector canvas | <video width="320" muted controls><source src="doc/videos/SafeDynamicVectorCanvasDemo.mp4" type="video/mp4"></video> |
+| **SafeStaticSpriteDemo** — Thread-safe static sprite | <video width="320" muted controls><source src="doc/videos/SafeStaticSpriteDemo.mp4" type="video/mp4"></video> |
+| **SafeStaticTextLayoutDemo** — Thread-safe static text layout | <video width="320" muted controls><source src="doc/videos/SafeStaticTextLayoutDemo.mp4" type="video/mp4"></video> |
+| **SafeStreamTextureDemo** — Thread-safe streaming texture | <video width="320" muted controls><source src="doc/videos/SafeStreamTextureDemo.mp4" type="video/mp4"></video> |
+| **ShadowDemo** — GUI shadow rendering | <video width="320" muted controls><source src="doc/videos/ShadowDemo.mp4" type="video/mp4"></video> |
+| **TextDemo** — Text rendering | <video width="320" muted controls><source src="doc/videos/TextDemo.mp4" type="video/mp4"></video> |
+
+> Videos are stored under `doc/videos/`. Place the corresponding `.mp4` file named after the demo to enable inline preview.
+
 ## Usage
 
-Sample programs are under `samples/` and are built as executable targets (for example `ImageDemo`, `GLTFDemo`, `ShadowDemo`).
+Build a specific sample target:
+
+```bash
+cmake --build cmake-build-debug --target ImageDemo
+```
+
+Then run the executable directly, or use the CMake Tools debug/launch buttons in VS Code's status bar.
