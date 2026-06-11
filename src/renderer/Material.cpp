@@ -133,6 +133,17 @@ void Material::setShader(const std::string& shaderName) {
     loadShader();
 }
 
+void Material::setShaderFromMemory(const std::string& shaderName,
+                                   const std::string& vertexSource,
+                                   const std::string& fragmentSource) {
+    m_shaderName = shaderName;
+    m_vertexShaderResource = vertexSource;
+    m_fragmentShaderResource = fragmentSource;
+    // 清除已缓存的 shader，下次 apply 时重新 buildShader
+    m_shader = nullptr;
+    m_batchShader = nullptr;
+}
+
 std::string Material::getShaderName() const {
     return m_shaderName;
 }

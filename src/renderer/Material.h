@@ -73,6 +73,14 @@ public:
     // void setShader(const ShaderSharedPtr& shader);
     void setShader(const std::string& shaderName);
 
+    /// 从内存直接设置着色器源码（绕过文件IO，用于安全组件 ROM 硬编码）
+    /// @param shaderName  着色器标识名
+    /// @param vertexSource  顶点着色器 GLSL 源码
+    /// @param fragmentSource  片元着色器 GLSL 源码
+    void setShaderFromMemory(const std::string& shaderName,
+                             const std::string& vertexSource,
+                             const std::string& fragmentSource);
+
     std::string getShaderName() const;
 
     GPUProgramHandle* getShader() const;
