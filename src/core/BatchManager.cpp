@@ -7,6 +7,7 @@
 #include "BatchDataDefine.h"
 #include "Material.h"
 #include "OrthographicCamera.h"
+#include "RenderBatchPool.h"
 #include "SSBOManager.h"
 #include "UniformBuffer.h"
 #include "VertexArray.h"
@@ -32,15 +33,11 @@ void BatchManager::addRenderable(std::shared_ptr<Material> material, std::shared
         }
     }
 
-    // 创建新的批次
-    RenderBatch newBatch;
-    newBatch.shaderName = material->getShaderName();
-    newBatch.isSSBOShader = material->isSSBOShader();
-    newBatch.vertexArray = std::make_shared<VertexArray>();
-    newBatch.ssbo = std::make_shared<ShaderStorageBuffer>();
-    newBatch.materials.push_back(material);
+    // 从对象池获取新的批次（池保证 shaderName/isSSBOShader/vertexArray/ssbo 均已初始化）
+    RenderBatch newBatch = RenderBatchPool::getInstance().acquire(material->getShaderName(), material->isSSBOShader());
+    newBatch.materials.emplace_back(material);
     newBatch.meshFilters.emplace_back(meshFilter);
-    newBatch.transforms.push_back(transform);
+    newBatch.transforms.emplace_back(transform);
     m_batches.emplace_back(newBatch);
 }
 
@@ -57,15 +54,12 @@ void BatchManager::renderBatches(std::shared_ptr<FrameState> frameState) {
             renderStandardBatch(frameState, batch, projectionMatrix);
         }
     }
+    // LOG_I("Rendered {} batches", m_batches.size());
 }
 
 void BatchManager::clear() {
-    for (auto& batch : m_batches) {
-        // 添加到现有批次
-        batch.materials.clear();
-        batch.meshFilters.clear();
-        batch.transforms.clear();
-    }
+    // 将所有批次归还到对象池，供下一帧复用
+    RenderBatchPool::getInstance().releaseAll(m_batches);
 }
 
 void BatchManager::renderSSBOBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch) {
