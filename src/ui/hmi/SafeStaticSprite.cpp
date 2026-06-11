@@ -22,8 +22,8 @@ namespace morrow {
 // =========================================================================
 // 1. 硬编码着色器源码（引擎内置 ROM .rodata）
 // =========================================================================
-
-static const char kSafeStaticSpriteVert[] = R"GLSL(#version 330 core
+#ifdef OPENGL_EGL
+static const char kSafeStaticSpriteVert[] = R"GLSL(#version 320 es
 layout (location = 0) in vec3 a_position;
 layout (location = 2) in vec2 a_texCoord;
 
@@ -37,7 +37,7 @@ void main() {
 }
 )GLSL";
 
-static const char kSafeStaticSpriteFrag[] = R"GLSL(#version 330 core
+static const char kSafeStaticSpriteFrag[] = R"GLSL(#version 320 es
 in vec2 v_texCoord;
 
 uniform sampler2D u_texture;
@@ -50,6 +50,35 @@ void main() {
     fragColor.a *= u_alpha;
 }
 )GLSL";
+#else
+static const char kSafeStaticSpriteVert[] = R"GLSL(#version 460 core
+layout (location = 0) in vec3 a_position;
+layout (location = 2) in vec2 a_texCoord;
+
+uniform mat4 u_mvp;
+
+out vec2 v_texCoord;
+
+void main() {
+    gl_Position = u_mvp * vec4(a_position, 1.0);
+    v_texCoord = a_texCoord;
+}
+)GLSL";
+
+static const char kSafeStaticSpriteFrag[] = R"GLSL(#version 460 core
+in vec2 v_texCoord;
+
+uniform sampler2D u_texture;
+uniform float u_alpha;
+
+layout (location = 0) out vec4 fragColor;
+
+void main() {
+    fragColor = texture(u_texture, v_texCoord.st);
+    fragColor.a *= u_alpha;
+}
+)GLSL";
+#endif
 
 // =========================================================================
 // SafeStaticSprite 实现

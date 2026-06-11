@@ -24,8 +24,8 @@ using namespace Math;
 //    顶点着色器：位置 + 颜色 → MVP 变换
 //    片元着色器：直接输出顶点颜色
 // =========================================================================
-
-static const char kVectorCanvasVert[] = R"GLSL(#version 330 core
+#ifdef OPENGL_EGL
+static const char kVectorCanvasVert[] = R"GLSL(#version 320 es
 layout (location = 0) in vec3 a_position;
 layout (location = 3) in vec4 a_color;
 
@@ -39,7 +39,7 @@ void main() {
 }
 )GLSL";
 
-static const char kVectorCanvasFrag[] = R"GLSL(#version 330 core
+static const char kVectorCanvasFrag[] = R"GLSL(#version 320 es
 in vec4 v_color;
 
 layout (location = 0) out vec4 fragColor;
@@ -48,6 +48,31 @@ void main() {
     fragColor = v_color;
 }
 )GLSL";
+#else
+static const char kVectorCanvasVert[] = R"GLSL(#version 460 core
+layout (location = 0) in vec3 a_position;
+layout (location = 3) in vec4 a_color;
+
+uniform mat4 u_mvp;
+
+out vec4 v_color;
+
+void main() {
+    gl_Position = u_mvp * vec4(a_position, 1.0);
+    v_color = a_color;
+}
+)GLSL";
+
+static const char kVectorCanvasFrag[] = R"GLSL(#version 460 core
+in vec4 v_color;
+
+layout (location = 0) out vec4 fragColor;
+
+void main() {
+    fragColor = v_color;
+}
+)GLSL";
+#endif
 
 // =========================================================================
 // SafeDynamicVectorCanvas 实现

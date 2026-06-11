@@ -24,8 +24,8 @@ using namespace Math;
 //   顶点：position + texCoord → MVP 变换
 //   片元：texture 采样 × color tint
 // =========================================================================
-
-static const char kTextLayoutVert[] = R"GLSL(#version 330 core
+#ifdef OPENGL_EGL
+static const char kTextLayoutVert[] = R"GLSL(#version 320 es
 layout (location = 0) in vec3 a_position;
 layout (location = 2) in vec2 a_texCoord;
 
@@ -39,7 +39,7 @@ void main() {
 }
 )GLSL";
 
-static const char kTextLayoutFrag[] = R"GLSL(#version 330 core
+static const char kTextLayoutFrag[] = R"GLSL(#version 320 es
 layout (location = 0) in vec2 v_texCoord;
 
 uniform sampler2D u_texture;
@@ -54,6 +54,38 @@ void main() {
     fragColor.a *= u_alpha;
 }
 )GLSL";
+#else
+static const char kTextLayoutVert[] = R"GLSL(#version 460 core
+layout (location = 0) in vec3 a_position;
+layout (location = 2) in vec2 a_texCoord;
+
+layout (location = 0) out vec2 v_texCoord;
+
+uniform mat4 u_mvp;
+
+void main() {
+    gl_Position = u_mvp * vec4(a_position, 1.0);
+    v_texCoord = a_texCoord;
+}
+)GLSL";
+
+static const char kTextLayoutFrag[] = R"GLSL(#version 460 core
+layout (location = 0) in vec2 v_texCoord;
+
+uniform sampler2D u_texture;
+uniform vec4 u_color;
+uniform float u_alpha;
+
+layout (location = 0) out vec4 fragColor;
+
+void main() {
+    vec4 texColor = texture(u_texture, v_texCoord);
+    fragColor = texColor * u_color;
+    fragColor.a *= u_alpha;
+}
+)GLSL";
+#endif
+
 
 // =========================================================================
 // SafeStaticTextLayout 实现
