@@ -129,8 +129,11 @@ void Material::setIntArray(const std::string& name, const int32_t* values, int32
 // }
 
 void Material::setShader(const std::string& shaderName) {
-    m_shaderName = shaderName;
-    loadShader();
+    if (m_shaderName != shaderName) {
+        m_shaderName = shaderName;
+        loadShader();
+        LOG_I("set shader {}", shaderName);
+    }
 }
 
 void Material::setShaderFromMemory(const std::string& shaderName,

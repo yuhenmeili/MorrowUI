@@ -27,8 +27,10 @@ int main() {
     }
 
     auto image = MRImage::create();
+    image->setTexture(texture);
     auto transform = image->getComponent<Transform>();
-    transform->setSize(100, 100);
+    transform->setSize(TEST_BUFFER_WIDTH, TEST_BUFFER_HEIGHT);
+    transform->setPosition(100, 100, 0);
 
     // 将按钮添加到窗口
     window->addChild(image);

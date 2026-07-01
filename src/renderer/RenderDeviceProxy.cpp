@@ -439,7 +439,10 @@ void RenderDeviceProxy::updateTexture2D(Texture2D* texture, const TextureData& d
     auto* pl = CMD_BUF.pushNT<UpdateTexture2DPayload>(Cmd_UpdateTexture2D);
     pl->texture = tt;
     pl->data = data;
-    if (!data.pixelOwner && data.pixels && data.bytes > 0) {
+    if (!data.pixelOwner
+        && data.pixels
+        && data.bytes > 0
+        && data.imageType != ImageType::OES) {
         // 原始指针路径：从池中取复用缓冲，memcpy 一次，编码时即完成 pixels 重定向。
         // executeFrame 读完后立即归还池（glTexImage2D 为同步调用）。
         auto buf = m_pixelDataRecyclePool->acquire();

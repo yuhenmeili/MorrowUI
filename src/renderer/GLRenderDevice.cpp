@@ -515,8 +515,8 @@ bool GLRenderDevice::upLoadTexture(Texture2D* texture, const TextureData& data) 
 
 bool GLRenderDevice::upLoadOESTexture(Texture2D* texture, const TextureData& data) {
 #ifdef OPENGL_GLFW
+    //do nothing
 #else
-#if defined(EGL_NEW_IMAGE_QCOM) && defined(EGL_FORMAT_RGBA_8888_QCOM) && defined(EGL_FORMAT_RGB_888_QCOM) && defined(EGL_IMAGE_FORMAT_QCOM) && defined(EGL_IMAGE_EXT_BUFFER_BASE_ADDR_LOW_QCOM) && defined(EGL_IMAGE_EXT_BUFFER_BASE_ADDR_HIGH_QCOM) && defined(EGL_IMAGE_EXT_BUFFER_SIZE_QCOM) && defined(EGL_IMAGE_EXT_BUFFER_STRIDE_QCOM) && defined(EGL_IMAGE_EXT_BUFFER_MEMORY_TYPE_QCOM) && defined(EGL_IMAGE_EXT_BUFFER_MEMORY_TYPE_PMEM_QCOM) && defined(EGL_IMAGE_EXT_BUFFER_PLANE0_OFFSET_QCOM)
     auto textureImp = dynamic_cast<GlTexture2D*>(texture);
     GLenum textureTarget = textureImp->textureTarget;
 
@@ -574,7 +574,7 @@ bool GLRenderDevice::upLoadOESTexture(Texture2D* texture, const TextureData& dat
         if (textureImp->m_pixel == EGL_NO_IMAGE_KHR) {
             LOG_I("ERROR: eglCreateImageKHR failed with Image width {}, height {}, format {}", data.width, data.height, data.format);
             if (textureImp->m_debugTimes == 0) {
-                ToolUtils::debugTexture(buff_addr, data.width, data.height, "/data/log/image_" + Math::generate_uuid(), data.isOES, data.format);
+                ToolUtils::debugTexture(buff_addr, data.width, data.height, "/data/log/image_" + Math::generate_uuid(), data.imageType, data.format);
                 textureImp->m_debugTimes++;
             }
             return false;
@@ -604,12 +604,6 @@ bool GLRenderDevice::upLoadOESTexture(Texture2D* texture, const TextureData& dat
             return false;
         }
     }
-#else
-    (void)texture;
-    (void)data;
-    LOG_I("ERROR: QCOM EGL image extensions are not available in this SDK");
-    return false;
-#endif
 #endif
     return true;
 }
