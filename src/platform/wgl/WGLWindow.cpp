@@ -8,7 +8,7 @@
 #include "GlobalObject.h"
 #include "OrthographicCamera.h"
 #include "base/Transform.h"
-#include "../../utils/Log.h"
+#include "utils/Log.h"
 
 namespace morrow {
 WGLWindow::WGLWindow(const WindowInfo& info) {

@@ -23,7 +23,7 @@ private:
     float zoom = 1.0f;
 };
 
-using OrthographicCameraSharePtr = std::shared_ptr<OrthographicCamera>;
+using OrthographicCameraSharedPtr = std::shared_ptr<OrthographicCamera>;
 }
 
 

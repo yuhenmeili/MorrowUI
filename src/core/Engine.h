@@ -53,7 +53,7 @@ private:
     uint64_t m_lastHeartbeatFrameNumber = 0;
 
     FrameStateSharedPtr m_frameState;
-    OrthographicCameraSharePtr m_camera;
+    OrthographicCameraSharedPtr m_camera;
     double m_monotonicTime = 0.0;
     //manager
     FPSControllerPtr m_fpsController;

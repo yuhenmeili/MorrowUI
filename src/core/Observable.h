@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 #include "MathUtils.h"
-#include "../utils/Log.h"
+#include "utils/Log.h"
 
 namespace morrow
 {

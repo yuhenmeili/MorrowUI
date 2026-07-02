@@ -5,14 +5,14 @@
 #ifndef MORROW_OBSERVABLES_MANAGER_H
 #define MORROW_OBSERVABLES_MANAGER_H
 
-#include "../core/Observable.h"
-#include "../core/EventDispatcherBackUp.h"
+#include "core/Observable.h"
+#include "core/EventDispatcherBackUp.h"
 // #include "screen/screen.h"
 #include <memory>
 
 #include "Rect.h"
 #include "Vector2.h"
-#include "../ui/base/TouchEvent.h"
+#include "ui/base/TouchEvent.h"
 #include "InputProvider.h"
 
 namespace morrow {

@@ -9,9 +9,9 @@
 #include "OrthographicCamera.h"
 #include "RenderDeviceProxy.h"
 #include "Window.h"
-#include "../ui/base/Widget.h"
-#include "../ui/base/Interaction.h"
-#include "../ui/base/TouchEvent.h"
+#include "ui/base/Widget.h"
+#include "ui/base/Interaction.h"
+#include "ui/base/TouchEvent.h"
 
 namespace morrow {
 void Platform::initialize(bool multithread) {

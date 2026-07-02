@@ -2,17 +2,17 @@
 // Created by 0060328 on 25-9-18.
 //
 
-#include "QNXEGLPlatform.h"
+#include "QNXPlatform.h"
 
 #include <algorithm>
 #include <memory>
 
 #include "GlobalObject.h"
 #include "QNXInputProvider.h"
-#include "../../utils/Log.h"
+#include "utils/Log.h"
 
 namespace morrow {
-QNXEGLPlatform::QNXEGLPlatform(const WindowInfo& info) {
+QNXPlatform::QNXPlatform(const WindowInfo& info) {
     m_requestedSamples = std::max(info.samples, 1);
     m_inputEventsManager = std::make_shared<InputEventsManager>();
     m_qnxInputProvider = std::make_shared<QNXInputProvider>();
@@ -26,13 +26,13 @@ QNXEGLPlatform::QNXEGLPlatform(const WindowInfo& info) {
     m_window = EGLWindow::create(m_egl, info);
 }
 
-void QNXEGLPlatform::initialize(bool multithread) {
+void QNXPlatform::initialize(bool multithread) {
     Platform::initialize(multithread);
     m_window->initializeIfNeeded();
     ensureRenderCapabilitiesInitialized();
 }
 
-bool QNXEGLPlatform::beginFrame(FrameStateSharedPtr frameState) {
+bool QNXPlatform::beginFrame(FrameStateSharedPtr frameState) {
     const bool skipEvents = m_skipEventFrameCount > 0;
     m_qnxInputProvider->setSkipEvents(skipEvents);
     m_inputEventsManager->poll();
@@ -43,32 +43,32 @@ bool QNXEGLPlatform::beginFrame(FrameStateSharedPtr frameState) {
     return true;
 }
 
-void QNXEGLPlatform::beginRenderPass(FrameStateSharedPtr frameState) {
+void QNXPlatform::beginRenderPass(FrameStateSharedPtr frameState) {
     m_window->beginRenderPass(frameState);
 }
 
-void QNXEGLPlatform::updateWidgets(FrameStateSharedPtr frameState) {
+void QNXPlatform::updateWidgets(FrameStateSharedPtr frameState) {
     m_window->updateWidgets(frameState);
 }
 
-void QNXEGLPlatform::commitRenderPass(FrameStateSharedPtr frameState) {
+void QNXPlatform::commitRenderPass(FrameStateSharedPtr frameState) {
     m_window->commitRenderPass(frameState);
 }
 
-void QNXEGLPlatform::endFrame() {
+void QNXPlatform::endFrame() {
     RENDERINGTHREAD->present(m_window->getSurface());
     RENDERINGTHREAD->endFrame();
 }
 
-void QNXEGLPlatform::terminate() {
+void QNXPlatform::terminate() {
     m_window->terminate();
 }
 
-InputEventsManagerSharedPtr QNXEGLPlatform::getInputManager() {
+InputEventsManagerSharedPtr QNXPlatform::getInputManager() {
     return m_inputEventsManager;
 }
 
-ESContextSharedPtr QNXEGLPlatform::getContext() {
+ESContextSharedPtr QNXPlatform::getContext() {
     return m_egl->getContext();
 }
 } // morrow

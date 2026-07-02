@@ -6,7 +6,7 @@
 #include <iostream>
 #include "Texture.h"
 #include "MathUtils.h"
-#include "../utils/Log.h"
+#include "utils/Log.h"
 #include "PixelFormat.h"
 #include "BasisTextureLoader.h"
 #include "ToolUtils.h"

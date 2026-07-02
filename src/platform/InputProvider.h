@@ -8,7 +8,7 @@
 
 #include <vector>
 #include <memory>
-#include "../ui/base/TouchEvent.h"
+#include "ui/base/TouchEvent.h"
 
 namespace morrow {
 

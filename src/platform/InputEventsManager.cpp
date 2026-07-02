@@ -3,7 +3,7 @@
 //
 
 #include "InputEventsManager.h"
-#include "../core/ToolUtils.h"
+#include "core/ToolUtils.h"
 #include "base/TouchEvent.h"
 
 namespace morrow

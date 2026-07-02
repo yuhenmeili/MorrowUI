@@ -1,10 +1,10 @@
 #include "Widget.h"
-#include "../../utils/Log.h"
+#include "utils/Log.h"
 #include "Rect.h"
 #include "GlobalObject.h"
 #include "Interaction.h"
 #include "TouchEvent.h"
-#include "../../core/OrthographicCamera.h"
+#include "core/OrthographicCamera.h"
 
 namespace morrow
 {

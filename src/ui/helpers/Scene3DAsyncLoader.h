@@ -12,7 +12,7 @@
 #include <string>
 
 #include "Engine.h"
-#include "../elements/MR3DSceneView.h"
+#include "ui/elements/MR3DSceneView.h"
 #include "GLTFTypes.h"
 
 namespace morrow {

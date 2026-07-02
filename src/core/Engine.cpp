@@ -4,12 +4,12 @@
 
 #include "FontManager.h"
 #include "MathUtils.h"
-#include "../ui/base/Widget.h"
+#include "ui/base/Widget.h"
 #include "GlobalObject.h"
 #include "PlatformFactory.h"
-#include "../debug/DebugPlane.h"
-#include "../ui/helpers/Tween.h"
-#include "../renderer/RenderDeviceProxy.h"
+#include "debug/DebugPlane.h"
+#include "ui/helpers/Tween.h"
+#include "renderer/RenderDeviceProxy.h"
 
 namespace morrow {
 Engine::Engine(const EngineOptions& options) {

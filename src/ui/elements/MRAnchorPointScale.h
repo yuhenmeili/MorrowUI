@@ -6,7 +6,7 @@
 #define MORROW_ANCHORPOINT_SCALE_H
 
 #include <memory>
-#include "../helpers/Tween.h"
+#include "ui/helpers/Tween.h"
 #include "base/UIWidget.h"
 
 namespace morrow {

@@ -4,7 +4,7 @@
 
 #include "EGLWindow.h"
 #include "BatchManager.h"
-#include "../../utils/Log.h"
+#include "utils/Log.h"
 #include "GlobalObject.h"
 #include "OrthographicCamera.h"
 #include "base/Transform.h"

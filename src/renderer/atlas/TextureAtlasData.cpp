@@ -9,7 +9,7 @@
 
 #include <fstream>
 
-#include "../../utils/Log.h"
+#include "utils/Log.h"
 #include "ToolUtils.h"
 
 namespace morrow

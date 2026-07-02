@@ -3,8 +3,8 @@
 //
 
 #include "MRBounce.h"
-#include "../../utils/Log.h"
-#include "../helpers/Tween.h"
+#include "utils/Log.h"
+#include "ui/helpers/Tween.h"
 #include "base/Transform.h"
 
 namespace morrow

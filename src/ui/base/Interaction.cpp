@@ -6,7 +6,7 @@
 #include "TouchEvent.h"
 #include "UIWidget.h"
 #include "Widget.h"
-#include "../../math/MathUtils.h"
+#include "math/MathUtils.h"
 
 namespace morrow {
 void Interaction::setInteractionEnabled(bool enabled) {

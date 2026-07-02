@@ -8,16 +8,16 @@
 
 #include "EGLOperationsQNX.h"
 #include "EGLWindow.h"
-#include "../InputEventsManager.h"
-#include "../Platform.h"
+#include "platform/InputEventsManager.h"
+#include "platform/Platform.h"
 #include "QNXInputProvider.h"
 
 namespace morrow {
-class QNXEGLPlatform : public Platform {
+class QNXPlatform : public Platform {
 public:
-    QNXEGLPlatform(const WindowInfo& info);
+    QNXPlatform(const WindowInfo& info);
 
-    ~QNXEGLPlatform() override = default;
+    ~QNXPlatform() override = default;
 
     void initialize(bool multithread) override;
 
@@ -45,7 +45,7 @@ private:
     std::atomic_int m_skipEventFrameCount{0};
 };
 
-using QnxPlatformSharedPtr = std::shared_ptr<QNXEGLPlatform>;
+using QnxPlatformSharedPtr = std::shared_ptr<QNXPlatform>;
 } // morrow
 
 #endif //QNXPLATFORM_H

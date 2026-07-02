@@ -8,8 +8,8 @@
 
 #include "Log.h"
 #include "OpenglHeader.h"
-#include "../../../math/MathUtils.h"
-#include "../../../ui/base/TouchEvent.h"
+#include "math/MathUtils.h"
+#include "ui/base/TouchEvent.h"
 
 namespace morrow {
 namespace {

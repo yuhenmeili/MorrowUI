@@ -48,7 +48,7 @@ MorrowUI 是一个自研的跨平台 2D/3D 混合 UI 渲染引擎，基于 OpenG
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │  Platform (抽象)  ←  PlatformFactory                  │   │
 │  │  ├── WGLPlatform  (Windows/GLFW)                     │   │
-│  │  └── QNXEGLPlatform (QNX/EGL)                        │   │
+│  │  └── QNXPlatform (QNX/EGL)                            │   │
 │  │  Window / InputEventsManager / InputProvider          │   │
 │  └──────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────┤
@@ -84,20 +84,31 @@ Engine 是整个引擎的入口和驱动器，负责：
 | 生命周期钩子 | `preRender()` / `afterRender()` 的 Observable 通知 |
 | 心跳 | `heartbeat()` 每 2s 统计实际 FPS |
 
-**渲染主循环流程**（`Engine::render()`）：
+**渲染主循环流程**（`Engine::render()`）—— 7 阶段显式编排：
 
 ```
 while (!platform->shouldClose()):
-  1. updateFrameState()        ← 更新 deltaTime，重置逐帧计数器
-  2. platform->beginFrame()    ← 平台层准备帧（拉取输入，设置 GL 上下文）
-  3. m_preRender.notify()      ← 通知 preRender 观察者
-  4. TweenManager::update()    ← 更新所有动画/补间
-  5. platform->update()        ← 核心更新：遍历 Widget 树 → 收集渲染数据 → 合批 → 绘制
-  6. heartbeat()               ← 每 2s 计算一次实际 FPS
-  7. debugPlane->update()      ← Debug 面板渲染
-  8. m_afterRender.notify()    ← 通知 afterRender 观察者
-  9. platform->endFrame()      ← SwapBuffer / Present
- 10. callAfterRenderFunctions() ← 执行延迟回调
+  updateFrameState()                   ← 更新 deltaTime，重置逐帧计数器
+
+  // ── 阶段 1: 输入 ──
+  platform->beginFrame()               ← poll 输入事件 + resolve hit-test 目标
+  platform->dispatchEvents()           ← 将触摸事件派发到目标 Widget
+
+  // ── 阶段 2: 动画准备 ──
+  m_preRender.notify()                 ← 通知 preRender 观察者
+  TweenManager::update()               ← 更新所有动画/补间
+
+  // ── 阶段 3: 渲染管线 ──
+  platform->beginRenderPass()          ← GPU 准备：setViewport / clear / 绑定 framebuffer
+  platform->updateWidgets()            ← Widget 树递归遍历（纯 CPU）
+  platform->commitRenderPass()         ← GPU 提交：合批 → draw call
+
+  // ── 阶段 4: 帧后处理 ──
+  heartbeat()                          ← 每 2s 计算实际 FPS
+  debugPlane->update()                 ← Debug 面板渲染
+  m_afterRender.notify()               ← 通知 afterRender 观察者
+  platform->endFrame()                 ← SwapBuffers / Present
+  callAfterRenderFunctions()           ← 执行延迟回调
 ```
 
 **EngineOptions 配置**:
@@ -112,30 +123,33 @@ while (!platform->shouldClose()):
 
 **文件**: `src/platform/Platform.h`
 
-Platform 是平台抽象基类，定义了跨平台的生命周期接口：
+Platform 是平台抽象基类，定义了跨平台的生命周期接口。渲染管线拆分为 4 个独立阶段，由 Engine 显式编排：
 
 ```
-initialize() → [beginFrame() → update() → endFrame()] × N → terminate()
+initialize() → [beginFrame() → dispatchEvents() → beginRenderPass() → updateWidgets() → commitRenderPass() → endFrame()] × N → terminate()
 ```
 
 | 方法 | 职责 |
 |------|------|
-| `initialize(bool multithread)` | 创建窗口、GL 上下文、输入提供者、渲染线程 |
-| `beginFrame(frameState)` | 拉取输入事件、设置 GL 上下文、清屏 |
-| `update(frameState)` | 事件分发 + Widget 树更新 + 渲染提交 |
+| `initialize(bool multithread)` | 创建窗口、GL 上下文、输入提供者（渲染线程由 Engine 在 initialize 之前启动） |
+| `beginFrame(frameState)` | 拉取输入事件、设置 GL 上下文 |
+| `dispatchEvents(frameState)` | 将输入事件派发到 hit-test 目标 Widget（Platform 基类统一实现） |
+| `beginRenderPass(frameState)` | GPU 准备：sync 窗口尺寸、setViewport、clear、绑定 framebuffer |
+| `updateWidgets(frameState)` | Widget 树递归遍历（纯 CPU，Platform 基类实现，委托给 Window） |
+| `commitRenderPass(frameState)` | GPU 提交：合批渲染 → draw call |
 | `endFrame()` | SwapBuffers / eglSwapBuffers |
-| `terminate()` | 销毁 GL 上下文、窗口、渲染线程 |
+| `terminate()` | 销毁 GL 上下文、窗口 |
 
 **平台实现**：
 
 | 平台 | 类 | 目录 |
 |------|-----|------|
 | Windows (GLFW + WGL) | `WGLPlatform` | `src/platform/wgl/` |
-| QNX (EGL) | `QNXEGLPlatform` | `src/platform/egl/` |
+| QNX (EGL) | `QNXPlatform` | `src/platform/egl/` |
 
 **PlatformFactory** 通过编译期宏选择平台：
 ```cpp
-#ifdef OPENGL_EGL    → QNXEGLPlatform
+#ifdef OPENGL_EGL    → QNXPlatform
 #ifdef OPENGL_GLFW   → WGLPlatform
 ```
 
@@ -146,6 +160,7 @@ initialize() → [beginFrame() → update() → endFrame()] × N → terminate()
 
 **Window 抽象**:
 - `Window` 继承自 `UIWidget`，本身是 Widget 树的根节点
+- 渲染接口拆分为 `beginRenderPass` / `updateWidgets` / `commitRenderPass`，子类各自实现 GPU 部分，Widget 树遍历由基类统一实现
 - `WindowInfo` 包含窗口名、位置、尺寸、samples、displayId、zorder 等属性
 - `WGLWindow` / `EGLWindow` 为平台实现
 
@@ -352,16 +367,22 @@ InputProvider              updateFrameState()
 InputEventsManager     platform->beginFrame()
    │                              │
    ▼                              ▼
-Platform::eventHandler  m_preRender.notify()
-   │                              │
-   ▼                              ▼
-Widget::dispatchTouch   TweenManager::update()
-   │                              │
-   ▼                              ▼
-Interaction::onTouch    Window::update()  ← Widget 树遍历
-   │                              │
-   ▼                              ▼
-(状态变更/动画)         ComponentManager::updateComponents()
+平台层 resolveInput     platform->dispatchEvents()
+Targets                      │
+   │                         ▼
+   ▼                   m_preRender.notify()
+Platform::dispatch            │
+Events (基类)                 ▼
+   │                    TweenManager::update()
+   ▼                         │
+Widget::dispatchTouch         ▼
+   │                    platform->beginRenderPass()  ← GPU 准备
+   ▼                         │
+Interaction::onTouch          ▼
+   │                    platform->updateWidgets()     ← Widget 树遍历
+   ▼                         │
+(状态变更/动画)               ▼
+                       ComponentManager::updateComponents()
                            │
               ┌────────────┼────────────┐
               ▼            ▼            ▼
@@ -370,6 +391,9 @@ Interaction::onTouch    Window::update()  ← Widget 树遍历
                           │
                           ▼
                    BatchManager::addRenderable()
+                          │
+                          ▼
+                   platform->commitRenderPass()      ← GPU 提交
                           │
                           ▼
                    BatchManager::renderBatches()
@@ -421,7 +445,7 @@ Interaction::onTouch    Window::update()  ← Widget 树遍历
 | **观察者模式** | `Observable<>` — preRender/afterRender 钩子、输入事件分发 |
 | **代理模式** | `RenderDeviceProxy` — 多线程安全的 GPU 命令代理 |
 | **工厂模式** | `PlatformFactory` — 编译期平台选择 |
-| **单例模式** | `GlobalObject` — 全局服务定位器；`TweenManager` |
+| **单例模式** | `GlobalObject` — 全局服务定位器；`TweenManager` — 全局动画管理器 |
 | **对象池模式** | `RecyclePool` — GPU 数据零分配回收 |
 | **策略模式** | `InputProvider` — 不同平台的输入策略 |
 | **模板方法** | `Platform::initialize()` — 基类定义骨架，子类实现细节 |
@@ -441,9 +465,16 @@ Interaction::onTouch    Window::update()  ← Widget 树遍历
 
 建议：逐步将 `GlobalObject` 拆解，通过构造函数或 `Engine` 注入所需的共享服务。
 
-**2. Platform::update() 职责过重**
+**2. Platform::update() 职责过重** ✅ 已完成
 
-当前 `Platform::update()` 同时承担事件处理、Widget 树更新和渲染提交。建议将这三个关注点分离为独立的方法或在 Engine 层面显式编排。
+~~当前 `Platform::update()` 同时承担事件处理、Widget 树更新和渲染提交~~ → 已拆分为 4 个独立阶段，由 Engine 显式编排：
+
+- `dispatchEvents(frameState)` — 事件分发（渲染之前，消除 1 帧延迟）
+- `beginRenderPass(frameState)` — GPU 准备（viewport、clear、framebuffer）
+- `updateWidgets(frameState)` — Widget 树遍历（纯 CPU，可独立单元测试）
+- `commitRenderPass(frameState)` — GPU 提交（合批渲染）
+
+Engine::render() 现为 7 步显式流水线：`beginFrame → dispatchEvents → preRender/Tween → beginRenderPass → updateWidgets → commitRenderPass → endFrame`
 
 **3. Window 继承 UIWidget 的合理性**
 
@@ -524,15 +555,15 @@ Transform 有 `m_matrixDirty` 标记，但尺寸变化时缺少自动向父/子�
 
 ### 7.5 代码质量
 
-**13. 头文件包含路径不统一**
+**13. 头文件包含路径不统一** ✅ 已完成
 
-混用了相对路径（`"../ui/base/Widget.h"`）和绝对路径（`"FrameState.h"`），建议统一为基于 src 根目录的 include path（如 `"ui/base/Widget.h"`），通过 CMake 的 `target_include_directories` 配置。
+~~混用了相对路径（`"../ui/base/Widget.h"`）和绝对路径（`"FrameState.h"`）~~ → 已统一为基于 `src/` 根目录的 include path。CMake 已配置 `target_include_directories` 包含 `src/`，所有 `../` 和 `../../` 相对路径已替换为 `src/`-相对路径（如 `"ui/base/Widget.h"`、`"renderer/RenderDeviceProxy.h"`）。`extern/basis_universal/` 第三方代码维持不变。
 
-**14. 命名不一致**
+**14. 命名不一致** ✅ 已完成
 
-- 类名：`WGLPlatform` vs `QNXEGLPlatform`（WGL 无后缀，EGL 有 EGL 前缀）
-- 别名：`OrthographicCameraSharePtr` vs `PlatformSharedPtr`（Share vs Shared）
-- 建议统一为 `XxxSharedPtr` 或 `XxxPtr`
+~~`OrthographicCameraSharePtr` vs `PlatformSharedPtr`（Share vs Shared）~~ → `OrthographicCameraSharePtr` 已重命名为 `OrthographicCameraSharedPtr`。
+
+~~`WGLPlatform` vs `QNXEGLPlatform`（不一致的命名风格）~~ → `QNXEGLPlatform` 已重命名为 `QNXPlatform`，与 `WGLPlatform` 统一使用 `<平台><后缀>` 风格。
 
 **15. 错误处理机制**
 

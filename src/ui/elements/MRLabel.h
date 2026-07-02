@@ -6,7 +6,7 @@
 #define MRTEXTRENDERER_H
 #include <memory>
 
-#include "../fonts/DynamicFont.h"
+#include "fonts/DynamicFont.h"
 #include "base/UIWidget.h"
 
 namespace morrow {

@@ -7,7 +7,7 @@
 #include <memory>
 
 #ifdef OPENGL_EGL
-#include "egl/QNXEGLPlatform.h"
+#include "egl/QNXPlatform.h"
 #elif defined(OPENGL_GLFW)
 #include "wgl/WGLPlatform.h"
 #endif
@@ -15,7 +15,7 @@
 namespace morrow {
 PlatformSharedPtr PlatformFactory::create(const WindowInfo& info) noexcept {
 #ifdef OPENGL_EGL
-    return std::make_shared<QNXEGLPlatform>(info);
+    return std::make_shared<QNXPlatform>(info);
 #elif defined(OPENGL_GLFW)
     return std::make_shared<WGLPlatform>(info);
 #endif

@@ -13,15 +13,15 @@
 #include "Vector3.h"
 #include "Vector4.h"
 #include "Matrix3.h"
-#include "../utils/Log.h"
+#include "utils/Log.h"
 #include <sys/types.h>
 #include <memory>
 #include <unordered_map>
 
 #ifdef OPENGL_GLFW
-    #include "../platform/wgl/OpenglHeader.h"
+    #include "platform/wgl/OpenglHeader.h"
 #else
-    #include "../platform/egl/GLESHeader.h"
+    #include "platform/egl/GLESHeader.h"
 #endif
 
 #define JIM_POSITION "a_position"

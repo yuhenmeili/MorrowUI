@@ -8,7 +8,7 @@
 #define MORROW_QNX_INPUT_PROVIDER_H
 
 #include <screen/screen.h>
-#include "../InputProvider.h"
+#include "platform/InputProvider.h"
 
 namespace morrow {
 

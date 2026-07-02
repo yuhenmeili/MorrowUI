@@ -8,7 +8,7 @@
 #include "MeshFilter.h"
 #include "MeshRenderer.h"
 #include "Material.h"
-#include "../core/GlobalDefine.h"
+#include "core/GlobalDefine.h"
 
 namespace morrow {
 class Transform;

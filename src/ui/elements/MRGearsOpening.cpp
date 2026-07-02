@@ -4,7 +4,7 @@
 
 #include "MRGearsOpening.h"
 #include "base/Transform.h"
-#include "../helpers/Tween.h"
+#include "ui/helpers/Tween.h"
 
 namespace morrow
 {

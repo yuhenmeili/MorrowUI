@@ -6,8 +6,8 @@
 
 #include <algorithm>
 
-#include "../../math/MathUtils.h"
-#include "../../utils/Log.h"
+#include "math/MathUtils.h"
+#include "utils/Log.h"
 
 namespace morrow {
 namespace {

@@ -8,7 +8,7 @@
 #include <memory>
 #include "base/Widget.h"
 #include "Texture.h"
-#include "../helpers/Tween.h"
+#include "ui/helpers/Tween.h"
 #include "base/UIWidget.h"
 
 namespace morrow {

@@ -6,9 +6,9 @@
 #define MORROW_RENDERER_PIXELDATATYPE_H_
 
 #ifdef OPENGL_GLFW
-    #include "../platform/wgl/OpenglHeader.h"
+    #include "platform/wgl/OpenglHeader.h"
 #else
-    #include "../platform/egl/GLESHeader.h"
+    #include "platform/egl/GLESHeader.h"
 #endif
 namespace morrow
 {

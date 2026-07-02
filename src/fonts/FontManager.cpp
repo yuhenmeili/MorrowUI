@@ -2,8 +2,8 @@
 
 #include <fstream>
 #include "FontManager.h"
-#include "../core/ToolUtils.h"
-#include "../utils/Log.h"
+#include "core/ToolUtils.h"
+#include "utils/Log.h"
 
 namespace morrow
 {

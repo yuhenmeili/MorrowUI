@@ -8,7 +8,7 @@
 #ifdef OPENGL_GLFW
 #include "wgl/OpenglHeader.h"        // 桌面OpenGL
 #else
-    #include "../platform/egl/GLESHeader.h"
+    #include "platform/egl/GLESHeader.h"
 #endif
 
 namespace morrow {

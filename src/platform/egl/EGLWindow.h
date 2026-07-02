@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "EGLOperationsQNX.h"
-#include "../Window.h"
+#include "platform/Window.h"
 #include <screen/screen.h>
 
 namespace morrow

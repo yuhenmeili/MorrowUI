@@ -8,7 +8,7 @@
 
 #include "DynamicFont.h"
 #include "TextTextureInfo.h"
-#include "../core/Language.h"
+#include "core/Language.h"
 
 namespace morrow
 {

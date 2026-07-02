@@ -10,9 +10,9 @@
 #include <memory>
 #include <vector>
 #ifdef OPENGL_GLFW
-    #include "../../platform/wgl/OpenglHeader.h"
+    #include "platform/wgl/OpenglHeader.h"
 #else
-    #include "../platform/egl/GLESHeader.h"
+    #include "platform/egl/GLESHeader.h"
 #endif
 #include "DriverEnums.h"
 

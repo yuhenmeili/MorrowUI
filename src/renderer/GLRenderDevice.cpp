@@ -12,7 +12,7 @@
 #include "ToolUtils.h"
 #include "utils/OpenglUtils.h"
 #ifdef OPENGL_EGL
-#include "egl/QNXEGLPlatform.h"
+#include "egl/QNXPlatform.h"
 #endif
 
 #define MR_POSITION "a_position"
@@ -138,7 +138,7 @@ void GLRenderDevice::makeCurrent(void* window) {
         return;
     }
 #else
-    auto* eglPlatform = dynamic_cast<QNXEGLPlatform*>(m_platform.get());
+    auto* eglPlatform = dynamic_cast<QNXPlatform*>(m_platform.get());
     if (!eglPlatform) {
         return;
     }
@@ -163,7 +163,7 @@ void GLRenderDevice::present(void* window) {
 #ifdef OPENGL_GLFW
     glfwSwapBuffers(static_cast<GLFWwindow*>(window));
 #else
-    auto* eglPlatform = dynamic_cast<QNXEGLPlatform*>(m_platform.get());
+    auto* eglPlatform = dynamic_cast<QNXPlatform*>(m_platform.get());
     if (!eglPlatform || !window) {
         return;
     }
@@ -388,7 +388,7 @@ void GLRenderDevice::deleteTexture2D(Texture2D* texture) {
     if (!realTex->m_eglImageMap.empty()) {
         auto p_eglDestroyImageKHR = (PFNEGLDESTROYIMAGEKHRPROC)eglGetProcAddress("eglDestroyImageKHR");
         if (p_eglDestroyImageKHR != nullptr) {
-            auto qnxPlatform = std::dynamic_pointer_cast<QNXEGLPlatform>(m_platform);
+            auto qnxPlatform = std::dynamic_pointer_cast<QNXPlatform>(m_platform);
             if (qnxPlatform && qnxPlatform->getContext()) {
                 for (auto& iter : realTex->m_eglImageMap) {
                     (*p_eglDestroyImageKHR)(qnxPlatform->getContext()->eglDisplay, iter.second);
@@ -520,7 +520,7 @@ bool GLRenderDevice::upLoadOESTexture(Texture2D* texture, const TextureData& dat
     auto textureImp = dynamic_cast<GlTexture2D*>(texture);
     GLenum textureTarget = textureImp->textureTarget;
 
-    QnxPlatformSharedPtr qnxPlatform = std::static_pointer_cast<QNXEGLPlatform>(m_platform);
+    QnxPlatformSharedPtr qnxPlatform = std::static_pointer_cast<QNXPlatform>(m_platform);
     EGLDisplay egl_display = qnxPlatform->getContext()->eglDisplay;
     EGLContext egl_context = qnxPlatform->getContext()->eglContext;
 
