@@ -37,6 +37,9 @@ public:
     /// Widget 树递归更新（纯 CPU，不涉及 GPU）
     virtual void updateWidgets(FrameStateSharedPtr frameState);
 
+    /// Widget 树 lateUpdate（在所有 standard update 完成后）
+    virtual void lateUpdateWidgets(FrameStateSharedPtr frameState);
+
     /// GPU 提交：渲染合批 + 提交 draw call
     virtual void commitRenderPass(FrameStateSharedPtr frameState) = 0;
 

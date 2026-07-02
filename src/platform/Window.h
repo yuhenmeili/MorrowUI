@@ -53,6 +53,8 @@ public:
     virtual void beginRenderPass(FrameStateSharedPtr frameState);
     /// Widget 树递归更新（纯 CPU）
     virtual void updateWidgets(FrameStateSharedPtr frameState);
+    /// Widget 树 lateUpdate（在所有 standard update 完成后）
+    virtual void lateUpdateWidgets(FrameStateSharedPtr frameState);
     /// GPU 提交：合批渲染
     virtual void commitRenderPass(FrameStateSharedPtr frameState);
 

@@ -5,6 +5,9 @@
 #include "Component.inl"
 
 namespace morrow {
+void Component::onAttach() {
+}
+
 void Component::awake() {
 }
 
@@ -14,17 +17,29 @@ void Component::start() {
 void Component::update(FrameStateSharedPtr frameState) {
 }
 
+void Component::lateUpdate(FrameStateSharedPtr frameState) {
+}
+
 void Component::onEnable() {
 }
 
 void Component::onDisable() {
 }
 
+void Component::onDetach() {
+}
+
 void Component::onDestroy() {
 }
 
 void Component::setEnabled(bool enabled) {
+    if (m_enabled == enabled) return;
     m_enabled = enabled;
+    if (enabled) {
+        onEnable();
+    } else {
+        onDisable();
+    }
 }
 
 bool Component::isEnabled() const {

@@ -42,6 +42,9 @@ public:
     /// 每帧由引擎/窗口调用：收集事件目标、更新本节点组件、再递归更新子节点
     virtual void update(FrameStateSharedPtr frameState);
 
+    /// lateUpdate: 在所有 standard update 完成后调用（用于依赖其他组件已更新的逻辑）
+    virtual void lateUpdate(FrameStateSharedPtr frameState);
+
     /// 将触摸事件派发到本 Widget 的 Interaction 组件（由事件系统调用）
     void dispatchTouchEvent(TouchEvent& event);
 
@@ -60,6 +63,7 @@ public:
         static_assert(std::is_base_of<Component, T>::value, "T must derive from Component");
         auto component = m_componentManager->addComponent<T>(std::forward<Args>(args)...);
         component->setGameObject(this);
+        component->onAttach();
         component->awake();
         return component;
     }

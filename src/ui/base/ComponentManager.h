@@ -19,10 +19,10 @@ public:
     template<typename T, typename... Args>
     std::shared_ptr<T> addComponent(Args&&... args) {
         static_assert(std::is_base_of<Component, T>::value, "T must derive from Component");
-        
+
         auto component = std::make_shared<T>(std::forward<Args>(args)...);
         auto typeId = std::type_index(typeid(T));
-        
+
         // 添加到组件列表
         m_components[typeId].push_back(component);
         m_updateOrder.push_back(component);
@@ -68,6 +68,7 @@ public:
         if (it != m_components.end()) {
             for (auto& component : it->second) {
                 if (component) {
+                    component->onDetach();
                     component->onDestroy();
                     auto orderIt = std::find(m_updateOrder.begin(), m_updateOrder.end(), component);
                     if (orderIt != m_updateOrder.end()) {
@@ -84,6 +85,15 @@ public:
         for (auto& component : m_updateOrder) {
             if (component && component->isEnabled()) {
                 component->update(frameState);
+            }
+        }
+    }
+
+    // lateUpdate: 在所有 standard update 完成后调用
+    void lateUpdateComponents(FrameStateSharedPtr frameState) {
+        for (auto& component : m_updateOrder) {
+            if (component && component->isEnabled()) {
+                component->lateUpdate(frameState);
             }
         }
     }

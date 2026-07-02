@@ -75,7 +75,8 @@ void Engine::render() {
 
         // ── 阶段 3: 渲染管线 ──
         m_platform->beginRenderPass(m_frameState);      // GPU 准备
-        m_platform->updateWidgets(m_frameState);         // Widget 树遍历
+        m_platform->updateWidgets(m_frameState);         // Widget 树遍历 (standard update)
+        m_platform->lateUpdateWidgets(m_frameState);     // Widget 树 lateUpdate (依赖其他组件已更新)
         m_platform->commitRenderPass(m_frameState);      // GPU 提交
 
         // ── 阶段 4: 帧后处理 ──

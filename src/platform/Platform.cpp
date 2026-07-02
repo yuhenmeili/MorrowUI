@@ -126,4 +126,10 @@ void Platform::updateWidgets(FrameStateSharedPtr frameState) {
         m_window->updateWidgets(frameState);
     }
 }
+
+void Platform::lateUpdateWidgets(FrameStateSharedPtr frameState) {
+    if (m_window) {
+        m_window->lateUpdateWidgets(frameState);
+    }
+}
 } // morrow

@@ -43,6 +43,16 @@ void Widget::update(FrameStateSharedPtr frameState)
     }
 }
 
+void Widget::lateUpdate(FrameStateSharedPtr frameState)
+{
+    m_componentManager->lateUpdateComponents(frameState);
+    for (auto& child : m_children) {
+        if (child->getVisible()) {
+            child->lateUpdate(frameState);
+        }
+    }
+}
+
 const std::string& Widget::getUuid() const
 {
     return m_uniqueID;

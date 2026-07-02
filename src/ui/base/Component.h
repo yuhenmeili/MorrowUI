@@ -16,19 +16,24 @@ public:
 
     virtual ~Component() = default;
 
-    // 组件生命周期方法
+    /// ────────── 生命周期（调用于 ComponentManager / Widget）──────────
+    /// onAttach:   组件被 addComponent 添加到 Widget 后
+    /// awake:      组件首次激活时（Widget 首次 update 前）
+    /// start:      组件首次激活时（awake 之后，首帧 update 之前）
+    /// update:     每帧调用（仅 enabled 组件）
+    /// lateUpdate: 每帧在所有 update 完成后调用（仅 enabled 组件）
+    /// onEnable:   setEnabled(true) 时
+    /// onDisable:  setEnabled(false) 时
+    /// onDetach:   组件被 removeComponent 从 Widget 移除前
+    /// onDestroy:  组件销毁时
+    virtual void onAttach();
     virtual void awake();
-
     virtual void start();
-
     virtual void update(FrameStateSharedPtr frameState);
-
-    // 当组件被添加到激活的 GameObject 时调用
+    virtual void lateUpdate(FrameStateSharedPtr frameState);
     virtual void onEnable();
-
-    // 当组件被移除 或 所在 GameObject 失活时调用
     virtual void onDisable();
-
+    virtual void onDetach();
     virtual void onDestroy();
 
     // 组件启用/禁用

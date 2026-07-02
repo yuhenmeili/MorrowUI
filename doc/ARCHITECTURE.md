@@ -100,7 +100,8 @@ while (!platform->shouldClose()):
 
   // ── 阶段 3: 渲染管线 ──
   platform->beginRenderPass()          ← GPU 准备：setViewport / clear / 绑定 framebuffer
-  platform->updateWidgets()            ← Widget 树递归遍历（纯 CPU）
+  platform->updateWidgets()            ← Widget 树遍历：Component::update()（纯 CPU）
+  platform->lateUpdateWidgets()        ← Widget 树遍历：Component::lateUpdate()（纯 CPU）
   platform->commitRenderPass()         ← GPU 提交：合批 → draw call
 
   // ── 阶段 4: 帧后处理 ──
@@ -274,9 +275,21 @@ Widget 是 UI 系统的核心基类，同时承担两个角色：
 
 **组件生命周期**:
 ```
-awake() → start() → [update() × N] → onDestroy()
-              ↑ onEnable() / onDisable() 切换
+constructor → onAttach() → awake() → start() → [update() → lateUpdate()] × N → onDetach() → onDestroy()
+                              ↑ setEnabled(true)→onEnable() / setEnabled(false)→onDisable() 切换
 ```
+
+| 方法 | 调用时机 |
+|------|----------|
+| `onAttach()` | `Widget::addComponent()` 中、`setGameObject()` 之后 |
+| `awake()` | 紧接着 `onAttach()` 之后（首次激活） |
+| `start()` | 首帧 `update()` 之前（预留，当前同 awake 时机） |
+| `update(fs)` | 每帧，仅 enabled 组件 |
+| `lateUpdate(fs)` | `update` 全部完成后（树遍历第二遍），仅 enabled 组件 |
+| `onEnable()` | `setEnabled(true)` 时 |
+| `onDisable()` | `setEnabled(false)` 时 |
+| `onDetach()` | `ComponentManager::removeComponent()` 中、`onDestroy()` 之前 |
+| `onDestroy()` | 组件销毁时 |
 
 **ComponentManager** 以 `type_index` 为 key 存储组件，提供模板方法：
 - `addComponent<T>(args...)` — 动态添加组件
@@ -508,12 +521,17 @@ Engine::render() 现为 7 步显式流水线：`beginFrame → dispatchEvents �
 
 ### 7.3 UI 系统层面
 
-**7. Component 生命周期不完整**
+**7. Component 生命周期不完整** ✅ 已完成
 
-当前生命周期：`awake()` → `start()` → `update()` → `onDestroy()`。缺少：
-- `onAttach()` / `onDetach()` — 组件被添加到/移除出 Widget 时
-- `onEnable()` / `onDisable()` — 已有但未被 ComponentManager 主动调用（仅 `setEnabled()` 内部使用）
-- 缺少统一的 `lateUpdate()` 阶段（用于依赖其他组件已更新的逻辑）
+~~当前生命周期：`awake()` → `start()` → `update()` → `onDestroy()`~~ → 已完善：
+
+- **`onAttach()`** — 组件被 `Widget::addComponent()` 添加后、`setGameObject()` 之后调用
+- **`onDetach()`** — 组件被 `ComponentManager::removeComponent()` 移除前调用（在 `onDestroy` 之前）
+- **`onEnable()` / `onDisable()`** — `Component::setEnabled(true/false)` 中正确触发（之前只设置了 `m_enabled` 字段但未调用回调）
+- **`lateUpdate(frameState)`** — 新生命周期阶段，在所有 standard update 完成后调用。Engine 在 `updateWidgets` 和 `commitRenderPass` 之间调用 `lateUpdateWidgets`，递归遍历整个 Widget 树
+
+**完整生命周期**：`constructor → onAttach → awake → start → [update → lateUpdate] × N → onDetach → onDestroy`
+`               `(setEnabled(true) → onEnable)   (setEnabled(false) → onDisable)`
 
 **8. Widget 缺少布局脏标记传播**
 

@@ -27,6 +27,10 @@ void Window::updateWidgets(FrameStateSharedPtr frameState) {
     UIWidget::update(frameState);
 }
 
+void Window::lateUpdateWidgets(FrameStateSharedPtr frameState) {
+    UIWidget::lateUpdate(frameState);
+}
+
 void Window::commitRenderPass(FrameStateSharedPtr frameState) {
     // 子类实现
 }
