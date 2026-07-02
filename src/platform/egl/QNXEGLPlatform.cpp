@@ -43,9 +43,16 @@ bool QNXEGLPlatform::beginFrame(FrameStateSharedPtr frameState) {
     return true;
 }
 
-void QNXEGLPlatform::update(FrameStateSharedPtr frameState) {
-    m_window->update(frameState);
-    eventHandler(frameState);
+void QNXEGLPlatform::beginRenderPass(FrameStateSharedPtr frameState) {
+    m_window->beginRenderPass(frameState);
+}
+
+void QNXEGLPlatform::updateWidgets(FrameStateSharedPtr frameState) {
+    m_window->updateWidgets(frameState);
+}
+
+void QNXEGLPlatform::commitRenderPass(FrameStateSharedPtr frameState) {
+    m_window->commitRenderPass(frameState);
 }
 
 void QNXEGLPlatform::endFrame() {

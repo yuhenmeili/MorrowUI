@@ -23,10 +23,25 @@ public:
 
     virtual void initialize(bool multithread);
 
+    /// ────────── 输入阶段 ──────────
+    /// poll 输入事件 + 解析 hit-test 目标
     virtual bool beginFrame(FrameStateSharedPtr frameState) = 0;
 
-    virtual void update(FrameStateSharedPtr frameState) = 0;
+    /// 将输入事件派发到目标 Widget（原 eventHandler，提升为 public）
+    void dispatchEvents(const FrameStateSharedPtr& frameState);
 
+    /// ────────── 渲染阶段 ──────────
+    /// GPU 准备：setViewport、clear、绑定 framebuffer
+    virtual void beginRenderPass(FrameStateSharedPtr frameState) = 0;
+
+    /// Widget 树递归更新（纯 CPU，不涉及 GPU）
+    virtual void updateWidgets(FrameStateSharedPtr frameState);
+
+    /// GPU 提交：渲染合批 + 提交 draw call
+    virtual void commitRenderPass(FrameStateSharedPtr frameState) = 0;
+
+    /// ────────── 交换阶段 ──────────
+    /// swap buffers / present
     virtual void endFrame() = 0;
 
     virtual void terminate() = 0;
@@ -45,8 +60,6 @@ protected:
     void resolveInputTargets(const FrameStateSharedPtr& frameState);
 
     void ensureRenderCapabilitiesInitialized();
-
-    void eventHandler(const FrameStateSharedPtr& frameState);
 
     WindowSharedPtr m_window;
     int32_t m_requestedSamples = 1;

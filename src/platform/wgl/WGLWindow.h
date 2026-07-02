@@ -17,7 +17,9 @@ public:
 
     void setClearColor(float r, float g, float b, float a) override;
 
-    void update(FrameStateSharedPtr frameState) override;
+    void beginRenderPass(FrameStateSharedPtr frameState) override;
+    void updateWidgets(FrameStateSharedPtr frameState) override;
+    void commitRenderPass(FrameStateSharedPtr frameState) override;
 
     bool isWindowShouldClose() override;
 

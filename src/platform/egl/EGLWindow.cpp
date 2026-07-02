@@ -186,25 +186,37 @@ void EGLWindow::setScreenAlpha(float alpha)
     }
 }
 
-void EGLWindow::update(FrameStateSharedPtr frameState)
+void EGLWindow::beginRenderPass(FrameStateSharedPtr frameState)
+{
+    if (!m_windowInited) return;
+
+    auto transform = getComponent<Transform>();
+    if (transform) {
+        const Vector3 size = transform->getSize();
+        if (size.x != m_windowSize.x || size.y != m_windowSize.y) {
+            transform->setSize(m_windowSize.x, m_windowSize.y);
+        }
+    }
+
+    frameState->screenAlpha = m_screenAlpha;
+    frameState->camera->update(m_windowPosition.x, m_windowPosition.y, m_windowSize.x, m_windowSize.y);
+    frameState->batchManager = m_batchManager;
+    RENDERINGTHREAD->setClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
+    RENDERINGTHREAD->setViewPort(0, 0, int32_t(m_windowSize.x), int32_t(m_windowSize.y));
+    RENDERINGTHREAD->clear();
+    m_batchManager->clear();
+}
+
+void EGLWindow::updateWidgets(FrameStateSharedPtr frameState)
 {
     if (m_windowInited) {
-        auto transform = getComponent<Transform>();
-        if (transform) {
-            const Vector3 size = transform->getSize();
-            if (size.x != m_windowSize.x || size.y != m_windowSize.y) {
-                transform->setSize(m_windowSize.x, m_windowSize.y);
-            }
-        }
+        Window::updateWidgets(frameState);
+    }
+}
 
-        frameState->screenAlpha = m_screenAlpha;
-        frameState->camera->update(m_windowPosition.x, m_windowPosition.y, m_windowSize.x, m_windowSize.y);
-        frameState->batchManager = m_batchManager;
-        RENDERINGTHREAD->setClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
-        RENDERINGTHREAD->setViewPort(0, 0, int32_t(m_windowSize.x), int32_t(m_windowSize.y));
-        RENDERINGTHREAD->clear();
-        m_batchManager->clear();
-        Window::update(frameState);
+void EGLWindow::commitRenderPass(FrameStateSharedPtr frameState)
+{
+    if (m_windowInited) {
         m_batchManager->renderBatches(frameState);
     }
 }

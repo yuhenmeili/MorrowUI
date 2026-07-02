@@ -34,9 +34,16 @@ bool WGLPlatform::beginFrame(FrameStateSharedPtr frameState) {
     return true;
 }
 
-void WGLPlatform::update(FrameStateSharedPtr frameState) {
-    m_window->update(frameState);
-    eventHandler(frameState);
+void WGLPlatform::beginRenderPass(FrameStateSharedPtr frameState) {
+    m_window->beginRenderPass(frameState);
+}
+
+void WGLPlatform::updateWidgets(FrameStateSharedPtr frameState) {
+    m_window->updateWidgets(frameState);
+}
+
+void WGLPlatform::commitRenderPass(FrameStateSharedPtr frameState) {
+    m_window->commitRenderPass(frameState);
 }
 
 void WGLPlatform::endFrame() {

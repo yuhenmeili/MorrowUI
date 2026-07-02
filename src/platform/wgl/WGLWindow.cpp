@@ -54,16 +54,14 @@ void WGLWindow::setClearColor(float r, float g, float b, float a) {
     m_clearColor.set(r, g, b, a);
 }
 
-void WGLWindow::update(FrameStateSharedPtr frameState) {
-    int windowWidth = 0;
-    int windowHeight = 0;
+void WGLWindow::beginRenderPass(FrameStateSharedPtr frameState) {
+    int windowWidth = 0, windowHeight = 0;
     glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
     if (windowWidth > 0 && windowHeight > 0) {
         m_windowSize.set(static_cast<float>(windowWidth), static_cast<float>(windowHeight));
     }
 
-    int fbWidth = 0;
-    int fbHeight = 0;
+    int fbWidth = 0, fbHeight = 0;
     glfwGetFramebufferSize(m_window, &fbWidth, &fbHeight);
     if (fbWidth > 0 && fbHeight > 0) {
         m_framebufferSize.set(static_cast<float>(fbWidth), static_cast<float>(fbHeight));
@@ -77,14 +75,20 @@ void WGLWindow::update(FrameStateSharedPtr frameState) {
         }
     }
 
-    frameState->screenAlpha = 1.0;
+    frameState->screenAlpha = 1.0f;
     frameState->camera->update(m_windowPosition.x, m_windowPosition.y, m_framebufferSize.x, m_framebufferSize.y);
     frameState->batchManager = m_batchManager;
     RENDERINGTHREAD->setClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
     RENDERINGTHREAD->setViewPort(0, 0, fbWidth, fbHeight);
     RENDERINGTHREAD->clear();
     m_batchManager->clear();
-    Window::update(frameState);
+}
+
+void WGLWindow::updateWidgets(FrameStateSharedPtr frameState) {
+    Window::updateWidgets(frameState);
+}
+
+void WGLWindow::commitRenderPass(FrameStateSharedPtr frameState) {
     m_batchManager->renderBatches(frameState);
 }
 

@@ -48,7 +48,13 @@ public:
 
     virtual void setClearColor(float r, float g, float b, float a);
 
-    void update(FrameStateSharedPtr frameState) override;
+    /// ────────── 渲染阶段（替代原 update()）──────────
+    /// GPU 准备：viewport、clear、framebuffer
+    virtual void beginRenderPass(FrameStateSharedPtr frameState);
+    /// Widget 树递归更新（纯 CPU）
+    virtual void updateWidgets(FrameStateSharedPtr frameState);
+    /// GPU 提交：合批渲染
+    virtual void commitRenderPass(FrameStateSharedPtr frameState);
 
     virtual void terminate();
 

@@ -19,8 +19,16 @@ bool Window::isWindowShouldClose() {
     return false;
 }
 
-void Window::update(FrameStateSharedPtr frameState) {
+void Window::beginRenderPass(FrameStateSharedPtr frameState) {
+    // 子类实现
+}
+
+void Window::updateWidgets(FrameStateSharedPtr frameState) {
     UIWidget::update(frameState);
+}
+
+void Window::commitRenderPass(FrameStateSharedPtr frameState) {
+    // 子类实现
 }
 
 void Window::setClearColor(float r, float g, float b, float a) {

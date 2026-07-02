@@ -95,7 +95,7 @@ void Platform::ensureRenderCapabilitiesInitialized() {
     GlobalObject::getInstance().getFontManager()->initialize();
 }
 
-void Platform::eventHandler(const FrameStateSharedPtr& frameState) {
+void Platform::dispatchEvents(const FrameStateSharedPtr& frameState) {
     bool needRender = false;
     // dispatch event
     for (auto& touchEvent : frameState->inputEventsManager->getInputEvents()) {
@@ -118,6 +118,12 @@ void Platform::eventHandler(const FrameStateSharedPtr& frameState) {
     }
     if (needRender) {
         REQUESTRENDER;
+    }
+}
+
+void Platform::updateWidgets(FrameStateSharedPtr frameState) {
+    if (m_window) {
+        m_window->updateWidgets(frameState);
     }
 }
 } // morrow

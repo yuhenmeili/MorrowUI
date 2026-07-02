@@ -26,7 +26,9 @@ public:
 
     bool initializeIfNeeded() override;
 
-    void update(FrameStateSharedPtr frameState) override;
+    void beginRenderPass(FrameStateSharedPtr frameState) override;
+    void updateWidgets(FrameStateSharedPtr frameState) override;
+    void commitRenderPass(FrameStateSharedPtr frameState) override;
 
     void updateWindowSensitivity(WindowMask sensitivity);
 

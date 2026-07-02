@@ -63,32 +63,29 @@ void Engine::render() {
     while (!m_platform->shouldClose()) {
         updateFrameState();
 
-        //event
+        // ── 阶段 1: 输入 ──
         if (!m_platform->beginFrame(m_frameState)) {
             break;
         }
+        m_platform->dispatchEvents(m_frameState);
+
+        // ── 阶段 2: 动画准备 ──
         m_preRender.notify();
-        //prepare
         TweenManager::getInstance().update(m_frameState);
 
-        //render
-        // if (!m_requestRenderEnabled || (GlobalObject::getInstance().getRenderingThread()->isNeedRender() || !m_platform->getInputManager()->getInputEvents().empty())) {
-            // GlobalObject::getInstance().getRenderingThread()->resetRenderStatus();
-            m_platform->update(m_frameState);
-            // LOG_I("drawcall count {}", m_frameState->drawCallCount);
-            m_frameState->frameNumber++;
-            //heartbeat
-            heartbeat();
-            //fps
-            // m_fpsController->sleep();
-            //debug
-            m_debugPlane->update(m_frameState);
-            //after render
-            m_afterRender.notify();
-            m_platform->endFrame();
+        // ── 阶段 3: 渲染管线 ──
+        m_platform->beginRenderPass(m_frameState);      // GPU 准备
+        m_platform->updateWidgets(m_frameState);         // Widget 树遍历
+        m_platform->commitRenderPass(m_frameState);      // GPU 提交
 
-            callAfterRenderFunctions();
-        // }
+        // ── 阶段 4: 帧后处理 ──
+        m_frameState->frameNumber++;
+        heartbeat();
+        m_debugPlane->update(m_frameState);
+        m_afterRender.notify();
+        m_platform->endFrame();
+
+        callAfterRenderFunctions();
     }
 
     m_platform->terminate();
