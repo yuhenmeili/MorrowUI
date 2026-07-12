@@ -320,8 +320,12 @@ constructor → onAttach() → awake() → start() → [update() → lateUpdate(
 ```
 Widget::update() → MeshRenderer::update()
     → BatchManager::addRenderable(material, meshFilter, transform)
-    → 按 Material/Shader/Texture 分组 → RenderBatch
-    → BatchManager::renderBatches(frameState)
+    → 收集阶段：记录 RenderableItem (含 displayLayer + insertionIndex)
+
+BatchManager::renderBatches(frameState)
+    → 增量检查：对比上一帧可渲染列表，未变化则复用批次结构
+    → 排序阶段：按 (displayLayer, materialKey, insertionIndex) 排序
+    → 合批阶段：连续同材质项合并为 RenderBatch
         → SSBO 路径（实例化渲染，单次 Draw Call）
         → 标准路径（逐 Batch 绘制）
 ```
@@ -506,12 +510,17 @@ Engine::render() 现为 7 步显式流水线：`beginFrame → dispatchEvents �
 
 新代码可按需依赖子接口以降低耦合；旧代码使用 `RenderDevice*` 不受影响。
 
-**5. BatchManager 不支持动态合批**
+**5. BatchManager 不支持动态合批** ✅ 已完成
 
-当前合批策略是按 Material/Shader/Texture 严格分组。对于运行时动态变化的 UI（如动画、滚动列表），可考虑：
-- 基于纹理图集的动态图集打包
-- Z-order 敏感的合批重排
-- 增量合批（只重建变化的 batch）
+~~当前合批策略是按 Material/Shader/Texture 严格分组，仅合并连续出现的同材质项。~~ 已实现两阶段优化：
+
+1. **Z-order 敏感的排序合批**：收集阶段仅记录可渲染项（含 `displayLayer`），渲染前按 `(displayLayer, materialKey, insertionIndex)` 排序后合并连续同材质项。同层内同材质自动归拢，大幅减少材质交错导致的冗余批次，同时保证跨层 Z-order 正确。
+
+2. **增量合批**：帧间比较可渲染列表（材质指针 + 数量），未变化时直接复用上一帧的批次结构，跳过排序与分组阶段，降低 CPU 开销。
+
+- 基于纹理图集的动态图集打包（后续优化项）
+- ~~Z-order 敏感的合批重排~~ ✅
+- ~~增量合批（只重建变化的 batch）~~ ✅
 
 **6. 缺少 RenderGraph / Pass 抽象**
 
