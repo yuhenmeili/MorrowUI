@@ -495,15 +495,16 @@ Engine::render() 现为 7 步显式流水线：`beginFrame → dispatchEvents �
 
 ### 7.2 渲染层面
 
-**4. RenderDevice 接口膨胀**
+**4. RenderDevice 接口膨胀** ✅ 已完成
 
-`RenderDevice` 是一个包含 ~60+ 个纯虚方法的巨型接口（VBO、Texture、Shader、UBO、SSBO、FBO、状态管理等）。建议按资源类型拆分为：
-- `GPUBufferDevice` (VBO/UBO/SSBO)
+~~`RenderDevice` 是一个包含 ~60+ 个纯虚方法的巨型接口（VBO、Texture、Shader、UBO、SSBO、FBO、状态管理等）。~~ 已按资源类型拆分为四个子接口，`RenderDevice` 通过多重继承组合：
+
+- `GPUBufferDevice` (VBO/UBO/SSBO/Fence)
 - `GPUTextureDevice`
 - `GPUShaderDevice`
-- `GPURenderPassDevice` (FBO/State)
+- `GPURenderPassDevice` (FBO/State/Context)
 
-通过组合或多重继承降低单个接口的复杂度。
+新代码可按需依赖子接口以降低耦合；旧代码使用 `RenderDevice*` 不受影响。
 
 **5. BatchManager 不支持动态合批**
 
