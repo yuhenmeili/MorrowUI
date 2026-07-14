@@ -52,26 +52,41 @@ void BatchManager::addRenderable(std::shared_ptr<Material> material,
 // 渲染阶段：增量检查 → 需要时重建批次 → 渲染
 // ---------------------------------------------------------------------------
 void BatchManager::renderBatches(std::shared_ptr<FrameState> frameState) {
+    auto& statistics = frameState->batchStatistics;
+    statistics.renderItemCount = static_cast<uint32_t>(m_renderables.size());
+
     // ---- 增量合批：比较可渲染列表是否与上一帧相同 ----
-    if (!isRenderableListUnchanged()) {
-        buildBatches();
+    if (isRenderableListUnchanged()) {
+        ++statistics.cacheHitCount;
+    } else {
+        ++statistics.cacheMissCount;
+        buildBatches(statistics);
         m_batchesDirty = false;
     }
+
+    statistics.batchCount = static_cast<uint32_t>(m_batches.size());
 
     // ---- UBO 更新 ----
     m_ubo->update(frameState);
     Matrix4 projectionMatrix = frameState->camera->getProjectionView();
+    const uint32_t drawCallsBeforeBatches = frameState->drawCallCount;
 
     // ---- 渲染所有批次 ----
     for (auto& batch : m_batches) {
         if (batch.materials.empty()) continue;
 
         if (frameState->isSSBOSupport && batch.isSSBOShader && batch.materials.size() > 1) {
+            ++statistics.ssboBatchCount;
             renderSSBOBatch(frameState, batch);
         } else {
+            ++statistics.standardBatchCount;
+            if (batch.isSSBOShader && batch.materials.size() > 1 && !frameState->isSSBOSupport) {
+                ++statistics.ssboFallbackBatchCount;
+            }
             renderStandardBatch(frameState, batch, projectionMatrix);
         }
     }
+    statistics.batchDrawCallCount = frameState->drawCallCount - drawCallsBeforeBatches;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,7 +141,24 @@ bool BatchManager::isRenderableListUnchanged() const {
     return true;
 }
 
-void BatchManager::buildBatches() {
+BatchBreakReason BatchManager::getBreakReason(const RenderableItem& previous,
+                                               const RenderableItem& current) {
+    if (previous.displayLayer != current.displayLayer) {
+        return BatchBreakReason::DisplayLayer;
+    }
+    if (previous.material->getShaderName() != current.material->getShaderName()) {
+        return BatchBreakReason::Shader;
+    }
+    if (computeMaterialKey(previous.material) != computeMaterialKey(current.material)) {
+        return BatchBreakReason::Texture;
+    }
+    if (!previous.material->isEqual(current.material)) {
+        return BatchBreakReason::MaterialState;
+    }
+    return BatchBreakReason::OrderBarrier;
+}
+
+void BatchManager::buildBatches(BatchStatistics& statistics) {
     // 归还旧批次（buildBatches 前确保池中批次被回收）
     RenderBatchPool::getInstance().releaseAll(m_batches);
 
@@ -154,6 +186,7 @@ void BatchManager::buildBatches() {
 
     // ---- 步骤 2：将连续同材质项合并为批次 ----
     uint64_t currentKey = 0;
+    const RenderableItem* previousItem = nullptr;
     for (auto& item : sortedRenderables) {
         uint64_t itemKey = computeMaterialKey(item.material);
 
@@ -166,11 +199,15 @@ void BatchManager::buildBatches() {
                 lastBatch.materials.emplace_back(item.material);
                 lastBatch.meshFilters.emplace_back(item.meshFilter);
                 lastBatch.transforms.emplace_back(item.transform);
+                previousItem = &item;
                 continue;
             }
         }
 
         // 新建批次（从对象池获取）
+        if (previousItem) {
+            statistics.recordBreak(getBreakReason(*previousItem, item));
+        }
         currentKey = itemKey;
         RenderBatch newBatch = RenderBatchPool::getInstance().acquire(
             item.material->getShaderName(), item.material->isSSBOShader());
@@ -178,6 +215,7 @@ void BatchManager::buildBatches() {
         newBatch.meshFilters.emplace_back(item.meshFilter);
         newBatch.transforms.emplace_back(item.transform);
         m_batches.emplace_back(std::move(newBatch));
+        previousItem = &item;
     }
 
     m_batchesDirty = false;

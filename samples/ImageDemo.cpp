@@ -17,6 +17,8 @@ int main()
 {
     EngineOptions engineOptions;
     engineOptions.multithread = false;
+    engineOptions.windowInfo.width = 1920;
+    engineOptions.windowInfo.height = 1080;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
     auto window = engine->getWindow();

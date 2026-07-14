@@ -20,7 +20,7 @@ public:
 private:
     std::shared_ptr<MRLabel> m_frameLabel;
 
-    std::shared_ptr<MRLabel> m_drawCallLabel;
+    std::shared_ptr<MRLabel> m_batchLabel;
 };
 
 } // morrow

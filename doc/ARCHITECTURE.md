@@ -837,9 +837,9 @@ main thread lead frames
 
 P0 的目标不是继续扩大优化范围，而是让当前合批系统**可观察、可测试、可回归**。
 
-#### P0.1 — BatchManager 可观测性
+#### P0.1 — BatchManager 可观测性 ✅ 已完成
 
-增加帧级合批统计，建议至少包含：
+已新增 `src/renderer/BatchStatistics.h`，并由 `FrameState::batchStatistics` 持有帧级统计：
 
 ```cpp
 struct BatchStatistics {
@@ -847,13 +847,15 @@ struct BatchStatistics {
     uint32_t batchCount = 0;
     uint32_t ssboBatchCount = 0;
     uint32_t standardBatchCount = 0;
-    uint32_t drawCallCount = 0;
+    uint32_t batchDrawCallCount = 0;
     uint32_t cacheHitCount = 0;
     uint32_t cacheMissCount = 0;
+    uint32_t ssboFallbackBatchCount = 0;
+    std::array<uint32_t, ...> breakReasonCounts;
 };
 ```
 
-增加断批原因：
+当前已记录的断批原因：
 
 ```cpp
 enum class BatchBreakReason {
@@ -861,30 +863,50 @@ enum class BatchBreakReason {
     DisplayLayer,
     Shader,
     Texture,
-    BlendState,
-    ClipState,
-    RenderTarget,
-    Geometry,
+    MaterialState,
     OrderBarrier,
-    SSBONotSupported
 };
 ```
 
-DebugPlane 或调试日志至少能够展示：
+其中 `MaterialState` 当前覆盖 `Material::isEqual()` 能识别的 Blend、双面和纹理集合差异。
+Clip、RenderTarget、Geometry 等原因将在 P0.2/P1 引入完整 RenderItem/BatchKey 后细分。
+
+`DebugPlane` 已扩展为展示：
 
 ```text
-Items: 12
-Batches: 2
-Draws: 2
-SSBO Batches: 2
-Batch Cache: Hit
+Items / Batches / Draws / BatchDraws
+SSBO / Standard / SSBO Fallback Batches
+Cache Hit/Miss
+Break[L/S/T/M/O]
 ```
 
-**验收标准**：
+`Break[L/S/T/M/O]` 分别表示：
+
+```text
+L = DisplayLayer
+S = Shader
+T = Texture
+M = MaterialState
+O = OrderBarrier
+```
+
+统计刷新流程：
+
+```text
+Engine::updateFrameState()
+    → reset BatchStatistics
+BatchManager::renderBatches()
+    → 记录 item、cache、batch、路径、fallback、断批原因和 batch draw
+DebugPlane::update()
+    → 展示本帧统计
+```
+
+**已完成验收**：
 
 - `renderItemCount → batchCount → drawCallCount` 可以完整追踪。
 - 每个断批点可以输出明确原因，而不是只能看到最终 Draw Call 数。
 - 能区分“未形成批次”和“已形成批次但因 SSBO 不可用而退化”。
+- MinGW 配置下 `ImageDemo` 编译通过。
 
 #### P0.2 — 抽离可测试的 BatchBuilder
 

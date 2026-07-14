@@ -109,6 +109,7 @@ void Engine::updateFrameState() {
     m_frameState->callAfterTouched.clear();
     m_frameState->debugWidgetsAfterAnimate.clear();
     m_frameState->drawCallCount = 0;
+    m_frameState->batchStatistics.reset();
     m_frameState->batchManager = nullptr;
     m_frameState->ssboManager = GlobalObject::getInstance().getSSBOManager();
 }

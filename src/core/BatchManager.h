@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 #include "BatchDataDefine.h"
+#include "renderer/BatchStatistics.h"
 
 namespace morrow {
 struct FrameState;
@@ -63,7 +64,11 @@ private:
     // ---- 内部方法 ----
 
     /// 从 m_renderables 构建 m_batches（排序 + 分组）
-    void buildBatches();
+    void buildBatches(BatchStatistics& statistics);
+
+    /// 诊断相邻排序项为何不能进入同一批次
+    static BatchBreakReason getBreakReason(const RenderableItem& previous,
+                                           const RenderableItem& current);
 
     /// 检查本帧可渲染列表是否与上一帧相同（增量合批判断）
     bool isRenderableListUnchanged() const;

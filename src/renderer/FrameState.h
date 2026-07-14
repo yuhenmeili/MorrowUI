@@ -10,6 +10,7 @@
 #include <vector>
 #include <memory>
 
+#include "BatchStatistics.h"
 #include "Scene3DPassContext.h"
 #include "Vector3.h"
 
@@ -40,6 +41,7 @@ struct FrameState {
     uint32_t drawCallCount = 0;
     uint32_t fps = 0;
     bool isSSBOSupport = false;
+    BatchStatistics batchStatistics;
 
     std::shared_ptr<PerspectiveCamera> perspectiveCamera;  // null=2D path
     Scene3DPassContextSharedPtr scene3DPassContext;
