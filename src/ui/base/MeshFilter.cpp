@@ -68,4 +68,8 @@ void MeshFilter::setMesh(const MeshSharedPtr& mesh) {
 MeshSharedPtr MeshFilter::getMesh() const {
     return m_mesh;
 }
+
+uint64_t MeshFilter::getGeometryRevision() const {
+    return m_mesh ? m_mesh->getRevision() : 0;
+}
 } // morrow

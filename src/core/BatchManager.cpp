@@ -33,7 +33,9 @@ void BatchManager::addRenderable(std::shared_ptr<Material> material,
     item.material = std::move(material);
     item.meshFilter = std::move(meshFilter);
     item.transform = std::move(transform);
-    item.batchKey = createBatchKey(item.material);
+    item.batchKey = createBatchKey(item.material, item.meshFilter);
+    item.materialRevision = item.material ? item.material->getRevision() : 0;
+    item.geometryRevision = item.meshFilter ? item.meshFilter->getGeometryRevision() : 0;
     item.insertionIndex = m_insertionCounter++;
 
     // 从 Widget 获取 displayLayer（-10 ~ 10）
@@ -43,6 +45,8 @@ void BatchManager::addRenderable(std::shared_ptr<Material> material,
             item.displayLayer = widget->getDisplayLayer();
         }
     }
+    item.renderStateRevision = static_cast<uint64_t>(
+        static_cast<uint32_t>(item.displayLayer));
 
     m_renderables.push_back(std::move(item));
 }
@@ -81,8 +85,10 @@ void BatchManager::renderBatches(std::shared_ptr<FrameState> frameState) {
             ++statistics.standardBatchCount;
             if (batch.isSSBOShader && batch.materials.size() > 1 && !frameState->isSSBOSupport) {
                 ++statistics.ssboFallbackBatchCount;
+                renderNonSSBOFallback(frameState, batch, projectionMatrix);
+            } else {
+                renderStandardBatch(frameState, batch, projectionMatrix);
             }
-            renderStandardBatch(frameState, batch, projectionMatrix);
         }
     }
     statistics.batchDrawCallCount = frameState->drawCallCount - drawCallsBeforeBatches;
@@ -103,11 +109,15 @@ void BatchManager::clear() {
 // 内部实现
 // ===================================================================
 
-BatchCompatibilityKey BatchManager::createBatchKey(const std::shared_ptr<Material>& material) {
+BatchCompatibilityKey BatchManager::createBatchKey(
+    const std::shared_ptr<Material>& material,
+    const std::shared_ptr<MeshFilter>& meshFilter) {
     BatchCompatibilityKey key;
     if (!material) return key;
 
     key.shaderName = material->getShaderName();
+    key.shaderVariantHash = std::hash<std::string>{}(key.shaderName) ^
+        (static_cast<uint64_t>(material->isSSBOShader()) << 63);
     auto texture = material->getTexture("texture");
     if (!texture) texture = material->getTexture("u_texture");
     if (!texture) texture = material->getTexture("mainTexture");
@@ -118,19 +128,26 @@ BatchCompatibilityKey BatchManager::createBatchKey(const std::shared_ptr<Materia
     key.doubleSided = material->isDoubleSided();
 
     key.materialStateHash = material->getBatchCompatibilityHash();
+    key.textureSetHash = key.materialStateHash;
+    key.ssboLayoutHash = material->isSSBOShader()
+        ? std::hash<std::string>{}(key.shaderName + "|ssbo")
+        : 0;
+
+    if (meshFilter && meshFilter->getMesh()) {
+        const auto& mesh = meshFilter->getMesh();
+        key.primitiveTopology = static_cast<uint32_t>(mesh->getDrawMode());
+        uint32_t layoutMask = 1u; // position
+        if (!mesh->getColors().empty()) layoutMask |= 1u << 1;
+        if (!mesh->getUVs().empty()) layoutMask |= 1u << 2;
+        if (!mesh->getNormals().empty()) layoutMask |= 1u << 3;
+        key.vertexLayoutMask = layoutMask;
+    }
     return key;
 }
 
 bool BatchManager::isRenderableListUnchanged() const {
     if (m_batchesDirty) return false;
-    if (m_renderables.size() != m_prevRenderables.size()) return false;
-
-    for (size_t i = 0; i < m_renderables.size(); ++i) {
-        if (!m_renderables[i].isSameRenderableAs(m_prevRenderables[i])) {
-            return false;
-        }
-    }
-    return true;
+    return BatchBuilder::areRenderItemListsEquivalent(m_renderables, m_prevRenderables);
 }
 
 void BatchManager::buildBatches(BatchStatistics& statistics) {
@@ -200,6 +217,12 @@ void BatchManager::renderStandardBatch(std::shared_ptr<FrameState> frameState, R
         }
         meshRenderer->getVertexArray()->draw(frameState);
     }
+}
+
+void BatchManager::renderNonSSBOFallback(std::shared_ptr<FrameState> frameState,
+                                         RenderBatch& batch,
+                                         Matrix4& projectionMatrix) {
+    renderStandardBatch(frameState, batch, projectionMatrix);
 }
 
 } // namespace morrow

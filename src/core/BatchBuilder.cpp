@@ -18,6 +18,17 @@ BatchBreakReason BatchBuilder::getBreakReason(const RenderItem& previous,
     if (previous.batchKey.primaryTexture != current.batchKey.primaryTexture) {
         return BatchBreakReason::Texture;
     }
+    if (previous.batchKey.primitiveTopology != current.batchKey.primitiveTopology ||
+        previous.batchKey.vertexLayoutMask != current.batchKey.vertexLayoutMask) {
+        return BatchBreakReason::Geometry;
+    }
+    if (previous.batchKey.renderTargetId != current.batchKey.renderTargetId) {
+        return BatchBreakReason::RenderTarget;
+    }
+    if (previous.batchKey.clipStateId != current.batchKey.clipStateId ||
+        previous.batchKey.stencilStateId != current.batchKey.stencilStateId) {
+        return BatchBreakReason::ClipState;
+    }
     if (!(previous.batchKey == current.batchKey)) {
         return BatchBreakReason::MaterialState;
     }
@@ -54,6 +65,17 @@ BatchBuildResult BatchBuilder::build(const std::vector<RenderItem>& items,
 
     result.groups.emplace_back(std::move(currentGroup));
     return result;
+}
+
+bool BatchBuilder::areRenderItemListsEquivalent(const std::vector<RenderItem>& current,
+                                                const std::vector<RenderItem>& previous) {
+    if (current.size() != previous.size()) return false;
+    for (size_t index = 0; index < current.size(); ++index) {
+        if (!current[index].isSameRenderableAs(previous[index])) {
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace morrow

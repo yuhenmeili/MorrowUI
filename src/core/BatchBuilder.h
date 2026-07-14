@@ -16,21 +16,37 @@ class Transform;
 
 struct BatchCompatibilityKey {
     std::string shaderName;
+    uint64_t shaderVariantHash = 0;
+    uint64_t textureSetHash = 0;
     const void* primaryTexture = nullptr;
     bool blendEnabled = true;
     int32_t srcBlendFactor = 0;
     int32_t dstBlendFactor = 0;
     bool doubleSided = false;
     uint64_t materialStateHash = 0;
+    uint32_t primitiveTopology = 0;
+    uint32_t vertexLayoutMask = 0;
+    uintptr_t renderTargetId = 0;
+    uint64_t clipStateId = 0;
+    uint64_t stencilStateId = 0;
+    uint64_t ssboLayoutHash = 0;
 
     bool operator==(const BatchCompatibilityKey& other) const {
         return shaderName == other.shaderName &&
+               shaderVariantHash == other.shaderVariantHash &&
+               textureSetHash == other.textureSetHash &&
                primaryTexture == other.primaryTexture &&
                blendEnabled == other.blendEnabled &&
                srcBlendFactor == other.srcBlendFactor &&
                dstBlendFactor == other.dstBlendFactor &&
                doubleSided == other.doubleSided &&
-               materialStateHash == other.materialStateHash;
+               materialStateHash == other.materialStateHash &&
+               primitiveTopology == other.primitiveTopology &&
+               vertexLayoutMask == other.vertexLayoutMask &&
+               renderTargetId == other.renderTargetId &&
+               clipStateId == other.clipStateId &&
+               stencilStateId == other.stencilStateId &&
+               ssboLayoutHash == other.ssboLayoutHash;
     }
 };
 
@@ -41,12 +57,18 @@ struct RenderItem {
     BatchCompatibilityKey batchKey;
     int32_t displayLayer = 0;
     uint32_t insertionIndex = 0;
+    uint64_t materialRevision = 0;
+    uint64_t geometryRevision = 0;
+    uint64_t renderStateRevision = 0;
 
     bool isSameRenderableAs(const RenderItem& other) const {
         return material.get() == other.material.get() &&
                meshFilter.get() == other.meshFilter.get() &&
                transform.get() == other.transform.get() &&
-               displayLayer == other.displayLayer;
+               displayLayer == other.displayLayer &&
+               materialRevision == other.materialRevision &&
+               geometryRevision == other.geometryRevision &&
+               renderStateRevision == other.renderStateRevision;
     }
 };
 
@@ -69,6 +91,9 @@ class BatchBuilder {
 public:
     BatchBuildResult build(const std::vector<RenderItem>& items,
                            const BatchBuildOptions& options = {}) const;
+
+    static bool areRenderItemListsEquivalent(const std::vector<RenderItem>& current,
+                                             const std::vector<RenderItem>& previous);
 
 private:
     static bool canBatch(const RenderItem& previous, const RenderItem& current);

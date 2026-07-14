@@ -90,6 +90,57 @@ void testDisplayLayerBreaksBatch() {
            "different display layer should report DisplayLayer");
 }
 
+void testGeometryBreaksBatch() {
+    BatchBuilder builder;
+    auto first = makeItem("image", 0x1000, 1);
+    auto second = first;
+    first.batchKey.primitiveTopology = 1;
+    second.batchKey.primitiveTopology = 2;
+    const auto result = builder.build({first, second});
+    expect(result.groups.size() == 2, "different topology should break the batch");
+    expect(result.breakReasons[0] == BatchBreakReason::Geometry,
+           "different topology should report Geometry");
+}
+
+void testRenderTargetBreaksBatch() {
+    BatchBuilder builder;
+    auto first = makeItem("image", 0x1000, 1);
+    auto second = first;
+    second.batchKey.renderTargetId = 5;
+    const auto result = builder.build({first, second});
+    expect(result.breakReasons[0] == BatchBreakReason::RenderTarget,
+           "different render target should report RenderTarget");
+}
+
+void testClipBreaksBatch() {
+    BatchBuilder builder;
+    auto first = makeItem("image", 0x1000, 1);
+    auto second = first;
+    second.batchKey.clipStateId = 7;
+    const auto result = builder.build({first, second});
+    expect(result.breakReasons[0] == BatchBreakReason::ClipState,
+           "different clip state should report ClipState");
+}
+
+void testRevisionInvalidatesCachedList() {
+    auto current = std::vector<RenderItem>{makeItem("image", 0x1000, 1)};
+    auto previous = current;
+    expect(BatchBuilder::areRenderItemListsEquivalent(current, previous),
+           "identical render item lists should be cache-compatible");
+
+    current[0].materialRevision++;
+    expect(!BatchBuilder::areRenderItemListsEquivalent(current, previous),
+           "material revision should invalidate the cached list");
+    current = previous;
+    current[0].geometryRevision++;
+    expect(!BatchBuilder::areRenderItemListsEquivalent(current, previous),
+           "geometry revision should invalidate the cached list");
+    current = previous;
+    current[0].renderStateRevision++;
+    expect(!BatchBuilder::areRenderItemListsEquivalent(current, previous),
+           "render state revision should invalidate the cached list");
+}
+
 } // namespace
 
 int main() {
@@ -98,6 +149,10 @@ int main() {
     testPainterOrderIsPreserved();
     testBlendStateBreaksBatch();
     testDisplayLayerBreaksBatch();
+    testGeometryBreaksBatch();
+    testRenderTargetBreaksBatch();
+    testClipBreaksBatch();
+    testRevisionInvalidatesCachedList();
 
     if (g_failures != 0) {
         std::cerr << g_failures << " BatchBuilder test(s) failed\n";

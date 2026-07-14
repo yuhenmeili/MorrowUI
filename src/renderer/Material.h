@@ -117,6 +117,8 @@ public:
     /// CPU-only batch compatibility fingerprint. Does not create or access GPU resources.
     uint64_t getBatchCompatibilityHash() const;
 
+    uint64_t getRevision() const;
+
     bool isSSBOShader() const;
 
 private:
@@ -149,6 +151,7 @@ private:
     std::vector<std::string> m_defines =  {"ENABLE_SSBO"};
     std::string m_vertexShaderResource;
     std::string m_fragmentShaderResource;
+    uint64_t m_revision = 1;
 };
 
 using MaterialSharedPtr = std::shared_ptr<Material>;

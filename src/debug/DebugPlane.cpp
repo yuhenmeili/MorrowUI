@@ -48,11 +48,14 @@ void DebugPlane::update(std::shared_ptr<FrameState> frame_state) {
         L" Cache:" + std::to_wstring(stats.cacheHitCount) +
         L"/" + std::to_wstring(stats.cacheMissCount) +
         L" Fallback:" + std::to_wstring(stats.ssboFallbackBatchCount) +
-        L" Break[L/S/T/M/O]:" +
+        L" Break[L/S/T/M/G/R/C/O]:" +
         std::to_wstring(breakCount(BatchBreakReason::DisplayLayer)) + L"/" +
         std::to_wstring(breakCount(BatchBreakReason::Shader)) + L"/" +
         std::to_wstring(breakCount(BatchBreakReason::Texture)) + L"/" +
         std::to_wstring(breakCount(BatchBreakReason::MaterialState)) + L"/" +
+        std::to_wstring(breakCount(BatchBreakReason::Geometry)) + L"/" +
+        std::to_wstring(breakCount(BatchBreakReason::RenderTarget)) + L"/" +
+        std::to_wstring(breakCount(BatchBreakReason::ClipState)) + L"/" +
         std::to_wstring(breakCount(BatchBreakReason::OrderBarrier)));
 }
 } // morrow

@@ -28,6 +28,8 @@ public:
     
     // 获取网格
     MeshSharedPtr getMesh() const;
+
+    uint64_t getGeometryRevision() const;
     
 private:
     MeshSharedPtr m_mesh;

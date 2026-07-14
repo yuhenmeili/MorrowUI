@@ -25,7 +25,13 @@ Material::Material(const std::string& shaderName) : m_shaderName(shaderName) {
 }
 
 void Material::setTexture(const std::string& name, const TextureSharedPtr& texture) {
-    m_textureMap[m_attributePrefix + name] = texture;
+    const std::string key = m_attributePrefix + name;
+    auto current = m_textureMap.find(key);
+    if (current != m_textureMap.end() && current->second == texture) {
+        return;
+    }
+    m_textureMap[key] = texture;
+    ++m_revision;
     
     // 同时更新vector中的textures
     auto it = std::find(m_textures.begin(), m_textures.end(), texture);
@@ -48,14 +54,17 @@ bool Material::hasTexture(const std::string& name) const {
 
 void Material::setVector(const std::string& name, const Vector2& value) {
     m_vectorMap[m_attributePrefix + name] = value;
+    ++m_revision;
 }
 
 void Material::setVector(const std::string& name, const Vector3& value) {
     m_vectorMap[m_attributePrefix + name] = value;
+    ++m_revision;
 }
 
 void Material::setVector(const std::string& name, const Vector4& value) {
     m_vectorMap[m_attributePrefix + name] = value;
+    ++m_revision;
 }
 
 VectorVariant Material::getVector(const std::string& name) const {
@@ -81,6 +90,7 @@ Matrix4 Material::getMatrix4(const std::string& name) const {
 
 void Material::setFloat(const std::string& name, float value) {
     m_floatMap[m_attributePrefix + name] = value;
+    ++m_revision;
 }
 
 float Material::getFloat(const std::string& name) const {
@@ -93,6 +103,7 @@ float Material::getFloat(const std::string& name) const {
 
 void Material::setInt(const std::string& name, int32_t value) {
     m_intMap[m_attributePrefix + name] = value;
+    ++m_revision;
 }
 
 int32_t Material::getInt(const std::string& name) const {
@@ -105,6 +116,7 @@ int32_t Material::getInt(const std::string& name) const {
 
 void Material::setBool(const std::string& name, bool value) {
     m_intMap[m_attributePrefix + name] = value ? 1 : 0;
+    ++m_revision;
 }
 
 bool Material::getBool(const std::string& name) const {
@@ -122,6 +134,7 @@ void Material::setIntArray(const std::string& name, const int32_t* values, int32
     int_array_data.size = size;
     int_array_data.step = step;
     m_intArrayMap[int_array_data.name] = int_array_data;
+    ++m_revision;
 }
 
 // void ShaderMaterial::setShader(const ShaderSharedPtr& shader) {
@@ -132,6 +145,7 @@ void Material::setShader(const std::string& shaderName) {
     if (m_shaderName != shaderName) {
         m_shaderName = shaderName;
         loadShader();
+        ++m_revision;
         LOG_I("set shader {}", shaderName);
     }
 }
@@ -145,6 +159,7 @@ void Material::setShaderFromMemory(const std::string& shaderName,
     // 清除已缓存的 shader，下次 apply 时重新 buildShader
     m_shader = nullptr;
     m_batchShader = nullptr;
+    ++m_revision;
 }
 
 std::string Material::getShaderName() const {
@@ -160,12 +175,18 @@ GPUProgramHandle* Material::getBatchShader() const {
 }
 
 void Material::setBlendEnabled(bool enabled) {
-    m_blendEnabled = enabled;
+    if (m_blendEnabled != enabled) {
+        m_blendEnabled = enabled;
+        ++m_revision;
+    }
 }
 
 void Material::setBlendFunc(int srcFactor, int dstFactor) {
-    m_srcBlendFactor = srcFactor;
-    m_dstBlendFactor = dstFactor;
+    if (m_srcBlendFactor != srcFactor || m_dstBlendFactor != dstFactor) {
+        m_srcBlendFactor = srcFactor;
+        m_dstBlendFactor = dstFactor;
+        ++m_revision;
+    }
 }
 
 bool Material::isBlendEnabled() const {
@@ -178,7 +199,10 @@ void Material::getBlendFunc(int& srcFactor, int& dstFactor) const {
 }
 
 void Material::setDoubleSided(bool doubleSided) {
-    m_doubleSided = doubleSided;
+    if (m_doubleSided != doubleSided) {
+        m_doubleSided = doubleSided;
+        ++m_revision;
+    }
 }
 
 bool Material::isDoubleSided() const {
@@ -369,6 +393,10 @@ uint64_t Material::getBatchCompatibilityHash() const {
         textureHash ^= entryHash;
     }
     return hashCombine(hash, textureHash);
+}
+
+uint64_t Material::getRevision() const {
+    return m_revision;
 }
 
 bool Material::isSSBOShader() const {

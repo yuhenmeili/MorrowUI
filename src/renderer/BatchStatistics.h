@@ -13,6 +13,9 @@ enum class BatchBreakReason : uint8_t {
     Shader,
     Texture,
     MaterialState,
+    Geometry,
+    RenderTarget,
+    ClipState,
     OrderBarrier,
     Count
 };

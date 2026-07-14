@@ -1101,14 +1101,111 @@ drawCalls == 2
 - 统计信息足以定位断批和缓存失效原因。
 - 固定帧 ImageDemo 验收已通过：12 Items、2 Batches、2 Draw Calls。
 
-### P1 — 安全合批与版本化
+### P1 — 安全合批与版本化 🚧 核心完成，非 SSBO 单 Draw 优化待后续 Shader 支持
 
-- 引入完整 `BatchKey/PipelineStateKey`。
-- 为 Material、Mesh、Clip、RenderState 增加 revision。
-- 默认只合并连续项；为 opaque/non-overlap 内容提供显式 reorder 策略。
-- 非 SSBO 平台增加动态几何合并 fallback。
+#### P1.1 — BatchKey / PipelineStateKey ✅
 
-**验收标准**：材质原地修改能够立即使缓存失效；透明重叠测试无视觉回归。
+`BatchCompatibilityKey` 已扩展为显式描述批次兼容状态：
+
+```cpp
+shaderName
+shaderVariantHash
+textureSetHash / primaryTexture
+blendEnabled / srcBlendFactor / dstBlendFactor
+doubleSided
+materialStateHash
+primitiveTopology
+vertexLayoutMask
+renderTargetId
+clipStateId / stencilStateId
+ssboLayoutHash
+```
+
+当前 2D 主 Pass 尚未暴露独立 RenderTarget、Clip 和 Stencil 状态，因此对应字段默认是 0；
+字段已进入兼容判断和断批诊断，后续引入 Clip/RenderPass 时不需要再次改变 BatchBuilder 接口。
+
+`BatchBuilder` 新增断批原因：
+
+```text
+Geometry
+RenderTarget
+ClipState
+```
+
+DebugPlane 对应显示：
+
+```text
+Break[L/S/T/M/G/R/C/O]
+```
+
+#### P1.2 — Revision 与缓存失效 ✅
+
+已增加：
+
+- `Material::m_revision / getRevision()`：Texture、Vector、Float、Int、Shader、Blend、DoubleSided
+  等材质修改时递增。
+- `Mesh::m_revision / getRevision()`：顶点、索引、UV、Normal、Color、Topology、clear 时递增。
+- `MeshFilter::getGeometryRevision()`：向 BatchManager 暴露当前 Mesh revision。
+- `RenderItem::materialRevision / geometryRevision / renderStateRevision`。
+
+跨帧缓存判断已抽为：
+
+```cpp
+BatchBuilder::areRenderItemListsEquivalent(current, previous)
+```
+
+对象地址相同但 revision 变化时，批次缓存会失效并重新构建。单元测试已覆盖 Material、
+Geometry 和 RenderState revision 的失效行为。
+
+> 当前 `renderStateRevision` 先覆盖 `displayLayer`。Clip、Stencil、RenderTarget 等状态接入
+> RenderItem 后，应由统一的 RenderState revision 提供者维护，而不是继续在 BatchManager 中拼接。
+
+#### P1.3 — 安全顺序策略 ✅
+
+默认策略仍为：
+
+```text
+preservePainterOrder = true
+```
+
+只合并原始遍历顺序中连续且 BatchKey 完全兼容的 RenderItem。当前没有启用 opaque/non-overlap
+自动重排，因为代码库尚无可靠的屏幕 Bounds、遮挡关系和 opaque 声明。预留的
+`BatchBuildOptions` 将用于后续显式、可证明安全的 reorder policy。
+
+这意味着透明 UI 正确性优先于最小 Draw Call，`A → B → A` 始终保持原顺序。
+
+#### P1.4 — 非 SSBO fallback 🚧 安全退化已完成，单 Draw 优化暂缓
+
+已将非 SSBO 退化封装为：
+
+```cpp
+BatchManager::renderNonSSBOFallback(...)
+```
+
+并通过 `ssboFallbackBatchCount` 明确统计。当前 fallback 保持批次顺序并逐对象 Draw，确保：
+
+- 每对象 model matrix 正确；
+- rounding、alpha、fontColor 等 per-object uniform 正确；
+- 不因盲目拼接几何而改变透明混合结果。
+
+虽然 `VertexArray::updateFromMeshes()` 已能拼接多个 Mesh，但普通 Shader 仍通过单个 uniform model
+和其他 per-object uniform 取值；直接一次 Draw 会让所有对象错误共享同一组参数。因此，在以下
+任一能力完成前，不应声称非 SSBO 路径实现了真正动态几何合批：
+
+1. 增加 instance attribute fallback；
+2. 增加 CPU world-transform bake + 专用 batch shader；
+3. 引入 Multi-Draw 并提供 per-draw 参数索引。
+
+该项作为后续渲染后端优化继续保留，不阻塞 P2 的 RenderSnapshot 和 Dirty Flag 工作。
+
+**P1 当前验收结果**：
+
+- 材质、Mesh、RenderState revision 变化会使缓存失效。
+- 不同 Topology/Layout、RenderTarget、ClipState 会产生明确断批。
+- 默认 painter's order 测试通过。
+- BatchBuilder CTest 通过。
+- ImageDemo 集成验收通过：12 Items、2 Batches、2 SSBO Draw Calls。
+- 非 SSBO 路径保证正确并可诊断，但尚未减少为单 Draw。
 
 ### P2 — 增量 UI 与 RenderSnapshot
 

@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <memory>
+#include <cstdint>
 
 #include "DriverEnums.h"
 #include "Vector3.h"
@@ -67,6 +68,8 @@ public:
 
     bool isDataDirty() const;
 
+    uint64_t getRevision() const;
+
     void clear();
 
 private:
@@ -77,6 +80,7 @@ private:
     std::vector<Vector4> m_colors;
     PrimitiveType m_drawMode = PrimitiveType::TRIANGLES;
     bool m_DataDirty = true;
+    uint64_t m_revision = 1;
 };
 
 using MeshSharedPtr = std::shared_ptr<Mesh>;

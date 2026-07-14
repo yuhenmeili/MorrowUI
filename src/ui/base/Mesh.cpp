@@ -14,6 +14,7 @@ Mesh::~Mesh() = default;
 void Mesh::setVertices(const std::vector<Vector3>& vertices) {
     m_vertices = vertices;
     m_DataDirty = true;
+    ++m_revision;
 }
 
 const std::vector<Vector3>& Mesh::getVertices() const {
@@ -23,6 +24,7 @@ const std::vector<Vector3>& Mesh::getVertices() const {
 void Mesh::setIndices(const std::vector<int16_t>& indices) {
     m_indices = indices;
     m_DataDirty = true;
+    ++m_revision;
 }
 
 const std::vector<int16_t>& Mesh::getIndices() const {
@@ -32,6 +34,7 @@ const std::vector<int16_t>& Mesh::getIndices() const {
 void Mesh::setUVs(const std::vector<Vector2>& uvs) {
     m_uvs = uvs;
     m_DataDirty = true;
+    ++m_revision;
 }
 
 const std::vector<Vector2>& Mesh::getUVs() const {
@@ -41,6 +44,7 @@ const std::vector<Vector2>& Mesh::getUVs() const {
 void Mesh::setNormals(const std::vector<Vector3>& normals) {
     m_normals = normals;
     m_DataDirty = true;
+    ++m_revision;
 }
 
 const std::vector<Vector3>& Mesh::getNormals() const {
@@ -50,6 +54,7 @@ const std::vector<Vector3>& Mesh::getNormals() const {
 void Mesh::setColors(const std::vector<Vector4>& colors) {
     m_colors = colors;
     m_DataDirty = true;
+    ++m_revision;
 }
 
 const std::vector<Vector4>& Mesh::getColors() const {
@@ -65,7 +70,11 @@ size_t Mesh::getIndexCount() const {
 }
 
 void Mesh::setDrawMode(PrimitiveType mode) {
-    m_drawMode = mode;
+    if (m_drawMode != mode) {
+        m_drawMode = mode;
+        m_DataDirty = true;
+        ++m_revision;
+    }
 }
 
 PrimitiveType Mesh::getDrawMode() const {
@@ -80,12 +89,18 @@ bool Mesh::isDataDirty() const {
     return m_DataDirty;
 }
 
+uint64_t Mesh::getRevision() const {
+    return m_revision;
+}
+
 void Mesh::clear() {
     m_vertices.clear();
     m_colors.clear();
     m_uvs.clear();
     m_normals.clear();
     m_indices.clear();
+    m_DataDirty = true;
+    ++m_revision;
 }
 
 MeshSharedPtr Mesh::createQuad(float width, float height) {

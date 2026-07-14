@@ -51,7 +51,8 @@ private:
     /// 检查本帧可渲染列表是否与上一帧相同（增量合批判断）
     bool isRenderableListUnchanged() const;
 
-    static BatchCompatibilityKey createBatchKey(const std::shared_ptr<Material>& material);
+    static BatchCompatibilityKey createBatchKey(const std::shared_ptr<Material>& material,
+                                                 const std::shared_ptr<MeshFilter>& meshFilter);
 
     // SSBO 路径渲染
     void renderSSBOBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch);
@@ -59,6 +60,11 @@ private:
     // 标准路径渲染
     void renderStandardBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch,
                              Matrix4& projectionMatrix);
+
+    /// 安全 fallback：当前非 SSBO shader 的 per-object uniform 无法一次 draw 表达，
+    /// 因此保持批次顺序并逐对象提交，避免错误烘焙变换/圆角/透明度。
+    void renderNonSSBOFallback(std::shared_ptr<FrameState> frameState, RenderBatch& batch,
+                               Matrix4& projectionMatrix);
 
     // ---- 数据成员 ----
 
