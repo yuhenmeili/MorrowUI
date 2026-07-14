@@ -3,6 +3,33 @@ add_subdirectory(math)
 
 set(MORROW_LIB_NAME "morrow")
 
+set(MORROW_SHADER_DIR ${CMAKE_SOURCE_DIR}/assets/shaders)
+set(MORROW_SHADER_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
+file(GLOB MORROW_SHADER_FILES
+    ${MORROW_SHADER_DIR}/*.vert
+    ${MORROW_SHADER_DIR}/*.frag
+)
+
+add_custom_command(
+    OUTPUT
+    ${MORROW_SHADER_GENERATED_DIR}/EmbeddedShaders.h
+    ${MORROW_SHADER_GENERATED_DIR}/EmbeddedShaders.cpp
+    COMMAND ${CMAKE_COMMAND}
+    -DSHADER_DIR=${MORROW_SHADER_DIR}
+    -DOUTPUT_DIR=${MORROW_SHADER_GENERATED_DIR}
+    -P ${CMAKE_SOURCE_DIR}/cmake/EmbedShaders.cmake
+    DEPENDS
+    ${MORROW_SHADER_FILES}
+    ${CMAKE_SOURCE_DIR}/cmake/EmbedShaders.cmake
+    VERBATIM
+)
+
+add_custom_target(morrow_generate_embedded_shaders
+    DEPENDS
+    ${MORROW_SHADER_GENERATED_DIR}/EmbeddedShaders.h
+    ${MORROW_SHADER_GENERATED_DIR}/EmbeddedShaders.cpp
+)
+
 # 分别收集各个目录的源文件
 file(GLOB_RECURSE CORE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/core/*.cpp)
 file(GLOB_RECURSE EXTERN_SRC ${CMAKE_CURRENT_SOURCE_DIR}/extern/*.cpp)
@@ -146,9 +173,11 @@ set(MORROW_SRC
     ${FONTS_SRC}
     ${DEBUG_SRC}
     ${GLTF_SRC}
+    ${MORROW_SHADER_GENERATED_DIR}/EmbeddedShaders.cpp
 )
 
 add_library(${MORROW_LIB_NAME} STATIC ${MORROW_SRC})
+add_dependencies(${MORROW_LIB_NAME} morrow_generate_embedded_shaders)
 target_compile_definitions(${MORROW_LIB_NAME} PUBLIC ${MORROW_PUBLIC_DEFINES})
 if(MORROW_PLATFORM STREQUAL "Windows")
     target_link_directories(${MORROW_LIB_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/libs/GLFW)
@@ -170,5 +199,6 @@ target_include_directories(${MORROW_LIB_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/platform
     ${CMAKE_CURRENT_SOURCE_DIR}/debug
     ${CMAKE_CURRENT_SOURCE_DIR}/gltf
+    ${MORROW_SHADER_GENERATED_DIR}
     ${PLATFORM_INCLUDE_DIRS}
 )

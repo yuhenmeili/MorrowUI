@@ -5,7 +5,7 @@
 #include "Material.h"
 #include <algorithm>
 #include <cstring>
-
+#include "EmbeddedShaders.h"
 #include "GlobalObject.h"
 #include "MaterialUtil.h"
 
@@ -404,16 +404,34 @@ bool Material::isSSBOShader() const {
 }
 
 void Material::loadShader() {
-    std::string vertexShaderPath = "assets/shaders/" + m_shaderName + ".vert";
-    std::string fragmentShaderPath = "assets/shaders/" + m_shaderName + ".frag";
+    const std::string vertexShaderName = m_shaderName + ".vert";
+    const std::string fragmentShaderName = m_shaderName + ".frag";
+
+    // Packaged builds load shaders directly from the shared library.
+    if (embedded_shaders::get(vertexShaderName, m_vertexShaderResource) &&
+        embedded_shaders::get(fragmentShaderName, m_fragmentShaderResource)) {
+        return;
+        }
+
+    // Keep external files as a fallback for custom shaders and development.
+    const std::string vertexShaderPath = "assets/shaders/" + vertexShaderName;
+    const std::string fragmentShaderPath = "assets/shaders/" + fragmentShaderName;
 
     std::ifstream vertexShaderFile(vertexShaderPath);
-    m_vertexShaderResource = std::string((std::istreambuf_iterator<char>(vertexShaderFile)), std::istreambuf_iterator<char>());
-    vertexShaderFile.close();
-
     std::ifstream fragmentShaderFile(fragmentShaderPath);
-    m_fragmentShaderResource = std::string((std::istreambuf_iterator<char>(fragmentShaderFile)), std::istreambuf_iterator<char>());
-    fragmentShaderFile.close();
+    if (!vertexShaderFile || !fragmentShaderFile) {
+        LOG_E("Failed to load shader '{}' from embedded resources or assets/shaders", m_shaderName);
+        m_vertexShaderResource.clear();
+        m_fragmentShaderResource.clear();
+        return;
+    }
+
+    m_vertexShaderResource.assign(
+        std::istreambuf_iterator<char>(vertexShaderFile),
+        std::istreambuf_iterator<char>());
+    m_fragmentShaderResource.assign(
+        std::istreambuf_iterator<char>(fragmentShaderFile),
+        std::istreambuf_iterator<char>());
 }
 
 GPUProgramHandle* Material::buildShader(bool enableSSBO) {

@@ -1036,4 +1036,8 @@ Memory peak
 Visual correctness
 ```
 
+##最高优先级待实现
+1：静态单位 Quad + 实例数据
+2：资源前端统一使用ResourceHandle
+
 如果复杂方案不能在真实目标场景中产生可测量收益，应优先保留简单实现。
