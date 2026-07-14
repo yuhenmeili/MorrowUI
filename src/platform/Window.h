@@ -24,8 +24,8 @@ struct WindowInfo
     std::string name = "default";
     int32_t x = 0;
     int32_t y = 0;
-    int32_t width = 1280;
-    int32_t height = 960;
+    int32_t width = 1920;
+    int32_t height = 1080;
     int32_t samples = 1;
     int32_t alpha = 1.0f;
     //egl

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include "BatchBuilder.h"
 #include "BatchDataDefine.h"
 #include "renderer/BatchStatistics.h"
 
@@ -42,39 +43,13 @@ public:
     void clear();
 
 private:
-    // ---- 内部数据结构 ----
-
-    /// 单个可渲染项（收集阶段使用）
-    struct RenderableItem {
-        std::shared_ptr<Material> material;
-        std::shared_ptr<MeshFilter> meshFilter;
-        std::shared_ptr<Transform> transform;
-        int32_t displayLayer = 0;
-        uint32_t insertionIndex = 0;   // 保持同材质内的 Z-order 稳定
-
-        /// 用于增量检测：渲染对象、材质和层级均未变化才可复用批次结构
-        bool isSameRenderableAs(const RenderableItem& other) const {
-            return material.get() == other.material.get() &&
-                   meshFilter.get() == other.meshFilter.get() &&
-                   transform.get() == other.transform.get() &&
-                   displayLayer == other.displayLayer;
-        }
-    };
-
     // ---- 内部方法 ----
 
-    /// 从 m_renderables 构建 m_batches（排序 + 分组）
+    /// 调用纯逻辑 BatchBuilder，并将结果物化为带 GPU 资源的 RenderBatch
     void buildBatches(BatchStatistics& statistics);
-
-    /// 诊断相邻排序项为何不能进入同一批次
-    static BatchBreakReason getBreakReason(const RenderableItem& previous,
-                                           const RenderableItem& current);
 
     /// 检查本帧可渲染列表是否与上一帧相同（增量合批判断）
     bool isRenderableListUnchanged() const;
-
-    /// 计算用于排序/分组的材质键（shaderName + 首纹理指针）
-    static uint64_t computeMaterialKey(const std::shared_ptr<Material>& material);
 
     // SSBO 路径渲染
     void renderSSBOBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch);
@@ -85,9 +60,10 @@ private:
 
     // ---- 数据成员 ----
 
-    std::vector<RenderableItem> m_renderables;       // 本帧收集
-    std::vector<RenderableItem> m_prevRenderables;    // 上一帧（增量比对）
+    std::vector<RenderItem> m_renderables;            // 本帧收集
+    std::vector<RenderItem> m_prevRenderables;        // 上一帧（增量比对）
     std::vector<RenderBatch> m_batches;               // 构建的批次
+    BatchBuilder m_batchBuilder;
     bool m_batchesDirty = true;                       // 本帧是否需要重建批次
     uint32_t m_insertionCounter = 0;                  // 插入序号（每帧重置）
 

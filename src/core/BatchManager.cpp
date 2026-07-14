@@ -4,8 +4,6 @@
 
 #include "BatchManager.h"
 
-#include <algorithm>
-
 #include "BatchDataDefine.h"
 #include "Material.h"
 #include "OrthographicCamera.h"
@@ -31,7 +29,7 @@ BatchManager::BatchManager() {
 void BatchManager::addRenderable(std::shared_ptr<Material> material,
                                   std::shared_ptr<MeshFilter> meshFilter,
                                   std::shared_ptr<Transform> transform) {
-    RenderableItem item;
+    RenderItem item;
     item.material = std::move(material);
     item.meshFilter = std::move(meshFilter);
     item.transform = std::move(transform);
@@ -104,31 +102,6 @@ void BatchManager::clear() {
 // 内部实现
 // ===================================================================
 
-uint64_t BatchManager::computeMaterialKey(const std::shared_ptr<Material>& material) {
-    if (!material) return 0ull;
-
-    // 组合 shader 名称哈希 + 主纹理指针作为排序键。
-    // 注意：这只是排序用的粗粒度 key，真正合批仍须调用 Material::isEqual。
-    // 同一 shader + 同一纹理 = 可合批
-    uint64_t shaderHash = std::hash<std::string>{}(material->getShaderName());
-    uint64_t texPtr = 0ull;
-    auto tex = material->getTexture("texture");
-    if (!tex) {
-        tex = material->getTexture("u_texture");
-    }
-    if (!tex) {
-        tex = material->getTexture("mainTexture");
-    }
-    if (!tex) {
-        tex = material->getTexture("diffuseMap");
-    }
-    if (tex) {
-        texPtr = reinterpret_cast<uint64_t>(tex.get());
-    }
-
-    return shaderHash ^ (texPtr << 7);
-}
-
 bool BatchManager::isRenderableListUnchanged() const {
     if (m_batchesDirty) return false;
     if (m_renderables.size() != m_prevRenderables.size()) return false;
@@ -141,81 +114,29 @@ bool BatchManager::isRenderableListUnchanged() const {
     return true;
 }
 
-BatchBreakReason BatchManager::getBreakReason(const RenderableItem& previous,
-                                               const RenderableItem& current) {
-    if (previous.displayLayer != current.displayLayer) {
-        return BatchBreakReason::DisplayLayer;
-    }
-    if (previous.material->getShaderName() != current.material->getShaderName()) {
-        return BatchBreakReason::Shader;
-    }
-    if (computeMaterialKey(previous.material) != computeMaterialKey(current.material)) {
-        return BatchBreakReason::Texture;
-    }
-    if (!previous.material->isEqual(current.material)) {
-        return BatchBreakReason::MaterialState;
-    }
-    return BatchBreakReason::OrderBarrier;
-}
-
 void BatchManager::buildBatches(BatchStatistics& statistics) {
-    // 归还旧批次（buildBatches 前确保池中批次被回收）
     RenderBatchPool::getInstance().releaseAll(m_batches);
-
     if (m_renderables.empty()) return;
 
-    // ---- 步骤 1：按 (displayLayer, materialKey, insertionIndex) 排序 ----
-    // displayLayer 为主排序键（保证跨层 Z-order 正确）
-    // materialKey 为次排序键（将同材质聚拢以最大化合批）
-    // insertionIndex 为第三排序键（保持同材质内的 Z-order 稳定）
-    // 不要直接排序 m_renderables：它还要按 Widget 遍历顺序与下一帧比较。
-    // 若原地排序，材质交错场景会导致增量检查每帧都误判为变化。
-    auto sortedRenderables = m_renderables;
-    std::stable_sort(sortedRenderables.begin(), sortedRenderables.end(),
-        [](const RenderableItem& a, const RenderableItem& b) {
-            if (a.displayLayer != b.displayLayer) {
-                return a.displayLayer < b.displayLayer;
-            }
-            uint64_t keyA = computeMaterialKey(a.material);
-            uint64_t keyB = computeMaterialKey(b.material);
-            if (keyA != keyB) {
-                return keyA < keyB;
-            }
-            return a.insertionIndex < b.insertionIndex;
-        });
+    const BatchBuildResult result = m_batchBuilder.build(m_renderables);
+    for (const auto reason : result.breakReasons) {
+        statistics.recordBreak(reason);
+    }
 
-    // ---- 步骤 2：将连续同材质项合并为批次 ----
-    uint64_t currentKey = 0;
-    const RenderableItem* previousItem = nullptr;
-    for (auto& item : sortedRenderables) {
-        uint64_t itemKey = computeMaterialKey(item.material);
-
-        // 尝试合并到最后一个批次
-        if (!m_batches.empty()) {
-            auto& lastBatch = m_batches.back();
-            if (!lastBatch.materials.empty() &&
-                currentKey == itemKey &&
-                lastBatch.materials.front()->isEqual(item.material)) {
-                lastBatch.materials.emplace_back(item.material);
-                lastBatch.meshFilters.emplace_back(item.meshFilter);
-                lastBatch.transforms.emplace_back(item.transform);
-                previousItem = &item;
-                continue;
-            }
-        }
-
-        // 新建批次（从对象池获取）
-        if (previousItem) {
-            statistics.recordBreak(getBreakReason(*previousItem, item));
-        }
-        currentKey = itemKey;
+    m_batches.reserve(result.groups.size());
+    for (const auto& group : result.groups) {
+        if (group.itemIndices.empty()) continue;
+        const auto& firstItem = m_renderables[group.itemIndices.front()];
         RenderBatch newBatch = RenderBatchPool::getInstance().acquire(
-            item.material->getShaderName(), item.material->isSSBOShader());
-        newBatch.materials.emplace_back(item.material);
-        newBatch.meshFilters.emplace_back(item.meshFilter);
-        newBatch.transforms.emplace_back(item.transform);
+            firstItem.material->getShaderName(), firstItem.material->isSSBOShader());
+
+        for (const uint32_t itemIndex : group.itemIndices) {
+            const auto& item = m_renderables[itemIndex];
+            newBatch.materials.emplace_back(item.material);
+            newBatch.meshFilters.emplace_back(item.meshFilter);
+            newBatch.transforms.emplace_back(item.transform);
+        }
         m_batches.emplace_back(std::move(newBatch));
-        previousItem = &item;
     }
 
     m_batchesDirty = false;

@@ -908,33 +908,68 @@ DebugPlane::update()
 - 能区分“未形成批次”和“已形成批次但因 SSBO 不可用而退化”。
 - MinGW 配置下 `ImageDemo` 编译通过。
 
-#### P0.2 — 抽离可测试的 BatchBuilder
+#### P0.2 — 抽离可测试的 BatchBuilder ✅ 已完成
 
-当前 `BatchManager` 同时承担收集、排序、兼容性判断、对象池、SSBO 更新和 Draw 提交。建议先把
-不依赖 GPU Context 的纯逻辑抽离：
+已新增：
+
+```text
+src/core/BatchBuilder.h
+src/core/BatchBuilder.cpp
+```
+
+并将不依赖 GPU Context 的分组逻辑从 `BatchManager` 抽离：
 
 ```cpp
 class BatchBuilder {
 public:
     BatchBuildResult build(
-        Span<const RenderItem> items,
+        const std::vector<RenderItem>& items,
         const BatchBuildOptions& options);
 };
 ```
 
-职责边界：
+当前职责边界：
 
 - `BatchManager`：每帧收集、缓存管理、调用 BatchBuilder、执行 GPU 提交。
-- `BatchBuilder`：保持顺序、计算断批点、生成 Batch 描述和统计。
+- `BatchBuilder`：保持 painter's order、计算断批点、生成只包含 item index 的 BatchGroup。
 - `BatchExecutor`（可后续抽离）：SSBO/标准路径的实际资源更新与 Draw。
 
-`BatchBuildResult` 不应持有临时栈内存，建议包含稳定的 item index/range、BatchKey 和 break reason。
+`BatchBuildResult` 当前包含：
 
-**验收标准**：
+```cpp
+struct BatchGroup {
+    std::vector<uint32_t> itemIndices;
+};
+
+struct BatchBuildResult {
+    std::vector<BatchGroup> groups;
+    std::vector<BatchBreakReason> breakReasons;
+};
+```
+
+构建结果只引用输入列表的稳定 index，不持有临时栈内存，也不创建 `VertexArray`、SSBO 或其他 GPU
+对象。`BatchManager` 根据 group 结果从 `RenderBatchPool` 物化实际 RenderBatch。
+
+P0.2 同时修正了原有的透明 UI 顺序风险：
+
+```text
+旧行为：同 displayLayer 内按 materialKey 全局重排
+新行为：严格保持 Widget 遍历/painter's order，只合并连续兼容项
+```
+
+因此 `A → B → A` 默认保持三个顺序批次，不会为了减少 Draw Call 被重排为 `A+A → B`；
+连续的 10 个同材质 Image 仍可形成一个批次。
+
+`BatchBuildOptions::preservePainterOrder` 已预留，后续只有在 P1 能明确证明 opaque/non-overlap
+或显式声明 reorderable 时，才扩展安全重排策略。
+
+**已完成验收**：
 
 - BatchBuilder 不创建 OpenGL Context、不调用 `RENDERINGTHREAD`。
-- 可以通过普通单元测试输入 RenderItem 列表并断言批次结果。
+- BatchBuilder 不依赖 Window、FrameState、RenderBatchPool、VertexArray、SSBO。
+- 可以通过普通单元测试输入 RenderItem 列表并断言 group 和 break reason。
 - 默认保持 painter's order，不在没有显式证明时跨元素重排。
+- `ImageDemo` 在 MinGW 配置下编译通过。
 
 #### P0.3 — 最小自动测试
 
