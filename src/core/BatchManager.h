@@ -4,9 +4,9 @@
 
 #ifndef BATCHMANAGER_H
 #define BATCHMANAGER_H
+#include <cstdint>
 #include <memory>
 #include <vector>
-#include <unordered_map>
 #include "BatchDataDefine.h"
 
 namespace morrow {
@@ -51,9 +51,12 @@ private:
         int32_t displayLayer = 0;
         uint32_t insertionIndex = 0;   // 保持同材质内的 Z-order 稳定
 
-        /// 用于增量检测：与上一帧同位置项比较
-        bool isSameMaterialAs(const RenderableItem& other) const {
-            return material.get() == other.material.get();
+        /// 用于增量检测：渲染对象、材质和层级均未变化才可复用批次结构
+        bool isSameRenderableAs(const RenderableItem& other) const {
+            return material.get() == other.material.get() &&
+                   meshFilter.get() == other.meshFilter.get() &&
+                   transform.get() == other.transform.get() &&
+                   displayLayer == other.displayLayer;
         }
     };
 

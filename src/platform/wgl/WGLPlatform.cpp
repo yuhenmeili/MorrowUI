@@ -35,6 +35,7 @@ bool WGLPlatform::beginFrame(FrameStateSharedPtr frameState) {
 }
 
 void WGLPlatform::beginRenderPass(FrameStateSharedPtr frameState) {
+    frameState->isSSBOSupport = m_isSSBOSupport;
     m_window->beginRenderPass(frameState);
 }
 

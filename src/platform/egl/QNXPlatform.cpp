@@ -44,6 +44,7 @@ bool QNXPlatform::beginFrame(FrameStateSharedPtr frameState) {
 }
 
 void QNXPlatform::beginRenderPass(FrameStateSharedPtr frameState) {
+    frameState->isSSBOSupport = m_isSSBOSupport;
     m_window->beginRenderPass(frameState);
 }
 
@@ -72,4 +73,3 @@ ESContextSharedPtr QNXPlatform::getContext() {
     return m_egl->getContext();
 }
 } // morrow
-

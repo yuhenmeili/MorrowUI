@@ -78,8 +78,6 @@ void BatchManager::renderBatches(std::shared_ptr<FrameState> frameState) {
 // 清空：归还批次池，交换可渲染列表以支持增量比对
 // ---------------------------------------------------------------------------
 void BatchManager::clear() {
-    RenderBatchPool::getInstance().releaseAll(m_batches);
-
     // 保留本帧可渲染列表用于下一帧增量比对
     m_prevRenderables.swap(m_renderables);
     m_renderables.clear();
@@ -94,11 +92,18 @@ void BatchManager::clear() {
 uint64_t BatchManager::computeMaterialKey(const std::shared_ptr<Material>& material) {
     if (!material) return 0ull;
 
-    // 组合 shader 名称哈希 + 首纹理指针作为材质键
+    // 组合 shader 名称哈希 + 主纹理指针作为排序键。
+    // 注意：这只是排序用的粗粒度 key，真正合批仍须调用 Material::isEqual。
     // 同一 shader + 同一纹理 = 可合批
     uint64_t shaderHash = std::hash<std::string>{}(material->getShaderName());
     uint64_t texPtr = 0ull;
-    auto tex = material->getTexture("mainTexture");
+    auto tex = material->getTexture("texture");
+    if (!tex) {
+        tex = material->getTexture("u_texture");
+    }
+    if (!tex) {
+        tex = material->getTexture("mainTexture");
+    }
     if (!tex) {
         tex = material->getTexture("diffuseMap");
     }
@@ -114,7 +119,7 @@ bool BatchManager::isRenderableListUnchanged() const {
     if (m_renderables.size() != m_prevRenderables.size()) return false;
 
     for (size_t i = 0; i < m_renderables.size(); ++i) {
-        if (!m_renderables[i].isSameMaterialAs(m_prevRenderables[i])) {
+        if (!m_renderables[i].isSameRenderableAs(m_prevRenderables[i])) {
             return false;
         }
     }
@@ -131,7 +136,10 @@ void BatchManager::buildBatches() {
     // displayLayer 为主排序键（保证跨层 Z-order 正确）
     // materialKey 为次排序键（将同材质聚拢以最大化合批）
     // insertionIndex 为第三排序键（保持同材质内的 Z-order 稳定）
-    std::stable_sort(m_renderables.begin(), m_renderables.end(),
+    // 不要直接排序 m_renderables：它还要按 Widget 遍历顺序与下一帧比较。
+    // 若原地排序，材质交错场景会导致增量检查每帧都误判为变化。
+    auto sortedRenderables = m_renderables;
+    std::stable_sort(sortedRenderables.begin(), sortedRenderables.end(),
         [](const RenderableItem& a, const RenderableItem& b) {
             if (a.displayLayer != b.displayLayer) {
                 return a.displayLayer < b.displayLayer;
@@ -146,13 +154,15 @@ void BatchManager::buildBatches() {
 
     // ---- 步骤 2：将连续同材质项合并为批次 ----
     uint64_t currentKey = 0;
-    for (auto& item : m_renderables) {
+    for (auto& item : sortedRenderables) {
         uint64_t itemKey = computeMaterialKey(item.material);
 
         // 尝试合并到最后一个批次
         if (!m_batches.empty()) {
             auto& lastBatch = m_batches.back();
-            if (!lastBatch.materials.empty() && currentKey == itemKey) {
+            if (!lastBatch.materials.empty() &&
+                currentKey == itemKey &&
+                lastBatch.materials.front()->isEqual(item.material)) {
                 lastBatch.materials.emplace_back(item.material);
                 lastBatch.meshFilters.emplace_back(item.meshFilter);
                 lastBatch.transforms.emplace_back(item.transform);
