@@ -235,12 +235,17 @@ initialize() → [beginFrame() → dispatchEvents() → beginRenderPass() → up
 | `camera` | 正交相机（2D） |
 | `perspectiveCamera` | 透视相机（3D） |
 | `inputEventsManager` | 输入事件管理器 |
-| `batchManager` | 批处理管理器（每帧重建） |
+| `batchManager` | 当前 Window 的批处理管理器（跨帧持有；每帧清空收集列表，批次结构可增量复用） |
 | `ssboManager` | SSBO 管理器 |
 | `drawCallCount` | Draw Call 计数 |
 | `fps` | 实时帧率 |
+| `isSSBOSupport` | 平台探测后写入的 SSBO 能力标记；必须在合批提交前同步到 FrameState |
 | `scene3DPassContext` | 3D 场景渲染上下文 |
 | `callAfterRender` | 帧末延迟回调队列 |
+
+> **设计约束**：`FrameState` 当前同时包含时间、输入、相机、平台能力、渲染服务和调试计数，
+> 已逐渐成为“帧级服务定位器”。后续建议拆分为只读 `FrameContext`、渲染提交用
+> `RenderContext` 和统计用 `FrameMetrics`，并明确各字段在主线程/渲染线程上的所有权。
 
 ---
 
@@ -315,7 +320,9 @@ constructor → onAttach() → awake() → start() → [update() → lateUpdate(
 
 **文件**: `src/core/BatchManager.h`
 
-`BatchManager` 在每帧开始时创建（通过 `FrameState`），负责将多个 Widget 的渲染请求合并为最少次数的 Draw Call：
+`BatchManager` 由 `Window` 跨帧持有，并通过 `FrameState` 暴露给组件。每帧开始时调用
+`clear()` 轮换当前/上一帧的可渲染列表，但保留可复用的 `RenderBatch`；仅当渲染列表发生
+变化时重建批次。它负责在不破坏渲染顺序的前提下尽量减少 Draw Call：
 
 ```
 Widget::update() → MeshRenderer::update()
@@ -324,13 +331,64 @@ Widget::update() → MeshRenderer::update()
 
 BatchManager::renderBatches(frameState)
     → 增量检查：对比上一帧可渲染列表，未变化则复用批次结构
-    → 排序阶段：按 (displayLayer, materialKey, insertionIndex) 排序
-    → 合批阶段：连续同材质项合并为 RenderBatch
+    → 排序阶段：当前实现按 (displayLayer, materialKey, insertionIndex) 排序
+    → 合批阶段：materialKey 仅用于聚类，最终使用 Material::isEqual 校验兼容性
         → SSBO 路径（实例化渲染，单次 Draw Call）
-        → 标准路径（逐 Batch 绘制）
+        → 标准路径（批次内逐对象绘制，不能降低 Draw Call）
 ```
 
 **SSBO 路径**：利用 Shader Storage Buffer Object 实现实例化批量渲染，将所有同材质的 transform 数据写入 SSBO，一次 Draw Call 绘制所有实例。这是引擎高性能的关键设计。
+
+#### 合批正确性约束
+
+合批首先是一个**渲染顺序问题**，其次才是材质分组问题。当前实现需要遵守以下约束：
+
+1. **透明 UI 的 painter's order 不可任意重排**
+   大多数 UI 使用 Alpha Blend。即使两个控件 `displayLayer` 相同，只要它们的覆盖区域相交，
+   将 `A → B → A` 重排为 `A → A → B` 就可能改变最终像素。`displayLayer` 只能表达粗粒度层级，
+   不能证明同层控件可交换。
+
+2. **MaterialKey 不是 BatchKey**
+   当前 `materialKey` 只包含 shader 名和常见主纹理指针，适合排序，不足以证明材质完全兼容。
+   合批边界必须继续检查 Shader Variant、全部纹理、Blend/Depth/Cull/Scissor、RenderTarget 等状态。
+
+3. **增量复用需要版本号，而不只是对象地址**
+   Material、Mesh、裁剪状态可以在指针不变时原地修改。仅比较
+   `material/meshFilter/transform` 指针无法发现这类变化。推荐为 `Material`、`MeshFilter`、
+   `Widget render state` 增加单调递增的 revision，并把 revision 纳入批次签名。
+
+4. **能力必须由 Platform 显式传递**
+   `Platform::ensureRenderCapabilitiesInitialized()` 只更新平台成员；每帧还必须在
+   `Platform::beginRenderPass()` 中把 `m_isSSBOSupport` 写入 `FrameState`。否则会退化到标准路径，
+   出现“批次已形成但仍逐对象 draw”的现象。
+
+#### 推荐的安全合批模型
+
+建议将“全层材质排序”演进为 **RenderItem → 顺序段（segment）→ Batch**：
+
+```text
+Widget traversal
+    → RenderItem{orderKey, batchKey, bounds, clipId, barrierFlags, revisions}
+    → 按原始 painter's order 生成顺序段
+        · RenderTarget / Scissor / Stencil / Mask / 3D Pass 变化时强制断段
+        · 默认只合并连续且 BatchKey 相同的项目
+        · 仅当可证明不相交或声明 opaque/reorderable 时，才允许段内重排
+    → 生成 RenderBatch
+```
+
+`BatchKey` 至少应包含：
+
+```text
+pipeline/shaderVariant
+textures + samplers
+blend/depth/cull/colorMask
+renderTarget
+clip/scissor/stencil state
+vertex layout / primitive topology
+SSBO layout
+```
+
+这样能把“是否可重排”和“是否可合批”分成两个独立判断，避免为了减少 Draw Call 破坏 UI 视觉正确性。
 
 ---
 
@@ -471,9 +529,17 @@ Interaction::onTouch          ▼
 
 ## 七、提升建议
 
+> **章节定位**：本章是问题与技术债清单，不作为独立实施 Roadmap。新增或未完成事项必须先归入
+> 第九章 P0～P4 的某个阶段，再进入开发；避免第七章和第九章形成两套任务列表。
+>
+> 状态约定：
+> - ✅ 已完成
+> - 🚧 已纳入第九章，正在或等待分阶段实施
+> - 📌 独立技术债，尚未排期
+
 ### 7.1 架构层面
 
-**1. GlobalObject 服务定位器 → 依赖注入**
+**1. GlobalObject 服务定位器 → 依赖注入** 🚧 P2～P3
 
 当前 `GlobalObject` 是一个大而全的单例服务定位器，`Engine.cpp` 大量依赖它获取 FontManager、TextureManager、SSBOManager、RenderingThread。这导致：
 - 隐式依赖，单元测试困难
@@ -493,7 +559,7 @@ Interaction::onTouch          ▼
 
 Engine::render() 现为 7 步显式流水线：`beginFrame → dispatchEvents → preRender/Tween → beginRenderPass → updateWidgets → commitRenderPass → endFrame`
 
-**3. Window 继承 UIWidget 的合理性**
+**3. Window 继承 UIWidget 的合理性** 📌 独立技术债，建议在 P3 评估
 
 `Window` 继承自 `UIWidget`（从而间接继承 `Widget`），这带来便利但也让 Window 承担了双重角色。Window 本身不需要 Transform/MeshRenderer 等渲染组件。考虑改为 Widget 持有 Window 引用（组合优于继承），或让 Window 成为纯粹的渲染目标抽象。
 
@@ -510,24 +576,39 @@ Engine::render() 现为 7 步显式流水线：`beginFrame → dispatchEvents �
 
 新代码可按需依赖子接口以降低耦合；旧代码使用 `RenderDevice*` 不受影响。
 
-**5. BatchManager 不支持动态合批** ✅ 已完成
+**5. BatchManager 动态合批** 🚧 基础能力已完成，正确性与失效机制仍需完善
 
-~~当前合批策略是按 Material/Shader/Texture 严格分组，仅合并连续出现的同材质项。~~ 已实现两阶段优化：
+当前已具备：
 
-1. **Z-order 敏感的排序合批**：收集阶段仅记录可渲染项（含 `displayLayer`），渲染前按 `(displayLayer, materialKey, insertionIndex)` 排序后合并连续同材质项。同层内同材质自动归拢，大幅减少材质交错导致的冗余批次，同时保证跨层 Z-order 正确。
+1. **收集与构建分离**：Widget 遍历阶段只生成 `RenderableItem`，提交阶段统一构建批次。
+2. **跨帧批次复用**：渲染列表稳定时复用上一帧 `RenderBatch`，避免重复排序和分组。
+3. **SSBO 合批路径**：平台支持 SSBO 且批次包含多个实例时，可一次 Draw Call 绘制。
+4. **材质兼容性二次校验**：`materialKey` 只负责排序，最终通过 `Material::isEqual()` 决定是否合并。
 
-2. **增量合批**：帧间比较可渲染列表（材质指针 + 数量），未变化时直接复用上一帧的批次结构，跳过排序与分组阶段，降低 CPU 开销。
+仍需处理：
 
-- 基于纹理图集的动态图集打包（后续优化项）
-- ~~Z-order 敏感的合批重排~~ ✅
-- ~~增量合批（只重建变化的 batch）~~ ✅
+- **同层透明元素不可无条件按材质重排**。当前 `(displayLayer, materialKey)` 排序只适合明确允许
+  reorder 的内容；通用 UI 应默认保持 painter's order。
+- **增量检测缺少 revision**。材质参数、纹理、Mesh、Scissor 原地改变时，对象指针可能不变，
+  需要 `materialRevision / geometryRevision / renderStateRevision`。
+- **BatchKey 不完整**。应纳入 Pipeline、全部纹理/采样器、Blend/Depth/Cull、RenderTarget、
+  Clip/Stencil、VertexLayout 等状态。
+- **标准路径只是分组，不是真正合批**。不支持 SSBO 时仍逐对象 Draw，需要动态顶点/索引合并、
+  Multi-Draw 或实例化属性作为 fallback。
+- **动态图集**：为大量小图标、字体和静态图片提供稳定的纹理页，减少因纹理切换产生的批次。
 
-**6. 缺少 RenderGraph / Pass 抽象**
+**6. 缺少 RenderGraph / Pass 抽象** 🚧 P3
 
 当前渲染是顺序执行的（2D UI → 3D Scene → DebugPlane），缺少显式的渲染 Pass 图。引入 RenderGraph 可以：
 - 自动管理 RenderTarget/Attachment 生命周期
 - 自动进行 Barrier/依赖分析
 - 便于插入后处理 Pass（bloom、blur、color grading）
+
+建议不要一开始实现通用 DAG 编译器，而是分两步推进：
+
+1. 先引入轻量 `RenderPass` 描述：`name / target / viewport / clear / execute / dependencies`，
+   把 UI、3D、Debug、Offscreen 从 Window/Widget 中解耦。
+2. 当出现多个离屏目标和后处理链后，再增加资源别名、生命周期分析和自动排序。
 
 ### 7.3 UI 系统层面
 
@@ -543,11 +624,11 @@ Engine::render() 现为 7 步显式流水线：`beginFrame → dispatchEvents �
 **完整生命周期**：`constructor → onAttach → awake → start → [update → lateUpdate] × N → onDetach → onDestroy`
 `               `(setEnabled(true) → onEnable)   (setEnabled(false) → onDisable)`
 
-**8. Widget 缺少布局脏标记传播**
+**8. Widget 缺少布局脏标记传播** 🚧 P2
 
 Transform 有 `m_matrixDirty` 标记，但尺寸变化时缺少自动向父/子传播的脏标记机制。当前依赖逐帧全量更新，对于大型 UI 树可考虑增量更新。
 
-**9. 缺少样式系统**
+**9. 缺少样式系统** 📌 建议在 P2 基础完成后独立规划
 
 当前属性（颜色、字体、边距等）通过代码直接设置，没有类似 CSS/样式表的抽象层。对于车载 HMI 等需要换肤/主题切换的场景，建议增加：
 - 样式属性定义（color, font, padding, background 等）
@@ -557,7 +638,7 @@ Transform 有 `m_matrixDirty` 标记，但尺寸变化时缺少自动向父/子�
 
 ### 7.4 平台与工具层面
 
-**10. PlatformFactory 编译期耦合**
+**10. PlatformFactory 编译期耦合** 🚧 P3～P4
 
 当前通过 `#ifdef OPENGL_EGL / OPENGL_GLFW` 在编译期选择平台，导致：
 - 无法在同一构建中支持多后端
@@ -565,7 +646,7 @@ Transform 有 `m_matrixDirty` 标记，但尺寸变化时缺少自动向父/子�
 
 建议改为运行时注册机制或插件模式，或至少通过链接时选择（同一套接口的不同 .cpp 实现文件）。
 
-**11. 缺少性能分析基础设施**
+**11. 缺少性能分析基础设施** 🚧 P0 最小版，P4 完整版
 
 当前仅有 DebugPlane 的基础统计（FPS、DrawCall 数）。建议增加：
 - GPU 时间戳查询（`GL_TIMESTAMP` / `glQueryCounter`）
@@ -573,7 +654,7 @@ Transform 有 `m_matrixDirty` 标记，但尺寸变化时缺少自动向父/子�
 - 帧时间火焰图（主线程 + 渲染线程）
 - 内存使用追踪（纹理、VBO、CommandBuffer 占用）
 
-**12. 缺少单元测试和 CI**
+**12. 缺少单元测试和 CI** 🚧 P0 最小版，P4 完整版
 
 代码库中未发现测试框架。建议：
 - 引入 Google Test 或 Catch2
@@ -593,9 +674,356 @@ Transform 有 `m_matrixDirty` 标记，但尺寸变化时缺少自动向父/子�
 
 ~~`WGLPlatform` vs `QNXEGLPlatform`（不一致的命名风格）~~ → `QNXEGLPlatform` 已重命名为 `QNXPlatform`，与 `WGLPlatform` 统一使用 `<平台><后缀>` 风格。
 
-**15. 错误处理机制**
+**15. 错误处理机制** 🚧 P3～P4
 
 当前缺少统一的错误处理策略。OpenGL 调用失败时（如 shader 编译错误、纹理加载失败）通常只通过 LOG_E 输出日志。建议：
 - 定义 `Result<T, Error>` 类型
 - 关键路径（资源加载、shader 编译）返回可检查的错误
 - 提供降级渲染策略（如缺失纹理用纯色替代）
+
+---
+
+## 八、推荐目标架构
+
+### 8.1 模块边界
+
+建议逐步收敛为以下单向依赖：
+
+```text
+Application / Samples
+        ↓
+UI Runtime ─────→ Asset API
+        ↓              ↓
+Render World → Render Pipeline
+                       ↓
+                  RHI / RenderDevice
+                       ↓
+                    Platform
+```
+
+| 模块 | 只负责 | 不应负责 |
+|------|--------|----------|
+| **UI Runtime** | Widget、布局、输入、动画、样式、生成 RenderItem | 直接调用 GPU、管理 GL 对象 |
+| **Render World** | 不可变的帧快照、排序键、裁剪信息、资源句柄 | 修改 Widget 树 |
+| **Render Pipeline** | Pass 编排、批次构建、状态排序、提交 | 业务逻辑和输入分发 |
+| **RHI** | Buffer/Texture/Pipeline/Command/Sync 抽象 | UI 语义、字体语义 |
+| **Asset** | 加载、缓存、热更新、预算、异步上传 | 控制 Widget 生命周期 |
+| **Platform** | Window、Surface、Input、Context/Present | 合批策略 |
+
+核心原则是：**主线程提交不可变 RenderSnapshot，渲染线程只消费快照和资源句柄**。不要把
+`shared_ptr<Material/MeshFilter/Transform>` 直接跨线程当作长期渲染数据源，否则主线程修改对象时
+很难定义同步边界。
+
+### 8.2 建议的帧管线
+
+```text
+1. Input
+   poll → hit test → dispatch
+
+2. Simulation
+   preRender → Tween → Component::update → lateUpdate
+
+3. UI Resolve
+   style dirty → layout dirty → transform dirty → paint dirty
+
+4. Render Extraction
+   Widget tree → immutable RenderSnapshot
+
+5. Render Preparation
+   culling → clip resolve → segment → batch → pass list
+
+6. Submission
+   encode CommandBuffer → render thread → GPU
+
+7. Present & Metrics
+   present → fence/recycle → CPU/GPU metrics
+```
+
+`RenderSnapshot` 推荐使用 frame arena/线性分配器，以 handle/index 引用资源，帧完成后整体回收。
+这样既能降低 `shared_ptr` 原子引用计数开销，也能把“本帧渲染看到什么”固定下来。
+
+### 8.3 Dirty Flag 体系
+
+大型 UI 树不应永久依赖全量 `update()`。建议定义并向上/向下传播以下脏标记：
+
+| Dirty 类型 | 典型触发 | 传播方向 | 处理阶段 |
+|------------|----------|----------|----------|
+| `StyleDirty` | class/theme/state 变化 | 向子节点继承 | Style Resolve |
+| `LayoutDirty` | size/margin/text 变化 | 向父节点冒泡 | Layout |
+| `TransformDirty` | position/scale/parent matrix 变化 | 向子节点下传 | Transform |
+| `PaintDirty` | color/texture/UV/material 变化 | 当前节点 | Render Extraction |
+| `OrderDirty` | child/displayLayer 变化 | 当前容器 | Render Preparation |
+| `ClipDirty` | mask/scissor 变化 | 向子节点下传 | Clip Resolve |
+
+短期内仍可保留组件逐帧 `update()`，但布局、矩阵和批次重建应由 dirty/revision 驱动。
+
+### 8.4 资源与线程所有权
+
+建议明确三类对象：
+
+1. **CPU Asset**：图片、字体、Mesh 源数据，由 AssetManager 管理，可跨线程加载。
+2. **GPU Resource Handle**：只暴露稳定 ID/代数，不暴露后端指针；创建和销毁由渲染线程执行。
+3. **Frame Upload Data**：属于某个 frame slot，Fence 完成后统一回收。
+
+资源句柄推荐使用 `{index, generation}`，避免异步销毁后旧命令误用复用槽位。资源删除流程：
+
+```text
+main thread release
+    → enqueue destroy(handle, lastUsedFrame)
+    → render thread waits corresponding fence
+    → destroy backend object
+    → generation++
+```
+
+### 8.5 可观测性预算
+
+建议为每帧记录：
+
+- CPU：Input、Update、Layout、Extraction、BatchBuild、CommandEncode、RenderThread Execute
+- GPU：每个 Pass 的 timestamp
+- 数量：Widget、可见 Widget、RenderItem、Segment、Batch、Draw、Triangle、纹理切换
+- 内存：纹理/VBO/SSBO/FrameArena/CommandBuffer 当前值和峰值
+- 合批原因：`shader mismatch / texture mismatch / clip barrier / order barrier / capacity`
+
+仅统计 Draw Call 无法判断性能瓶颈。尤其应同时显示：
+
+```text
+RenderItems → Batches → DrawCalls
+batch cache hit rate
+command buffer used / capacity
+main thread lead frames
+```
+
+---
+
+## 九、分阶段演进路线
+
+### 9.1 章节使用原则
+
+后续开发以本章作为**唯一实施路线**：
+
+```text
+第九章：确定当前阶段、任务和验收标准
+    ↓
+第七章：确认任务要解决的现状问题与技术债
+    ↓
+第八章：确认模块边界、数据所有权和线程模型
+    ↓
+设计评审 → 实现 → 测试 → 验收
+```
+
+- 第七章负责回答“为什么要改”，但不能直接从中随意挑选任务开发。
+- 第八章负责回答“最终要改成什么样”，用于设计和 Code Review，不是一次性重构清单。
+- 第九章负责回答“现在先做什么”，所有新任务都应归入某个阶段并定义验收标准。
+- P0 先建立最小测试和可观测性基础；不能等到 P4 才开始测试。P4 的目标是把最小测试扩展为
+  完整 CI、压力测试、渲染回归和性能趋势系统。
+
+### 9.2 第七章事项与实施阶段映射
+
+| 第七章事项 | 实施阶段 | 说明 |
+|------------|----------|------|
+| GlobalObject → 依赖注入 | P2～P3 | 在 RenderSnapshot 和资源边界明确后逐步拆分 |
+| Window 改为组合关系 | P3 或独立重构 | 与 RenderPass/RenderTarget 抽象一起评估 |
+| BatchManager 动态合批完善 | P0～P1 | 先建立正确性基线，再完善 BatchKey/revision |
+| RenderGraph / Pass | P3 | 先做轻量 RenderPass，不直接实现通用 DAG |
+| Layout/Transform Dirty | P2 | 与增量 UI、RenderSnapshot 同步实施 |
+| 样式系统 | P2 后独立规划 | 不阻塞当前渲染正确性和线程边界治理 |
+| PlatformFactory 解耦 | P3～P4 | 与多后端构建和 CI 配套推进 |
+| 性能分析 | P0 最小版，P4 完整版 | P0 提供合批统计，P4 增加 CPU/GPU 时间线 |
+| 单元测试和 CI | P0 最小版，P4 完整版 | P0 覆盖 BatchBuilder，P4 覆盖全工程 |
+| 错误处理 | P3～P4 | 资源系统稳定后引入统一 Result/Error |
+
+### P0 — 正确性基线
+
+P0 的目标不是继续扩大优化范围，而是让当前合批系统**可观察、可测试、可回归**。
+
+#### P0.1 — BatchManager 可观测性
+
+增加帧级合批统计，建议至少包含：
+
+```cpp
+struct BatchStatistics {
+    uint32_t renderItemCount = 0;
+    uint32_t batchCount = 0;
+    uint32_t ssboBatchCount = 0;
+    uint32_t standardBatchCount = 0;
+    uint32_t drawCallCount = 0;
+    uint32_t cacheHitCount = 0;
+    uint32_t cacheMissCount = 0;
+};
+```
+
+增加断批原因：
+
+```cpp
+enum class BatchBreakReason {
+    None,
+    DisplayLayer,
+    Shader,
+    Texture,
+    BlendState,
+    ClipState,
+    RenderTarget,
+    Geometry,
+    OrderBarrier,
+    SSBONotSupported
+};
+```
+
+DebugPlane 或调试日志至少能够展示：
+
+```text
+Items: 12
+Batches: 2
+Draws: 2
+SSBO Batches: 2
+Batch Cache: Hit
+```
+
+**验收标准**：
+
+- `renderItemCount → batchCount → drawCallCount` 可以完整追踪。
+- 每个断批点可以输出明确原因，而不是只能看到最终 Draw Call 数。
+- 能区分“未形成批次”和“已形成批次但因 SSBO 不可用而退化”。
+
+#### P0.2 — 抽离可测试的 BatchBuilder
+
+当前 `BatchManager` 同时承担收集、排序、兼容性判断、对象池、SSBO 更新和 Draw 提交。建议先把
+不依赖 GPU Context 的纯逻辑抽离：
+
+```cpp
+class BatchBuilder {
+public:
+    BatchBuildResult build(
+        Span<const RenderItem> items,
+        const BatchBuildOptions& options);
+};
+```
+
+职责边界：
+
+- `BatchManager`：每帧收集、缓存管理、调用 BatchBuilder、执行 GPU 提交。
+- `BatchBuilder`：保持顺序、计算断批点、生成 Batch 描述和统计。
+- `BatchExecutor`（可后续抽离）：SSBO/标准路径的实际资源更新与 Draw。
+
+`BatchBuildResult` 不应持有临时栈内存，建议包含稳定的 item index/range、BatchKey 和 break reason。
+
+**验收标准**：
+
+- BatchBuilder 不创建 OpenGL Context、不调用 `RENDERINGTHREAD`。
+- 可以通过普通单元测试输入 RenderItem 列表并断言批次结果。
+- 默认保持 painter's order，不在没有显式证明时跨元素重排。
+
+#### P0.3 — 最小自动测试
+
+P0 即引入最小测试框架，不等待 P4。至少覆盖：
+
+| 场景 | 输入 | 预期 |
+|------|------|------|
+| 同材质同纹理 | 10 个 Image | 1 个可 SSBO 合批的 Batch |
+| 不同纹理 | texture A、texture B | 2 个 Batch，原因 `Texture` |
+| 材质交错 | A → B → A | 默认保持 3 个顺序 Batch，不重排为 A+A → B |
+| 不同 Blend | shader/texture 相同，Blend 不同 | 必须断批 |
+| 不同 Scissor/Clip | 材质相同，裁剪不同 | 必须断批 |
+| displayLayer 变化 | Widget 运行时换层 | 下一帧缓存失效并重建 |
+| 材质原地修改 | 指针不变、revision 变化 | 缓存失效（P1 revision 完成后启用） |
+| SSBO 关闭 | `isSSBOSupport=false` | 功能正确并记录标准路径退化 |
+
+单元测试只验证 BatchBuilder 的纯逻辑；透明重叠、裁剪和最终像素正确性由集成渲染测试覆盖。
+
+**验收标准**：
+
+- 测试可以在无窗口、无 GPU Context 环境运行。
+- 每次修改合批算法时都能自动发现顺序或兼容性回归。
+
+#### P0.4 — ImageDemo 集成验收
+
+将 `ImageDemo` 固化为集成基准之一：
+
+```text
+场景：
+10 个相同纹理 MRImage
+2 个 DebugPlane MRLabel
+
+支持 SSBO：
+Image Batch = 1 Draw
+Label Batch = 1 Draw
+Total = 2 Draws
+```
+
+建议增加可选的固定帧运行模式，而不是只能进入无限渲染循环，例如运行 3～5 帧后输出 JSON/日志：
+
+```json
+{
+  "renderItems": 12,
+  "batches": 2,
+  "ssboBatches": 2,
+  "drawCalls": 2
+}
+```
+
+同时增加以下集成场景：
+
+- 两张半透明图片重叠，验证重排前后像素一致。
+- 图片使用不同纹理，验证正确断批。
+- 动态修改 displayLayer/Texture/Blend，验证下一帧缓存失效。
+- 强制关闭 SSBO，验证标准路径画面正确且统计明确。
+
+**P0 总体验收标准**：
+
+- 优化前后像素结果一致。
+- 支持 SSBO 时 `ImageDemo` 稳定为预期 Draw Call。
+- 关闭 SSBO 时功能正确，并明确报告退化原因。
+- 批次缓存不会引用已回收对象。
+- BatchBuilder 具备无 GPU 单元测试。
+- 统计信息足以定位断批和缓存失效原因。
+
+### P1 — 安全合批与版本化
+
+- 引入完整 `BatchKey/PipelineStateKey`。
+- 为 Material、Mesh、Clip、RenderState 增加 revision。
+- 默认只合并连续项；为 opaque/non-overlap 内容提供显式 reorder 策略。
+- 非 SSBO 平台增加动态几何合并 fallback。
+
+**验收标准**：材质原地修改能够立即使缓存失效；透明重叠测试无视觉回归。
+
+### P2 — 增量 UI 与 RenderSnapshot
+
+- 增加 Style/Layout/Transform/Paint/Order/Clip Dirty Flag。
+- 将 Widget 遍历结果提取为不可变 `RenderSnapshot`。
+- 使用 frame arena 替代帧内大量小对象与 `shared_ptr` 拷贝。
+- 渲染线程不再解引用可变 Widget/Component。
+
+**验收标准**：静态 UI 的 Layout、Transform、BatchBuild 开销接近零；线程竞态边界可审计。
+
+### P3 — Pass 与资源系统
+
+- 引入轻量 RenderPass/RenderTarget 描述。
+- 建立异步 Asset Pipeline、GPU 上传队列、资源预算和 LRU。
+- 统一 GPU Handle、延迟销毁和设备丢失恢复策略。
+
+**验收标准**：UI/3D/Debug/Offscreen Pass 可独立启停；资源释放由 Fence 保证安全。
+
+### P4 — 工具链与质量门禁
+
+- 单元测试：Math、CommandBuffer、BatchKey、Dirty Propagation。
+- 渲染回归：离屏渲染 + golden image/perceptual diff。
+- 压力测试：RingBuffer 满载、资源反复创建销毁、窗口 resize、请求渲染模式。
+- CI 同时覆盖 MinGW/Windows 与 QNX 交叉编译配置。
+
+**验收标准**：每个合并请求自动执行编译、单测和关键渲染基准，并保存性能趋势。
+
+---
+
+## 十、架构不变量（开发检查清单）
+
+1. GPU API 只在拥有图形上下文的线程执行。
+2. 已提交的命令不得引用可能在执行前失效的栈内存或可变对象。
+3. 任何排序优化都必须先证明不会改变透明混合、裁剪、Stencil 和 RenderTarget 语义。
+4. BatchKey 相同是合批的必要条件；顺序可交换是重排的必要条件，两者不可混为一谈。
+5. 所有跨帧缓存必须有明确的 revision、失效条件和资源生命周期。
+6. `FrameState` 中的平台能力必须在使用前由 Platform 显式初始化。
+7. Widget 树只由主线程修改；渲染线程只消费不可变快照或命令。
+8. 每个固定容量缓冲区必须有峰值统计和可诊断的溢出策略，不能只依赖 Debug `assert`。
+9. 资源销毁必须晚于最后一次 GPU 使用，并通过 Fence/frame serial 证明。
+10. 性能优化必须同时提供正确性测试、性能指标和可回退路径。
