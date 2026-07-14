@@ -13,7 +13,6 @@ Mesh::~Mesh() = default;
 
 void Mesh::setVertices(const std::vector<Vector3>& vertices) {
     m_vertices = vertices;
-    m_DataDirty = true;
     ++m_revision;
 }
 
@@ -23,7 +22,6 @@ const std::vector<Vector3>& Mesh::getVertices() const {
 
 void Mesh::setIndices(const std::vector<int16_t>& indices) {
     m_indices = indices;
-    m_DataDirty = true;
     ++m_revision;
 }
 
@@ -33,7 +31,6 @@ const std::vector<int16_t>& Mesh::getIndices() const {
 
 void Mesh::setUVs(const std::vector<Vector2>& uvs) {
     m_uvs = uvs;
-    m_DataDirty = true;
     ++m_revision;
 }
 
@@ -43,7 +40,6 @@ const std::vector<Vector2>& Mesh::getUVs() const {
 
 void Mesh::setNormals(const std::vector<Vector3>& normals) {
     m_normals = normals;
-    m_DataDirty = true;
     ++m_revision;
 }
 
@@ -53,7 +49,6 @@ const std::vector<Vector3>& Mesh::getNormals() const {
 
 void Mesh::setColors(const std::vector<Vector4>& colors) {
     m_colors = colors;
-    m_DataDirty = true;
     ++m_revision;
 }
 
@@ -72,21 +67,12 @@ size_t Mesh::getIndexCount() const {
 void Mesh::setDrawMode(PrimitiveType mode) {
     if (m_drawMode != mode) {
         m_drawMode = mode;
-        m_DataDirty = true;
         ++m_revision;
     }
 }
 
 PrimitiveType Mesh::getDrawMode() const {
     return m_drawMode;
-}
-
-void Mesh::setDataDirty(bool dirty) {
-    m_DataDirty = dirty;
-}
-
-bool Mesh::isDataDirty() const {
-    return m_DataDirty;
 }
 
 uint64_t Mesh::getRevision() const {
@@ -99,7 +85,6 @@ void Mesh::clear() {
     m_uvs.clear();
     m_normals.clear();
     m_indices.clear();
-    m_DataDirty = true;
     ++m_revision;
 }
 

@@ -18,14 +18,60 @@ VertexArray::~VertexArray() {
     }
 }
 
+bool VertexArray::needsMeshUpload(
+    GPUProgram* program,
+    const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) const {
+    if (!m_vbo || m_uploadedProgram != program) return true;
+
+    size_t validMeshCount = 0;
+    for (const auto& meshFilter : meshFilters) {
+        if (meshFilter && meshFilter->getMesh()) {
+            ++validMeshCount;
+        }
+    }
+
+    if (validMeshCount != m_uploadedMeshes.size()) return true;
+
+    size_t uploadedIndex = 0;
+    for (const auto& meshFilter : meshFilters) {
+        if (!meshFilter) continue;
+        const auto& mesh = meshFilter->getMesh();
+        if (!mesh) continue;
+
+        const auto uploadedMesh = m_uploadedMeshes[uploadedIndex].mesh.lock();
+        if (uploadedMesh.get() != mesh.get() ||
+            m_uploadedMeshes[uploadedIndex].revision != mesh->getRevision()) {
+            return true;
+        }
+        ++uploadedIndex;
+    }
+    return false;
+}
+
+void VertexArray::recordUploadedMeshes(GPUProgram* program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) {
+    m_uploadedProgram = program;
+    m_uploadedMeshes.clear();
+    m_uploadedMeshes.reserve(meshFilters.size());
+    for (const auto& meshFilter : meshFilters) {
+        if (!meshFilter) continue;
+        const auto& mesh = meshFilter->getMesh();
+        if (!mesh) continue;
+        m_uploadedMeshes.push_back({mesh, mesh->getRevision()});
+    }
+}
+
 void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, GPUProgram* program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) {
+    (void)frameState;
+    if (!needsMeshUpload(program, meshFilters)) {
+        return;
+    }
+
     if (!m_vbo) {
         m_vbo = RENDERINGTHREAD->createVBO();
     }
     // 计算总的顶点数和索引数
     size_t totalVertexCount = 0;
     size_t totalIndexCount = 0;
-    bool isMeshDirty = false;
     // 确定哪些属性存在（检查所有mesh，确保一致性）
     bool hasColors = false;
     bool hasUVs = false;
@@ -38,20 +84,12 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, GPUPr
 
             totalVertexCount += mesh->getVertexCount();
             totalIndexCount += mesh->getIndexCount();
-            isMeshDirty = isMeshDirty || mesh->isDataDirty();
 
             hasColors = hasColors || !mesh->getColors().empty();
             hasUVs = hasUVs || !mesh->getUVs().empty();
             hasNormals = hasNormals || !mesh->getNormals().empty();
             drawMode = mesh->getDrawMode(); // 使用最后一个有效的mesh的绘制模式
-            frameState->callAfterRender.emplace_back([mesh]() {
-                mesh->setDataDirty(false);
-            });
         }
-    }
-    if (!isMeshDirty) {
-        // LOG_I("VertexArray data is not dirty, skip VBO update, meshFilters count: {}", meshFilters.size());
-        return;
     }
 
     // 从回收池获取或新建 VBOData（GPU Fence 完成后回池）
@@ -60,6 +98,7 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, GPUPr
     // 如果没有顶点数据，直接返回
     if (totalVertexCount == 0) {
         RENDERINGTHREAD->updateVBO(program, m_vbo, vboData);
+        recordUploadedMeshes(program, meshFilters);
         return;
     }
 
@@ -139,7 +178,8 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, GPUPr
         auto batchIdFloat = static_cast<float>(batchId);
         for (size_t i = 0; i < meshVertexCount; ++i) {
             memcpy(vboData->vertexData.data() + currentBatchOffset + i * sizeof(float),
-                   &batchIdFloat, sizeof(float));
+                   &batchIdFloat,
+                   sizeof(float));
         }
 
         // 复制颜色数据
@@ -152,7 +192,8 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, GPUPr
             Vector4 defaultColor(1.0f, 1.0f, 1.0f, 1.0f);
             for (size_t i = 0; i < meshVertexCount; ++i) {
                 memcpy(vboData->vertexData.data() + currentColorOffset + i * sizeof(Vector4),
-                       &defaultColor, sizeof(Vector4));
+                       &defaultColor,
+                       sizeof(Vector4));
             }
         }
 
@@ -166,7 +207,8 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, GPUPr
             Vector2 defaultUV(0.0f, 0.0f);
             for (size_t i = 0; i < meshVertexCount; ++i) {
                 memcpy(vboData->vertexData.data() + currentUVOffset + i * sizeof(Vector2),
-                       &defaultUV, sizeof(Vector2));
+                       &defaultUV,
+                       sizeof(Vector2));
             }
         }
 
@@ -180,7 +222,8 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, GPUPr
             Vector3 defaultNormal(0.0f, 1.0f, 0.0f);
             for (size_t i = 0; i < meshVertexCount; ++i) {
                 memcpy(vboData->vertexData.data() + currentNormalOffset + i * sizeof(Vector3),
-                       &defaultNormal, sizeof(Vector3));
+                       &defaultNormal,
+                       sizeof(Vector3));
             }
         }
 
@@ -199,6 +242,7 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, GPUPr
 
     // 更新VBO
     RENDERINGTHREAD->updateVBO(program, m_vbo, vboData);
+    recordUploadedMeshes(program, meshFilters);
 }
 
 

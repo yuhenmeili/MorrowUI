@@ -64,10 +64,6 @@ public:
 
     PrimitiveType getDrawMode() const;
 
-    void setDataDirty(bool dirty);
-
-    bool isDataDirty() const;
-
     uint64_t getRevision() const;
 
     void clear();
@@ -79,7 +75,6 @@ private:
     std::vector<Vector3> m_normals;
     std::vector<Vector4> m_colors;
     PrimitiveType m_drawMode = PrimitiveType::TRIANGLES;
-    bool m_DataDirty = true;
     uint64_t m_revision = 1;
 };
 

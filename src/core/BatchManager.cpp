@@ -18,7 +18,6 @@
 #include "base/Widget.h"
 
 namespace morrow {
-
 BatchManager::BatchManager() {
     m_ubo = std::make_shared<UniformBuffer>();
 }
@@ -27,8 +26,8 @@ BatchManager::BatchManager() {
 // 收集阶段：仅记录，不做合批
 // ---------------------------------------------------------------------------
 void BatchManager::addRenderable(std::shared_ptr<Material> material,
-                                  std::shared_ptr<MeshFilter> meshFilter,
-                                  std::shared_ptr<Transform> transform) {
+                                 std::shared_ptr<MeshFilter> meshFilter,
+                                 std::shared_ptr<Transform> transform) {
     RenderItem item;
     item.material = std::move(material);
     item.meshFilter = std::move(meshFilter);
@@ -109,15 +108,13 @@ void BatchManager::clear() {
 // 内部实现
 // ===================================================================
 
-BatchCompatibilityKey BatchManager::createBatchKey(
-    const std::shared_ptr<Material>& material,
-    const std::shared_ptr<MeshFilter>& meshFilter) {
+BatchCompatibilityKey BatchManager::createBatchKey(const std::shared_ptr<Material>& material, const std::shared_ptr<MeshFilter>& meshFilter) {
     BatchCompatibilityKey key;
     if (!material) return key;
 
     key.shaderName = material->getShaderName();
     key.shaderVariantHash = std::hash<std::string>{}(key.shaderName) ^
-        (static_cast<uint64_t>(material->isSSBOShader()) << 63);
+                            (static_cast<uint64_t>(material->isSSBOShader()) << 63);
     auto texture = material->getTexture("texture");
     if (!texture) texture = material->getTexture("u_texture");
     if (!texture) texture = material->getTexture("mainTexture");
@@ -130,8 +127,8 @@ BatchCompatibilityKey BatchManager::createBatchKey(
     key.materialStateHash = material->getBatchCompatibilityHash();
     key.textureSetHash = key.materialStateHash;
     key.ssboLayoutHash = material->isSSBOShader()
-        ? std::hash<std::string>{}(key.shaderName + "|ssbo")
-        : 0;
+                             ? std::hash<std::string>{}(key.shaderName + "|ssbo")
+                             : 0;
 
     if (meshFilter && meshFilter->getMesh()) {
         const auto& mesh = meshFilter->getMesh();
@@ -164,7 +161,8 @@ void BatchManager::buildBatches(BatchStatistics& statistics) {
         if (group.itemIndices.empty()) continue;
         const auto& firstItem = m_renderables[group.itemIndices.front()];
         RenderBatch newBatch = RenderBatchPool::getInstance().acquire(
-            firstItem.material->getShaderName(), firstItem.material->isSSBOShader());
+            firstItem.material->getShaderName(),
+            firstItem.material->isSSBOShader());
 
         for (const uint32_t itemIndex : group.itemIndices) {
             const auto& item = m_renderables[itemIndex];
@@ -196,8 +194,7 @@ void BatchManager::renderSSBOBatch(std::shared_ptr<FrameState> frameState, Rende
 // ---------------------------------------------------------------------------
 // 标准逐对象渲染路径
 // ---------------------------------------------------------------------------
-void BatchManager::renderStandardBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch,
-                                        Matrix4& projectionMatrix) {
+void BatchManager::renderStandardBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch, Matrix4& projectionMatrix) {
     for (size_t index = 0; index < batch.materials.size(); index++) {
         auto material = batch.materials[index];
         Matrix4 modelMatrix = batch.transforms[index]->getWorldMatrix();
@@ -210,8 +207,7 @@ void BatchManager::renderStandardBatch(std::shared_ptr<FrameState> frameState, R
 
         auto meshFilter = batch.meshFilters[index];
         auto meshRenderer = meshFilter->getComponent<MeshRenderer>();
-        meshRenderer->getVertexArray()->updateFromMeshes(
-            frameState, material->getShader(), {batch.meshFilters[index]});
+        meshRenderer->getVertexArray()->updateFromMeshes(frameState, material->getShader(), {batch.meshFilters[index]});
         if (batch.isSSBOShader) {
             m_ubo->bind(material->getShader());
         }
@@ -219,10 +215,7 @@ void BatchManager::renderStandardBatch(std::shared_ptr<FrameState> frameState, R
     }
 }
 
-void BatchManager::renderNonSSBOFallback(std::shared_ptr<FrameState> frameState,
-                                         RenderBatch& batch,
-                                         Matrix4& projectionMatrix) {
+void BatchManager::renderNonSSBOFallback(std::shared_ptr<FrameState> frameState, RenderBatch& batch, Matrix4& projectionMatrix) {
     renderStandardBatch(frameState, batch, projectionMatrix);
 }
-
 } // namespace morrow

@@ -51,33 +51,29 @@ private:
     /// 检查本帧可渲染列表是否与上一帧相同（增量合批判断）
     bool isRenderableListUnchanged() const;
 
-    static BatchCompatibilityKey createBatchKey(const std::shared_ptr<Material>& material,
-                                                 const std::shared_ptr<MeshFilter>& meshFilter);
+    static BatchCompatibilityKey createBatchKey(const std::shared_ptr<Material>& material,const std::shared_ptr<MeshFilter>& meshFilter);
 
     // SSBO 路径渲染
     void renderSSBOBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch);
 
     // 标准路径渲染
-    void renderStandardBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch,
-                             Matrix4& projectionMatrix);
+    void renderStandardBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch, Matrix4& projectionMatrix);
 
     /// 安全 fallback：当前非 SSBO shader 的 per-object uniform 无法一次 draw 表达，
     /// 因此保持批次顺序并逐对象提交，避免错误烘焙变换/圆角/透明度。
-    void renderNonSSBOFallback(std::shared_ptr<FrameState> frameState, RenderBatch& batch,
-                               Matrix4& projectionMatrix);
+    void renderNonSSBOFallback(std::shared_ptr<FrameState> frameState, RenderBatch& batch, Matrix4& projectionMatrix);
 
     // ---- 数据成员 ----
 
-    std::vector<RenderItem> m_renderables;            // 本帧收集
-    std::vector<RenderItem> m_prevRenderables;        // 上一帧（增量比对）
-    std::vector<RenderBatch> m_batches;               // 构建的批次
+    std::vector<RenderItem> m_renderables; // 本帧收集
+    std::vector<RenderItem> m_prevRenderables; // 上一帧（增量比对）
+    std::vector<RenderBatch> m_batches; // 构建的批次
     BatchBuilder m_batchBuilder;
-    bool m_batchesDirty = true;                       // 本帧是否需要重建批次
-    uint32_t m_insertionCounter = 0;                  // 插入序号（每帧重置）
+    bool m_batchesDirty = true; // 本帧是否需要重建批次
+    uint32_t m_insertionCounter = 0; // 插入序号（每帧重置）
 
     std::shared_ptr<UniformBuffer> m_ubo;
 };
-
 } // morrow
 
 #endif //BATCHMANAGER_H
