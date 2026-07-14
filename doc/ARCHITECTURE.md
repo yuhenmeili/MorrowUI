@@ -971,9 +971,24 @@ P0.2 同时修正了原有的透明 UI 顺序风险：
 - 默认保持 painter's order，不在没有显式证明时跨元素重排。
 - `ImageDemo` 在 MinGW 配置下编译通过。
 
-#### P0.3 — 最小自动测试
+#### P0.3 — 最小自动测试 ✅ 已完成
 
-P0 即引入最小测试框架，不等待 P4。至少覆盖：
+已在根 `CMakeLists.txt` 中接入 CTest，并新增：
+
+```text
+tests/BatchBuilderTests.cpp
+```
+
+测试目标：
+
+```text
+BatchBuilderTests
+```
+
+为保证测试不需要窗口和 GPU Context，`BatchBuilder` 已进一步收紧为只比较
+`BatchCompatibilityKey` 普通值；Material 状态快照由 `BatchManager` 收集阶段提取。
+
+当前覆盖：
 
 | 场景 | 输入 | 预期 |
 |------|------|------|
@@ -981,21 +996,49 @@ P0 即引入最小测试框架，不等待 P4。至少覆盖：
 | 不同纹理 | texture A、texture B | 2 个 Batch，原因 `Texture` |
 | 材质交错 | A → B → A | 默认保持 3 个顺序 Batch，不重排为 A+A → B |
 | 不同 Blend | shader/texture 相同，Blend 不同 | 必须断批 |
-| 不同 Scissor/Clip | 材质相同，裁剪不同 | 必须断批 |
+| 不同 Scissor/Clip | 材质相同，裁剪不同 | P1 引入完整 BatchKey 后补充 |
 | displayLayer 变化 | Widget 运行时换层 | 下一帧缓存失效并重建 |
 | 材质原地修改 | 指针不变、revision 变化 | 缓存失效（P1 revision 完成后启用） |
 | SSBO 关闭 | `isSSBOSupport=false` | 功能正确并记录标准路径退化 |
 
-单元测试只验证 BatchBuilder 的纯逻辑；透明重叠、裁剪和最终像素正确性由集成渲染测试覆盖。
+当前已经自动覆盖同材质、不同纹理、A→B→A painter's order、不同 Blend 状态和不同
+displayLayer。材质 revision、Scissor/Clip 测试依赖 P1 的完整 BatchKey/revision。
 
-**验收标准**：
+运行方式：
+
+```powershell
+cmake --build cmake-build-debug-mingw --target BatchBuilderTests
+cmake --build cmake-build-debug-mingw --target test
+```
+
+**已完成验收**：
 
 - 测试可以在无窗口、无 GPU Context 环境运行。
 - 每次修改合批算法时都能自动发现顺序或兼容性回归。
+- 当前 CTest 结果：`1/1 BatchBuilderTests Passed`。
 
-#### P0.4 — ImageDemo 集成验收
+#### P0.4 — ImageDemo 集成验收 ✅ 已完成
 
-将 `ImageDemo` 固化为集成基准之一：
+`EngineOptions` 已新增：
+
+```cpp
+uint32_t maxFrames = 0; // 0 表示运行到窗口关闭
+```
+
+`Engine` 已提供只读帧状态访问：
+
+```cpp
+FrameStateSharedPtr getFrameState() const;
+```
+
+`ImageDemo` 支持：
+
+```text
+--frames N       固定运行 N 帧
+--report-json    输出机器可读统计；未指定 frames 时默认运行 5 帧
+```
+
+当前集成基准：
 
 ```text
 场景：
@@ -1008,18 +1051,40 @@ Label Batch = 1 Draw
 Total = 2 Draws
 ```
 
-建议增加可选的固定帧运行模式，而不是只能进入无限渲染循环，例如运行 3～5 帧后输出 JSON/日志：
+运行命令：
+
+```powershell
+.\cmake-build-debug-mingw\ImageDemo.exe --frames 5 --report-json
+```
+
+实际输出：
 
 ```json
 {
   "renderItems": 12,
   "batches": 2,
   "ssboBatches": 2,
-  "drawCalls": 2
+  "standardBatches": 0,
+  "batchDrawCalls": 2,
+  "drawCalls": 2,
+  "cacheHits": 1,
+  "cacheMisses": 0,
+  "ssboSupported": true
 }
 ```
 
-同时增加以下集成场景：
+当平台支持 SSBO 时，ImageDemo 会自动校验：
+
+```text
+renderItems == 12
+batches == 2
+ssboBatches == 2
+drawCalls == 2
+```
+
+不满足时返回退出码 `2`，可直接供 CI 使用。
+
+后续仍需增加以下像素级集成场景：
 
 - 两张半透明图片重叠，验证重排前后像素一致。
 - 图片使用不同纹理，验证正确断批。
@@ -1034,6 +1099,7 @@ Total = 2 Draws
 - 批次缓存不会引用已回收对象。
 - BatchBuilder 具备无 GPU 单元测试。
 - 统计信息足以定位断批和缓存失效原因。
+- 固定帧 ImageDemo 验收已通过：12 Items、2 Batches、2 Draw Calls。
 
 ### P1 — 安全合批与版本化
 

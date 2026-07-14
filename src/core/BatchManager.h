@@ -51,6 +51,8 @@ private:
     /// 检查本帧可渲染列表是否与上一帧相同（增量合批判断）
     bool isRenderableListUnchanged() const;
 
+    static BatchCompatibilityKey createBatchKey(const std::shared_ptr<Material>& material);
+
     // SSBO 路径渲染
     void renderSSBOBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch);
 

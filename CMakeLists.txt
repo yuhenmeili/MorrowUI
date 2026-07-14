@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(morrow.gui)
 
+include(CTest)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "QNX")
     set(MORROW_PLATFORM "QNX")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -62,3 +64,12 @@ foreach(FILE_PATH ${DEMO_LIST})
         COMMENT "Copying assets to $<TARGET_FILE_DIR:${FILE_NAME}>/assets"
     )
 endforeach()
+
+if(BUILD_TESTING)
+    add_executable(BatchBuilderTests
+        tests/BatchBuilderTests.cpp
+        src/core/BatchBuilder.cpp)
+    target_include_directories(BatchBuilderTests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME BatchBuilderTests COMMAND BatchBuilderTests)
+endif()

@@ -348,6 +348,29 @@ bool Material::operator==(const Material& other) const {
     return true;
 }
 
+uint64_t Material::getBatchCompatibilityHash() const {
+    auto hashCombine = [](uint64_t seed, uint64_t value) {
+        return seed ^ (value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2));
+    };
+
+    uint64_t hash = std::hash<std::string>{}(m_shaderName);
+    hash = hashCombine(hash, static_cast<uint64_t>(m_blendEnabled));
+    hash = hashCombine(hash, static_cast<uint64_t>(static_cast<uint32_t>(m_srcBlendFactor)));
+    hash = hashCombine(hash, static_cast<uint64_t>(static_cast<uint32_t>(m_dstBlendFactor)));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_doubleSided));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_textureMap.size()));
+
+    // unordered_map iteration order is not stable, so fold each entry independently.
+    uint64_t textureHash = 0;
+    for (const auto& [name, texture] : m_textureMap) {
+        uint64_t entryHash = std::hash<std::string>{}(name);
+        entryHash = hashCombine(entryHash,
+            static_cast<uint64_t>(reinterpret_cast<uintptr_t>(texture.get())));
+        textureHash ^= entryHash;
+    }
+    return hashCombine(hash, textureHash);
+}
+
 bool Material::isSSBOShader() const {
     return m_vertexShaderResource.find("ENABLE_SSBO") != std::string::npos;
 }

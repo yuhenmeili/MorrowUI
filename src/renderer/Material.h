@@ -114,6 +114,9 @@ public:
 
     bool operator==(const Material& other) const;
 
+    /// CPU-only batch compatibility fingerprint. Does not create or access GPU resources.
+    uint64_t getBatchCompatibilityHash() const;
+
     bool isSSBOShader() const;
 
 private:

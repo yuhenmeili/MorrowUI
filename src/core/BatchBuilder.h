@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "renderer/BatchStatistics.h"
@@ -13,10 +14,31 @@ class Material;
 class MeshFilter;
 class Transform;
 
+struct BatchCompatibilityKey {
+    std::string shaderName;
+    const void* primaryTexture = nullptr;
+    bool blendEnabled = true;
+    int32_t srcBlendFactor = 0;
+    int32_t dstBlendFactor = 0;
+    bool doubleSided = false;
+    uint64_t materialStateHash = 0;
+
+    bool operator==(const BatchCompatibilityKey& other) const {
+        return shaderName == other.shaderName &&
+               primaryTexture == other.primaryTexture &&
+               blendEnabled == other.blendEnabled &&
+               srcBlendFactor == other.srcBlendFactor &&
+               dstBlendFactor == other.dstBlendFactor &&
+               doubleSided == other.doubleSided &&
+               materialStateHash == other.materialStateHash;
+    }
+};
+
 struct RenderItem {
     std::shared_ptr<Material> material;
     std::shared_ptr<MeshFilter> meshFilter;
     std::shared_ptr<Transform> transform;
+    BatchCompatibilityKey batchKey;
     int32_t displayLayer = 0;
     uint32_t insertionIndex = 0;
 
@@ -52,7 +74,6 @@ private:
     static bool canBatch(const RenderItem& previous, const RenderItem& current);
     static BatchBreakReason getBreakReason(const RenderItem& previous,
                                            const RenderItem& current);
-    static const void* getPrimaryTextureIdentity(const std::shared_ptr<Material>& material);
 };
 
 } // namespace morrow

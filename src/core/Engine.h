@@ -16,6 +16,7 @@ struct EngineOptions {
     bool multithread = true;
     bool enableRequestRender = false;
     int32_t samples = 1;
+    uint32_t maxFrames = 0; // 0 = run until the platform window closes
     WindowInfo windowInfo = {};
 };
 
@@ -27,6 +28,8 @@ public:
     virtual ~Engine();
 
     [[nodiscard]] WindowSharedPtr getWindow() const;
+
+    [[nodiscard]] FrameStateSharedPtr getFrameState() const;
 
     void addFonts(const std::vector<FontInfo>& fontsUrl);
 
@@ -58,6 +61,7 @@ private:
     //manager
     FPSControllerPtr m_fpsController;
     bool m_requestRenderEnabled = false;
+    uint32_t m_maxFrames = 0;
 
     PlatformSharedPtr m_platform;
     std::shared_ptr<DebugPlane> m_debugPlane;

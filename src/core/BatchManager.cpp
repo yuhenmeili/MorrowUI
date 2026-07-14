@@ -33,6 +33,7 @@ void BatchManager::addRenderable(std::shared_ptr<Material> material,
     item.material = std::move(material);
     item.meshFilter = std::move(meshFilter);
     item.transform = std::move(transform);
+    item.batchKey = createBatchKey(item.material);
     item.insertionIndex = m_insertionCounter++;
 
     // 从 Widget 获取 displayLayer（-10 ~ 10）
@@ -101,6 +102,24 @@ void BatchManager::clear() {
 // ===================================================================
 // 内部实现
 // ===================================================================
+
+BatchCompatibilityKey BatchManager::createBatchKey(const std::shared_ptr<Material>& material) {
+    BatchCompatibilityKey key;
+    if (!material) return key;
+
+    key.shaderName = material->getShaderName();
+    auto texture = material->getTexture("texture");
+    if (!texture) texture = material->getTexture("u_texture");
+    if (!texture) texture = material->getTexture("mainTexture");
+    if (!texture) texture = material->getTexture("diffuseMap");
+    key.primaryTexture = texture.get();
+    key.blendEnabled = material->isBlendEnabled();
+    material->getBlendFunc(key.srcBlendFactor, key.dstBlendFactor);
+    key.doubleSided = material->isDoubleSided();
+
+    key.materialStateHash = material->getBatchCompatibilityHash();
+    return key;
+}
 
 bool BatchManager::isRenderableListUnchanged() const {
     if (m_batchesDirty) return false;

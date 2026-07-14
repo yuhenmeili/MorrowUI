@@ -1,41 +1,24 @@
 #include "BatchBuilder.h"
 
-#include "Material.h"
-
 namespace morrow {
 
-const void* BatchBuilder::getPrimaryTextureIdentity(const std::shared_ptr<Material>& material) {
-    if (!material) return nullptr;
-
-    auto texture = material->getTexture("texture");
-    if (!texture) texture = material->getTexture("u_texture");
-    if (!texture) texture = material->getTexture("mainTexture");
-    if (!texture) texture = material->getTexture("diffuseMap");
-    return texture.get();
-}
-
 bool BatchBuilder::canBatch(const RenderItem& previous, const RenderItem& current) {
-    if (!previous.material || !current.material) return false;
     if (previous.displayLayer != current.displayLayer) return false;
-    return previous.material->isEqual(current.material);
+    return previous.batchKey == current.batchKey;
 }
 
 BatchBreakReason BatchBuilder::getBreakReason(const RenderItem& previous,
                                               const RenderItem& current) {
-    if (!previous.material || !current.material) {
-        return BatchBreakReason::MaterialState;
-    }
     if (previous.displayLayer != current.displayLayer) {
         return BatchBreakReason::DisplayLayer;
     }
-    if (previous.material->getShaderName() != current.material->getShaderName()) {
+    if (previous.batchKey.shaderName != current.batchKey.shaderName) {
         return BatchBreakReason::Shader;
     }
-    if (getPrimaryTextureIdentity(previous.material) !=
-        getPrimaryTextureIdentity(current.material)) {
+    if (previous.batchKey.primaryTexture != current.batchKey.primaryTexture) {
         return BatchBreakReason::Texture;
     }
-    if (!previous.material->isEqual(current.material)) {
+    if (!(previous.batchKey == current.batchKey)) {
         return BatchBreakReason::MaterialState;
     }
     return BatchBreakReason::OrderBarrier;

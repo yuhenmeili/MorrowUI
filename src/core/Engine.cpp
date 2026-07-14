@@ -21,6 +21,7 @@ Engine::Engine(const EngineOptions& options) {
           options.enableRequestRender,
           windowInfo.samples);
     m_requestRenderEnabled = options.enableRequestRender;
+    m_maxFrames = options.maxFrames;
     m_platform = PlatformFactory::create(windowInfo);
     m_platform->initialize(options.multithread);
 
@@ -46,6 +47,10 @@ WindowSharedPtr Engine::getWindow() const {
     return m_platform ? m_platform->getWindow() : nullptr;
 }
 
+FrameStateSharedPtr Engine::getFrameState() const {
+    return m_frameState;
+}
+
 void Engine::addFonts(const std::vector<FontInfo>& fontsUrl) {
     GlobalObject::getInstance().getFontManager()->addFonts(fontsUrl);
 }
@@ -60,6 +65,7 @@ Observable<>& Engine::preRender() {
 
 void Engine::render() {
     m_lastHeartbeatTime = Math::getCurrentMonotonicTime();
+    uint32_t renderedFrameCount = 0;
     while (!m_platform->shouldClose()) {
         updateFrameState();
 
@@ -87,6 +93,10 @@ void Engine::render() {
         m_platform->endFrame();
 
         callAfterRenderFunctions();
+        ++renderedFrameCount;
+        if (m_maxFrames > 0 && renderedFrameCount >= m_maxFrames) {
+            break;
+        }
     }
 
     m_platform->terminate();
