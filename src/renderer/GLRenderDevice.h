@@ -18,9 +18,6 @@
 
 namespace morrow {
 
-// ── 前向声明内部 GL 类型（定义在 GLRenderDevice.cpp）──
-class GlTexture2D;
-
 // ---------------------------------------------------------------------------
 // GLRenderDevice – OpenGL/GLES 渲染后端的唯一公共类。
 // 持有 ResourceRegistry，负责 Handle ↔ GL 对象的映射。

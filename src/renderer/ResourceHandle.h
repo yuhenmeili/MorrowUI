@@ -15,7 +15,6 @@
 #include <functional>
 
 namespace morrow {
-
 #ifndef MORROW_HANDLE_GENERATION_CHECK
 #define MORROW_HANDLE_GENERATION_CHECK 0
 #endif
@@ -29,8 +28,11 @@ struct ResourceHandle {
 #endif
 
     bool isValid() const { return id != 0; }
+
     explicit operator bool() const { return id != 0; }
+
     bool operator==(ResourceHandle other) const { return id == other.id; }
+
     bool operator!=(ResourceHandle other) const { return id != other.id; }
 
     struct Hash {
@@ -40,11 +42,10 @@ struct ResourceHandle {
 
 // ── 各资源类型的 Handle 别名 ──
 
-using HwTexture2D    = ResourceHandle<struct Texture2DTag>;
-using HwVBO          = ResourceHandle<struct VBOTag>;
-using HwUBO          = ResourceHandle<struct UBOTag>;
-using HwSSBO         = ResourceHandle<struct SSBOTag>;
-using HwGPUProgram   = ResourceHandle<struct GPUProgramTag>;
+using HwTexture2D = ResourceHandle<struct Texture2DTag>;
+using HwVBO = ResourceHandle<struct VBOTag>;
+using HwUBO = ResourceHandle<struct UBOTag>;
+using HwSSBO = ResourceHandle<struct SSBOTag>;
+using HwGPUProgram = ResourceHandle<struct GPUProgramTag>;
 using HwRenderTarget = ResourceHandle<struct RenderTargetTag>;
-
 } // namespace morrow
