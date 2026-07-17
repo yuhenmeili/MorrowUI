@@ -8,13 +8,14 @@
 #include <memory>
 #include <string>
 
+#include "Texture.h"
 #include "base/BaseButton.h"
 
 namespace morrow {
-
 class MRButton : public BaseButton {
 public:
     static std::shared_ptr<MRButton> create();
+
     // 文本相关方法
     void setText(const std::wstring& text, const std::string& fontName);
 
@@ -23,6 +24,8 @@ public:
     void setTextColor(float r, float g, float b, float a);
 
     // 背景颜色相关方法
+    void setBackgroundImage(TextureSharedPtr texture);
+
     void setBackgroundColor(const Vector4& color);
 
     void setBackgroundColor(float r, float g, float b, float a);
@@ -55,6 +58,7 @@ public:
     Vector2 getPreferredSize() const;
 
     void update(FrameStateSharedPtr frameState) override;
+
 private:
     MRButton();
 
@@ -70,6 +74,10 @@ private:
 
 private:
     std::shared_ptr<MRLabel> m_label;
+
+    // 底图
+    TextureSharedPtr m_backgroundTexture;
+    bool m_hasBackgroundImage = false;
 
     // 颜色配置
     Vector4 m_backgroundColorNormal = Vector4(0.2f, 0.4f, 0.8f, 1.0f); // 蓝色

@@ -28,6 +28,11 @@ int main()
 
     auto button1 = MRButton::create();
     button1->setText(L"Button1", "default");
+    auto tex = Texture::create();
+    tex->setImageUrl("assets/textures/img.jpg");
+    button1->setBackgroundImage(tex);          // 设置底图
+
+
     auto transform = button1->getComponent<Transform>();
     transform->setSize(100.0f, 100.0f);
     // window->addChild(button1);

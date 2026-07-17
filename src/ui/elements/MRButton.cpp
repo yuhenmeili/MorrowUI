@@ -62,6 +62,28 @@ void MRButton::setTextColor(float r, float g, float b, float a) {
 }
 
 // 背景颜色相关方法
+void MRButton::setBackgroundImage(TextureSharedPtr texture) {
+    m_backgroundTexture = texture;
+    m_hasBackgroundImage = (texture != nullptr);
+    if (m_hasBackgroundImage) {
+        m_material->setTexture("texture", texture);
+        m_material->setFloat("useTexture", 1.0f);
+        // 默认白色底，让原图完整显示
+        m_backgroundColorNormal = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+        m_backgroundColorHover = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+        m_backgroundColorPressed = Vector4(0.85f, 0.85f, 0.85f, 1.0f);
+        m_backgroundColorDisabled = Vector4(0.6f, 0.6f, 0.6f, 0.6f);
+    } else {
+        m_material->setFloat("useTexture", 0.0f);
+        m_backgroundColorNormal = Vector4(0.2f, 0.4f, 0.8f, 1.0f);
+        m_backgroundColorHover = Vector4(0.3f, 0.5f, 0.9f, 1.0f);
+        m_backgroundColorPressed = Vector4(0.1f, 0.3f, 0.7f, 1.0f);
+        m_backgroundColorDisabled = Vector4(0.5f, 0.5f, 0.5f, 0.5f);
+    }
+    updateVisualState();
+    m_isBackgroundDirty = true;
+}
+
 void MRButton::setBackgroundColor(const Vector4& color) {
     m_backgroundColorNormal = color;
     updateVisualState();

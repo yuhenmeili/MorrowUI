@@ -103,9 +103,9 @@ void SSBOManager::registerSSBOLayout(SSBOLayout& layout) {
             );
         };
     } else if (layout.name == "button") {
-        layout.elementSize = sizeof(DefaultBatchData2Attr);
+        layout.elementSize = sizeof(DefaultBatchData3Attr);
         layout.filler = [](void* data, const RenderBatch& batch, int index) {
-            auto instanceData = static_cast<DefaultBatchData2Attr*>(data);
+            auto instanceData = static_cast<DefaultBatchData3Attr*>(data);
             instanceData->model = batch.transforms[index]->getWorldMatrix();
             instanceData->attr1 = std::get<Vector4>(batch.materials[index]->getVector("color"));
 
@@ -114,6 +114,10 @@ void SSBOManager::registerSSBOLayout(SSBOLayout& layout) {
                 size.x, size.y,
                 batch.materials[index]->getFloat("rounding"),
                 batch.materials[index]->getFloat("alpha"));
+
+            instanceData->attr3 = Vector4(
+                batch.materials[index]->getFloat("useTexture"),
+                0.0f, 0.0f, 0.0f);
         };
     }
 }

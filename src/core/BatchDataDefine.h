@@ -40,5 +40,12 @@ struct DefaultBatchData2Attr {
     Vector4 attr1;
     Vector4 attr2;
 };
+
+struct DefaultBatchData3Attr {
+    Matrix4 model;
+    Vector4 attr1;
+    Vector4 attr2;
+    Vector4 attr3;
+};
 }
 #endif //BATCHDATADEFINE_H
