@@ -7,10 +7,10 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include "GpuTypes.h"
 
 namespace morrow {
 class SSBOData;
-class SSBO;
 struct RenderBatch;
 
 enum class ShaderDataType {
@@ -50,7 +50,7 @@ public:
     void* getDataPtr() const;
 
 private:
-    SSBO* m_ssbo = nullptr;
+    HwSSBO m_ssbo{0};
     std::shared_ptr<SSBOData> m_ssboData;
 };
 

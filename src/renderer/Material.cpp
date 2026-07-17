@@ -157,8 +157,8 @@ void Material::setShaderFromMemory(const std::string& shaderName,
     m_vertexShaderResource = vertexSource;
     m_fragmentShaderResource = fragmentSource;
     // 清除已缓存的 shader，下次 apply 时重新 buildShader
-    m_shader = nullptr;
-    m_batchShader = nullptr;
+    m_shader = HwGPUProgram{0};
+    m_batchShader = HwGPUProgram{0};
     ++m_revision;
 }
 
@@ -166,11 +166,11 @@ std::string Material::getShaderName() const {
     return m_shaderName;
 }
 
-GPUProgramHandle* Material::getShader() const {
+HwGPUProgram Material::getShader() const {
     return m_shader;
 }
 
-GPUProgramHandle* Material::getBatchShader() const {
+HwGPUProgram Material::getBatchShader() const {
     return m_batchShader;
 }
 
@@ -218,13 +218,13 @@ const Scene3DMaterialUBO& Material::getScene3DMaterialUBO() const {
     return m_scene3DMaterialData;
 }
 
-void Material::bindScene3DMaterialUBO(GPUProgramHandle* shader) {
-    GPUProgramHandle* targetShader = shader ? shader : m_shader;
-    if (!targetShader) {
+void Material::bindScene3DMaterialUBO(HwGPUProgram shader) {
+    HwGPUProgram targetShader = shader.isValid() ? shader : m_shader;
+    if (!targetShader.isValid()) {
         return;
     }
 
-    if (!m_scene3DMaterialUbo) {
+    if (!m_scene3DMaterialUbo.isValid()) {
         m_scene3DMaterialUbo = RENDERINGTHREAD->createUBO();
         m_scene3DMaterialDirty = true;
     }
@@ -237,12 +237,12 @@ void Material::bindScene3DMaterialUBO(GPUProgramHandle* shader) {
     RENDERINGTHREAD->bindUBO(targetShader, m_scene3DMaterialUbo, "Scene3DMaterial", kScene3DMaterialBindingPoint);
 }
 
-void Material::apply(GPUProgramHandle* shader) {
-    if (!shader && (!m_shader || m_shader->getProgramFileName() != m_shaderName)) {
+void Material::apply(HwGPUProgram shader) {
+    if (!shader.isValid() && (!m_shader.isValid())) {
         m_shader = buildShader();
     }
-    GPUProgramHandle* targetShader = shader ? shader : m_shader;
-    if (!targetShader) {
+    HwGPUProgram targetShader = shader.isValid() ? shader : m_shader;
+    if (!targetShader.isValid()) {
         LOG_E("shader is missing");
         return;
     }
@@ -261,7 +261,7 @@ void Material::apply(GPUProgramHandle* shader) {
         auto texture = pair.second;
         texture->render(nullptr);
         texture->bindTexture(textureIndex);
-        targetShader->setInt(pair.first, textureIndex);
+        RENDERINGTHREAD->setGPUProgramParamAsInt(targetShader, pair.first, textureIndex);
         textureIndex++;
     }
 
@@ -270,42 +270,42 @@ void Material::apply(GPUProgramHandle* shader) {
         std::visit([targetShader, &pair](const auto& vec) {
             using T = std::decay_t<decltype(vec)>;
             if constexpr (std::is_same_v<T, Vector2>) {
-                targetShader->setVec2(pair.first, vec);
+                RENDERINGTHREAD->setGPUProgramParamAsFloatArray(targetShader, pair.first, vec.elements, 1, 2);
             } else if constexpr (std::is_same_v<T, Vector3>) {
-                targetShader->setVec3(pair.first, vec);
+                RENDERINGTHREAD->setGPUProgramParamAsFloatArray(targetShader, pair.first, vec.elements, 1, 3);
             } else if constexpr (std::is_same_v<T, Vector4>) {
-                targetShader->setVec4(pair.first, vec);
+                RENDERINGTHREAD->setGPUProgramParamAsFloatArray(targetShader, pair.first, vec.elements, 1, 4);
             }
         }, pair.second);
     }
 
     // 应用浮点数
     for (const auto& pair : m_floatMap) {
-        targetShader->setFloat(pair.first, pair.second);
+        RENDERINGTHREAD->setGPUProgramParamAsFloat(targetShader, pair.first, pair.second);
     }
 
     // 应用整数
     for (const auto& pair : m_intMap) {
-        targetShader->setInt(pair.first, pair.second);
+        RENDERINGTHREAD->setGPUProgramParamAsInt(targetShader, pair.first, pair.second);
     }
 
     // 应用矩阵
     for (const auto& pair : m_matrix4Map) {
-        targetShader->setMat4(pair.first, pair.second);
+        RENDERINGTHREAD->setGPUProgramParamAsMat4(targetShader, pair.first, pair.second);
     }
 
     //intArrayData
     for (const auto& pair : m_intArrayMap) {
-        targetShader->setIntArray(pair.first, pair.second.data, pair.second.size, pair.second.step);
+        RENDERINGTHREAD->setGPUProgramParamAsIntArray(targetShader, pair.first, pair.second.data, pair.second.size, pair.second.step);
     }
 }
 
-void Material::applyBatch(GPUProgramHandle* shader) {
-    if (!shader && (!m_batchShader || m_batchShader->getProgramFileName() != m_shaderName)) {
+void Material::applyBatch(HwGPUProgram shader) {
+    if (!shader.isValid() && (!m_batchShader.isValid())) {
         m_batchShader = buildShader(true);
     }
-    GPUProgramHandle* targetShader = shader ? shader : m_batchShader;
-    if (!targetShader) {
+    HwGPUProgram targetShader = shader.isValid() ? shader : m_batchShader;
+    if (!targetShader.isValid()) {
         LOG_E("shader is missing");
         return;
     }
@@ -324,7 +324,7 @@ void Material::applyBatch(GPUProgramHandle* shader) {
         auto texture = pair.second;
         texture->render(nullptr);
         texture->bindTexture(textureIndex);
-        targetShader->setInt(pair.first, textureIndex);
+        RENDERINGTHREAD->setGPUProgramParamAsInt(targetShader, pair.first, textureIndex);
         textureIndex++;
     }
 }
@@ -434,7 +434,7 @@ void Material::loadShader() {
         std::istreambuf_iterator<char>());
 }
 
-GPUProgramHandle* Material::buildShader(bool enableSSBO) {
+HwGPUProgram Material::buildShader(bool enableSSBO) {
     const std::string vertexSource = MaterialUtil::normalizeShaderVersion(m_vertexShaderResource);
     const std::string fragmentSource = MaterialUtil::normalizeShaderVersion(m_fragmentShaderResource);
     std::string vertexHead;
@@ -447,9 +447,9 @@ GPUProgramHandle* Material::buildShader(bool enableSSBO) {
             fragmentHead += "#define " + define + "\n";
         }
     }
-    return dynamic_cast<GPUProgramHandle*>(RENDERINGTHREAD->createGPUProgram(
+    return RENDERINGTHREAD->createGPUProgram(
         m_shaderName,
         MaterialUtil::buildShaderSource(vertexSource, vertexHead),
-        MaterialUtil::buildShaderSource(fragmentSource, fragmentHead)));
+        MaterialUtil::buildShaderSource(fragmentSource, fragmentHead));
 }
 } // namespace morrow

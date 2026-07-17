@@ -17,8 +17,8 @@ FontTexture::FontTexture(int32_t width, int32_t height): Texture(ImageType::TEXT
 }
 
 bool FontTexture::Initialize() {
-    if (!m_texture2DPtr) {
-        m_texture2DPtr = RENDERINGTHREAD->createTexture2D(m_textureInfo->imageType);
+    if (!m_textureHandle) {
+        m_textureHandle = RENDERINGTHREAD->createTexture2D(m_textureInfo->imageType);
     }
     if (m_textureInfo->textureNeedUpLoad) {
         deployTexture();
@@ -44,8 +44,8 @@ void FontTexture::UpdateRegion(int32_t x, int32_t y, int32_t width, int32_t heig
 }
 
 void FontTexture::FlushToGPU() {
-    if (!m_dirty || !m_texture2DPtr) return;
-    RENDERINGTHREAD->updateSubTexture2D(m_texture2DPtr, m_textureData, 0, 0, getWidth(), getHeight(), m_fontData.data());
+    if (!m_dirty || !m_textureHandle) return;
+    RENDERINGTHREAD->updateSubTexture2D(m_textureHandle, m_textureData, 0, 0, getWidth(), getHeight(), m_fontData.data());
     m_dirty = false;
 }
 } // morrow

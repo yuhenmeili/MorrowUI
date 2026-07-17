@@ -44,26 +44,26 @@ public:
     bool checkSSBOSupport() override;
 
     //----------------------------------------------------------VBO------------------------------------------------
-    VBO* createVBO() override;
+    HwVBO createVBO() override;
 
-    void updateVBO(GPUProgram* program, VBO* vbo, VBODataSharedPtr vboData) override;
+    void updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr vboData) override;
 
-    void deleteVBO(VBO* vbo) override;
+    void deleteVBO(HwVBO vbo) override;
 
-    void drawVBO(VBO* vbo, int32_t instanceCount) override;
+    void drawVBO(HwVBO vbo, int32_t instanceCount) override;
 
     //----------------------------------------------------------Texture2D------------------------------------------------
-    Texture2D* createTexture2D(ImageType imageType) override;
+    HwTexture2D createTexture2D(ImageType imageType) override;
 
-    void deleteTexture2D(Texture2D* texture) override;
+    void deleteTexture2D(HwTexture2D texture) override;
 
-    void useTexture2D(Texture2D* texture, uint32_t index) override;
+    void useTexture2D(HwTexture2D texture, uint32_t index) override;
 
     bool isTextureFormatSupported(PixelDataFormat textureFormat) override;
 
-    void updateTexture2D(Texture2D* texture, const TextureData& data) override;
+    void updateTexture2D(HwTexture2D texture, const TextureData& data) override;
 
-    void updateSubTexture2D(Texture2D* texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) override;
+    void updateSubTexture2D(HwTexture2D texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) override;
 
     //----------------------------------------------------------Blend------------------------------------------------
     void enableBlend() override;
@@ -71,70 +71,52 @@ public:
     void disableBlend() override;
 
     //----------------------------------------------------------GPUProgram------------------------------------------------
-    void useGPUProgram(GPUProgram* program) override;
+    void useGPUProgram(HwGPUProgram program) override;
 
-    GPUProgram* createGPUProgram(const std::string& programFileName, const std::string& vertexShader, const std::string& fragmentShader) override;
+    HwGPUProgram createGPUProgram(const std::string& programFileName, const std::string& vertexShader, const std::string& fragmentShader) override;
 
-    void deletGPUProgram(GPUProgram* program) override;
+    void deletGPUProgram(HwGPUProgram program) override;
 
-    void setGPUProgramParamAsInt(GPUProgramParam* param, int32_t value) override;
+    void setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) override;
 
-    void setGPUProgramParamAsFloat(GPUProgramParam* param, float value) override;
+    void setGPUProgramParamAsFloat(HwGPUProgram program, const std::string& uniformName, float value) override;
 
-    void setGPUProgramParamAsMat4(GPUProgramParam* param, const Matrix4& mat) override;
+    void setGPUProgramParamAsVec2(HwGPUProgram program, const std::string& uniformName, float x, float y) override;
 
-    void setGPUProgramParamAsVec2(GPUProgramParam* param, float x, float y) override;
+    void setGPUProgramParamAsVec3(HwGPUProgram program, const std::string& uniformName, float x, float y, float z) override;
 
-    void setGPUProgramParamAsVec3(GPUProgramParam* param, float x, float y, float z) override;
+    void setGPUProgramParamAsVec4(HwGPUProgram program, const std::string& uniformName, float x, float y, float z, float w) override;
 
-    void setGPUProgramParamAsVec4(GPUProgramParam* param, float x, float y, float z, float w) override;
+    void setGPUProgramParamAsMat4(HwGPUProgram program, const std::string& uniformName, const Matrix4& mat) override;
 
-    void setGPUProgramParamAsIntArray(GPUProgramParam* param, const int32_t* values, int32_t size, int32_t step) override;
+    void setGPUProgramParamAsIntArray(HwGPUProgram program, const std::string& uniformName, const int32_t* values, int32_t size, int32_t step) override;
 
-    void setGPUProgramParamAsFloatArray(GPUProgramParam* param, const float* values, int32_t size, int32_t step) override;
+    void setGPUProgramParamAsFloatArray(HwGPUProgram program, const std::string& uniformName, const float* values, int32_t size, int32_t step) override;
 
-    void setGPUProgramParamAsMat4Array(GPUProgramParam* param, const std::vector<Matrix4>& values) override;
-
-    void setGPUProgramParamAsInt(GPUProgram* program, const std::string& uniformName, int32_t value) override;
-
-    void setGPUProgramParamAsFloat(GPUProgram* program, const std::string& uniformName, float value) override;
-
-    void setGPUProgramParamAsVec2(GPUProgram* program, const std::string& uniformName, float x, float y) override;
-
-    void setGPUProgramParamAsVec3(GPUProgram* program, const std::string& uniformName, float x, float y, float z) override;
-
-    void setGPUProgramParamAsVec4(GPUProgram* program, const std::string& uniformName, float x, float y, float z, float w) override;
-
-    void setGPUProgramParamAsMat4(GPUProgram* program, const std::string& uniformName, const Matrix4& mat) override;
-
-    void setGPUProgramParamAsIntArray(GPUProgram* program, const std::string& uniformName, const int32_t* values, int32_t size, int32_t step) override;
-
-    void setGPUProgramParamAsFloatArray(GPUProgram* program, const std::string& uniformName, const float* values, int32_t size, int32_t step) override;
-
-    void initThreadGPUProgramParam(GPUProgramHandle* program, GPUProgramParamHandle* param, const std::string& name) override;
+    void setGPUProgramParamAsMat4Array(HwGPUProgram program, const std::string& uniformName, const std::vector<Matrix4>& values) override;
 
     //-----------------------------------------------------UBO------------------------------------------------
 
-    UBO* createUBO() override;
+    HwUBO createUBO() override;
 
-    void updateUBO(UBO* ubo, std::shared_ptr<UBOData> uboData) override;
+    void updateUBO(HwUBO ubo, std::shared_ptr<UBOData> uboData) override;
 
-    void bindUBO(GPUProgram* program, UBO* ubo, const std::string& blockName, uint32_t bindingPoint) override;
+    void bindUBO(HwGPUProgram program, HwUBO ubo, const std::string& blockName, uint32_t bindingPoint) override;
 
     //---------------------------------------------------SSBO---------------------------------------------------
-    SSBO* createSSBO() override;
+    HwSSBO createSSBO() override;
 
-    void updateSSBO(SSBO* ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) override;
+    void updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) override;
 
     void* insertFence() override;
     bool waitFence(void* fence, uint64_t timeoutNs) override;
     void deleteFence(void* fence) override;
 
     // FBO操作
-    RenderTarget* createRenderTarget(int32_t w, int32_t h,
-                                     Texture2D** outColorTexture = nullptr) override;
-    void deleteRenderTarget(RenderTarget* rt) override;
-    void bindRenderTarget(RenderTarget* rt) override;
+    HwRenderTarget createRenderTarget(int32_t w, int32_t h,
+                                      HwTexture2D* outColorTexture = nullptr) override;
+    void deleteRenderTarget(HwRenderTarget rt) override;
+    void bindRenderTarget(HwRenderTarget rt) override;
     void unbindRenderTarget() override;
 
     // 深度/状态

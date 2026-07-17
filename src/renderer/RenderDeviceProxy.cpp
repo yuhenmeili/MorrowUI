@@ -60,7 +60,6 @@ enum CommandType {
     Cmd_SetGPUProgramAsIntArray,
     Cmd_SetGPUProgramAsFloatArray,
     Cmd_SetGPUProgramAsMat4Array,
-    Cmd_InitThreadGPUProgramParam,
     Cmd_CreateUBO,
     Cmd_UpdateUBO,
     Cmd_BindUBO,
@@ -97,24 +96,24 @@ struct InitContextPayload {
 };
 
 struct UseGPUProgramPayload {
-    GPUProgramHandle* program = nullptr;
+    HwGPUProgram program{0};
 };
 
 struct DeleteGPUProgramPayload {
-    GPUProgramHandle* program = nullptr;
+    HwGPUProgram program{0};
 };
 
 struct CreateTexture2DPayload {
-    Texture2DHandle* texture = nullptr;
+    HwTexture2D texture{0};
     ImageType imageType = ImageType::IMAGE;
 };
 
 struct DeleteTexture2DPayload {
-    Texture2DHandle* texture = nullptr;
+    HwTexture2D texture{0};
 };
 
 struct UseTexture2DPayload {
-    Texture2DHandle* texture = nullptr;
+    HwTexture2D texture{0};
     uint32_t index = 0;
 };
 
@@ -131,54 +130,61 @@ struct DumpFrameBufferPayload {
 };
 
 struct CreateVBOPayload {
-    VBOHandle* vbo = nullptr;
+    HwVBO vbo{0};
 };
 
 struct DeleteVBOPayload {
-    VBOHandle* vbo = nullptr;
+    HwVBO vbo{0};
 };
 
 struct DrawVBOPayload {
-    VBOHandle* vbo = nullptr;
+    HwVBO vbo{0};
     int32_t instanceCount = 0;
 };
 
+// GPUProgramParam removed — all uniform setting now uses HwGPUProgram + name string
 struct SetGPUProgramParamIntPayload {
-    GPUProgramParamHandle* param = nullptr;
+    HwGPUProgram program{0};
+    std::string uniformName;
     int32_t value = 0;
 };
 
 struct SetGPUProgramParamFloatPayload {
-    GPUProgramParamHandle* param = nullptr;
+    HwGPUProgram program{0};
+    std::string uniformName;
     float value = 0;
 };
 
 struct SetGPUProgramParamVec2Payload {
-    GPUProgramParamHandle* param = nullptr;
+    HwGPUProgram program{0};
+    std::string uniformName;
     float x = 0, y = 0;
 };
 
 struct SetGPUProgramParamVec3Payload {
-    GPUProgramParamHandle* param = nullptr;
+    HwGPUProgram program{0};
+    std::string uniformName;
     float x = 0, y = 0, z = 0;
 };
 
 struct SetGPUProgramParamVec4Payload {
-    GPUProgramParamHandle* param = nullptr;
+    HwGPUProgram program{0};
+    std::string uniformName;
     float x = 0, y = 0, z = 0, w = 0;
 };
 
 struct SetGPUProgramParamMat4Payload {
-    GPUProgramParamHandle* param = nullptr;
+    HwGPUProgram program{0};
+    std::string uniformName;
     Matrix4 mat;
 };
 
 struct CreateUBOPayload {
-    UBOHandle* ubo = nullptr;
+    HwUBO ubo{0};
 };
 
 struct CreateSSBOPayload {
-    SSBOHandle* ssbo = nullptr;
+    HwSSBO ssbo{0};
 };
 
 struct CheckSSBOSupportPayload {
@@ -187,63 +193,60 @@ struct CheckSSBOSupportPayload {
 
 // --- Non-trivial (have std::string / std::vector / std::shared_ptr members) ---
 struct CreateGPUProgramPayload {
-    GPUProgramHandle* program = nullptr;
+    HwGPUProgram program{0};
     std::string programFileName, vertexShader, fragmentShader;
 };
 
 struct UpdateTexture2DPayload {
-    Texture2DHandle* texture = nullptr;
+    HwTexture2D texture{0};
     TextureData data;
-    // 零拷贝路径：data.pixelOwner 非空时，此字段为空，data.pixels 直接指向共享内存。
-    // 拷贝路径：data.pixelOwner 为空时，从 PixelDataRecyclePool 取得缓冲并存于此；
-    //          executeFrame 结束后立即归还池（glTexImage2D 为同步调用，无需等 fence）。
     std::shared_ptr<std::vector<uint8_t>> pixelStorage;
 };
 
 struct UpdateSubTexture2DPayload {
-    Texture2DHandle* texture = nullptr;
+    HwTexture2D texture{0};
     TextureData data;
     int32_t x = 0, y = 0, width = 0, height = 0;
-    std::shared_ptr<std::vector<uint8_t>> pixelStorage; // 同上，总是拷贝路径
+    std::shared_ptr<std::vector<uint8_t>> pixelStorage;
 };
 
 struct UpdateVBOPayload {
-    GPUProgramHandle* program = nullptr;
-    VBOHandle* vbo = nullptr;
+    HwGPUProgram program{0};
+    HwVBO vbo{0};
     std::shared_ptr<VBOData> vboData;
 };
 
 struct BindUBOPayload {
-    GPUProgramHandle* program = nullptr;
-    UBOHandle* ubo = nullptr;
+    HwGPUProgram program{0};
+    HwUBO ubo{0};
     std::string blockName;
     uint32_t bindingPoint = 0;
 };
 
 struct UpdateUBOPayload {
-    UBOHandle* ubo = nullptr;
+    HwUBO ubo{0};
     std::shared_ptr<UBOData> uboData;
 };
 
 struct UpdateSSBOPayload {
-    SSBOHandle* ssbo = nullptr;
+    HwSSBO ssbo{0};
     std::shared_ptr<SSBOData> ssboData;
     uint32_t bindingPoint = 0;
 };
 
 // --- FBO / depth state payloads ---
 struct CreateRenderTargetPayload {
-    RenderTargetHandle* rt       = nullptr;
-    Texture2DHandle*    colorTex = nullptr;  // optional: filled by render thread
+    HwRenderTarget rt{0};
+    HwTexture2D    colorTex{0};
     int32_t w = 0, h = 0;
 };
 
 struct BindRenderTargetPayload {
-    RenderTargetHandle* rt = nullptr;
+    HwRenderTarget rt{0};
 };
 
 struct DeleteRenderTargetPayload {
-    RenderTargetHandle* rt = nullptr;
+    HwRenderTarget rt{0};
 };
 
 struct SetDepthTestPayload {
@@ -259,26 +262,23 @@ struct SetCullFacePayload {
 };
 
 struct SetGPUProgramParamIntArrayPayload {
-    GPUProgramParamHandle* param = nullptr;
+    HwGPUProgram program{0};
+    std::string uniformName;
     std::vector<int32_t> values;
     int32_t size = 0, step = 0;
 };
 
 struct SetGPUProgramParamFloatArrayPayload {
-    GPUProgramParamHandle* param = nullptr;
+    HwGPUProgram program{0};
+    std::string uniformName;
     std::vector<float> values;
     int32_t size = 0, step = 0;
 };
 
 struct SetGPUProgramParamMat4ArrayPayload {
-    GPUProgramParamHandle* param = nullptr;
+    HwGPUProgram program{0};
+    std::string uniformName;
     std::vector<Matrix4> values;
-};
-
-struct InitThreadGPUProgramParamPayload {
-    GPUProgramHandle* program = nullptr;
-    GPUProgramParamHandle* param = nullptr;
-    std::string name;
 };
 
 // ---------------------------------------------------------------------------
@@ -347,127 +347,111 @@ void RenderDeviceProxy::clear() {
 // GPU program
 // ---------------------------------------------------------------------------
 
-void RenderDeviceProxy::useGPUProgram(GPUProgram* program) {
-    auto* tp = static_cast<GPUProgramHandle*>(program);
+void RenderDeviceProxy::useGPUProgram(HwGPUProgram program) {
     if (!m_threaded) {
-        m_realDevice->useGPUProgram(tp->m_realProgram);
+        m_realDevice->useGPUProgram(program);
         return;
     }
     auto* pl = CMD_BUF.push<UseGPUProgramPayload>(Cmd_UseGPUProgram);
-    pl->program = tp;
+    pl->program = program;
 }
 
-GPUProgram* RenderDeviceProxy::createGPUProgram(const std::string& programFileName,
-                                                const std::string& vertexShader,
-                                                const std::string& fragmentShader) {
-    auto* program = new GPUProgramHandle(this);
+HwGPUProgram RenderDeviceProxy::createGPUProgram(const std::string& programFileName,
+                                                  const std::string& vertexShader,
+                                                  const std::string& fragmentShader) {
+    HwGPUProgram handle = m_realDevice->allocateGPUProgram();
     if (!m_threaded) {
-        program->m_realProgram = m_realDevice->createGPUProgram(programFileName, vertexShader, fragmentShader);
+        m_realDevice->commitGPUProgram(handle, programFileName, vertexShader, fragmentShader);
     } else {
         auto* pl = CMD_BUF.pushNT<CreateGPUProgramPayload>(Cmd_CreateGPUProgram);
-        pl->program = program;
+        pl->program = handle;
         pl->programFileName = programFileName;
         pl->vertexShader = vertexShader;
         pl->fragmentShader = fragmentShader;
     }
-    program->setProgramFileName(programFileName);
-    return program;
+    return handle;
 }
 
-void RenderDeviceProxy::deletGPUProgram(GPUProgram* program) {
-    auto* tp = static_cast<GPUProgramHandle*>(program);
+void RenderDeviceProxy::deletGPUProgram(HwGPUProgram program) {
     if (!m_threaded) {
-        m_realDevice->deletGPUProgram(tp->m_realProgram);
-        delete tp;
+        m_realDevice->deletGPUProgram(program);
         return;
     }
     auto* pl = CMD_BUF.push<DeleteGPUProgramPayload>(Cmd_DeleteGPUProgram);
-    pl->program = tp;
+    pl->program = program;
 }
 
 // ---------------------------------------------------------------------------
 // Texture2D
 // ---------------------------------------------------------------------------
 
-Texture2D* RenderDeviceProxy::createTexture2D(ImageType imageType) {
-    auto* texture = new Texture2DHandle();
+HwTexture2D RenderDeviceProxy::createTexture2D(ImageType imageType) {
+    HwTexture2D handle = m_realDevice->allocateTexture2D();
     if (!m_threaded) {
-        texture->m_realTexture = m_realDevice->createTexture2D(imageType);
-        return texture;
+        m_realDevice->commitTexture2D(handle, imageType);
+        return handle;
     }
     auto* pl = CMD_BUF.push<CreateTexture2DPayload>(Cmd_CreateTexture2D);
-    pl->texture = texture;
+    pl->texture = handle;
     pl->imageType = imageType;
-    return texture;
+    return handle;
 }
 
-void RenderDeviceProxy::deleteTexture2D(Texture2D* texture) {
-    auto* tt = static_cast<Texture2DHandle*>(texture);
+void RenderDeviceProxy::deleteTexture2D(HwTexture2D texture) {
     if (!m_threaded) {
-        m_realDevice->deleteTexture2D(tt->m_realTexture);
-        delete tt;
+        m_realDevice->deleteTexture2D(texture);
         return;
     }
     auto* pl = CMD_BUF.push<DeleteTexture2DPayload>(Cmd_DeleteTexture2D);
-    pl->texture = tt;
+    pl->texture = texture;
 }
 
-void RenderDeviceProxy::useTexture2D(Texture2D* texture, uint32_t index) {
-    auto* tt = static_cast<Texture2DHandle*>(texture);
+void RenderDeviceProxy::useTexture2D(HwTexture2D texture, uint32_t index) {
     if (!m_threaded) {
-        m_realDevice->useTexture2D(tt->m_realTexture, index);
+        m_realDevice->useTexture2D(texture, index);
         return;
     }
     auto* pl = CMD_BUF.push<UseTexture2DPayload>(Cmd_UseTexture2D);
-    pl->texture = tt;
+    pl->texture = texture;
     pl->index = index;
 }
 
 bool RenderDeviceProxy::isTextureFormatSupported(PixelDataFormat textureFormat) {
     if (!m_threaded) return m_realDevice->isTextureFormatSupported(textureFormat);
-    return true; // sync query not supported in async mode; common formats assumed supported
+    return true;
 }
 
-void RenderDeviceProxy::updateTexture2D(Texture2D* texture, const TextureData& data) {
-    auto* tt = static_cast<Texture2DHandle*>(texture);
+void RenderDeviceProxy::updateTexture2D(HwTexture2D texture, const TextureData& data) {
     if (!m_threaded) {
-        m_realDevice->updateTexture2D(tt->m_realTexture, data);
-        // 单线程模式：glTexImage2D 同步完成，立即通知调用方 buffer 可复用。
+        m_realDevice->updateTexture2D(texture, data);
         if (data.releaseCallback) data.releaseCallback();
         return;
     }
     auto* pl = CMD_BUF.pushNT<UpdateTexture2DPayload>(Cmd_UpdateTexture2D);
-    pl->texture = tt;
+    pl->texture = texture;
     pl->data = data;
-    if (!data.pixelOwner
-        && data.pixels
-        && data.bytes > 0
-        && data.imageType != ImageType::OES) {
-        // 原始指针路径：从池中取复用缓冲，memcpy 一次，编码时即完成 pixels 重定向。
-        // executeFrame 读完后立即归还池（glTexImage2D 为同步调用）。
+    if (!data.pixelOwner && data.pixels && data.bytes > 0 && data.imageType != ImageType::OES) {
         auto buf = m_pixelDataRecyclePool->acquire();
         buf->assign(static_cast<const uint8_t*>(data.pixels),
                     static_cast<const uint8_t*>(data.pixels) + data.bytes);
-        pl->data.pixels = buf->data(); // 编码时重定向，executeFrame 无需再处理
+        pl->data.pixels = buf->data();
         pl->pixelStorage = std::move(buf);
     }
-    // 若 data.pixelOwner 非空，共享所有权一并拷贝（原子引用计数+1，零像素拷贝）
     // 若 data.releaseCallback 非空，一并入队，渲染线程 GL 完成后回调。
     // 零拷贝路径：data.pixelOwner 持有内存，pl->data.pixels 已指向正确位置，无需额外操作。
 }
 
-void RenderDeviceProxy::updateSubTexture2D(Texture2D* texture, const TextureData& data,
+void RenderDeviceProxy::updateSubTexture2D(HwTexture2D texture, const TextureData& data,
                                            int32_t x, int32_t y,
                                            int32_t width, int32_t height,
                                            const unsigned char* sourceData) {
-    auto* tt = static_cast<Texture2DHandle*>(texture);
     if (!m_threaded) {
-        m_realDevice->updateSubTexture2D(tt->m_realTexture, data, x, y, width, height, sourceData);
+        m_realDevice->updateSubTexture2D(texture, data, x, y, width, height, sourceData);
         if (data.releaseCallback) data.releaseCallback();
         return;
     }
     auto* pl = CMD_BUF.pushNT<UpdateSubTexture2DPayload>(Cmd_UpdateSubTexture2D);
-    pl->texture = tt;
+    pl->texture = texture;
     pl->data = data;
     pl->x = x;
     pl->y = y;
@@ -475,7 +459,6 @@ void RenderDeviceProxy::updateSubTexture2D(Texture2D* texture, const TextureData
     pl->height = height;
     const size_t byteSize = static_cast<size_t>(PixelFormat::textureSizeInBytes(data.format, GL_UNSIGNED_BYTE, width, height));
     if (sourceData && byteSize > 0) {
-        // sub-texture 总是需要拷贝（无 shared_ptr 所有权），使用池复用缓冲。
         auto buf = m_pixelDataRecyclePool->acquire();
         buf->assign(sourceData, sourceData + byteSize);
         pl->pixelStorage = std::move(buf);
@@ -538,50 +521,45 @@ bool RenderDeviceProxy::checkSSBOSupport() {
 // VBO
 // ---------------------------------------------------------------------------
 
-VBO* RenderDeviceProxy::createVBO() {
-    auto* vbo = new VBOHandle();
+HwVBO RenderDeviceProxy::createVBO() {
+    HwVBO handle = m_realDevice->allocateVBO();
     if (!m_threaded) {
-        vbo->m_realVbo = m_realDevice->createVBO();
-        return vbo;
+        m_realDevice->commitVBO(handle);
+        return handle;
     }
     auto* pl = CMD_BUF.push<CreateVBOPayload>(Cmd_CreateVBO);
-    pl->vbo = vbo;
-    return vbo;
+    pl->vbo = handle;
+    return handle;
 }
 
-void RenderDeviceProxy::updateVBO(GPUProgram* program, VBO* vbo, VBODataSharedPtr vboData) {
-    auto* tp = static_cast<GPUProgramHandle*>(program);
-    auto* tv = static_cast<VBOHandle*>(vbo);
+void RenderDeviceProxy::updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr vboData) {
     if (!m_threaded) {
-        m_realDevice->updateVBO(tp->m_realProgram, tv->m_realVbo, vboData);
+        m_realDevice->updateVBO(program, vbo, vboData);
         m_currentFrameRecyclables.push_back(std::move(vboData));
         return;
     }
     auto* pl = CMD_BUF.pushNT<UpdateVBOPayload>(Cmd_UpdateVBO);
-    pl->program = tp;
-    pl->vbo = tv;
+    pl->program = program;
+    pl->vbo = vbo;
     pl->vboData = std::move(vboData);
 }
 
-void RenderDeviceProxy::deleteVBO(VBO* vbo) {
-    auto* tv = static_cast<VBOHandle*>(vbo);
+void RenderDeviceProxy::deleteVBO(HwVBO vbo) {
     if (!m_threaded) {
-        m_realDevice->deleteVBO(tv->m_realVbo);
-        delete tv;
+        m_realDevice->deleteVBO(vbo);
         return;
     }
     auto* pl = CMD_BUF.push<DeleteVBOPayload>(Cmd_DeleteVBO);
-    pl->vbo = tv;
+    pl->vbo = vbo;
 }
 
-void RenderDeviceProxy::drawVBO(VBO* vbo, int32_t instanceCount) {
-    auto* tv = static_cast<VBOHandle*>(vbo);
+void RenderDeviceProxy::drawVBO(HwVBO vbo, int32_t instanceCount) {
     if (!m_threaded) {
-        m_realDevice->drawVBO(tv->m_realVbo, instanceCount);
+        m_realDevice->drawVBO(vbo, instanceCount);
         return;
     }
     auto* pl = CMD_BUF.push<DrawVBOPayload>(Cmd_DrawVBO);
-    pl->vbo = tv;
+    pl->vbo = vbo;
     pl->instanceCount = instanceCount;
 }
 
@@ -606,199 +584,123 @@ void RenderDeviceProxy::disableBlend() {
 }
 
 // ---------------------------------------------------------------------------
-// GPU program uniform params
+// GPU program uniform params (name-based only; GPUProgramParam removed)
 // ---------------------------------------------------------------------------
 
-void RenderDeviceProxy::setGPUProgramParamAsInt(GPUProgramParam* param, int32_t value) {
-    auto* tp = static_cast<GPUProgramParamHandle*>(param);
-    if (!m_threaded) {
-        m_realDevice->setGPUProgramParamAsInt(tp->m_realParam, value);
-        return;
-    }
-    auto* pl = CMD_BUF.push<SetGPUProgramParamIntPayload>(Cmd_SetGPUProgramAsInt);
-    pl->param = tp;
+void RenderDeviceProxy::setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) {
+    if (!m_threaded) { m_realDevice->setGPUProgramParamAsInt(program, uniformName, value); return; }
+    auto* pl = CMD_BUF.pushNT<SetGPUProgramParamIntPayload>(Cmd_SetGPUProgramAsInt);
+    pl->program = program;
+    pl->uniformName = uniformName;
     pl->value = value;
 }
 
-void RenderDeviceProxy::setGPUProgramParamAsFloat(GPUProgramParam* param, float value) {
-    auto* tp = static_cast<GPUProgramParamHandle*>(param);
-    if (!m_threaded) {
-        m_realDevice->setGPUProgramParamAsFloat(tp->m_realParam, value);
-        return;
-    }
-    auto* pl = CMD_BUF.push<SetGPUProgramParamFloatPayload>(Cmd_SetGPUProgramAsFloat);
-    pl->param = tp;
+void RenderDeviceProxy::setGPUProgramParamAsFloat(HwGPUProgram program, const std::string& uniformName, float value) {
+    if (!m_threaded) { m_realDevice->setGPUProgramParamAsFloat(program, uniformName, value); return; }
+    auto* pl = CMD_BUF.pushNT<SetGPUProgramParamFloatPayload>(Cmd_SetGPUProgramAsFloat);
+    pl->program = program;
+    pl->uniformName = uniformName;
     pl->value = value;
 }
 
-void RenderDeviceProxy::setGPUProgramParamAsVec2(GPUProgramParam* param, float x, float y) {
-    auto* tp = static_cast<GPUProgramParamHandle*>(param);
-    if (!m_threaded) {
-        m_realDevice->setGPUProgramParamAsVec2(tp->m_realParam, x, y);
-        return;
-    }
-    auto* pl = CMD_BUF.push<SetGPUProgramParamVec2Payload>(Cmd_SetGPUProgramAsVec2);
-    pl->param = tp;
-    pl->x = x;
-    pl->y = y;
+void RenderDeviceProxy::setGPUProgramParamAsVec2(HwGPUProgram program, const std::string& uniformName, float x, float y) {
+    if (!m_threaded) { m_realDevice->setGPUProgramParamAsVec2(program, uniformName, x, y); return; }
+    auto* pl = CMD_BUF.pushNT<SetGPUProgramParamVec2Payload>(Cmd_SetGPUProgramAsVec2);
+    pl->program = program;
+    pl->uniformName = uniformName;
+    pl->x = x; pl->y = y;
 }
 
-void RenderDeviceProxy::setGPUProgramParamAsVec3(GPUProgramParam* param, float x, float y, float z) {
-    auto* tp = static_cast<GPUProgramParamHandle*>(param);
-    if (!m_threaded) {
-        m_realDevice->setGPUProgramParamAsVec3(tp->m_realParam, x, y, z);
-        return;
-    }
-    auto* pl = CMD_BUF.push<SetGPUProgramParamVec3Payload>(Cmd_SetGPUProgramAsVec3);
-    pl->param = tp;
-    pl->x = x;
-    pl->y = y;
-    pl->z = z;
+void RenderDeviceProxy::setGPUProgramParamAsVec3(HwGPUProgram program, const std::string& uniformName, float x, float y, float z) {
+    if (!m_threaded) { m_realDevice->setGPUProgramParamAsVec3(program, uniformName, x, y, z); return; }
+    auto* pl = CMD_BUF.pushNT<SetGPUProgramParamVec3Payload>(Cmd_SetGPUProgramAsVec3);
+    pl->program = program;
+    pl->uniformName = uniformName;
+    pl->x = x; pl->y = y; pl->z = z;
 }
 
-void RenderDeviceProxy::setGPUProgramParamAsVec4(GPUProgramParam* param, float x, float y, float z, float w) {
-    auto* tp = static_cast<GPUProgramParamHandle*>(param);
-    if (!m_threaded) {
-        m_realDevice->setGPUProgramParamAsVec4(tp->m_realParam, x, y, z, w);
-        return;
-    }
-    auto* pl = CMD_BUF.push<SetGPUProgramParamVec4Payload>(Cmd_SetGPUProgramAsVec4);
-    pl->param = tp;
-    pl->x = x;
-    pl->y = y;
-    pl->z = z;
-    pl->w = w;
+void RenderDeviceProxy::setGPUProgramParamAsVec4(HwGPUProgram program, const std::string& uniformName, float x, float y, float z, float w) {
+    if (!m_threaded) { m_realDevice->setGPUProgramParamAsVec4(program, uniformName, x, y, z, w); return; }
+    auto* pl = CMD_BUF.pushNT<SetGPUProgramParamVec4Payload>(Cmd_SetGPUProgramAsVec4);
+    pl->program = program;
+    pl->uniformName = uniformName;
+    pl->x = x; pl->y = y; pl->z = z; pl->w = w;
 }
 
-void RenderDeviceProxy::setGPUProgramParamAsMat4(GPUProgramParam* param, const Matrix4& mat) {
-    auto* tp = static_cast<GPUProgramParamHandle*>(param);
-    if (!m_threaded) {
-        m_realDevice->setGPUProgramParamAsMat4(tp->m_realParam, mat);
-        return;
-    }
-    auto* pl = CMD_BUF.push<SetGPUProgramParamMat4Payload>(Cmd_SetGPUProgramAsMat4);
-    pl->param = tp;
+void RenderDeviceProxy::setGPUProgramParamAsMat4(HwGPUProgram program, const std::string& uniformName, const Matrix4& mat) {
+    if (!m_threaded) { m_realDevice->setGPUProgramParamAsMat4(program, uniformName, mat); return; }
+    auto* pl = CMD_BUF.pushNT<SetGPUProgramParamMat4Payload>(Cmd_SetGPUProgramAsMat4);
+    pl->program = program;
+    pl->uniformName = uniformName;
     pl->mat = mat;
 }
 
-void RenderDeviceProxy::setGPUProgramParamAsIntArray(GPUProgramParam* param,
+void RenderDeviceProxy::setGPUProgramParamAsIntArray(HwGPUProgram program, const std::string& uniformName,
                                                      const int32_t* values, int32_t size, int32_t step) {
-    auto* tp = static_cast<GPUProgramParamHandle*>(param);
-    if (!m_threaded) {
-        m_realDevice->setGPUProgramParamAsIntArray(tp->m_realParam, values, size, step);
-        return;
-    }
+    if (!m_threaded) { m_realDevice->setGPUProgramParamAsIntArray(program, uniformName, values, size, step); return; }
     auto* pl = CMD_BUF.pushNT<SetGPUProgramParamIntArrayPayload>(Cmd_SetGPUProgramAsIntArray);
-    pl->param = tp;
-    pl->size = size;
-    pl->step = step;
-    const int32_t n = (size > 0 && step > 0) ? size * step : 0;
-    if (values && n > 0) pl->values.assign(values, values + n);
-}
-
-void RenderDeviceProxy::setGPUProgramParamAsFloatArray(GPUProgramParam* param,
-                                                       const float* values, int32_t size, int32_t step) {
-    auto* tp = static_cast<GPUProgramParamHandle*>(param);
-    if (!m_threaded) {
-        m_realDevice->setGPUProgramParamAsFloatArray(tp->m_realParam, values, size, step);
-        return;
-    }
-    auto* pl = CMD_BUF.pushNT<SetGPUProgramParamFloatArrayPayload>(Cmd_SetGPUProgramAsFloatArray);
-    pl->param = tp;
-    pl->size = size;
-    pl->step = step;
-    const int32_t n = (size > 0 && step > 0) ? size * step : 0;
-    if (values && n > 0) pl->values.assign(values, values + n);
-}
-
-void RenderDeviceProxy::setGPUProgramParamAsMat4Array(GPUProgramParam* param,
-                                                      const std::vector<Matrix4>& values) {
-    auto* tp = static_cast<GPUProgramParamHandle*>(param);
-    if (!m_threaded) {
-        m_realDevice->setGPUProgramParamAsMat4Array(tp->m_realParam, values);
-        return;
-    }
-    auto* pl = CMD_BUF.pushNT<SetGPUProgramParamMat4ArrayPayload>(Cmd_SetGPUProgramAsMat4Array);
-    pl->param = tp;
-    pl->values = values;
-}
-
-// --- String-name overloads (delegate to param overloads above) ---
-void RenderDeviceProxy::setGPUProgramParamAsInt(GPUProgram* p, const std::string& u, int32_t v) { setGPUProgramParamAsInt(p->getUniformParam(u), v); }
-
-void RenderDeviceProxy::setGPUProgramParamAsFloat(GPUProgram* p, const std::string& u, float v) { setGPUProgramParamAsFloat(p->getUniformParam(u), v); }
-
-void RenderDeviceProxy::setGPUProgramParamAsVec2(GPUProgram* p, const std::string& u, float x, float y) { setGPUProgramParamAsVec2(p->getUniformParam(u), x, y); }
-
-void RenderDeviceProxy::setGPUProgramParamAsVec3(GPUProgram* p, const std::string& u, float x, float y, float z) { setGPUProgramParamAsVec3(p->getUniformParam(u), x, y, z); }
-
-void RenderDeviceProxy::setGPUProgramParamAsVec4(GPUProgram* p, const std::string& u, float x, float y, float z, float w) { setGPUProgramParamAsVec4(p->getUniformParam(u), x, y, z, w); }
-
-void RenderDeviceProxy::setGPUProgramParamAsMat4(GPUProgram* p, const std::string& u, const Matrix4& m) { setGPUProgramParamAsMat4(p->getUniformParam(u), m); }
-
-void RenderDeviceProxy::setGPUProgramParamAsIntArray(GPUProgram* p, const std::string& u, const int32_t* v, int32_t sz, int32_t st) {
-    setGPUProgramParamAsIntArray(p->getUniformParam(u), v, sz, st);
-}
-
-void RenderDeviceProxy::setGPUProgramParamAsFloatArray(GPUProgram* p, const std::string& u, const float* v, int32_t sz, int32_t st) {
-    setGPUProgramParamAsFloatArray(p->getUniformParam(u), v, sz, st);
-}
-
-// ---------------------------------------------------------------------------
-// GPUProgramParamHandle initialisation
-// ---------------------------------------------------------------------------
-
-void RenderDeviceProxy::initThreadGPUProgramParam(GPUProgramHandle* program,
-                                                  GPUProgramParamHandle* param,
-                                                  const std::string& name) {
-    if (!m_threaded) {
-        param->m_realParam = m_realDevice->getGPUProgramParam(program->m_realProgram, name);
-        return;
-    }
-    auto* pl = CMD_BUF.pushNT<InitThreadGPUProgramParamPayload>(Cmd_InitThreadGPUProgramParam);
     pl->program = program;
-    pl->param = param;
-    pl->name = name;
+    pl->uniformName = uniformName;
+    pl->size = size; pl->step = step;
+    const int32_t n = (size > 0 && step > 0) ? size * step : 0;
+    if (values && n > 0) pl->values.assign(values, values + n);
+}
+
+void RenderDeviceProxy::setGPUProgramParamAsFloatArray(HwGPUProgram program, const std::string& uniformName,
+                                                       const float* values, int32_t size, int32_t step) {
+    if (!m_threaded) { m_realDevice->setGPUProgramParamAsFloatArray(program, uniformName, values, size, step); return; }
+    auto* pl = CMD_BUF.pushNT<SetGPUProgramParamFloatArrayPayload>(Cmd_SetGPUProgramAsFloatArray);
+    pl->program = program;
+    pl->uniformName = uniformName;
+    pl->size = size; pl->step = step;
+    const int32_t n = (size > 0 && step > 0) ? size * step : 0;
+    if (values && n > 0) pl->values.assign(values, values + n);
+}
+
+void RenderDeviceProxy::setGPUProgramParamAsMat4Array(HwGPUProgram program, const std::string& uniformName,
+                                                      const std::vector<Matrix4>& values) {
+    if (!m_threaded) { m_realDevice->setGPUProgramParamAsMat4Array(program, uniformName, values); return; }
+    auto* pl = CMD_BUF.pushNT<SetGPUProgramParamMat4ArrayPayload>(Cmd_SetGPUProgramAsMat4Array);
+    pl->program = program;
+    pl->uniformName = uniformName;
+    pl->values = values;
 }
 
 // ---------------------------------------------------------------------------
 // UBO
 // ---------------------------------------------------------------------------
 
-UBO* RenderDeviceProxy::createUBO() {
-    auto* u = new UBOHandle();
+HwUBO RenderDeviceProxy::createUBO() {
+    HwUBO handle = m_realDevice->allocateUBO();
     if (!m_threaded) {
-        u->m_realUbo = m_realDevice->createUBO();
-        return u;
+        m_realDevice->commitUBO(handle);
+        return handle;
     }
     auto* pl = CMD_BUF.push<CreateUBOPayload>(Cmd_CreateUBO);
-    pl->ubo = u;
-    return u;
+    pl->ubo = handle;
+    return handle;
 }
 
-void RenderDeviceProxy::updateUBO(UBO* ubo, std::shared_ptr<UBOData> uboData) {
-    auto* tu = static_cast<UBOHandle*>(ubo);
+void RenderDeviceProxy::updateUBO(HwUBO ubo, std::shared_ptr<UBOData> uboData) {
     if (!m_threaded) {
-        m_realDevice->updateUBO(tu->m_realUbo, uboData);
+        m_realDevice->updateUBO(ubo, uboData);
         m_currentFrameUBORecyclables.push_back(std::move(uboData));
         return;
     }
     auto* pl = CMD_BUF.pushNT<UpdateUBOPayload>(Cmd_UpdateUBO);
-    pl->ubo = tu;
+    pl->ubo = ubo;
     pl->uboData = std::move(uboData);
 }
 
-void RenderDeviceProxy::bindUBO(GPUProgram* program, UBO* ubo,
+void RenderDeviceProxy::bindUBO(HwGPUProgram program, HwUBO ubo,
                                 const std::string& blockName, uint32_t bindingPoint) {
-    auto* tp = static_cast<GPUProgramHandle*>(program);
-    auto* tu = static_cast<UBOHandle*>(ubo);
     if (!m_threaded) {
-        m_realDevice->bindUBO(tp->m_realProgram, tu->getReal(), blockName, bindingPoint);
+        m_realDevice->bindUBO(program, ubo, blockName, bindingPoint);
         return;
     }
     auto* pl = CMD_BUF.pushNT<BindUBOPayload>(Cmd_BindUBO);
-    pl->program = tp;
-    pl->ubo = tu;
+    pl->program = program;
+    pl->ubo = ubo;
     pl->blockName = blockName;
     pl->bindingPoint = bindingPoint;
 }
@@ -807,26 +709,25 @@ void RenderDeviceProxy::bindUBO(GPUProgram* program, UBO* ubo,
 // SSBO
 // ---------------------------------------------------------------------------
 
-SSBO* RenderDeviceProxy::createSSBO() {
-    auto* s = new SSBOHandle();
+HwSSBO RenderDeviceProxy::createSSBO() {
+    HwSSBO handle = m_realDevice->allocateSSBO();
     if (!m_threaded) {
-        s->m_realSSBO = m_realDevice->createSSBO();
-        return s;
+        m_realDevice->commitSSBO(handle);
+        return handle;
     }
     auto* pl = CMD_BUF.push<CreateSSBOPayload>(Cmd_CreateSSBO);
-    pl->ssbo = s;
-    return s;
+    pl->ssbo = handle;
+    return handle;
 }
 
-void RenderDeviceProxy::updateSSBO(SSBO* ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) {
-    auto* ts = static_cast<SSBOHandle*>(ssbo);
+void RenderDeviceProxy::updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) {
     if (!m_threaded) {
-        m_realDevice->updateSSBO(ts->getReal(), ssboData, bindingPoint);
+        m_realDevice->updateSSBO(ssbo, ssboData, bindingPoint);
         m_currentFrameSSBORecyclables.push_back(std::move(ssboData));
         return;
     }
     auto* pl = CMD_BUF.pushNT<UpdateSSBOPayload>(Cmd_UpdateSSBO);
-    pl->ssbo = ts;
+    pl->ssbo = ssbo;
     pl->ssboData = std::move(ssboData);
     pl->bindingPoint = bindingPoint;
 }
@@ -852,51 +753,45 @@ void RenderDeviceProxy::deleteFence(void* fence) {
 // FBO (RenderTarget)
 // ---------------------------------------------------------------------------
 
-RenderTarget* RenderDeviceProxy::createRenderTarget(int32_t w, int32_t h,
-                                                     Texture2D** outColorTexture) {
-    auto* rt = new RenderTargetHandle();
-    rt->m_width  = w;
-    rt->m_height = h;
-
-    Texture2DHandle* colorTexHandle = nullptr;
-    if (outColorTexture) {
-        colorTexHandle = new Texture2DHandle();
-        *outColorTexture = colorTexHandle;
-    }
+HwRenderTarget RenderDeviceProxy::createRenderTarget(int32_t w, int32_t h,
+                                                      HwTexture2D* outColorTexture) {
+    HwRenderTarget rtHandle = m_realDevice->allocateRenderTarget();
+    HwTexture2D colorTexHandle{0};
 
     if (!m_threaded) {
-        Texture2D* rawTex = nullptr;
-        rt->m_realRenderTarget = m_realDevice->createRenderTarget(w, h, colorTexHandle ? &rawTex : nullptr);
-        if (colorTexHandle) colorTexHandle->m_realTexture = rawTex;
-        return rt;
+        m_realDevice->commitRenderTarget(rtHandle, w, h, outColorTexture ? &colorTexHandle : nullptr);
+        if (outColorTexture) *outColorTexture = colorTexHandle;
+        return rtHandle;
     }
     auto* pl = CMD_BUF.push<CreateRenderTargetPayload>(Cmd_CreateRenderTarget);
-    pl->rt       = rt;
-    pl->colorTex = colorTexHandle;
-    pl->w        = w;
-    pl->h        = h;
-    return rt;
+    pl->rt = rtHandle;
+    pl->w  = w;
+    pl->h  = h;
+    // Async path: outColorTexture filled after render thread execution via submitCurrentBufferAndAdvance
+    if (outColorTexture) {
+        colorTexHandle = m_realDevice->allocateTexture2D();
+        pl->colorTex = colorTexHandle;
+        *outColorTexture = colorTexHandle;
+    }
+    return rtHandle;
 }
 
-void RenderDeviceProxy::deleteRenderTarget(RenderTarget* rt) {
-    auto* tr = static_cast<RenderTargetHandle*>(rt);
+void RenderDeviceProxy::deleteRenderTarget(HwRenderTarget rt) {
     if (!m_threaded) {
-        m_realDevice->deleteRenderTarget(tr->m_realRenderTarget);
-        delete tr;
+        m_realDevice->deleteRenderTarget(rt);
         return;
     }
     auto* pl = CMD_BUF.push<DeleteRenderTargetPayload>(Cmd_DeleteRenderTarget);
-    pl->rt = tr;
+    pl->rt = rt;
 }
 
-void RenderDeviceProxy::bindRenderTarget(RenderTarget* rt) {
-    auto* tr = static_cast<RenderTargetHandle*>(rt);
+void RenderDeviceProxy::bindRenderTarget(HwRenderTarget rt) {
     if (!m_threaded) {
-        m_realDevice->bindRenderTarget(tr->m_realRenderTarget);
+        m_realDevice->bindRenderTarget(rt);
         return;
     }
     auto* pl = CMD_BUF.push<BindRenderTargetPayload>(Cmd_BindRenderTarget);
-    pl->rt = tr;
+    pl->rt = rt;
 }
 
 void RenderDeviceProxy::unbindRenderTarget() {
@@ -1060,63 +955,50 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
                 break;
             case Cmd_UseGPUProgram: {
                 auto* pl = static_cast<UseGPUProgramPayload*>(p);
-                if (pl->program) m_realDevice->useGPUProgram(pl->program->m_realProgram);
+                if (pl->program.isValid()) m_realDevice->useGPUProgram(pl->program);
                 break;
             }
             case Cmd_CreateGPUProgram: {
                 auto* pl = static_cast<CreateGPUProgramPayload*>(p);
-                if (pl->program)
-                    pl->program->m_realProgram = m_realDevice->createGPUProgram(
-                        pl->programFileName, pl->vertexShader, pl->fragmentShader);
+                if (pl->program.isValid())
+                    m_realDevice->commitGPUProgram(pl->program, pl->programFileName, pl->vertexShader, pl->fragmentShader);
                 break;
             }
             case Cmd_DeleteGPUProgram: {
                 auto* pl = static_cast<DeleteGPUProgramPayload*>(p);
-                if (pl->program) {
-                    m_realDevice->deletGPUProgram(pl->program->m_realProgram);
-                    delete pl->program;
-                }
+                if (pl->program.isValid()) m_realDevice->deletGPUProgram(pl->program);
                 break;
             }
             case Cmd_CreateTexture2D: {
                 auto* pl = static_cast<CreateTexture2DPayload*>(p);
-                if (pl->texture) pl->texture->m_realTexture = m_realDevice->createTexture2D(pl->imageType);
+                if (pl->texture.isValid()) m_realDevice->commitTexture2D(pl->texture, pl->imageType);
                 break;
             }
             case Cmd_DeleteTexture2D: {
                 auto* pl = static_cast<DeleteTexture2DPayload*>(p);
-                if (pl->texture) {
-                    m_realDevice->deleteTexture2D(pl->texture->m_realTexture);
-                    delete pl->texture;
-                }
+                if (pl->texture.isValid()) m_realDevice->deleteTexture2D(pl->texture);
                 break;
             }
             case Cmd_UseTexture2D: {
                 auto* pl = static_cast<UseTexture2DPayload*>(p);
-                if (pl->texture) m_realDevice->useTexture2D(pl->texture->m_realTexture, pl->index);
+                if (pl->texture.isValid()) m_realDevice->useTexture2D(pl->texture, pl->index);
                 break;
             }
             case Cmd_UpdateTexture2D: {
                 auto* pl = static_cast<UpdateTexture2DPayload*>(p);
-                if (pl->texture) {
-                    // pl->data.pixels 已在编码阶段正确设置（零拷贝或池缓冲均如此），无需再次重定向。
-                    m_realDevice->updateTexture2D(pl->texture->m_realTexture, pl->data);
-                    // glTexImage2D 同步完成，GL 驱动已拷贝像素，立即通知调用方 buffer 可复用。
-                    // 回调先于 pixelStorage 归池，确保应用侧先收到信号再复用。
+                if (pl->texture.isValid()) {
+                    m_realDevice->updateTexture2D(pl->texture, pl->data);
                     if (pl->data.releaseCallback) pl->data.releaseCallback();
-                    // 拷贝路径：内部池缓冲归还（零拷贝路径此字段为空，shared_ptr 析构由 clear() 处理）。
-                    if (pl->pixelStorage)
-                        m_framePixelRecyclables.push_back(std::move(pl->pixelStorage));
+                    if (pl->pixelStorage) m_framePixelRecyclables.push_back(std::move(pl->pixelStorage));
                 }
                 break;
             }
             case Cmd_UpdateSubTexture2D: {
                 auto* pl = static_cast<UpdateSubTexture2DPayload*>(p);
-                if (pl->texture && pl->pixelStorage) {
-                    m_realDevice->updateSubTexture2D(pl->texture->m_realTexture, pl->data,
+                if (pl->texture.isValid() && pl->pixelStorage) {
+                    m_realDevice->updateSubTexture2D(pl->texture, pl->data,
                                                      pl->x, pl->y, pl->width, pl->height,
                                                      pl->pixelStorage->data());
-                    // 同上：glTexSubImage2D 同步完成，先回调通知，再归还池缓冲。
                     if (pl->data.releaseCallback) pl->data.releaseCallback();
                     m_framePixelRecyclables.push_back(std::move(pl->pixelStorage));
                 }
@@ -1142,28 +1024,25 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             }
             case Cmd_CreateVBO: {
                 auto* pl = static_cast<CreateVBOPayload*>(p);
-                if (pl->vbo) pl->vbo->m_realVbo = m_realDevice->createVBO();
+                if (pl->vbo.isValid()) m_realDevice->commitVBO(pl->vbo);
                 break;
             }
             case Cmd_UpdateVBO: {
                 auto* pl = static_cast<UpdateVBOPayload*>(p);
-                if (pl->program && pl->vbo && pl->vboData) {
-                    m_realDevice->updateVBO(pl->program->m_realProgram, pl->vbo->m_realVbo, pl->vboData);
+                if (pl->program.isValid() && pl->vbo.isValid() && pl->vboData) {
+                    m_realDevice->updateVBO(pl->program, pl->vbo, pl->vboData);
                     m_frameRecyclables.push_back(pl->vboData);
                 }
                 break;
             }
             case Cmd_DeleteVBO: {
                 auto* pl = static_cast<DeleteVBOPayload*>(p);
-                if (pl->vbo) {
-                    m_realDevice->deleteVBO(pl->vbo->m_realVbo);
-                    delete pl->vbo;
-                }
+                if (pl->vbo.isValid()) m_realDevice->deleteVBO(pl->vbo);
                 break;
             }
             case Cmd_DrawVBO: {
                 auto* pl = static_cast<DrawVBOPayload*>(p);
-                if (pl->vbo) m_realDevice->drawVBO(pl->vbo->m_realVbo, pl->instanceCount);
+                if (pl->vbo.isValid()) m_realDevice->drawVBO(pl->vbo, pl->instanceCount);
                 break;
             }
             case Cmd_EnableBlend: m_realDevice->enableBlend();
@@ -1172,86 +1051,80 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
                 break;
             case Cmd_SetGPUProgramAsInt: {
                 auto* pl = static_cast<SetGPUProgramParamIntPayload*>(p);
-                if (pl->param) m_realDevice->setGPUProgramParamAsInt(pl->param->m_realParam, pl->value);
+                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsInt(pl->program, pl->uniformName, pl->value);
                 break;
             }
             case Cmd_SetGPUProgramAsFloat: {
                 auto* pl = static_cast<SetGPUProgramParamFloatPayload*>(p);
-                if (pl->param) m_realDevice->setGPUProgramParamAsFloat(pl->param->m_realParam, pl->value);
+                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsFloat(pl->program, pl->uniformName, pl->value);
                 break;
             }
             case Cmd_SetGPUProgramAsVec2: {
                 auto* pl = static_cast<SetGPUProgramParamVec2Payload*>(p);
-                if (pl->param) m_realDevice->setGPUProgramParamAsVec2(pl->param->m_realParam, pl->x, pl->y);
+                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsVec2(pl->program, pl->uniformName, pl->x, pl->y);
                 break;
             }
             case Cmd_SetGPUProgramAsVec3: {
                 auto* pl = static_cast<SetGPUProgramParamVec3Payload*>(p);
-                if (pl->param) m_realDevice->setGPUProgramParamAsVec3(pl->param->m_realParam, pl->x, pl->y, pl->z);
+                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsVec3(pl->program, pl->uniformName, pl->x, pl->y, pl->z);
                 break;
             }
             case Cmd_SetGPUProgramAsVec4: {
                 auto* pl = static_cast<SetGPUProgramParamVec4Payload*>(p);
-                if (pl->param) m_realDevice->setGPUProgramParamAsVec4(pl->param->m_realParam, pl->x, pl->y, pl->z, pl->w);
+                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsVec4(pl->program, pl->uniformName, pl->x, pl->y, pl->z, pl->w);
                 break;
             }
             case Cmd_SetGPUProgramAsMat4: {
                 auto* pl = static_cast<SetGPUProgramParamMat4Payload*>(p);
-                if (pl->param) m_realDevice->setGPUProgramParamAsMat4(pl->param->m_realParam, pl->mat);
+                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsMat4(pl->program, pl->uniformName, pl->mat);
                 break;
             }
             case Cmd_SetGPUProgramAsIntArray: {
                 auto* pl = static_cast<SetGPUProgramParamIntArrayPayload*>(p);
-                if (pl->param && pl->size > 0 && !pl->values.empty())
-                    m_realDevice->setGPUProgramParamAsIntArray(pl->param->m_realParam, pl->values.data(), pl->size, pl->step);
+                if (pl->program.isValid() && pl->size > 0 && !pl->values.empty())
+                    m_realDevice->setGPUProgramParamAsIntArray(pl->program, pl->uniformName, pl->values.data(), pl->size, pl->step);
                 break;
             }
             case Cmd_SetGPUProgramAsFloatArray: {
                 auto* pl = static_cast<SetGPUProgramParamFloatArrayPayload*>(p);
-                if (pl->param && pl->size > 0 && !pl->values.empty())
-                    m_realDevice->setGPUProgramParamAsFloatArray(pl->param->m_realParam, pl->values.data(), pl->size, pl->step);
+                if (pl->program.isValid() && pl->size > 0 && !pl->values.empty())
+                    m_realDevice->setGPUProgramParamAsFloatArray(pl->program, pl->uniformName, pl->values.data(), pl->size, pl->step);
                 break;
             }
             case Cmd_SetGPUProgramAsMat4Array: {
                 auto* pl = static_cast<SetGPUProgramParamMat4ArrayPayload*>(p);
-                if (pl->param && !pl->values.empty())
-                    m_realDevice->setGPUProgramParamAsMat4Array(pl->param->m_realParam, pl->values);
-                break;
-            }
-            case Cmd_InitThreadGPUProgramParam: {
-                auto* pl = static_cast<InitThreadGPUProgramParamPayload*>(p);
-                if (pl->program && pl->param)
-                    pl->param->m_realParam = m_realDevice->getGPUProgramParam(pl->program->m_realProgram, pl->name);
+                if (pl->program.isValid() && !pl->values.empty())
+                    m_realDevice->setGPUProgramParamAsMat4Array(pl->program, pl->uniformName, pl->values);
                 break;
             }
             case Cmd_CreateUBO: {
                 auto* pl = static_cast<CreateUBOPayload*>(p);
-                if (pl->ubo) pl->ubo->m_realUbo = m_realDevice->createUBO();
+                if (pl->ubo.isValid()) m_realDevice->commitUBO(pl->ubo);
                 break;
             }
             case Cmd_UpdateUBO: {
                 auto* pl = static_cast<UpdateUBOPayload*>(p);
-                if (pl->ubo && pl->uboData) {
-                    m_realDevice->updateUBO(pl->ubo->m_realUbo, pl->uboData);
+                if (pl->ubo.isValid() && pl->uboData) {
+                    m_realDevice->updateUBO(pl->ubo, pl->uboData);
                     m_frameUBORecyclables.push_back(pl->uboData);
                 }
                 break;
             }
             case Cmd_BindUBO: {
                 auto* pl = static_cast<BindUBOPayload*>(p);
-                if (pl->program && pl->ubo)
-                    m_realDevice->bindUBO(pl->program->m_realProgram, pl->ubo->getReal(), pl->blockName, pl->bindingPoint);
+                if (pl->program.isValid() && pl->ubo.isValid())
+                    m_realDevice->bindUBO(pl->program, pl->ubo, pl->blockName, pl->bindingPoint);
                 break;
             }
             case Cmd_CreateSSBO: {
                 auto* pl = static_cast<CreateSSBOPayload*>(p);
-                if (pl->ssbo) pl->ssbo->m_realSSBO = m_realDevice->createSSBO();
+                if (pl->ssbo.isValid()) m_realDevice->commitSSBO(pl->ssbo);
                 break;
             }
             case Cmd_UpdateSSBO: {
                 auto* pl = static_cast<UpdateSSBOPayload*>(p);
-                if (pl->ssbo && pl->ssboData) {
-                    m_realDevice->updateSSBO(pl->ssbo->getReal(), pl->ssboData, pl->bindingPoint);
+                if (pl->ssbo.isValid() && pl->ssboData) {
+                    m_realDevice->updateSSBO(pl->ssbo, pl->ssboData, pl->bindingPoint);
                     m_frameSSBORecyclables.push_back(pl->ssboData);
                 }
                 break;
@@ -1268,26 +1141,19 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
                 break;
             case Cmd_CreateRenderTarget: {
                 auto* pl = static_cast<CreateRenderTargetPayload*>(p);
-                if (pl->rt) {
-                    Texture2D* rawTex = nullptr;
-                    pl->rt->m_realRenderTarget = m_realDevice->createRenderTarget(
-                        pl->w, pl->h, pl->colorTex ? &rawTex : nullptr);
-                    if (pl->colorTex && rawTex)
-                        pl->colorTex->m_realTexture = rawTex;
+                if (pl->rt.isValid()) {
+                    m_realDevice->commitRenderTarget(pl->rt, pl->w, pl->h, pl->colorTex.isValid() ? &pl->colorTex : nullptr);
                 }
                 break;
             }
             case Cmd_DeleteRenderTarget: {
                 auto* pl = static_cast<DeleteRenderTargetPayload*>(p);
-                if (pl->rt) {
-                    m_realDevice->deleteRenderTarget(pl->rt->m_realRenderTarget);
-                    delete pl->rt;
-                }
+                if (pl->rt.isValid()) m_realDevice->deleteRenderTarget(pl->rt);
                 break;
             }
             case Cmd_BindRenderTarget: {
                 auto* pl = static_cast<BindRenderTargetPayload*>(p);
-                if (pl->rt) m_realDevice->bindRenderTarget(pl->rt->m_realRenderTarget);
+                if (pl->rt.isValid()) m_realDevice->bindRenderTarget(pl->rt);
                 break;
             }
             case Cmd_UnbindRenderTarget:

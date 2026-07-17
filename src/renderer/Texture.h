@@ -96,7 +96,7 @@ private:
 
 protected:
     TextureInfoSharedPtr m_textureInfo = std::make_shared<TextureInfo>();
-    Texture2D* m_texture2DPtr = nullptr;
+    HwTexture2D m_textureHandle{0};
     TextureData m_textureData;
 
 private:

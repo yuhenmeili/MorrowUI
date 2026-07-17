@@ -23,51 +23,32 @@ public:
     virtual ~GPUShaderDevice() = default;
 
     //---------------------------------------------------GPUProgram---------------------------------------------------
-    virtual void useGPUProgram(GPUProgram* program) = 0;
+    virtual void useGPUProgram(HwGPUProgram program) = 0;
 
-    virtual GPUProgram* createGPUProgram(const std::string& programFileName,
-                                         const std::string& vertexShader,
-                                         const std::string& fragmentShader) = 0;
+    virtual HwGPUProgram createGPUProgram(const std::string& programFileName,
+                                          const std::string& vertexShader,
+                                          const std::string& fragmentShader) = 0;
 
-    virtual void deletGPUProgram(GPUProgram* program) = 0;
+    virtual void deletGPUProgram(HwGPUProgram program) = 0;
 
-    virtual GPUProgramParam* getGPUProgramParam(GPUProgram* program, const std::string& name) = 0;
+    //------------------------------ 按名称设置 Uniform（统一接口，GPUProgramParam 不再独立存在）------------------------------
+    virtual void setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) = 0;
 
-    //------------------------------ 按 GPUProgramParam 句柄设置 Uniform ------------------------------
-    virtual void setGPUProgramParamAsInt(GPUProgramParam* param, int32_t value) = 0;
+    virtual void setGPUProgramParamAsFloat(HwGPUProgram program, const std::string& uniformName, float value) = 0;
 
-    virtual void setGPUProgramParamAsFloat(GPUProgramParam* param, float value) = 0;
+    virtual void setGPUProgramParamAsVec2(HwGPUProgram program, const std::string& uniformName, float x, float y) = 0;
 
-    virtual void setGPUProgramParamAsVec2(GPUProgramParam* param, float x, float y) = 0;
+    virtual void setGPUProgramParamAsVec3(HwGPUProgram program, const std::string& uniformName, float x, float y, float z) = 0;
 
-    virtual void setGPUProgramParamAsVec3(GPUProgramParam* param, float x, float y, float z) = 0;
+    virtual void setGPUProgramParamAsVec4(HwGPUProgram program, const std::string& uniformName, float x, float y, float z, float w) = 0;
 
-    virtual void setGPUProgramParamAsVec4(GPUProgramParam* param, float x, float y, float z, float w) = 0;
+    virtual void setGPUProgramParamAsMat4(HwGPUProgram program, const std::string& uniformName, const Matrix4& mat) = 0;
 
-    virtual void setGPUProgramParamAsMat4(GPUProgramParam* param, const Matrix4& mat) = 0;
+    virtual void setGPUProgramParamAsIntArray(HwGPUProgram program, const std::string& uniformName, const int32_t* values, int32_t size, int32_t step) = 0;
 
-    virtual void setGPUProgramParamAsIntArray(GPUProgramParam* param, const int32_t* values, int32_t size, int32_t step) = 0;
+    virtual void setGPUProgramParamAsFloatArray(HwGPUProgram program, const std::string& uniformName, const float* values, int32_t size, int32_t step) = 0;
 
-    virtual void setGPUProgramParamAsFloatArray(GPUProgramParam* param, const float* values, int32_t size, int32_t step) = 0;
-
-    virtual void setGPUProgramParamAsMat4Array(GPUProgramParam* param, const std::vector<Matrix4>& values) = 0;
-
-    //------------------------------ 按名称直接设置 Uniform（便捷重载）------------------------------
-    virtual void setGPUProgramParamAsInt(GPUProgram* program, const std::string& uniformName, int32_t value) = 0;
-
-    virtual void setGPUProgramParamAsFloat(GPUProgram* program, const std::string& uniformName, float value) = 0;
-
-    virtual void setGPUProgramParamAsVec2(GPUProgram* program, const std::string& uniformName, float x, float y) = 0;
-
-    virtual void setGPUProgramParamAsVec3(GPUProgram* program, const std::string& uniformName, float x, float y, float z) = 0;
-
-    virtual void setGPUProgramParamAsVec4(GPUProgram* program, const std::string& uniformName, float x, float y, float z, float w) = 0;
-
-    virtual void setGPUProgramParamAsMat4(GPUProgram* program, const std::string& uniformName, const Matrix4& mat) = 0;
-
-    virtual void setGPUProgramParamAsIntArray(GPUProgram* program, const std::string& uniformName, const int32_t* values, int32_t size, int32_t step) = 0;
-
-    virtual void setGPUProgramParamAsFloatArray(GPUProgram* program, const std::string& uniformName, const float* values, int32_t size, int32_t step) = 0;
+    virtual void setGPUProgramParamAsMat4Array(HwGPUProgram program, const std::string& uniformName, const std::vector<Matrix4>& values) = 0;
 };
 
 } // namespace morrow

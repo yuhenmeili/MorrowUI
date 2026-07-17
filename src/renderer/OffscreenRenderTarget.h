@@ -16,18 +16,18 @@ public:
     void destroy();
 
     /// The opaque FBO handle – passed to bindRenderTarget / unbindRenderTarget.
-    [[nodiscard]] RenderTarget* getRenderTarget() const;
+    [[nodiscard]] HwRenderTarget getRenderTarget() const;
 
-    /// Colour attachment Texture2D – passed to useTexture2D() for the display quad.
-    [[nodiscard]] Texture2D* getColorTexture() const;
+    /// Colour attachment HwTexture2D – passed to useTexture2D() for the display quad.
+    [[nodiscard]] HwTexture2D getColorTexture() const;
 
     [[nodiscard]] int32_t getWidth() const { return m_width; }
 
     [[nodiscard]] int32_t getHeight() const { return m_height; }
 
 private:
-    RenderTarget* m_renderTarget = nullptr;
-    Texture2D* m_colorTexture = nullptr; // set by Scene3DView after FBO is ready
+    HwRenderTarget m_renderTarget{0};
+    HwTexture2D m_colorTexture{0};
     int32_t m_width = 0, m_height = 0;
 
     friend class MR3DSceneView; // Scene3DView sets m_colorTexture after GL creation

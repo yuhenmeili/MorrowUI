@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
-#include "GpuTypes.h"    // VBO, GPUProgram（无需拉入完整设备接口）
+#include "GpuTypes.h"    // HwVBO, HwGPUProgram（无需拉入完整设备接口）
 
 #ifdef OPENGL_GLFW
 #include "platform/wgl/OpenglHeader.h"
@@ -26,7 +26,7 @@ class VertexArray {
 public:
     ~VertexArray();
 
-    void updateFromMeshes(std::shared_ptr<FrameState> frameState, GPUProgram* program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters);
+    void updateFromMeshes(std::shared_ptr<FrameState> frameState, HwGPUProgram program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters);
 
     void draw(std::shared_ptr<FrameState> frameState, int32_t instanceCount = 1);
 
@@ -36,14 +36,13 @@ private:
         uint64_t revision = 0;
     };
 
-    bool needsMeshUpload(GPUProgram* program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) const;
+    bool needsMeshUpload(HwGPUProgram program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) const;
 
-    void recordUploadedMeshes(GPUProgram* program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters);
+    void recordUploadedMeshes(HwGPUProgram program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters);
 
-    VBO* m_vbo = nullptr;
-
-    VBO* m_instanceVBO = nullptr; // 实例化数据VBO
-    GPUProgram* m_uploadedProgram = nullptr;
+    HwVBO m_vbo{0};
+    HwVBO m_instanceVBO{0};
+    HwGPUProgram m_uploadedProgram{0};
     std::vector<UploadedMeshState> m_uploadedMeshes;
 };
 

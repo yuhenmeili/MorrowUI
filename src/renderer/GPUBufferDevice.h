@@ -20,25 +20,25 @@ public:
     virtual ~GPUBufferDevice() = default;
 
     //---------------------------------------------------VBO---------------------------------------------------
-    virtual VBO* createVBO() = 0;
+    virtual HwVBO createVBO() = 0;
 
-    virtual void updateVBO(GPUProgram* program, VBO* vbo, VBODataSharedPtr vboData) = 0;
+    virtual void updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr vboData) = 0;
 
-    virtual void deleteVBO(VBO* vbo) = 0;
+    virtual void deleteVBO(HwVBO vbo) = 0;
 
-    virtual void drawVBO(VBO* vbo, int32_t instanceCount) = 0;
+    virtual void drawVBO(HwVBO vbo, int32_t instanceCount) = 0;
 
     //---------------------------------------------------UBO---------------------------------------------------
-    virtual UBO* createUBO() = 0;
+    virtual HwUBO createUBO() = 0;
 
-    virtual void updateUBO(UBO* ubo, std::shared_ptr<UBOData> uboData) = 0;
+    virtual void updateUBO(HwUBO ubo, std::shared_ptr<UBOData> uboData) = 0;
 
-    virtual void bindUBO(GPUProgram* program, UBO* ubo, const std::string& blockName, uint32_t bindingPoint) = 0;
+    virtual void bindUBO(HwGPUProgram program, HwUBO ubo, const std::string& blockName, uint32_t bindingPoint) = 0;
 
     //---------------------------------------------------SSBO---------------------------------------------------
-    virtual SSBO* createSSBO() = 0;
+    virtual HwSSBO createSSBO() = 0;
 
-    virtual void updateSSBO(SSBO* ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) = 0;
+    virtual void updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) = 0;
 
     //---------------------------------------------------GPU Fence（用于资源回收）---------------------------------------------------
     /// 在 GPU 命令流中插入 fence，返回不透明句柄（GL 下为 GLsync）。

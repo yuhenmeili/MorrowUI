@@ -21,7 +21,6 @@ class InputEventsManager;
 class OrthographicCamera;
 class BatchManager;
 class SSBOManager;
-class UBO;
 
 struct FrameState {
     uint64_t frameNumber = 0;
@@ -48,7 +47,7 @@ struct FrameState {
     // Legacy mirrors kept temporarily while 3D code migrates to scene3DPassContext.
     Scene3DLightingState scene3DLighting;
     Scene3DIBLState scene3DIBL;
-    UBO* scene3DFrameUBO = nullptr;
+    HwUBO scene3DFrameUBO{0};
 };
 
 using FrameStateSharedPtr = std::shared_ptr<FrameState>;

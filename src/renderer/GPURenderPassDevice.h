@@ -53,12 +53,12 @@ public:
     virtual void clearDepth() = 0;
 
     //---------------------------------------------------FBO---------------------------------------------------
-    virtual RenderTarget* createRenderTarget(int32_t w, int32_t h,
-                                             Texture2D** outColorTexture) = 0;
+    virtual HwRenderTarget createRenderTarget(int32_t w, int32_t h,
+                                              HwTexture2D* outColorTexture = nullptr) = 0;
 
-    virtual void deleteRenderTarget(RenderTarget* rt) = 0;
+    virtual void deleteRenderTarget(HwRenderTarget rt) = 0;
 
-    virtual void bindRenderTarget(RenderTarget* rt) = 0;
+    virtual void bindRenderTarget(HwRenderTarget rt) = 0;
 
     virtual void unbindRenderTarget() = 0;
 };

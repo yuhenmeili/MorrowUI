@@ -19,6 +19,7 @@
 #include "DriverEnums.h"
 #include "GlobalDefine.h"
 #include "Matrix4.h"
+#include "ResourceHandle.h"
 
 namespace morrow {
 using namespace Math;
@@ -28,61 +29,6 @@ using namespace Math;
 // ---------------------------------------------------------------------------
 class RenderDevice;
 class GLRenderDevice;
-
-// ---------------------------------------------------------------------------
-// GPU 资源句柄基类
-// ---------------------------------------------------------------------------
-
-// 非模板公共基类：用于通用容器（如资源追踪、统一删除列表）。
-// 不持有类型信息，仅提供统一析构入口。
-class GpuHandleBase {
-protected:
-    virtual ~GpuHandleBase() = default;
-};
-
-template <typename T>
-class GpuHandle : public GpuHandleBase {
-public:
-    virtual T* getReal() = 0;
-};
-
-// ---------------------------------------------------------------------------
-// GPU 资源句柄（各类型继承自 GpuHandle<Self>）
-// ---------------------------------------------------------------------------
-
-class UBO : public GpuHandle<UBO> {
-};
-
-class SSBO : public GpuHandle<SSBO> {
-};
-
-class RenderTarget : public GpuHandle<RenderTarget> {
-};
-
-class VBO : public GpuHandle<VBO> {
-};
-
-class GPUProgramParam : public GpuHandle<GPUProgramParam> {
-};
-
-class GPUProgram : public GpuHandle<GPUProgram> {
-    friend class GLRenderDevice;
-
-protected:
-    virtual ~GPUProgram() = default;
-
-public:
-    virtual GPUProgramParam* getUniformParam(const std::string& name) = 0;
-
-    virtual GPUProgramParam* getAttributeParam(const std::string& name) = 0;
-};
-
-class Texture2D : public GpuHandle<Texture2D> {
-    friend class GLRenderDevice;
-
-protected:
-    virtual ~Texture2D() = default;
-};
 
 // ---------------------------------------------------------------------------
 // CPU↔GPU 数据传输对象（DTO）

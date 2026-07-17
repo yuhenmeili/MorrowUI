@@ -398,16 +398,16 @@ void MR3DSceneView::update(FrameStateSharedPtr frameState) {
         m_displayMaterial->setInt("texture", 0);
         m_displayMaterial->apply();
 
-        auto* shader = m_displayMaterial->getShader();
+        auto shader = m_displayMaterial->getShader();
         if (shader) {
-            if (!m_quadVBO) {
+            if (!m_quadVBO.isValid()) {
                 m_quadVBO = RENDERINGTHREAD->createVBO();
             }
             if (!m_quadUploaded && m_displayQuadVBOData) {
                 RENDERINGTHREAD->updateVBO(shader, m_quadVBO, m_displayQuadVBOData);
                 m_quadUploaded = true;
             }
-            if (m_quadVBO && m_quadUploaded) {
+            if (m_quadVBO.isValid() && m_quadUploaded) {
                 frameState->drawCallCount++;
                 RENDERINGTHREAD->drawVBO(m_quadVBO, 1);
             }

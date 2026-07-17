@@ -5,14 +5,12 @@
 #ifndef UNIFORMBUFFER_H
 #define UNIFORMBUFFER_H
 #include <memory>
-
 #include "Matrix4.h"
+#include "GpuTypes.h"
 
 namespace morrow {
 using namespace Math;
-class GPUProgramHandle;
 struct UBOData;
-class UBO;
 struct FrameState;
 
 class UniformBuffer {
@@ -24,10 +22,10 @@ public:
     // 更新全局UBO（包含投影视图矩阵）
     void update(std::shared_ptr<FrameState> frameState);
 
-    void bind(GPUProgramHandle* shader);
+    void bind(HwGPUProgram shader);
 
 private:
-    UBO* m_globalUBO = nullptr;
+    HwUBO m_globalUBO{0};
     Matrix4 m_projectionView;
 };
 } // morrow

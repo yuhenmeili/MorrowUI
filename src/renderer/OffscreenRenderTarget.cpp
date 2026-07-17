@@ -21,22 +21,22 @@ void OffscreenRenderTarget::resize(int32_t w, int32_t h) {
 }
 
 void OffscreenRenderTarget::destroy() {
-    if (m_colorTexture) {
+    if (m_colorTexture.isValid()) {
         RENDERINGTHREAD->deleteTexture2D(m_colorTexture);
-        m_colorTexture = nullptr;
+        m_colorTexture = HwTexture2D{0};
     }
-    if (m_renderTarget) {
+    if (m_renderTarget.isValid()) {
         RENDERINGTHREAD->deleteRenderTarget(m_renderTarget);
-        m_renderTarget = nullptr;
+        m_renderTarget = HwRenderTarget{0};
     }
     m_width = m_height = 0;
 }
 
-Texture2D* OffscreenRenderTarget::getColorTexture() const {
+HwTexture2D OffscreenRenderTarget::getColorTexture() const {
     return m_colorTexture;
 }
 
-RenderTarget* OffscreenRenderTarget::getRenderTarget() const {
+HwRenderTarget OffscreenRenderTarget::getRenderTarget() const {
     return m_renderTarget;
 }
 } // morrow

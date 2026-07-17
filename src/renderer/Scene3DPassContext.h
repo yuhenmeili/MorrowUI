@@ -6,10 +6,10 @@
 #include <vector>
 
 #include "Vector3.h"
+#include "GpuTypes.h"
 
 namespace morrow {
 class Texture;
-class UBO;
 class PerspectiveCamera;
 
 struct Scene3DLightingState {
@@ -43,7 +43,7 @@ struct Scene3DIBLState {
 
 struct Scene3DPassContext {
     std::shared_ptr<PerspectiveCamera> camera;
-    UBO* frameUBO = nullptr;
+    HwUBO frameUBO{0};
     Scene3DLightingState lighting;
     Scene3DIBLState ibl;
     int32_t passWidth = 0;

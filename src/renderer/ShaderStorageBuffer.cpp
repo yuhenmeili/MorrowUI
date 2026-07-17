@@ -11,7 +11,7 @@ ShaderStorageBuffer::ShaderStorageBuffer() {
 }
 
 void ShaderStorageBuffer::resize(size_t size) {
-    if (m_ssbo == nullptr) {
+    if (!m_ssbo.isValid()) {
         m_ssbo = RENDERINGTHREAD->createSSBO();
     }
     auto* pool = RENDERINGTHREAD->getSSBODataRecyclePool();

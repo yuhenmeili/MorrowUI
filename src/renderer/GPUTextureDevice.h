@@ -19,17 +19,17 @@ public:
     virtual ~GPUTextureDevice() = default;
 
     //---------------------------------------------------Texture2D---------------------------------------------------
-    virtual Texture2D* createTexture2D(ImageType imageType) = 0;
+    virtual HwTexture2D createTexture2D(ImageType imageType) = 0;
 
-    virtual void deleteTexture2D(Texture2D* texture) = 0;
+    virtual void deleteTexture2D(HwTexture2D texture) = 0;
 
-    virtual void useTexture2D(Texture2D* texture, uint32_t index) = 0;
+    virtual void useTexture2D(HwTexture2D texture, uint32_t index) = 0;
 
     virtual bool isTextureFormatSupported(PixelDataFormat textureFormat) = 0;
 
-    virtual void updateTexture2D(Texture2D* texture, const TextureData& data) = 0;
+    virtual void updateTexture2D(HwTexture2D texture, const TextureData& data) = 0;
 
-    virtual void updateSubTexture2D(Texture2D* texture, const TextureData& data,
+    virtual void updateSubTexture2D(HwTexture2D texture, const TextureData& data,
                                     int32_t x, int32_t y, int32_t width, int32_t height,
                                     const unsigned char* sourceData) = 0;
 };

@@ -56,7 +56,7 @@ TextureSharedPtr createTextureFromGLTFData(const TextureData& textureData) {
 struct Prim3D {
     MaterialSharedPtr material;
     VBODataSharedPtr vboData;
-    VBO* vbo = nullptr; // created lazily
+    HwVBO vbo{0}; // created lazily
     bool uploaded = false; // true after first updateVBO
 };
 
@@ -64,7 +64,7 @@ struct Prim3D {
 // move-constructible after the opaque internal struct.
 struct MeshRenderer3D::Impl {
     std::vector<Prim3D> prims;
-    UBO* drawUbo = nullptr;
+    HwUBO drawUbo{0};
 };
 
 // ---------------------------------------------------------------------------
@@ -121,7 +121,7 @@ void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
 
     Scene3DPassContextSharedPtr passContext;
     Scene3DIBLState ibl;
-    UBO* scene3DFrameUbo = nullptr;
+    HwUBO scene3DFrameUbo{0};
     if (frameState) {
         passContext = frameState->scene3DPassContext;
         if (passContext) {
@@ -132,9 +132,9 @@ void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
             scene3DFrameUbo = frameState->scene3DFrameUBO;
         }
     }
-    if (!scene3DFrameUbo) return;
+    if (!scene3DFrameUbo.isValid()) return;
 
-    if (!m_impl->drawUbo) {
+    if (!m_impl->drawUbo.isValid()) {
         m_impl->drawUbo = RENDERINGTHREAD->createUBO();
     }
 
@@ -158,15 +158,15 @@ void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
         // and sets all stored uniforms (including the matrices above).
         pd.material->apply();
 
-        auto* shader = pd.material->getShader();
-        if (!shader) continue;
+        auto shader = pd.material->getShader();
+        if (!shader.isValid()) continue;
 
         RENDERINGTHREAD->bindUBO(shader, scene3DFrameUbo, "Scene3DFrame", kScene3DFrameBindingPoint);
         RENDERINGTHREAD->bindUBO(shader, m_impl->drawUbo, "Scene3DDraw", kScene3DDrawBindingPoint);
         pd.material->bindScene3DMaterialUBO(shader);
 
         // Create VBO lazily (first update)
-        if (!pd.vbo) {
+        if (!pd.vbo.isValid()) {
             pd.vbo = RENDERINGTHREAD->createVBO();
         }
 
@@ -193,9 +193,9 @@ MeshRenderer3D::~MeshRenderer3D() {
     if (!m_impl) return;
 
     for (auto& prim : m_impl->prims) {
-        if (prim.vbo) {
+        if (prim.vbo.isValid()) {
             RENDERINGTHREAD->deleteVBO(prim.vbo);
-            prim.vbo = nullptr;
+            prim.vbo = HwVBO{0};
         }
     }
 }

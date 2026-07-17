@@ -15,13 +15,13 @@ UniformBuffer::UniformBuffer() {
 }
 
 UniformBuffer::~UniformBuffer() {
-    if (m_globalUBO) {
+    if (m_globalUBO.isValid()) {
         //TODO release ubo
     }
 }
 
 void UniformBuffer::update(std::shared_ptr<FrameState> frameState) {
-    if (m_globalUBO == nullptr) {
+    if (!m_globalUBO.isValid()) {
         m_globalUBO = RENDERINGTHREAD->createUBO();
     }
     auto pV = frameState->camera->getProjectionView();
@@ -39,7 +39,7 @@ void UniformBuffer::update(std::shared_ptr<FrameState> frameState) {
     }
 }
 
-void UniformBuffer::bind(GPUProgramHandle* shader) {
+void UniformBuffer::bind(HwGPUProgram shader) {
     RENDERINGTHREAD->bindUBO(shader, m_globalUBO, "Global", 0);
 }
 } // morrow

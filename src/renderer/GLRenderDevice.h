@@ -14,11 +14,16 @@
 
 #include "RenderDevice.h"
 #include "Platform.h"
+#include "ResourceRegistry.h"
 
 namespace morrow {
 
+// ── 前向声明内部 GL 类型（定义在 GLRenderDevice.cpp）──
+class GlTexture2D;
+
 // ---------------------------------------------------------------------------
 // GLRenderDevice – OpenGL/GLES 渲染后端的唯一公共类。
+// 持有 ResourceRegistry，负责 Handle ↔ GL 对象的映射。
 // ---------------------------------------------------------------------------
 
 using GLRenderDevicePtr    = std::shared_ptr<GLRenderDevice>;
@@ -28,6 +33,14 @@ public:
     explicit GLRenderDevice(PlatformSharedPtr platform);
 
     ~GLRenderDevice() override;
+
+    // ── Handle 预分配（线程安全，前端调用）──
+    HwTexture2D    allocateTexture2D()    { return m_registry.allocateTexture2D(); }
+    HwVBO          allocateVBO()          { return m_registry.allocateVBO(); }
+    HwUBO          allocateUBO()          { return m_registry.allocateUBO(); }
+    HwSSBO         allocateSSBO()         { return m_registry.allocateSSBO(); }
+    HwGPUProgram   allocateGPUProgram()   { return m_registry.allocateGPUProgram(); }
+    HwRenderTarget allocateRenderTarget() { return m_registry.allocateRenderTarget(); }
 
     void makeCurrent(void* window) override;
 
@@ -46,111 +59,62 @@ public:
     bool checkSSBOSupport() override;
 
     //------------------------------------------------------VBO------------------------------------------------------
-
-    VBO* createVBO() override;
-
-    void updateVBO(GPUProgram* program, VBO* vbo, VBODataSharedPtr vboData) override;
-
-    void deleteVBO(VBO* vbo) override;
-
-    void drawVBO(VBO* vbo, int32_t instanceCount) override;
+    HwVBO createVBO() override;              // interface (allocate+commit)
+    void  commitVBO(HwVBO handle);           // proxy helper (handle pre-allocated)
+    void updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr vboData) override;
+    void deleteVBO(HwVBO vbo) override;
+    void drawVBO(HwVBO vbo, int32_t instanceCount) override;
 
     //------------------------------------------------------Texture2D------------------------------------------------------
-    Texture2D* createTexture2D(ImageType imageType) override;
-
-    void deleteTexture2D(Texture2D* texture) override;
-
-    void useTexture2D(Texture2D* texture, uint32_t index) override;
-
+    HwTexture2D createTexture2D(ImageType imageType) override;       // interface
+    void        commitTexture2D(HwTexture2D handle, ImageType imageType); // proxy helper
+    void deleteTexture2D(HwTexture2D texture) override;
+    void useTexture2D(HwTexture2D texture, uint32_t index) override;
     bool isTextureFormatSupported(PixelDataFormat textureFormat) override;
-
-    void updateTexture2D(Texture2D* texture, const TextureData& data) override;
-
-    void updateSubTexture2D(Texture2D* texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) override;
-
-    bool upLoadTexture(Texture2D* texture, const TextureData& data);
-
-    bool upLoadOESTexture(Texture2D* texture, const TextureData& data);
+    void updateTexture2D(HwTexture2D texture, const TextureData& data) override;
+    void updateSubTexture2D(HwTexture2D texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) override;
 
     //------------------------------------------------------Blend------------------------------------------------------
-
     void enableBlend() override;
-
     void disableBlend() override;
 
     //------------------------------------------------------GPUProgram------------------------------------------------------
-    //gpu program
-    void useGPUProgram(GPUProgram* program) override;
+    void useGPUProgram(HwGPUProgram program) override;
+    HwGPUProgram createGPUProgram(const std::string&, const std::string&, const std::string&) override; // interface
+    void         commitGPUProgram(HwGPUProgram handle, const std::string& programFileName, const std::string& vertexShader, const std::string& fragmentShader); // proxy helper
+    void deletGPUProgram(HwGPUProgram program) override;
 
-    bool makeFolder();
-
-    GPUProgram* createGPUProgram(const std::string& programFileName, const std::string& vertexShader, const std::string& fragmentShader) override;
-
-    bool checkCompileErrors(const std::string& programFileName, GLuint shader, std::string type);
-
-    void deletGPUProgram(GPUProgram* program) override;
-
-    GPUProgramParam* getGPUProgramParam(GPUProgram* program, const std::string& name) override;
-
-    void setGPUProgramParamAsInt(GPUProgramParam* param, int32_t value) override;
-
-    void setGPUProgramParamAsFloat(GPUProgramParam* param, float value) override;
-
-    void setGPUProgramParamAsVec2(GPUProgramParam* param, float x, float y) override;
-
-    void setGPUProgramParamAsVec3(GPUProgramParam* param, float x, float y, float z) override;
-
-    void setGPUProgramParamAsVec4(GPUProgramParam* param, float x, float y, float z, float w) override;
-
-    void setGPUProgramParamAsMat4(GPUProgramParam* param, const Matrix4& mat) override;
-
-    void setGPUProgramParamAsIntArray(GPUProgramParam* param, const int32_t* values, int32_t size, int32_t step) override;
-
-    void setGPUProgramParamAsFloatArray(GPUProgramParam* param, const float* values, int32_t size, int32_t step) override;
-
-    void setGPUProgramParamAsMat4Array(GPUProgramParam* param, const std::vector<Matrix4>& values) override;
-
-    //-----------------------------------------------------------------------------------------------------
-
-    void setGPUProgramParamAsInt(GPUProgram* program, const std::string& uniformName, int32_t value) override;
-
-    void setGPUProgramParamAsFloat(GPUProgram* program, const std::string& uniformName, float value) override;
-
-    void setGPUProgramParamAsVec2(GPUProgram* program, const std::string& uniformName, float x, float y) override;
-
-    void setGPUProgramParamAsVec3(GPUProgram* program, const std::string& uniformName, float x, float y, float z) override;
-
-    void setGPUProgramParamAsVec4(GPUProgram* program, const std::string& uniformName, float x, float y, float z, float w) override;
-
-    void setGPUProgramParamAsMat4(GPUProgram* program, const std::string& uniformName, const Matrix4& mat) override;
-
-    void setGPUProgramParamAsIntArray(GPUProgram* program, const std::string& uniformName, const int32_t* values, int32_t size, int32_t step) override;
-
-    void setGPUProgramParamAsFloatArray(GPUProgram* program, const std::string& uniformName, const float* values, int32_t size, int32_t step) override;
+    // All uniform setting via name (GPUProgramParam removed)
+    void setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) override;
+    void setGPUProgramParamAsFloat(HwGPUProgram program, const std::string& uniformName, float value) override;
+    void setGPUProgramParamAsVec2(HwGPUProgram program, const std::string& uniformName, float x, float y) override;
+    void setGPUProgramParamAsVec3(HwGPUProgram program, const std::string& uniformName, float x, float y, float z) override;
+    void setGPUProgramParamAsVec4(HwGPUProgram program, const std::string& uniformName, float x, float y, float z, float w) override;
+    void setGPUProgramParamAsMat4(HwGPUProgram program, const std::string& uniformName, const Matrix4& mat) override;
+    void setGPUProgramParamAsIntArray(HwGPUProgram program, const std::string& uniformName, const int32_t* values, int32_t size, int32_t step) override;
+    void setGPUProgramParamAsFloatArray(HwGPUProgram program, const std::string& uniformName, const float* values, int32_t size, int32_t step) override;
+    void setGPUProgramParamAsMat4Array(HwGPUProgram program, const std::string& uniformName, const std::vector<Matrix4>& values) override;
 
     //---------------------------------------------------UBO---------------------------------------------------
-    UBO* createUBO() override;
-
-    void updateUBO(UBO* ubo, std::shared_ptr<UBOData> uboData) override;
-
-    void bindUBO(GPUProgram* program, UBO* ubo, const std::string& blockName, uint32_t bindingPoint) override;
+    HwUBO createUBO() override;              // interface
+    void  commitUBO(HwUBO handle);           // proxy helper
+    void updateUBO(HwUBO ubo, std::shared_ptr<UBOData> uboData) override;
+    void bindUBO(HwGPUProgram program, HwUBO ubo, const std::string& blockName, uint32_t bindingPoint) override;
 
     //---------------------------------------------------SSBO---------------------------------------------------
-    SSBO* createSSBO() override;
-
-    void updateSSBO(SSBO* ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) override;
+    HwSSBO createSSBO() override;            // interface
+    void   commitSSBO(HwSSBO handle);        // proxy helper
+    void updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) override;
 
     void* insertFence() override;
-
     bool waitFence(void* fence, uint64_t timeoutNs) override;
-
     void deleteFence(void* fence) override;
 
     // FBO操作
-    RenderTarget* createRenderTarget(int32_t w, int32_t h,
-                                     Texture2D** outColorTexture = nullptr) override;
-    void deleteRenderTarget(RenderTarget* rt) override;
-    void bindRenderTarget(RenderTarget* rt) override;
+    HwRenderTarget createRenderTarget(int32_t w, int32_t h, HwTexture2D* outColorTexture = nullptr) override; // interface
+    void           commitRenderTarget(HwRenderTarget rtHandle, int32_t w, int32_t h, HwTexture2D* outColorTexture = nullptr); // proxy helper
+    void deleteRenderTarget(HwRenderTarget rt) override;
+    void bindRenderTarget(HwRenderTarget rt) override;
     void unbindRenderTarget() override;
 
     // 深度/状态
@@ -159,9 +123,19 @@ public:
     void setCullFace(CullFaceMode mode) override;
     void clearDepth() override;
 
+    // ── 内部辅助 ──
+    ResourceRegistry& getRegistry() { return m_registry; }
+
 private:
     PlatformSharedPtr m_platform;
-    RenderTarget* m_boundRenderTarget = nullptr;
+    HwRenderTarget m_boundRenderTarget{0};
+    ResourceRegistry m_registry;
+
+    // ── 内部 GL helper（不对外暴露）──
+    bool makeFolder();
+    bool upLoadTexture(GlTexture2D* textureImp, const TextureData& data);
+    bool upLoadOESTexture(GlTexture2D* textureImp, const TextureData& data);
+    bool checkCompileErrors(const std::string& programFileName, GLuint shader, std::string type);
 };
 } // MORROWGUI
 

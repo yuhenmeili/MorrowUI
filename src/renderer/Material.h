@@ -83,9 +83,9 @@ public:
 
     std::string getShaderName() const;
 
-    GPUProgramHandle* getShader() const;
+    HwGPUProgram getShader() const;
 
-    GPUProgramHandle* getBatchShader() const;
+    HwGPUProgram getBatchShader() const;
 
     void setBlendEnabled(bool enabled);
 
@@ -103,12 +103,12 @@ public:
 
     const Scene3DMaterialUBO& getScene3DMaterialUBO() const;
 
-    void bindScene3DMaterialUBO(GPUProgramHandle* shader = nullptr);
+    void bindScene3DMaterialUBO(HwGPUProgram shader = HwGPUProgram{0});
 
     // 应用材质参数到Shader
-    void apply(GPUProgramHandle* shader = nullptr);
+    void apply(HwGPUProgram shader = HwGPUProgram{0});
 
-    void applyBatch(GPUProgramHandle* shader = nullptr);
+    void applyBatch(HwGPUProgram shader = HwGPUProgram{0});
 
     bool isEqual(std::shared_ptr<Material>  other);
 
@@ -128,10 +128,10 @@ private:
 
     void loadShader();
 
-    GPUProgramHandle* buildShader(bool enableSSBO = false);
+    HwGPUProgram buildShader(bool enableSSBO = false);
 
-    GPUProgramHandle* m_shader = nullptr;
-    GPUProgramHandle* m_batchShader = nullptr;
+    HwGPUProgram m_shader{0};
+    HwGPUProgram m_batchShader{0};
     std::unordered_map<std::string, TextureSharedPtr> m_textureMap;
     std::unordered_map<std::string, VectorVariant> m_vectorMap;
     std::unordered_map<std::string, float> m_floatMap;
@@ -144,7 +144,7 @@ private:
     int m_srcBlendFactor = 1; // 默认为GL_ONE
     int m_dstBlendFactor = 0; // 默认为GL_ZERO
     bool m_doubleSided = false;
-    UBO* m_scene3DMaterialUbo = nullptr;
+    HwUBO m_scene3DMaterialUbo{0};
     Scene3DMaterialUBO m_scene3DMaterialData{};
     bool m_scene3DMaterialDirty = true;
     std::vector<TextureSharedPtr> m_textures{};

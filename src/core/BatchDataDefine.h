@@ -6,11 +6,12 @@
 #define BATCHDATADEFINE_H
 #include "Vector3.h"
 #include "Vector4.h"
+#include "renderer/ResourceHandle.h"
 
 namespace morrow {
 class VertexArray;
 class SSBOData;
-class SSBO;
+// SSBO is now a ResourceHandle alias (HwSSBO), defined in ResourceHandle.h
 class Transform;
 class MeshFilter;
 class Material;

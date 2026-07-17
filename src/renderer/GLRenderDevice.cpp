@@ -23,63 +23,37 @@
 #define MR_BATCH "a_batch"
 
 namespace morrow {
-class GlProgramParam : public GPUProgramParam {
+
+// ── 内部 GL 资源对象（不再继承自 GpuHandle 体系）──
+
+class GlProgram {
 public:
-    explicit GlProgramParam(GLint loc) : location(loc) {
+    explicit GlProgram(GLuint id) : ProgramID(id) {}
+
+    ~GlProgram() { glDeleteProgram(ProgramID); }
+
+    GLint getUniformLocation(const std::string& name) const {
+        return glGetUniformLocation(ProgramID, name.c_str());
     }
 
-    GPUProgramParam* getReal() override { return this; }
-
-    GLint location;
-};
-
-class GlProgram : public GPUProgram {
-public:
-    explicit GlProgram(GLuint id) : ProgramID(id) {
-    }
-
-    ~GlProgram() override {
-        for (auto& p : _nameToParams) delete p.second;
-    }
-
-    GPUProgram* getReal() override { return this; }
-
-    GPUProgramParam* getUniformParam(const std::string& name) override {
-        auto it = _nameToParams.find(name);
-        if (it == _nameToParams.end()) {
-            auto* param = new GlProgramParam(glGetUniformLocation(ProgramID, name.c_str()));
-            _nameToParams.emplace(name, param);
-            return param;
-        }
-        return it->second;
-    }
-
-    GPUProgramParam* getAttributeParam(const std::string& name) override {
-        auto it = _nameToParams.find(name);
-        if (it == _nameToParams.end()) {
-            auto* param = new GlProgramParam(glGetAttribLocation(ProgramID, name.c_str()));
-            _nameToParams.emplace(name, param);
-            return param;
-        }
-        return it->second;
+    GLint getAttribLocation(const std::string& name) const {
+        return glGetAttribLocation(ProgramID, name.c_str());
     }
 
     GLuint ProgramID;
-
-private:
-    std::unordered_map<std::string, GlProgramParam*> _nameToParams;
 };
 
-class GlTexture2D : public Texture2D {
+class GlTexture2D {
 public:
-    explicit GlTexture2D(GLuint id) : textureID(id) {
-    }
+    explicit GlTexture2D(GLuint id) : textureID(id) {}
 
-    Texture2D* getReal() override { return this; }
+    ~GlTexture2D() {
+        if (!m_ownedByFBO && textureID) glDeleteTextures(1, &textureID);
+    }
 
     GLuint textureID;
     GLenum textureTarget = GL_TEXTURE_2D;
-    bool   m_ownedByFBO  = false;  // true → GL texture owned by FBO, don't delete here
+    bool   m_ownedByFBO  = false;
 #ifdef OPENGL_EGL
     PFNEGLCREATEIMAGEKHRPROC p_eglCreateImageKHR = nullptr;
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC p_glEGLImageTargetTexture2DOES = nullptr;
@@ -89,14 +63,13 @@ public:
     uint32_t m_debugTimes = 0;
 };
 
-class GlVBO : public VBO {
-    friend class GLRenderDevice;
-
-protected:
-    ~GlVBO() override = default;
-
+class GlVBO {
 public:
-    VBO* getReal() override { return this; }
+    ~GlVBO() {
+        if (vertexArrayID) glDeleteVertexArrays(1, &vertexArrayID);
+        if (vertexbuffer) glDeleteBuffers(1, &vertexbuffer);
+        if (elementbuffer) glDeleteBuffers(1, &elementbuffer);
+    }
 
     GLuint vertexArrayID = 0;
     GLuint vertexbuffer = 0;
@@ -106,22 +79,41 @@ public:
     GLenum drawMode = GL_TRIANGLES;
 };
 
-class GlUBO : public UBO {
+class GlUBO {
 public:
-    UBO* getReal() override { return this; }
+    ~GlUBO() { if (bufferID) glDeleteBuffers(1, &bufferID); }
 
     GLuint bufferID = 0;
     size_t bufferSize = 0;
     uint32_t bindingPoint = 0;
 };
 
-class GlSSBO : public SSBO {
+class GlSSBO {
 public:
-    SSBO* getReal() override { return this; }
+    ~GlSSBO() { if (bufferID) glDeleteBuffers(1, &bufferID); }
 
     GLuint bufferID = 0;
     size_t bufferSize = 0;
     uint32_t bindingPoint = 0;
+};
+
+class GlRenderTarget {
+public:
+    ~GlRenderTarget() {
+        if (fboID) glDeleteFramebuffers(1, &fboID);
+        if (resolveFBOID) glDeleteFramebuffers(1, &resolveFBOID);
+        if (colorTexID) glDeleteTextures(1, &colorTexID);
+        if (colorRBOID) glDeleteRenderbuffers(1, &colorRBOID);
+        if (depthRBOID) glDeleteRenderbuffers(1, &depthRBOID);
+    }
+
+    GLuint fboID = 0;
+    GLuint resolveFBOID = 0;
+    GLuint colorTexID = 0;
+    GLuint colorRBOID = 0;
+    GLuint depthRBOID = 0;
+    int32_t width = 0, height = 0;
+    int32_t samples = 1;
 };
 
 GLRenderDevice::GLRenderDevice(PlatformSharedPtr platform) : m_platform(platform) {
@@ -248,17 +240,20 @@ bool GLRenderDevice::checkSSBOSupport() {
     }
 }
 
-VBO* GLRenderDevice::createVBO() {
-    auto vbo = new GlVBO();
+HwVBO GLRenderDevice::createVBO() { HwVBO h = allocateVBO(); commitVBO(h); return h; }
+void GLRenderDevice::commitVBO(HwVBO handle) {
+    auto* vbo = new GlVBO();
     glGenVertexArrays(1, &vbo->vertexArrayID);
     glBindVertexArray(vbo->vertexArrayID);
     glGenBuffers(1, &vbo->vertexbuffer);
     glGenBuffers(1, &vbo->elementbuffer);
-    return vbo;
+    m_registry.commitVBO(handle, vbo);
 }
 
-void GLRenderDevice::updateVBO(GPUProgram* program, VBO* vbo, VBODataSharedPtr vboData) {
-    auto* glVbo = (GlVBO*)vbo;
+void GLRenderDevice::updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr vboData) {
+    auto* glVbo = m_registry.getVBO(vbo);
+    auto* glProg = m_registry.getGPUProgram(program);
+    if (!glVbo || !glProg) return;
 
     glBindVertexArray(glVbo->vertexArrayID);
     glBindBuffer(GL_ARRAY_BUFFER, glVbo->vertexbuffer);
@@ -266,55 +261,19 @@ void GLRenderDevice::updateVBO(GPUProgram* program, VBO* vbo, VBODataSharedPtr v
 
     // 为每个属性设置顶点指针（现在是连续存储）
     for (const auto& attr : vboData->attributes) {
+        GLint loc = -1;
+        GLint size = 3;
         switch (attr.type) {
-            case VertexAttributeType::Position: {
-                auto positionParam = dynamic_cast<GlProgramParam*>(program->getAttributeParam(MR_POSITION));
-                if (positionParam && positionParam->location != -1) {
-                    glEnableVertexAttribArray(positionParam->location);
-                    glVertexAttribPointer(positionParam->location, 3, GL_FLOAT, GL_FALSE, 0, (void*)attr.offset);
-                }
-                break;
-            }
-            case VertexAttributeType::Color: {
-                auto colorParam = dynamic_cast<GlProgramParam*>(program->getAttributeParam(MR_COLOR));
-                if (colorParam && colorParam->location != -1) {
-                    glEnableVertexAttribArray(colorParam->location);
-                    glVertexAttribPointer(colorParam->location, 4, GL_FLOAT, GL_FALSE, 0, (void*)attr.offset);
-                }
-                break;
-            }
-            case VertexAttributeType::UV: {
-                auto uvParam = dynamic_cast<GlProgramParam*>(program->getAttributeParam(MR_TEXCOORD));
-                if (uvParam && uvParam->location != -1) {
-                    glEnableVertexAttribArray(uvParam->location);
-                    glVertexAttribPointer(uvParam->location, 2, GL_FLOAT, GL_FALSE, 0, (void*)attr.offset);
-                }
-                break;
-            }
-            case VertexAttributeType::Normal: {
-                auto normalParam = dynamic_cast<GlProgramParam*>(program->getAttributeParam(MR_NORMAL));
-                if (normalParam && normalParam->location != -1) {
-                    glEnableVertexAttribArray(normalParam->location);
-                    glVertexAttribPointer(normalParam->location, 3, GL_FLOAT, GL_FALSE, 0, (void*)attr.offset);
-                }
-                break;
-            }
-            case VertexAttributeType::Tangent: {
-                auto tangentParam = dynamic_cast<GlProgramParam*>(program->getAttributeParam(MR_TANGENT));
-                if (tangentParam && tangentParam->location != -1) {
-                    glEnableVertexAttribArray(tangentParam->location);
-                    glVertexAttribPointer(tangentParam->location, 4, GL_FLOAT, GL_FALSE, 0, (void*)attr.offset);
-                }
-                break;
-            }
-            case VertexAttributeType::BatchID: {
-                auto batchParam = dynamic_cast<GlProgramParam*>(program->getAttributeParam(MR_BATCH));
-                if (batchParam && batchParam->location != -1) {
-                    glEnableVertexAttribArray(batchParam->location);
-                    glVertexAttribPointer(batchParam->location, 1, GL_FLOAT, GL_FALSE, 0, (void*)attr.offset);
-                }
-                break;
-            }
+            case VertexAttributeType::Position:  loc = glProg->getAttribLocation(MR_POSITION); size = 3; break;
+            case VertexAttributeType::Color:     loc = glProg->getAttribLocation(MR_COLOR);    size = 4; break;
+            case VertexAttributeType::UV:        loc = glProg->getAttribLocation(MR_TEXCOORD); size = 2; break;
+            case VertexAttributeType::Normal:    loc = glProg->getAttribLocation(MR_NORMAL);   size = 3; break;
+            case VertexAttributeType::Tangent:   loc = glProg->getAttribLocation(MR_TANGENT);  size = 4; break;
+            case VertexAttributeType::BatchID:   loc = glProg->getAttribLocation(MR_BATCH);    size = 1; break;
+        }
+        if (loc != -1) {
+            glEnableVertexAttribArray(loc);
+            glVertexAttribPointer(loc, size, GL_FLOAT, GL_FALSE, 0, (void*)(uintptr_t)attr.offset);
         }
     }
 
@@ -331,16 +290,13 @@ void GLRenderDevice::updateVBO(GPUProgram* program, VBO* vbo, VBODataSharedPtr v
 }
 
 
-void GLRenderDevice::deleteVBO(VBO* vbo) {
-    auto* glVbo = dynamic_cast<GlVBO*>(vbo);
-    glDeleteBuffers(1, &glVbo->vertexbuffer);
-    glDeleteBuffers(1, &glVbo->elementbuffer);
-    glDeleteVertexArrays(1, &glVbo->vertexArrayID);
-    delete glVbo;
+void GLRenderDevice::deleteVBO(HwVBO vbo) {
+    m_registry.destroyVBO(vbo);
 }
 
-void GLRenderDevice::drawVBO(VBO* vbo, int32_t instanceCount) {
-    auto* glVbo = dynamic_cast<GlVBO*>(vbo);
+void GLRenderDevice::drawVBO(HwVBO vbo, int32_t instanceCount) {
+    auto* glVbo = m_registry.getVBO(vbo);
+    if (!glVbo) return;
     glBindVertexArray(glVbo->vertexArrayID);
     glDisable(GL_CULL_FACE);
     if (glVbo->indicesCount == 0) {
@@ -365,21 +321,21 @@ void GLRenderDevice::drawVBO(VBO* vbo, int32_t instanceCount) {
     }
 }
 
-Texture2D* GLRenderDevice::createTexture2D(ImageType imageType) {
+HwTexture2D GLRenderDevice::createTexture2D(ImageType imageType) { HwTexture2D h = allocateTexture2D(); commitTexture2D(h, imageType); return h; }
+void GLRenderDevice::commitTexture2D(HwTexture2D handle, ImageType imageType) {
     GLuint textureID = 0;
     glGenTextures(1, &textureID);
-    auto realTexture = new GlTexture2D(textureID);
+    auto* realTexture = new GlTexture2D(textureID);
 #ifdef OPENGL_GLFW
     realTexture->textureTarget = GL_TEXTURE_2D;
 #else
     realTexture->textureTarget = imageType == ImageType::OES ? GL_TEXTURE_EXTERNAL_OES : GL_TEXTURE_2D;
 #endif
-
-    return realTexture;
+    m_registry.commitTexture2D(handle, realTexture);
 }
 
-void GLRenderDevice::deleteTexture2D(Texture2D* texture) {
-    auto realTex = dynamic_cast<GlTexture2D*>(texture);
+void GLRenderDevice::deleteTexture2D(HwTexture2D texture) {
+    auto* realTex = m_registry.getTexture2D(texture);
     if (!realTex) {
         return;
     }
@@ -404,10 +360,11 @@ void GLRenderDevice::deleteTexture2D(Texture2D* texture) {
     delete realTex;
 }
 
-void GLRenderDevice::useTexture2D(Texture2D* texture, uint32_t index) {
-    auto textureImp = dynamic_cast<GlTexture2D*>(texture);
+void GLRenderDevice::useTexture2D(HwTexture2D texture, uint32_t index) {
+    auto* textureImp = m_registry.getTexture2D(texture);
+    if (!textureImp) return;
     glActiveTexture(GL_TEXTURE0 + index);
-    glBindTexture(textureImp->textureTarget, dynamic_cast<GlTexture2D*>(texture)->textureID);
+    glBindTexture(textureImp->textureTarget, textureImp->textureID);
 }
 
 bool GLRenderDevice::isTextureFormatSupported(PixelDataFormat textureFormat) {
@@ -426,15 +383,18 @@ bool GLRenderDevice::isTextureFormatSupported(PixelDataFormat textureFormat) {
     return false;
 }
 
-void GLRenderDevice::updateTexture2D(Texture2D* texture, const TextureData& data) {
-    data.imageType == ImageType::OES ? upLoadOESTexture(texture, data) : upLoadTexture(texture, data);
+void GLRenderDevice::updateTexture2D(HwTexture2D texture, const TextureData& data) {
+    auto* tex = m_registry.getTexture2D(texture);
+    if (!tex) return;
+    data.imageType == ImageType::OES ? upLoadOESTexture(tex, data) : upLoadTexture(tex, data);
 }
 
-void GLRenderDevice::updateSubTexture2D(Texture2D* texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) {
-    auto textureImp = dynamic_cast<GlTexture2D*>(texture);
+void GLRenderDevice::updateSubTexture2D(HwTexture2D texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) {
+    auto* textureImp = m_registry.getTexture2D(texture);
+    if (!textureImp) return;
     GLenum textureTarget = textureImp->textureTarget;
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(textureTarget, dynamic_cast<GlTexture2D*>(texture)->textureID);
+    glBindTexture(textureTarget, textureImp->textureID);
 
     int32_t unpackAlignment = data.imageType == ImageType::TEXT
                                   ? 1
@@ -459,11 +419,10 @@ void GLRenderDevice::updateSubTexture2D(Texture2D* texture, const TextureData& d
     }
 }
 
-bool GLRenderDevice::upLoadTexture(Texture2D* texture, const TextureData& data) {
-    auto textureImp = dynamic_cast<GlTexture2D*>(texture);
+bool GLRenderDevice::upLoadTexture(GlTexture2D* textureImp, const TextureData& data) {
     GLenum textureTarget = textureImp->textureTarget;
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(textureTarget, dynamic_cast<GlTexture2D*>(texture)->textureID);
+    glBindTexture(textureTarget, textureImp->textureID);
 
     GLint minFilterType = OpenglUtils::getMinFilterType(data.minFilterType);
     GLint magFilterType = OpenglUtils::getMagFilterType(data.magFilterType);
@@ -513,7 +472,7 @@ bool GLRenderDevice::upLoadTexture(Texture2D* texture, const TextureData& data) 
     return true;
 }
 
-bool GLRenderDevice::upLoadOESTexture(Texture2D* texture, const TextureData& data) {
+bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData& data) {
 #ifdef OPENGL_GLFW
     //do nothing
 #else
@@ -640,7 +599,8 @@ bool GLRenderDevice::makeFolder() {
     return true;
 }
 
-GPUProgram* GLRenderDevice::createGPUProgram(const std::string& programFileName, const std::string& vertexShaderStr, const std::string& fragmentShaderStr) {
+HwGPUProgram GLRenderDevice::createGPUProgram(const std::string& a, const std::string& b, const std::string& c) { HwGPUProgram h = allocateGPUProgram(); commitGPUProgram(h, a, b, c); return h; }
+void GLRenderDevice::commitGPUProgram(HwGPUProgram handle, const std::string& programFileName, const std::string& vertexShaderStr, const std::string& fragmentShaderStr) {
     // LOG_I("shader: {}, vert: {}, frag: {}", programFileName, vertexShaderStr, fragmentShaderStr);
     GLenum binaryFormat = 0x8740;
     std::string version = "20251031";
@@ -721,7 +681,7 @@ GPUProgram* GLRenderDevice::createGPUProgram(const std::string& programFileName,
         glDeleteShader(vertex);
         glDeleteShader(fragment);
     }
-    return new GlProgram(programObject);
+    m_registry.commitGPUProgram(handle, new GlProgram(programObject));
 }
 
 bool GLRenderDevice::checkCompileErrors(const std::string& programFileName, GLuint shader, std::string type) {
@@ -759,106 +719,86 @@ bool GLRenderDevice::checkCompileErrors(const std::string& programFileName, GLui
 }
 
 
-void GLRenderDevice::useGPUProgram(GPUProgram* program) {
-    auto programId = dynamic_cast<GlProgram*>(program)->ProgramID;
-    glUseProgram(programId);
+void GLRenderDevice::useGPUProgram(HwGPUProgram program) {
+    auto* prog = m_registry.getGPUProgram(program);
+    if (!prog) return;
+    glUseProgram(prog->ProgramID);
 }
 
-void GLRenderDevice::deletGPUProgram(GPUProgram* program) {
-    glDeleteProgram(dynamic_cast<GlProgram*>(program)->ProgramID);
-    delete program;
+void GLRenderDevice::deletGPUProgram(HwGPUProgram program) {
+    m_registry.destroyGPUProgram(program);
 }
 
-GPUProgramParam* GLRenderDevice::getGPUProgramParam(GPUProgram* program, const std::string& name) {
-    return program->getUniformParam(name);
+void GLRenderDevice::setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) {
+    auto* prog = m_registry.getGPUProgram(program);
+    if (!prog) return;
+    glUniform1i(prog->getUniformLocation(uniformName), value);
 }
 
-void GLRenderDevice::setGPUProgramParamAsInt(GPUProgramParam* param, int32_t value) {
-    glUniform1i(dynamic_cast<GlProgramParam*>(param)->location, value);
+void GLRenderDevice::setGPUProgramParamAsFloat(HwGPUProgram program, const std::string& uniformName, float value) {
+    auto* prog = m_registry.getGPUProgram(program);
+    if (!prog) return;
+    glUniform1f(prog->getUniformLocation(uniformName), value);
 }
 
-
-void GLRenderDevice::setGPUProgramParamAsFloat(GPUProgramParam* param, float value) {
-    glUniform1f(dynamic_cast<GlProgramParam*>(param)->location, value);
+void GLRenderDevice::setGPUProgramParamAsVec2(HwGPUProgram program, const std::string& uniformName, float x, float y) {
+    auto* prog = m_registry.getGPUProgram(program);
+    if (!prog) return;
+    glUniform2f(prog->getUniformLocation(uniformName), x, y);
 }
 
-void GLRenderDevice::setGPUProgramParamAsVec2(GPUProgramParam* param, float x, float y) {
-    glUniform2f(dynamic_cast<GlProgramParam*>(param)->location, x, y);
+void GLRenderDevice::setGPUProgramParamAsVec3(HwGPUProgram program, const std::string& uniformName, float x, float y, float z) {
+    auto* prog = m_registry.getGPUProgram(program);
+    if (!prog) return;
+    glUniform3f(prog->getUniformLocation(uniformName), x, y, z);
 }
 
-void GLRenderDevice::setGPUProgramParamAsVec3(GPUProgramParam* param, float x, float y, float z) {
-    glUniform3f(dynamic_cast<GlProgramParam*>(param)->location, x, y, z);
+void GLRenderDevice::setGPUProgramParamAsVec4(HwGPUProgram program, const std::string& uniformName, float x, float y, float z, float w) {
+    auto* prog = m_registry.getGPUProgram(program);
+    if (!prog) return;
+    glUniform4f(prog->getUniformLocation(uniformName), x, y, z, w);
 }
 
-void GLRenderDevice::setGPUProgramParamAsVec4(GPUProgramParam* param, float x, float y, float z, float w) {
-    glUniform4f(dynamic_cast<GlProgramParam*>(param)->location, x, y, z, w);
+void GLRenderDevice::setGPUProgramParamAsMat4(HwGPUProgram program, const std::string& uniformName, const Matrix4& mat) {
+    auto* prog = m_registry.getGPUProgram(program);
+    if (!prog) return;
+    glUniformMatrix4fv(prog->getUniformLocation(uniformName), 1, GL_FALSE, mat.elements);
 }
 
-void GLRenderDevice::setGPUProgramParamAsMat4(GPUProgramParam* param, const Matrix4& mat) {
-    glUniformMatrix4fv(dynamic_cast<GlProgramParam*>(param)->location, 1, /*transpose=*/GL_FALSE, mat.elements);
+void GLRenderDevice::setGPUProgramParamAsIntArray(HwGPUProgram program, const std::string& uniformName, const int32_t* values, int32_t size, int32_t step) {
+    auto* prog = m_registry.getGPUProgram(program);
+    if (!prog) return;
+    GLint loc = prog->getUniformLocation(uniformName);
+    if (step == 1)      glUniform1iv(loc, size, values);
+    else if (step == 2) glUniform2iv(loc, size, values);
+    else if (step == 3) glUniform3iv(loc, size, values);
+    else if (step == 4) glUniform4iv(loc, size, values);
 }
 
-void GLRenderDevice::setGPUProgramParamAsIntArray(GPUProgramParam* param, const int32_t* values, int32_t size, int32_t step) {
-    if (step == 1) {
-        glUniform1iv(dynamic_cast<GlProgramParam*>(param)->location, size, values);
-    } else if (step == 2) {
-        glUniform2iv(dynamic_cast<GlProgramParam*>(param)->location, size, values);
-    } else if (step == 3) {
-        glUniform3iv(dynamic_cast<GlProgramParam*>(param)->location, size, values);
-    } else if (step == 4) {
-        glUniform4iv(dynamic_cast<GlProgramParam*>(param)->location, size, values);
-    }
+void GLRenderDevice::setGPUProgramParamAsFloatArray(HwGPUProgram program, const std::string& uniformName, const float* values, int32_t size, int32_t step) {
+    auto* prog = m_registry.getGPUProgram(program);
+    if (!prog) return;
+    GLint loc = prog->getUniformLocation(uniformName);
+    if (step == 1)      glUniform1fv(loc, size, values);
+    else if (step == 2) glUniform2fv(loc, size, values);
+    else if (step == 3) glUniform3fv(loc, size, values);
+    else if (step == 4) glUniform4fv(loc, size, values);
 }
 
-void GLRenderDevice::setGPUProgramParamAsFloatArray(GPUProgramParam* param, const float* values, int32_t size, int32_t step) {
-    if (step == 1) {
-        glUniform1fv(dynamic_cast<GlProgramParam*>(param)->location, size, values);
-    } else if (step == 2) {
-        glUniform2fv(dynamic_cast<GlProgramParam*>(param)->location, size, values);
-    } else if (step == 3) {
-        glUniform3fv(dynamic_cast<GlProgramParam*>(param)->location, size, values);
-    } else if (step == 4) {
-        glUniform4fv(dynamic_cast<GlProgramParam*>(param)->location, size, values);
-    }
-}
-
-void GLRenderDevice::setGPUProgramParamAsMat4Array(GPUProgramParam* param, const std::vector<Matrix4>& values) {
-    //    glUniformMatrix4fv(static_cast<GlProgramParam*>(param)->location, values.size(), /*transpose=*/GL_FALSE, &values[0][0]);
-}
-
-void GLRenderDevice::setGPUProgramParamAsInt(GPUProgram* program, const std::string& uniformName, int32_t value) {
-}
-
-void GLRenderDevice::setGPUProgramParamAsFloat(GPUProgram* program, const std::string& uniformName, float value) {
-}
-
-void GLRenderDevice::setGPUProgramParamAsMat4(GPUProgram* program, const std::string& uniformName, const Matrix4& mat) {
-}
-
-void GLRenderDevice::setGPUProgramParamAsIntArray(GPUProgram* program, const std::string& uniformName, const int32_t* values, int32_t size, int32_t step) {
-}
-
-void GLRenderDevice::setGPUProgramParamAsFloatArray(GPUProgram* program, const std::string& uniformName, const float* values, int32_t size, int32_t step) {
-}
-
-void GLRenderDevice::setGPUProgramParamAsVec2(GPUProgram* program, const std::string& uniformName, float x, float y) {
-}
-
-void GLRenderDevice::setGPUProgramParamAsVec3(GPUProgram* program, const std::string& uniformName, float x, float y, float z) {
-}
-
-void GLRenderDevice::setGPUProgramParamAsVec4(GPUProgram* program, const std::string& uniformName, float x, float y, float z, float w) {
+void GLRenderDevice::setGPUProgramParamAsMat4Array(HwGPUProgram program, const std::string& uniformName, const std::vector<Matrix4>& values) {
+    // glUniformMatrix4fv with array — TODO if needed
 }
 
 //---------------------------------------------------UBO---------------------------------------------------
-UBO* GLRenderDevice::createUBO() {
-    auto ubo = new GlUBO;
+HwUBO GLRenderDevice::createUBO() { HwUBO h = allocateUBO(); commitUBO(h); return h; }
+void GLRenderDevice::commitUBO(HwUBO handle) {
+    auto* ubo = new GlUBO();
     glGenBuffers(1, &ubo->bufferID);
-    return ubo;
+    m_registry.commitUBO(handle, ubo);
 }
 
-void GLRenderDevice::updateUBO(UBO* ubo, std::shared_ptr<UBOData> uboData) {
-    auto* glUbo = (GlUBO*)ubo;
+void GLRenderDevice::updateUBO(HwUBO ubo, std::shared_ptr<UBOData> uboData) {
+    auto* glUbo = m_registry.getUBO(ubo);
     if (!glUbo || !uboData) {
         return;
     }
@@ -873,9 +813,11 @@ void GLRenderDevice::updateUBO(UBO* ubo, std::shared_ptr<UBOData> uboData) {
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
-void GLRenderDevice::bindUBO(GPUProgram* program, UBO* ubo, const std::string& blockName, uint32_t bindingPoint) {
-    auto* glUbo = (GlUBO*)ubo;
-    GLuint programID = dynamic_cast<GlProgram*>(program)->ProgramID;
+void GLRenderDevice::bindUBO(HwGPUProgram program, HwUBO ubo, const std::string& blockName, uint32_t bindingPoint) {
+    auto* glUbo = m_registry.getUBO(ubo);
+    auto* glProg = m_registry.getGPUProgram(program);
+    if (!glUbo || !glProg) return;
+    GLuint programID = glProg->ProgramID;
     GLuint blockIndex = glGetUniformBlockIndex(programID, blockName.c_str());
 
     if (blockIndex != GL_INVALID_INDEX) {
@@ -884,14 +826,16 @@ void GLRenderDevice::bindUBO(GPUProgram* program, UBO* ubo, const std::string& b
     }
 }
 
-SSBO* GLRenderDevice::createSSBO() {
-    auto ssbo = new GlSSBO();
+HwSSBO GLRenderDevice::createSSBO() { HwSSBO h = allocateSSBO(); commitSSBO(h); return h; }
+void GLRenderDevice::commitSSBO(HwSSBO handle) {
+    auto* ssbo = new GlSSBO();
     glGenBuffers(1, &ssbo->bufferID);
-    return ssbo;
+    m_registry.commitSSBO(handle, ssbo);
 }
 
-void GLRenderDevice::updateSSBO(SSBO* ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) {
-    auto* glSsbo = (GlSSBO*)ssbo;
+void GLRenderDevice::updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) {
+    auto* glSsbo = m_registry.getSSBO(ssbo);
+    if (!glSsbo) return;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, glSsbo->bufferID);
     glBufferData(GL_SHADER_STORAGE_BUFFER, ssboData->size, ssboData->data.data(), GL_STREAM_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, glSsbo->bufferID);
@@ -923,23 +867,9 @@ void GLRenderDevice::deleteFence(void* fence) {
 // RenderTarget (FBO)
 // ---------------------------------------------------------------------------
 
-/// Internal struct holding a GL FBO + colour texture + depth RBO.
-class GlRenderTarget : public RenderTarget {
-public:
-    RenderTarget* getReal() override { return this; }
-
-    GLuint fboID        = 0;
-    GLuint resolveFBOID = 0;
-    GLuint colorTexID   = 0;
-    GLuint colorRBOID   = 0;
-    GLuint depthRBOID   = 0;
-    int32_t width       = 0;
-    int32_t height      = 0;
-    int32_t samples     = 1;
-};
-
-RenderTarget* GLRenderDevice::createRenderTarget(int32_t w, int32_t h,
-                                                  Texture2D** outColorTexture) {
+HwRenderTarget GLRenderDevice::createRenderTarget(int32_t w, int32_t h, HwTexture2D* outColorTexture) { HwRenderTarget rt = allocateRenderTarget(); commitRenderTarget(rt, w, h, outColorTexture); return rt; }
+void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle, int32_t w, int32_t h,
+                                                  HwTexture2D* outColorTexture) {
     auto* rt = new GlRenderTarget();
     rt->width  = w;
     rt->height = h;
@@ -1017,44 +947,36 @@ RenderTarget* GLRenderDevice::createRenderTarget(int32_t w, int32_t h,
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    // Optionally expose the colour texture via a thin GlTexture2D wrapper
+    // Optionally expose the colour texture via a GlTexture2D wrapper
     if (outColorTexture) {
         auto* colorTex = new GlTexture2D(rt->colorTexID);
-        // The FBO owns the GL texture; this wrapper must NOT delete it.
-        // We mark it by setting a flag so deleteTexture2D skips glDeleteTextures.
         colorTex->m_ownedByFBO = true;
-        *outColorTexture = colorTex;
+        *outColorTexture = m_registry.allocateTexture2D();
+        m_registry.commitTexture2D(*outColorTexture, colorTex);
     }
 
-    return rt;
+    m_registry.commitRenderTarget(rtHandle, rt);
 }
 
-void GLRenderDevice::deleteRenderTarget(RenderTarget* rt) {
-    if (!rt) return;
-    auto* glRt = static_cast<GlRenderTarget*>(rt);
+void GLRenderDevice::deleteRenderTarget(HwRenderTarget rt) {
+    m_registry.destroyRenderTarget(rt);
     if (m_boundRenderTarget == rt) {
-        m_boundRenderTarget = nullptr;
+        m_boundRenderTarget = HwRenderTarget{0};
     }
-    if (glRt->fboID) glDeleteFramebuffers(1, &glRt->fboID);
-    if (glRt->resolveFBOID) glDeleteFramebuffers(1, &glRt->resolveFBOID);
-    if (glRt->colorTexID) glDeleteTextures(1, &glRt->colorTexID);
-    if (glRt->colorRBOID) glDeleteRenderbuffers(1, &glRt->colorRBOID);
-    if (glRt->depthRBOID) glDeleteRenderbuffers(1, &glRt->depthRBOID);
-    delete glRt;
 }
 
-void GLRenderDevice::bindRenderTarget(RenderTarget* rt) {
-    if (!rt) return;
-    auto* glRt = static_cast<GlRenderTarget*>(rt);
+void GLRenderDevice::bindRenderTarget(HwRenderTarget rt) {
+    auto* glRt = m_registry.getRenderTarget(rt);
+    if (!glRt) return;
     glBindFramebuffer(GL_FRAMEBUFFER, glRt->fboID);
     glViewport(0, 0, glRt->width, glRt->height);
     m_boundRenderTarget = rt;
 }
 
 void GLRenderDevice::unbindRenderTarget() {
-    if (m_boundRenderTarget) {
-        auto* glRt = static_cast<GlRenderTarget*>(m_boundRenderTarget);
-        if (glRt->resolveFBOID != 0 && glRt->samples > 1) {
+    if (m_boundRenderTarget.isValid()) {
+        auto* glRt = m_registry.getRenderTarget(m_boundRenderTarget);
+        if (glRt && glRt->resolveFBOID != 0 && glRt->samples > 1) {
             glBindFramebuffer(GL_READ_FRAMEBUFFER, glRt->fboID);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, glRt->resolveFBOID);
             glBlitFramebuffer(0, 0, glRt->width, glRt->height,
@@ -1063,7 +985,7 @@ void GLRenderDevice::unbindRenderTarget() {
         }
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    m_boundRenderTarget = nullptr;
+    m_boundRenderTarget = HwRenderTarget{0};
 }
 
 // ---------------------------------------------------------------------------

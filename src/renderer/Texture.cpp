@@ -27,8 +27,8 @@ Texture::Texture(ImageType imageType) {
 
 Texture::~Texture() {
     LOG_I("cleanupGPU texture {}", getImageInfo().c_str());
-    if (m_texture2DPtr) {
-        RENDERINGTHREAD->deleteTexture2D(m_texture2DPtr);
+    if (m_textureHandle.isValid()) {
+        RENDERINGTHREAD->deleteTexture2D(m_textureHandle);
     }
     m_textureInfo->textureDataRawPtr = nullptr;
     GlobalObject::getInstance().getTextureManager()->removeTexture(m_uniqueID);
@@ -134,8 +134,8 @@ void Texture::prepare() {
 }
 
 void Texture::render(FrameStateSharedPtr frameState) {
-    if (!m_texture2DPtr) {
-        m_texture2DPtr = RENDERINGTHREAD->createTexture2D(m_textureInfo->imageType);
+    if (!m_textureHandle.isValid()) {
+        m_textureHandle = RENDERINGTHREAD->createTexture2D(m_textureInfo->imageType);
     }
     if (m_textureInfo->textureNeedUpLoad) {
         if (m_textureInfo->imageType == ImageType::IMAGE) {
@@ -154,7 +154,7 @@ void Texture::render(FrameStateSharedPtr frameState) {
 }
 
 void Texture::bindTexture(int32_t index) {
-    RENDERINGTHREAD->useTexture2D(m_texture2DPtr, index);
+    RENDERINGTHREAD->useTexture2D(m_textureHandle, index);
 }
 
 void Texture::debugTexture(const std::string& widgetIdentityInfo) {
@@ -188,7 +188,7 @@ bool Texture::deployTexture() {
     m_textureData.pixelOwner = m_textureInfo->textureDataSharedPtr;
     //TODO 由外部传入
     // m_textureData.releaseCallback = nullptr;
-    RENDERINGTHREAD->updateTexture2D(m_texture2DPtr, m_textureData);
+    RENDERINGTHREAD->updateTexture2D(m_textureHandle, m_textureData);
     return true;
 }
 

@@ -12,16 +12,16 @@
 
 namespace morrow {
 VertexArray::~VertexArray() {
-    if (m_vbo) {
+    if (m_vbo.isValid()) {
         RENDERINGTHREAD->deleteVBO(m_vbo);
-        m_vbo = nullptr;
+        m_vbo = HwVBO{0};
     }
 }
 
 bool VertexArray::needsMeshUpload(
-    GPUProgram* program,
+    HwGPUProgram program,
     const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) const {
-    if (!m_vbo || m_uploadedProgram != program) return true;
+    if (!m_vbo.isValid() || m_uploadedProgram != program) return true;
 
     size_t validMeshCount = 0;
     for (const auto& meshFilter : meshFilters) {
@@ -48,7 +48,7 @@ bool VertexArray::needsMeshUpload(
     return false;
 }
 
-void VertexArray::recordUploadedMeshes(GPUProgram* program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) {
+void VertexArray::recordUploadedMeshes(HwGPUProgram program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) {
     m_uploadedProgram = program;
     m_uploadedMeshes.clear();
     m_uploadedMeshes.reserve(meshFilters.size());
@@ -60,13 +60,13 @@ void VertexArray::recordUploadedMeshes(GPUProgram* program, const std::vector<st
     }
 }
 
-void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, GPUProgram* program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) {
+void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, HwGPUProgram program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) {
     (void)frameState;
     if (!needsMeshUpload(program, meshFilters)) {
         return;
     }
 
-    if (!m_vbo) {
+    if (!m_vbo.isValid()) {
         m_vbo = RENDERINGTHREAD->createVBO();
     }
     // 计算总的顶点数和索引数

@@ -109,7 +109,7 @@ private:
 
     // Display quad GPU state (deferred VBO upload)
     VBODataSharedPtr m_displayQuadVBOData;
-    VBO* m_quadVBO = nullptr;
+    HwVBO m_quadVBO{0};
     bool m_quadUploaded = false;
 
     Vector4 m_sceneClearColor = {0.22f, 0.23f, 0.31f, 1.0f};
