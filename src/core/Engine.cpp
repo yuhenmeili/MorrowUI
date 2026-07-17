@@ -9,7 +9,7 @@
 #include "PlatformFactory.h"
 #include "debug/DebugPlane.h"
 #include "ui/helpers/Tween.h"
-#include "renderer/RenderDeviceProxy.h"
+#include "renderer/device/RenderDeviceProxy.h"
 
 namespace morrow {
 Engine::Engine(const EngineOptions& options) {

@@ -196,6 +196,9 @@ target_include_directories(${MORROW_LIB_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/fonts
     ${CMAKE_CURRENT_SOURCE_DIR}/ui
     ${CMAKE_CURRENT_SOURCE_DIR}/renderer
+    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/device
+    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/resource
+    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/scene3d
     ${CMAKE_CURRENT_SOURCE_DIR}/platform
     ${CMAKE_CURRENT_SOURCE_DIR}/debug
     ${CMAKE_CURRENT_SOURCE_DIR}/gltf

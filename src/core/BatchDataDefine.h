@@ -6,7 +6,7 @@
 #define BATCHDATADEFINE_H
 #include "Vector3.h"
 #include "Vector4.h"
-#include "renderer/ResourceHandle.h"
+#include "renderer/device/ResourceHandle.h"
 
 namespace morrow {
 class VertexArray;
