@@ -107,6 +107,16 @@ void GLRenderDevice::clear() {
 }
 
 void GLRenderDevice::setViewPort(int32_t x, int32_t y, int32_t width, int32_t height) {
+    if (m_stateCache.viewportValid &&
+        m_stateCache.viewportX == x && m_stateCache.viewportY == y &&
+        m_stateCache.viewportW == width && m_stateCache.viewportH == height) {
+        return;
+    }
+    m_stateCache.viewportX = x;
+    m_stateCache.viewportY = y;
+    m_stateCache.viewportW = width;
+    m_stateCache.viewportH = height;
+    m_stateCache.viewportValid = true;
     glViewport(x, y, width, height);
 }
 
@@ -208,6 +218,9 @@ void GLRenderDevice::drawVBO(HwVBO vbo, int32_t instanceCount) {
     if (!glVbo) return;
     glBindVertexArray(glVbo->vertexArrayID);
     glDisable(GL_CULL_FACE);
+    // drawVBO 直接修改了 GL 的 cull face 状态，同步缓存
+    m_stateCache.cullFaceMode = CullFaceMode::NONE;
+    m_stateCache.cullFaceValid = true;
     if (glVbo->indicesCount == 0) {
         if (glVbo->drawMode == GL_POINTS) {
 #ifdef OPENGL_GLFW
@@ -270,6 +283,9 @@ void GLRenderDevice::deleteTexture2D(HwTexture2D texture) {
 }
 
 void GLRenderDevice::useTexture2D(HwTexture2D texture, uint32_t index) {
+    if (index >= GLStateCache::kMaxTextureUnits) return;
+    if (m_stateCache.currentTextures[index] == texture) return;
+    m_stateCache.currentTextures[index] = texture;
     auto* textureImp = m_registry.getTexture2D(texture);
     if (!textureImp) return;
     glActiveTexture(GL_TEXTURE0 + index);
@@ -477,12 +493,18 @@ bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData
 }
 
 void GLRenderDevice::enableBlend() {
+    if (m_stateCache.blendStateValid && m_stateCache.blendEnabled) return;
+    m_stateCache.blendEnabled = true;
+    m_stateCache.blendStateValid = true;
     glEnable(GL_BLEND);
     glBlendEquation(GL_FUNC_ADD);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void GLRenderDevice::disableBlend() {
+    if (m_stateCache.blendStateValid && !m_stateCache.blendEnabled) return;
+    m_stateCache.blendEnabled = false;
+    m_stateCache.blendStateValid = true;
     glDisable(GL_BLEND);
 }
 
@@ -629,6 +651,8 @@ bool GLRenderDevice::checkCompileErrors(const std::string& programFileName, GLui
 
 
 void GLRenderDevice::useGPUProgram(HwGPUProgram program) {
+    if (m_stateCache.currentProgram == program) return;
+    m_stateCache.currentProgram = program;
     auto* prog = m_registry.getGPUProgram(program);
     if (!prog) return;
     glUseProgram(prog->ProgramID);
@@ -879,6 +903,12 @@ void GLRenderDevice::bindRenderTarget(HwRenderTarget rt) {
     if (!glRt) return;
     glBindFramebuffer(GL_FRAMEBUFFER, glRt->fboID);
     glViewport(0, 0, glRt->width, glRt->height);
+    // FBO 切换后 viewport 已变更，同步缓存
+    m_stateCache.viewportX = 0;
+    m_stateCache.viewportY = 0;
+    m_stateCache.viewportW = glRt->width;
+    m_stateCache.viewportH = glRt->height;
+    m_stateCache.viewportValid = true;
     m_boundRenderTarget = rt;
 }
 
@@ -895,6 +925,8 @@ void GLRenderDevice::unbindRenderTarget() {
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     m_boundRenderTarget = HwRenderTarget{0};
+    // 回到默认 framebuffer 后 viewport 可能已变，强制下次重设
+    m_stateCache.viewportValid = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -902,9 +934,11 @@ void GLRenderDevice::unbindRenderTarget() {
 // ---------------------------------------------------------------------------
 
 void GLRenderDevice::setDepthTest(bool enable) {
+    if (m_stateCache.depthTestValid && m_stateCache.depthTestEnabled == enable) return;
+    m_stateCache.depthTestEnabled = enable;
+    m_stateCache.depthTestValid = true;
     if (enable) {
         glEnable(GL_DEPTH_TEST);
-        // Keep a deterministic depth compare state even if external code changed it.
         glDepthFunc(GL_LEQUAL);
     } else {
         glDisable(GL_DEPTH_TEST);
@@ -912,10 +946,16 @@ void GLRenderDevice::setDepthTest(bool enable) {
 }
 
 void GLRenderDevice::setDepthWrite(bool enable) {
+    if (m_stateCache.depthWriteValid && m_stateCache.depthWriteEnabled == enable) return;
+    m_stateCache.depthWriteEnabled = enable;
+    m_stateCache.depthWriteValid = true;
     glDepthMask(enable ? GL_TRUE : GL_FALSE);
 }
 
 void GLRenderDevice::setCullFace(CullFaceMode mode) {
+    if (m_stateCache.cullFaceValid && m_stateCache.cullFaceMode == mode) return;
+    m_stateCache.cullFaceMode = mode;
+    m_stateCache.cullFaceValid = true;
     if (mode == CullFaceMode::NONE) {
         glDisable(GL_CULL_FACE);
         return;

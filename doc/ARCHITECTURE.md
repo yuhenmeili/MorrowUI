@@ -851,17 +851,9 @@ Present
 - 仅在结构或渲染状态变化时更新批次 revision；
 - 对大型 UI 树增加轻量可见区域裁剪。
 
-### 15.5 GPU 状态缓存 ❌
+### 15.5 GPU 状态缓存 ✅
 
-`GLRenderDevice` 当前每个状态调用无条件执行 GL 命令（`glEnable/glDisable/glUseProgram/glBindTexture/glViewport` 等），无任何当前状态缓存。
-
-优化方向：
-
-- 缓存当前 Shader、Texture、VBO、RenderTarget；
-- 缓存 Blend、Depth、Cull、Viewport 和 Scissor；
-- 跳过重复状态设置；
-- 在 RenderTarget 切换后明确失效相关缓存；
-- Debug 模式提供状态一致性校验。
+已实现：`GLRenderDevice` 内建 `GLStateCache` 结构，缓存当前 Shader、Texture（每单元）、Blend、Viewport、DepthTest、DepthWrite、CullFace 状态。每次状态设置前先比较缓存值，相同则跳过 GL 调用。`drawVBO` 和 `bindRenderTarget`/`unbindRenderTarget` 自动同步缓存。
 
 ---
 

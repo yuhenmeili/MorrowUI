@@ -124,6 +124,42 @@ public:
     ResourceRegistry& getRegistry() { return m_registry; }
 
 private:
+    // GPU 状态缓存：避免重复调用相同的 GL 状态设置命令。
+    // 每个状态设置函数在调用 GL 前先检查缓存，值未变化则跳过。
+    struct GLStateCache {
+        HwGPUProgram currentProgram{0};
+
+        static constexpr uint32_t kMaxTextureUnits = 8;
+        HwTexture2D currentTextures[kMaxTextureUnits] = {};
+
+        bool blendEnabled = false;
+        bool blendStateValid = false;
+
+        int32_t viewportX = 0, viewportY = 0, viewportW = 0, viewportH = 0;
+        bool viewportValid = false;
+
+        bool depthTestEnabled = false;
+        bool depthTestValid = false;
+
+        bool depthWriteEnabled = true;
+        bool depthWriteValid = false;
+
+        CullFaceMode cullFaceMode = CullFaceMode::NONE;
+        bool cullFaceValid = false;
+
+        /// 上下文切换或 RenderTarget 解绑后调用，强制下次全量设置
+        void invalidate() {
+            currentProgram = HwGPUProgram{0};
+            for (auto& t : currentTextures) t = HwTexture2D{0};
+            blendStateValid = false;
+            viewportValid = false;
+            depthTestValid = false;
+            depthWriteValid = false;
+            cullFaceValid = false;
+        }
+    };
+    GLStateCache m_stateCache;
+
     PlatformSharedPtr m_platform;
     HwRenderTarget m_boundRenderTarget{0};
     ResourceRegistry m_registry;
