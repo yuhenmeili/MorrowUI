@@ -4,8 +4,11 @@
 
 #include "VertexArray.h"
 
+#include <algorithm>
+
 #include "BatchDataDefine.h"
 #include "GlobalObject.h"
+#include "Log.h"
 #include "RenderDeviceProxy.h"
 #include "base/Mesh.h"
 #include "base/MeshFilter.h"
@@ -88,7 +91,11 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, HwGPU
             hasColors = hasColors || !mesh->getColors().empty();
             hasUVs = hasUVs || !mesh->getUVs().empty();
             hasNormals = hasNormals || !mesh->getNormals().empty();
-            drawMode = mesh->getDrawMode(); // 使用最后一个有效的mesh的绘制模式
+            // 防御性检查：同一批次中 drawMode 应保持一致
+            if (totalVertexCount > 0 && mesh->getDrawMode() != drawMode) {
+                LOG_WARN("VertexArray: mismatched drawMode in batch, was {}, now {}", static_cast<int>(drawMode), static_cast<int>(mesh->getDrawMode()));
+            }
+            drawMode = mesh->getDrawMode();
         }
     }
 
@@ -103,9 +110,7 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, HwGPU
     }
 
     // 清空旧数据
-    vboData->attributes.clear();
-    vboData->vertexData.clear();
-    vboData->indices.clear();
+    vboData->reset();
 
     vboData->vertexCount = totalVertexCount;
     vboData->indexCount = totalIndexCount;
@@ -169,62 +174,34 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, HwGPU
 
         // 复制顶点位置数据
         if (!mesh->getVertices().empty()) {
-            memcpy(vboData->vertexData.data() + currentPosOffset,
-                   mesh->getVertices().data(),
-                   meshVertexCount * sizeof(Vector3));
+            memcpy(vboData->vertexData.data() + currentPosOffset, mesh->getVertices().data(), meshVertexCount * sizeof(Vector3));
         }
 
         // 复制Batch ID数据 - 为当前mesh的所有顶点设置相同的batch ID
-        auto batchIdFloat = static_cast<float>(batchId);
-        for (size_t i = 0; i < meshVertexCount; ++i) {
-            memcpy(vboData->vertexData.data() + currentBatchOffset + i * sizeof(float),
-                   &batchIdFloat,
-                   sizeof(float));
-        }
+        std::fill_n(reinterpret_cast<float*>(vboData->vertexData.data() + currentBatchOffset), meshVertexCount, static_cast<float>(batchId));
 
         // 复制颜色数据
         if (hasColors && !mesh->getColors().empty()) {
-            memcpy(vboData->vertexData.data() + currentColorOffset,
-                   mesh->getColors().data(),
-                   meshVertexCount * sizeof(Vector4));
+            memcpy(vboData->vertexData.data() + currentColorOffset, mesh->getColors().data(), meshVertexCount * sizeof(Vector4));
         } else if (hasColors) {
             // 如果该mesh没有颜色数据但其他mesh有，填充默认颜色
-            Vector4 defaultColor(1.0f, 1.0f, 1.0f, 1.0f);
-            for (size_t i = 0; i < meshVertexCount; ++i) {
-                memcpy(vboData->vertexData.data() + currentColorOffset + i * sizeof(Vector4),
-                       &defaultColor,
-                       sizeof(Vector4));
-            }
+            std::fill_n(reinterpret_cast<Vector4*>(vboData->vertexData.data() + currentColorOffset), meshVertexCount, Vector4(1.0f, 1.0f, 1.0f, 1.0f));
         }
 
         // 复制UV数据
         if (hasUVs && !mesh->getUVs().empty()) {
-            memcpy(vboData->vertexData.data() + currentUVOffset,
-                   mesh->getUVs().data(),
-                   meshVertexCount * sizeof(Vector2));
+            memcpy(vboData->vertexData.data() + currentUVOffset, mesh->getUVs().data(), meshVertexCount * sizeof(Vector2));
         } else if (hasUVs) {
             // 如果该mesh没有UV数据但其他mesh有，填充默认UV
-            Vector2 defaultUV(0.0f, 0.0f);
-            for (size_t i = 0; i < meshVertexCount; ++i) {
-                memcpy(vboData->vertexData.data() + currentUVOffset + i * sizeof(Vector2),
-                       &defaultUV,
-                       sizeof(Vector2));
-            }
+            std::fill_n(reinterpret_cast<Vector2*>(vboData->vertexData.data() + currentUVOffset), meshVertexCount, Vector2(0.0f, 0.0f));
         }
 
         // 复制法线数据
         if (hasNormals && !mesh->getNormals().empty()) {
-            memcpy(vboData->vertexData.data() + currentNormalOffset,
-                   mesh->getNormals().data(),
-                   meshVertexCount * sizeof(Vector3));
+            memcpy(vboData->vertexData.data() + currentNormalOffset, mesh->getNormals().data(), meshVertexCount * sizeof(Vector3));
         } else if (hasNormals) {
             // 如果该mesh没有法线数据但其他mesh有，填充默认法线
-            Vector3 defaultNormal(0.0f, 1.0f, 0.0f);
-            for (size_t i = 0; i < meshVertexCount; ++i) {
-                memcpy(vboData->vertexData.data() + currentNormalOffset + i * sizeof(Vector3),
-                       &defaultNormal,
-                       sizeof(Vector3));
-            }
+            std::fill_n(reinterpret_cast<Vector3*>(vboData->vertexData.data() + currentNormalOffset), meshVertexCount, Vector3(0.0f, 1.0f, 0.0f));
         }
 
         // 复制索引数据并调整索引值

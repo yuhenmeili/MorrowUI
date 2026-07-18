@@ -63,6 +63,16 @@ struct VBOData {
         }
         return nullptr;
     }
+
+    /// 重置所有字段，用于从对象池取出后复用
+    void reset() {
+        attributes.clear();
+        vertexData.clear();
+        indices.clear();
+        vertexCount = 0;
+        indexCount = 0;
+        drawMode = PrimitiveType::TRIANGLES;
+    }
 };
 
 using VBODataSharedPtr = std::shared_ptr<VBOData>;
