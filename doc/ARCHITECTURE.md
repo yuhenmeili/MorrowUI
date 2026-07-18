@@ -778,207 +778,16 @@ Present
 
 ## 15. 后续优化方向
 
-本章只记录尚未完成或仍需持续推进的工作。
+本章只记录尚未完成或仍需持续推进的工作。已实现项标注 ✅，部分实现标注 ⚠️，未实现标注 ❌。
+按优先级从高到低排列：工程质量基础 → CPU 关键优化 → 框架补全 → GPU 优化 → 架构演进 → 已完成/基础项。
 
-### 15.1 RenderItem 热路径紧凑化
+---
 
-当前 RenderItem 和 BatchCompatibilityKey 仍包含智能指针、字符串和较宽的状态字段。
+#### Tier 1 — 工程质量基础
 
-优化方向：
+### 15.1 渲染回归测试 ❌
 
-- 收集阶段减少 `shared_ptr` 拷贝；
-- 将稳定 Shader、Texture、Material 和 Layout 信息缓存为整数 ID；
-- 避免每帧构造和比较 Shader 名称字符串；
-- 将高频字段组织为连续紧凑结构；
-- 评估 SoA 布局对遍历、排序和合批的收益；
-- 复用 RenderItem 容量，避免帧间重复分配。
-
-### 15.2 Widget 更新与渲染收集裁剪
-
-保留式树的主要价值是跳过未变化工作。
-
-优化方向：
-
-- 完善 Layout、Transform、Geometry、Material 和 Visibility Dirty；
-- 不可见子树直接停止 update 和渲染收集；
-- 未变化 Transform 避免重复计算世界矩阵；
-- 未变化文本和几何避免重建 Mesh；
-- 仅在结构或渲染状态变化时更新批次 revision；
-- 对大型 UI 树增加轻量可见区域裁剪。
-
-### 15.3 合批 Key 和批次缓存
-
-优化方向：
-
-- 缓存 Material 和 Mesh 的 BatchCompatibilityKey；
-- revision 未变化时直接复用 key；
-- 用整数和 bit field 代替高频字符串、指针组合比较；
-- 减少 `unordered_map` 遍历对纹理集合 hash 的影响；
-- 记录每种断批原因和对应 Draw Call 成本；
-- 根据真实场景数据决定是否引入分层排序。
-
-### 15.4 非 SSBO 路径减少 Draw Call
-
-标准路径需要在不支持 SSBO 的设备上保持较低 Draw Call。
-
-优化方向：
-
-- 使用实例化顶点属性传递 per-object 数据；
-- 按设备能力选择 UBO array、instance attribute 或逐项 Uniform；
-- 合并兼容静态几何；
-- 减少重复 Material apply 和纹理绑定；
-- 保留逐对象绘制作为正确性回退路径。
-
-### 15.5 安全重排
-
-默认 painter's order 会限制批次规模。
-
-仅在具备明确证据时进行重排：
-
-- RenderItem 提供屏幕空间 bounds；
-- 标记 opaque、reorderable 和 depth-independent；
-- 判断元素是否重叠；
-- 不跨越 Clip、Stencil、RenderTarget 和透明边界；
-- 为重排前后结果建立图像回归测试。
-
-### 15.6 Clip 与 Stencil
-
-优化方向：
-
-- 将 Clip Rect 和 Stencil 状态纳入实际提交；
-- 明确嵌套裁剪的 push/pop 生命周期；
-- Clip 或 Stencil 变化产生确定的断批；
-- 优先使用 Scissor 处理矩形裁剪；
-- 复杂路径裁剪使用 Stencil；
-- 避免裁剪状态泄漏到后续批次。
-
-### 15.7 纹理和 Buffer 上传
-
-不引入通用上传队列，继续基于资源对象和 RenderDevice 命令优化。
-
-优化方向：
-
-- 纹理上传数据统一明确 owner；
-- 原始指针路径使用上传缓冲池；
-- 支持局部纹理更新；
-- 大纹理上传控制单帧 CPU 拷贝峰值；
-- 动态 VBO 使用 orphaning、ring buffer 或 persistent mapping；
-- 静态 Buffer 避免重复更新；
-- 记录每帧上传字节数和上传耗时。
-
-### 15.8 GPU 资源异步销毁
-
-优化方向：
-
-- 明确各 GPU wrapper 的析构线程；
-- 多线程模式统一编码删除命令；
-- 防止对象析构与未执行命令之间出现悬空引用；
-- 对需要 GPU 完成后才能释放的数据使用 Fence；
-- 统一处理 Engine 退出时的命令排空和上下文销毁顺序；
-- 为反复创建和销毁 Texture、Buffer、Shader、RenderTarget 增加压力测试。
-
-### 15.9 CommandBuffer 与环形帧槽
-
-优化方向：
-
-- 记录每帧命令字节数和峰值；
-- 记录环形缓冲等待次数和等待时长；
-- 为 CommandBuffer 溢出提供明确错误；
-- 减少非平凡 command payload；
-- 合并细粒度状态命令；
-- 在编码端增加冗余状态过滤；
-- 根据目标设备调整 frame slot 数量和容量。
-
-### 15.10 GPU 状态缓存
-
-优化方向：
-
-- 缓存当前 Shader、Texture、VBO、RenderTarget；
-- 缓存 Blend、Depth、Cull、Viewport 和 Scissor；
-- 跳过重复状态设置；
-- 在 RenderTarget 切换后明确失效相关缓存；
-- Debug 模式提供状态一致性校验。
-
-### 15.11 2D/3D Pass 编排
-
-保持显式 Pass，不提前引入 RenderGraph。
-
-优化方向：
-
-- 明确 UI、3D、Offscreen 和 Debug 的执行顺序；
-- 统一 RenderTarget、viewport、clear 和状态恢复；
-- 减少不必要的 FBO 切换；
-- 复用尺寸相同的 Offscreen RenderTarget；
-- 记录每种 Pass 的 CPU/GPU 时间；
-- 仅在出现跨 Pass 依赖和 transient resource 复用需求后评估 RenderGraph。
-
-### 15.12 3D GUI 性能
-
-优化方向：
-
-- 3D SceneView 视锥裁剪；
-- 静态 Mesh 和 Material 状态复用；
-- GLTF 场景节点 Dirty 更新；
-- 3D 视图按实际变化决定是否重绘；
-- Offscreen 分辨率按显示尺寸和设备能力调整；
-- IBL 和光照资源跨视图共享；
-- 大量相同 Mesh 使用实例化绘制。
-
-### 15.13 文本与字体
-
-优化方向：
-
-- 字形 Atlas 分页和回收；
-- 文本布局结果缓存；
-- 未变化文本避免重新生成几何；
-- 相同字体和 Atlas 的文本连续合批；
-- 降低多语言和动态字号导致的 Atlas 抖动；
-- 记录字形上传、Atlas 命中和文本重建统计。
-
-### 15.14 FrameState 与全局依赖
-
-优化方向：
-
-- 区分只读帧参数和可写统计；
-- 减少 Component 从 FrameState 获取无关服务；
-- 将高频服务通过明确上下文传递；
-- 收敛 `GlobalObject` 的使用范围；
-- 明确 Engine、Platform、Window 和 RenderingThread 的销毁顺序；
-- 提升模块可测试性。
-
-### 15.15 Window 与 UI 根节点解耦
-
-当前 Window 同时是平台窗口和 UIWidget。
-
-后续可在多窗口、嵌入式 Surface 或离屏 UI 需求出现时评估：
-
-- Window 组合独立 UI root；
-- 平台窗口只负责 surface、context、size 和 Present；
-- UI root 负责 Widget 树和 BatchManager；
-- 一个 UI root 可绑定不同输出目标；
-- 避免在需求出现前提前进行大规模重构。
-
-### 15.16 性能时间线
-
-需要建立统一、低开销的性能统计：
-
-- Input；
-- Animation；
-- Widget update；
-- lateUpdate；
-- RenderItem collection；
-- Batch build；
-- Command encode；
-- Render thread execute；
-- Texture / Buffer upload；
-- Present；
-- 各 3D/Offscreen Pass GPU 时间；
-- 环形缓冲等待；
-- Draw Call、Triangle 和上传字节数。
-
-统计结果应支持固定场景导出和版本间对比。
-
-### 15.17 渲染回归测试
+当前仅 `BatchBuilderTests.cpp` 有 4 个纯 CPU 批次构建单元测试，无任何渲染级回归覆盖。
 
 需要覆盖：
 
@@ -993,7 +802,9 @@ Present
 - 单线程和多线程一致性；
 - golden image 或 perceptual diff。
 
-### 15.18 压力测试与 CI
+### 15.2 压力测试与 CI ❌
+
+无 CI 配置，无压力测试。
 
 需要覆盖：
 
@@ -1009,6 +820,211 @@ Present
 - Windows / MinGW 构建；
 - QNX / EGL 交叉编译；
 - 单元测试、固定帧示例和渲染回归自动执行。
+
+### 15.3 性能时间线 ⚠️
+
+已有：`DebugPlane` 显示 FPS、Batch 统计（cache hit/miss、break reason 计数、Draw Call 计数）。缺失各阶段耗时分离。
+
+需要建立统一、低开销的性能统计：
+
+- Input / Animation / Widget update / lateUpdate 各阶段耗时；
+- RenderItem collection / Batch build / Command encode 耗时；
+- Render thread execute / Present 耗时；
+- Texture / Buffer upload 字节数和耗时；
+- 各 3D/Offscreen Pass GPU 时间；
+- 环形缓冲等待时间和次数；
+- Triangle 计数；
+- 统计结果应支持固定场景导出和版本间对比。
+
+---
+
+#### Tier 2 — CPU 关键优化
+
+### 15.4 Widget Dirty 体系完善 ⚠️
+
+已有：`Transform::m_matrixDirty` + 子节点传播；`Widget` 不可见子树跳过 update；`MRLabel` 双层文本脏标记；`Mesh::m_revision` 驱动 VBO 跳过上传；`Material::m_revision` 驱动批次缓存比对。缺失统一 Dirty 枚举和视口裁剪。
+
+优化方向：
+
+- 完善 Layout / Transform / Geometry / Material / Visibility Dirty 统一枚举；
+- 未变化 Transform 缓存世界矩阵，避免每帧重新级联计算；
+- 仅在结构或渲染状态变化时更新批次 revision；
+- 对大型 UI 树增加轻量可见区域裁剪。
+
+### 15.5 GPU 状态缓存 ❌
+
+`GLRenderDevice` 当前每个状态调用无条件执行 GL 命令（`glEnable/glDisable/glUseProgram/glBindTexture/glViewport` 等），无任何当前状态缓存。
+
+优化方向：
+
+- 缓存当前 Shader、Texture、VBO、RenderTarget；
+- 缓存 Blend、Depth、Cull、Viewport 和 Scissor；
+- 跳过重复状态设置；
+- 在 RenderTarget 切换后明确失效相关缓存；
+- Debug 模式提供状态一致性校验。
+
+---
+
+#### Tier 3 — 框架补全
+
+### 15.6 合批 Key 缓存 ⚠️
+
+已有：`BatchCompatibilityKey` 使用 `uint64_t` hash + `uint32_t` bitfield + `uintptr_t` 比较（仅 `shaderName` 为 string 比较）；`BatchBreakReason` 细分 8 类断批原因并在 `DebugPlane` 显示；`cacheHitCount/cacheMissCount` 统计。缺失 Material/Mesh 上的 Key 缓存。
+
+优化方向：
+
+- 缓存 Material 和 Mesh 的 `BatchCompatibilityKey`；
+- revision 未变化时直接复用 key，避免每帧 `createBatchKey()` 重算纹理集合 hash；
+- `shaderName` 改为整数 ID；
+- 根据真实场景数据决定是否引入分层排序。
+
+### 15.7 RenderItem 热路径紧凑化 ⚠️
+
+已有：`BatchCompatibilityKey` 已大量使用整数/位域；`RenderItem` 列表通过 swap 复用容量；`RenderBatchPool` 按 shader 键池化。缺失 SoA 布局和指针消除。
+
+优化方向：
+
+- 收集阶段减少 `shared_ptr` 拷贝（`addRenderable` 当前按值拷贝增加引用计数）；
+- 将稳定 Shader、Texture、Material 和 Layout 信息缓存为整数 ID；
+- 将高频字段组织为连续紧凑结构；
+- 评估 SoA 布局对遍历、排序和合批的收益。
+
+### 15.8 Clip 与 Stencil ⚠️
+
+已有：`BatchCompatibilityKey` 包含 `clipStateId`/`stencilStateId`；`BatchBreakReason::ClipState` 产生断批；`DebugPlane` 显示断批次数。缺失底层 GL 状态实现。
+
+优化方向：
+
+- 将 Clip Rect 和 Stencil 状态纳入实际 GL 提交（`glScissor` / `glStencilFunc` / `glStencilOp`）；
+- 明确嵌套裁剪的 push/pop 生命周期；
+- 优先使用 Scissor 处理矩形裁剪；
+- 复杂路径裁剪使用 Stencil；
+- 避免裁剪状态泄漏到后续批次。
+
+---
+
+#### Tier 4 — GPU 优化
+
+### 15.9 3D GUI 性能 ❌
+
+已有：IBL 资源可通过 `Scene3DPassContext` 跨视图共享；Offscreen 分辨率可动态调整。缺失视锥裁剪和 Dirty 体系。
+
+优化方向：
+
+- 3D SceneView 视锥裁剪；
+- 静态 Mesh 和 Material 状态复用；
+- GLTF 场景节点 Dirty 更新（当前每帧全量 update）；
+- 3D 视图按实际变化决定是否重绘；
+- 大量相同 Mesh 使用实例化绘制。
+
+### 15.10 纹理和 Buffer 上传 ⚠️
+
+已有：`PixelDataRecyclePool` 上传缓冲池；`shared_ptr` owner 传递避免 memcpy；`glTexSubImage2D` 局部更新；`VBODataRecyclePool` Fence 回收。缺失统计和高级 buffer 策略。
+
+优化方向：
+
+- 记录每帧上传字节数和上传耗时；
+- 大纹理上传控制单帧 CPU 拷贝峰值；
+- 动态 VBO 使用 orphaning、ring buffer 或 persistent mapping（当前使用 `glBufferData + GL_STATIC_DRAW`）；
+- 支持局部纹理更新（`glTexSubImage2D` 已支持）。
+
+---
+
+#### Tier 5 — 架构演进（需需求驱动）
+
+### 15.11 安全重排 ❌
+
+`BatchBuilder` 当前 `preservePainterOrder = true` 硬编码。仅在 painter's order 严重限制批次规模时考虑。
+
+需要引入：
+
+- RenderItem 提供屏幕空间 bounds；
+- 标记 opaque、reorderable 和 depth-independent；
+- 判断元素是否重叠；
+- 不跨越 Clip、Stencil、RenderTarget 和透明边界；
+- 为重排前后结果建立图像回归测试。
+
+### 15.12 非 SSBO 路径减少 Draw Call ⚠️
+
+已有：SSBO 路径（实例化绘制 + per-object SSBO 数据）；标准路径（逐对象 `material->apply()` + `drawVBO`）；SSBO fallback。SSBO 已是主要优化路径，标准路径作为回退足够。
+
+仅在需要支持无 SSBO 能力的设备时考虑：
+
+- 使用实例化顶点属性传递 per-object 数据；
+- 按设备能力选择 UBO array、instance attribute 或逐项 Uniform；
+- 合并兼容静态几何；
+- 保留逐对象绘制作为正确性回退路径。
+
+### 15.13 2D/3D Pass 编排 ⚠️
+
+已有：`Engine::render()` 固定顺序（begin→2D update→lateUpdate→commit）；`MR3DSceneView` 自行管理 FBO 子 Pass 并恢复 GL 状态。缺失统一管理和统计。
+
+优化方向：
+
+- 明确 UI、3D、Offscreen 和 Debug 的执行顺序；
+- 统一 RenderTarget、viewport、clear 和状态恢复；
+- 减少不必要的 FBO 切换；
+- 复用尺寸相同的 Offscreen RenderTarget；
+- 记录每种 Pass 的 CPU/GPU 时间；
+- 仅在出现跨 Pass 依赖和 transient resource 复用需求后评估 RenderGraph。
+
+### 15.14 FrameState 与全局依赖 ⚠️
+
+已有：`FrameState` 携带相机、BatchManager、SSBOManager 等服务引用。缺失依赖注入和可测试性。
+
+优化方向：
+
+- 区分只读帧参数和可写统计；
+- 减少 Component 从 FrameState 获取无关服务；
+- 将高频服务通过明确上下文传递，减少 `GlobalObject::getInstance()` 全局查找（当前 16 处直接调用）；
+- 收敛 `GlobalObject` 的使用范围；
+- 明确 Engine、Platform、Window 和 RenderingThread 的销毁顺序；
+- 提升模块可测试性。
+
+### 15.15 Window 与 UI 根节点解耦 ❌
+
+当前 `Window` 直接继承 `UIWidget`，同时承担平台窗口和 UI 根节点职责。仅在多窗口、嵌入式 Surface 或离屏 UI 需求出现时评估：
+
+- Window 组合独立 UI root；
+- 平台窗口只负责 surface、context、size 和 Present；
+- UI root 负责 Widget 树和 BatchManager；
+- 一个 UI root 可绑定不同输出目标；
+- 避免在需求出现前提前进行大规模重构。
+
+---
+
+#### Tier 6 — 基础扎实 / 已完成
+
+### 15.16 GPU 资源异步销毁 ✅
+
+已有：删除操作通过 `Cmd_DeleteVBO/Cmd_DeleteTexture2D/Cmd_DeleteGPUProgram/Cmd_DeleteRenderTarget` 编码到 CommandBuffer；`PendingFrame` 携带 Fence，仅在 GPU 完成后回池；像素缓冲立即回收；`~RenderDeviceProxyBase()` 设置 quit 信号并 join 渲染线程。
+
+剩余工作（低优先级）：
+
+- 明确各 GPU wrapper 的析构线程文档；
+- 为反复创建和销毁 Texture、Buffer、Shader、RenderTarget 增加压力测试。
+
+### 15.17 CommandBuffer 与环形帧槽 ✅
+
+已有：3 槽环形缓冲（`kRingSize=3`），信号量控制主线程等待；`CommandBuffer` 固定 16MB，`push<T>()` 零分配编码；命令字节数可通过 `size()` 获取。
+
+剩余工作（低优先级）：
+
+- 记录每帧命令字节数峰值、环形缓冲等待次数和等待时长；
+- 为 CommandBuffer 溢出提供明确错误（当前依赖 debug assert）；
+- 在编码端增加冗余状态过滤；
+- 根据目标设备调整 frame slot 数量和容量。
+
+### 15.18 文本与字体 ⚠️
+
+已实现：~~未变化文本避免重新生成几何~~（MRLabel 双层脏标记 + Mesh revision 跳过链）、~~相同字体和 Atlas 的文本连续合批~~（BatchCompatibilityKey 包含 Shader + Texture 集合）。
+
+尚未实现：
+
+- 字形 Atlas 分页和回收（当前单图集 + 扩容全量重建，O(已有字形数)）；
+- 文本布局结果缓存（跨实例复用）；
+- 降低多语言和动态字号导致的 Atlas 抖动（扩容丢弃旧纹理）；
+- 记录字形上传、Atlas 命中和文本重建统计。
 
 ---
 
