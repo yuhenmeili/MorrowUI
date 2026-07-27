@@ -35,38 +35,20 @@ int main() {
     transform->setSize(100.0f, 100.0f);
     window->addChild(button1);
 
-    button1->setOnClickCallback([button1]() {
-        LOG_I("Button clicked!");
-        button1->setText(L"Clicked!", "debug_morrow_20");
-    });
-
     const std::wstring text = L"Hello World 测试";
-
-    auto font = GlobalObject::getInstance().getFontManager()->getFont(fontName);
-    if (font) {
-        font->EnsureStringGlyphs(text);
-
-        auto atlasImage = MRImage::create();
-        auto atlasTransform = atlasImage->getComponent<Transform>();
-        atlasTransform->setPosition(320.0f, 320.0f, 0.0f);
-        atlasTransform->setSize(512.0f, 512.0f);
-        atlasImage->setTexture(font->GetTextureAtlas());
-        window->addChild(atlasImage);
-
-        LOG_I("Font '{}' atlas texture size: {}x{}", fontName, font->GetTextureAtlas()->getWidth(), font->GetTextureAtlas()->getHeight());
-    }
-
     auto textRenderer = std::make_shared<MRLabel>();
     auto textTransform = textRenderer->getComponent<Transform>();
     textTransform->setPosition(Vector3(880.0f, 220.0f, 0.0f));
     textTransform->setSize(Vector3(700.0f, 240.0f, 0.0f));
     textRenderer->setText(text, fontName);
     textRenderer->setFontColor(1.0f, 0.0f, 0.0f, 1.0f);
-
     window->addChild(textRenderer);
 
-    engine->afterRender().add([&]() {
-        textRenderer->setText(L"Hello World 测试", fontName);
+    int clickCount = 0;
+    button1->setOnClickCallback([&]() {
+        LOG_I("Button clicked!");
+        clickCount++;
+        textRenderer->setText(L"Clicked " + std::to_wstring(clickCount) + L"!", fontName);
     });
 
     engine->render();

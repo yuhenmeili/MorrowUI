@@ -83,18 +83,35 @@ Vector2 MRLabel::getTextExtents() const {
 }
 
 void MRLabel::update(FrameStateSharedPtr frameState) {
+    // 其他 MRLabel 可能在本帧扩容并替换了共享 DynamicFont 的图集。
+    // 当前 Mesh 的 UV 和材质纹理都可能对应旧图集，因此需要重建。
+    if (m_font && m_font->GetTextureAtlasVersion() != m_fontAtlasVersion) {
+        m_isTextLayoutDirty = true;
+        m_isAlignDirty = true;
+    }
+
     if (m_isTextLayoutDirty || m_isAlignDirty) {
         m_font = GlobalObject::getInstance().getFontManager()->getFont(m_fontName);
-        if (m_font) {
-            m_material->setTexture("texture", m_font->GetTextureAtlas());
-        } else if (!m_text.empty()) {
+        if (!m_font && !m_text.empty()) {
             LOG_E("MRLabel failed to resolve font '{}' for text length {}", m_fontName, m_text.size());
         }
+
         processTextLayout();
+
+        // processTextLayout() 中的 GetGlyph 可能触发图集扩容，
+        // 因此只在布局完成后绑定一次，确保使用的是最新图集。
+        if (m_font) {
+            m_material->setTexture("texture", m_font->GetTextureAtlas());
+        }
+
         applyAlignment();
         createTextMesh();
         m_isTextLayoutDirty = false;
         m_isAlignDirty = false;
+        if (m_font) {
+            // 在布局完成后读取版本，覆盖本次布局中可能触发的扩容。
+            m_fontAtlasVersion = m_font->GetTextureAtlasVersion();
+        }
     }
     UIWidget::update(frameState);
 }

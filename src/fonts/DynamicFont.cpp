@@ -57,6 +57,10 @@ std::shared_ptr<FontTexture> DynamicFont::GetTextureAtlas() const {
     return m_textureAtlas;
 }
 
+uint64_t DynamicFont::GetTextureAtlasVersion() const {
+    return m_textureAtlasVersion;
+}
+
 float DynamicFont::CalculateTextWidth(const std::wstring& text) {
     float width = 0.0f;
     for (wchar_t c : text) {
@@ -185,17 +189,40 @@ bool DynamicFont::CreateTextureAtlas(int32_t width, int32_t height) {
     if (!newAtlas->Initialize()) {
         return false;
     }
-    // 如果存在旧纹理，需要复制数据（这里简化处理，实际应该复制）
+
+    // 扩容会替换纹理对象，同时改变归一化 UV 的分母。
+    // 新图集不能直接复用旧字形的 generated/UV 状态，因此需要
+    // 在新图集中完整重建已有字形。
     m_textureAtlas = newAtlas;
     m_atlasWidth = width;
     m_atlasHeight = height;
-    // 重置位置，重新生成所有字符
+    // 从这里开始使用方必须重新绑定纹理并重建 Mesh。
+    ++m_textureAtlasVersion;
+
     m_currentX = ATLAS_PADDING;
     m_currentY = ATLAS_PADDING;
     m_currentRowHeight = 0;
+
+    // 旧图集的待上传区域不能提交到新图集。
+    m_pendingUploads.clear();
+
+    // 先复制 key，避免 GenerateGlyphToAtlas 更新 unordered_map 时
+    // 直接遍历 m_glyphCache。
+    std::vector<int32_t> cachedCodepoints;
+    cachedCodepoints.reserve(m_glyphCache.size());
     for (auto& pair : m_glyphCache) {
-        pair.second.generated = false; // 标记需要重新生成
+        cachedCodepoints.push_back(pair.first);
+        pair.second.generated = false;
     }
+
+    for (const int32_t codepoint : cachedCodepoints) {
+        if (!GenerateGlyphToAtlas(codepoint)) {
+            LOG_E("failed to rebuild glyph {} after expanding font atlas to {}x{}",
+                  codepoint, width, height);
+            return false;
+        }
+    }
+
     return true;
 }
 

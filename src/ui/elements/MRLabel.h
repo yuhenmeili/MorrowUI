@@ -5,6 +5,7 @@
 #ifndef MRTEXTRENDERER_H
 #define MRTEXTRENDERER_H
 #include <memory>
+#include <cstdint>
 
 #include "fonts/DynamicFont.h"
 #include "base/UIWidget.h"
@@ -53,6 +54,8 @@ private:
     void renderGlyphQuad(const FontGlyph* glyph, float x, float baselineY, std::vector<Vector3>& gearsVertices, std::vector<Vector2>& gearsUVs, std::vector<int16_t>& gearsIndices);
 
     std::shared_ptr<DynamicFont> m_font;
+    // DynamicFont 扩容后会替换 FontTexture 并重新计算字形 UV。
+    uint64_t m_fontAtlasVersion = 0;
     std::wstring m_text;
     std::string m_fontName;
     std::vector<TextLine> m_lines;

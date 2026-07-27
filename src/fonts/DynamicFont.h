@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <string>
 #include <memory>
+#include <cstdint>
 
 // 使用stb_truetype作为TrueType解析器
 // #define STB_TRUETYPE_IMPLEMENTATION
@@ -61,6 +62,9 @@ public:
 
     // 获取字体纹理图集
     std::shared_ptr<FontTexture> GetTextureAtlas() const;
+
+    // 获取当前字体图集版本。图集扩容/重建后版本会递增。
+    uint64_t GetTextureAtlasVersion() const;
 
     // 计算文本宽度
     float CalculateTextWidth(const std::wstring& text);
@@ -114,6 +118,7 @@ private:
 
     // 纹理图集管理
     std::shared_ptr<FontTexture> m_textureAtlas;
+    uint64_t m_textureAtlasVersion = 0;
     int32_t m_atlasWidth = 512;
     int32_t m_atlasHeight = 512;
     int32_t m_currentX = 1; // 留出1像素边界

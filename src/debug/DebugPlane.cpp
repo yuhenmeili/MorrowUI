@@ -23,7 +23,7 @@ void DebugPlane::initialize(std::shared_ptr<Window> window) {
 
     m_batchLabel = std::make_shared<MRLabel>();
     auto batchTextTransform = m_batchLabel->getComponent<Transform>();
-    batchTextTransform->setPosition(Vector3(120.0f, 0.0f, 0.0f));
+    batchTextTransform->setPosition(Vector3(200.0f, 0.0f, 0.0f));
     batchTextTransform->setSize(Vector3(900.0f, 50.0f, 0.0f));
 
     m_batchLabel->setText(L"Batch statistics unavailable");
