@@ -102,15 +102,15 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, HwGPU
     // 从回收池获取或新建 VBOData（GPU Fence 完成后回池）
     auto* pool = RENDERINGTHREAD->getVBODataRecyclePool();
     VBODataSharedPtr vboData = pool ? pool->acquire() : std::make_shared<VBOData>();
+    // 回收池中的 VBOData 可能保留上一次上传的数据，任何路径都必须先清空。
+    vboData->reset();
+
     // 如果没有顶点数据，直接返回
     if (totalVertexCount == 0) {
         RENDERINGTHREAD->updateVBO(program, m_vbo, vboData);
         recordUploadedMeshes(program, meshFilters);
         return;
     }
-
-    // 清空旧数据
-    vboData->reset();
 
     vboData->vertexCount = totalVertexCount;
     vboData->indexCount = totalIndexCount;
