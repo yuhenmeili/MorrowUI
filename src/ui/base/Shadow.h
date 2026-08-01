@@ -27,7 +27,6 @@ private:
     Vector2 m_shadowOffsetRender = Vector2(5.0f, -5.0f);
     Vector4 m_shadowColor = Vector4(0.0f, 0.0f, 0.0f, 0.5f);
     MaterialSharedPtr m_shadowMaterial;
-    VertexArraySharedPtr m_defaultVertexArray;
 };
 
 } // morrow

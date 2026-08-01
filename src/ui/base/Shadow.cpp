@@ -8,33 +8,24 @@
 #include "GlobalObject.h"
 #include "Component.inl"
 #include "OrthographicCamera.h"
+#include "BatchManager.h"
 #include <cmath>
 
 namespace morrow {
 Shadow::Shadow() {
-    m_defaultVertexArray = std::make_shared<VertexArray>();
     m_shadowMaterial = Material::create();
     m_shadowMaterial->setShader("shadow");
-    m_shadowMaterial->setVector("shadowOffset", Vector2(std::abs(m_shadowOffsetInput.x), std::abs(m_shadowOffsetInput.y)));
+    // 几何偏移（对象空间，shader 内平移）与边缘渐隐偏移是两套独立参数
+    m_shadowMaterial->setVector("shadowOffset", m_shadowOffsetRender);
+    m_shadowMaterial->setVector("shadowOffsetFade", Vector2(std::abs(m_shadowOffsetInput.x), std::abs(m_shadowOffsetInput.y)));
     m_shadowMaterial->setVector("shadowColor", m_shadowColor);
     m_shadowMaterial->setFloat("alpha", 1.0f);
-    // m_shadowMaterial->setBlendEnabled(true);
-    // m_shadowMaterial->setBlendFunc(1, 0x303); // GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA
-    // auto transform = getGameObject()->getComponent<Transform>();
-    // transform->addSizeChangeListener([this, transform]() {
-    //     m_shadowMaterial->setVector("displaySize", transform->getSize());
-    // });
 }
 
 void Shadow::update(FrameStateSharedPtr frameState) {
     // 获取原始对象的MeshFilter
     auto meshFilter = getComponent<MeshFilter>();
-    if (!meshFilter) {
-        return;
-    }
-
-    auto mesh = meshFilter->getMesh();
-    if (!mesh) {
+    if (!meshFilter || !meshFilter->getMesh()) {
         return;
     }
 
@@ -44,33 +35,25 @@ void Shadow::update(FrameStateSharedPtr frameState) {
         return;
     }
 
-    // 创建阴影的变换矩阵（带偏移）
-    Matrix4 shadowModelMatrix = originalTransform->getWorldMatrix();
+    // 通用渲染路径（renderStandardBatch）依赖原对象带 MeshRenderer 来取 VertexArray
+    if (!getComponent<MeshRenderer>()) {
+        return;
+    }
 
-    // 应用阴影偏移
-    Matrix4 shadowOffsetMatrix;
-    shadowOffsetMatrix.makeTranslation(m_shadowOffsetRender.x, m_shadowOffsetRender.y, 0.0f);
-    shadowModelMatrix = shadowModelMatrix * shadowOffsetMatrix;
-
-    // 计算阴影的MVP矩阵
-    Matrix4 viewProjectionMatrix = frameState->camera->getProjectionView();
-    Matrix4 mvpMatrix = viewProjectionMatrix * shadowModelMatrix;
-
-    // 设置阴影材质参数并渲染
-    m_shadowMaterial->setMatrix4("mvp", mvpMatrix);
+    // 阴影尺寸跟随原始对象
     m_shadowMaterial->setVector("displaySize", originalTransform->getSize());
-    m_shadowMaterial->apply();
 
-    // 渲染阴影
-    m_defaultVertexArray->updateFromMeshes(frameState, m_shadowMaterial->getShader(), {meshFilter});
-    m_defaultVertexArray->draw(frameState);
+    // 作为 underlay 渲染项提交给 BatchManager，参与合批/排序/统计，
+    // 且保证在原始对象之前绘制（阴影先画，被原对象覆盖）。
+    frameState->batchManager->addRenderable(m_shadowMaterial, meshFilter, originalTransform, true);
 }
 
 void Shadow::setShadowOffset(const Vector2& offset) {
     // External API uses screen-style offset: +x right, +y down.
     m_shadowOffsetInput = offset;
     m_shadowOffsetRender.set(offset.x, -offset.y);
-    m_shadowMaterial->setVector("shadowOffset", Vector2(std::abs(offset.x), std::abs(offset.y)));
+    m_shadowMaterial->setVector("shadowOffset", m_shadowOffsetRender);
+    m_shadowMaterial->setVector("shadowOffsetFade", Vector2(std::abs(offset.x), std::abs(offset.y)));
 }
 
 void Shadow::setShadowColor(const Vector4& color) {

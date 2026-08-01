@@ -423,6 +423,20 @@ A → B → A
 
 所有路径必须产生一致的视觉结果。性能优化不能改变材质、变换、透明度和绘制顺序语义。
 
+### 7.7 Underlay（底层渲染项）
+
+部分效果（如阴影）必须在所属对象之前绘制，才能被主对象正确覆盖。`BatchManager` 通过 underlay 机制保证这类底层渲染项的绘制顺序：
+
+- 组件通过 `addRenderable(material, meshFilter, transform, /*underlay=*/true)` 提交底层渲染项；
+- `BatchManager` 将底层项与普通项分容器收集（`m_underlayRenderables` / `m_renderables`），合批时**先构建并先绘制底层项批次**，再处理普通项；
+- 底层项仍参与合批（相同 shader/状态的底层项可合并）、增量合批比对与批次统计，不脱离通用渲染管线。
+
+典型应用：`Shadow` 组件复用原始对象的 `MeshFilter` 与 `MeshRenderer`，以 `shadow` shader 和阴影材质提交一个 underlay 渲染项；几何偏移在 `shadow.vert` 内通过 `u_shadowOffset` 完成（对象空间平移），无需 CPU 修改世界矩阵。因此阴影：
+
+- 不会绕过 `BatchManager` 直接绘制，draw call 与批次受统一管理；
+- 保证先于原对象绘制，半透明阴影被主对象正确覆盖；
+- 与原对象使用不同 shader，合批 key 自动隔离，不会与普通 UI 混批。
+
 ---
 
 ## 8. GPU 资源模型

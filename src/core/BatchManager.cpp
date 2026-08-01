@@ -27,7 +27,8 @@ BatchManager::BatchManager() {
 // ---------------------------------------------------------------------------
 void BatchManager::addRenderable(std::shared_ptr<Material> material,
                                  std::shared_ptr<MeshFilter> meshFilter,
-                                 std::shared_ptr<Transform> transform) {
+                                 std::shared_ptr<Transform> transform,
+                                 bool underlay) {
     RenderItem item;
     item.material = std::move(material);
     item.meshFilter = std::move(meshFilter);
@@ -47,7 +48,11 @@ void BatchManager::addRenderable(std::shared_ptr<Material> material,
     item.renderStateRevision = static_cast<uint64_t>(
         static_cast<uint32_t>(item.displayLayer));
 
-    m_renderables.push_back(std::move(item));
+    if (underlay) {
+        m_underlayRenderables.push_back(std::move(item));
+    } else {
+        m_renderables.push_back(std::move(item));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +105,8 @@ void BatchManager::clear() {
     // 保留本帧可渲染列表用于下一帧增量比对
     m_prevRenderables.swap(m_renderables);
     m_renderables.clear();
+    m_prevUnderlayRenderables.swap(m_underlayRenderables);
+    m_underlayRenderables.clear();
     m_insertionCounter = 0;
 }
 
@@ -144,36 +151,44 @@ BatchCompatibilityKey BatchManager::createBatchKey(const std::shared_ptr<Materia
 
 bool BatchManager::isRenderableListUnchanged() const {
     if (m_batchesDirty) return false;
+    if (!BatchBuilder::areRenderItemListsEquivalent(m_underlayRenderables, m_prevUnderlayRenderables)) {
+        return false;
+    }
     return BatchBuilder::areRenderItemListsEquivalent(m_renderables, m_prevRenderables);
 }
 
 void BatchManager::buildBatches(BatchStatistics& statistics) {
     RenderBatchPool::getInstance().releaseAll(m_batches);
-    if (m_renderables.empty()) return;
+    // underlay（阴影等底层效果）先合批，保证绘制顺序在前
+    buildFromItems(m_underlayRenderables, statistics);
+    buildFromItems(m_renderables, statistics);
+    m_batchesDirty = false;
+}
 
-    const BatchBuildResult result = m_batchBuilder.build(m_renderables);
+void BatchManager::buildFromItems(const std::vector<RenderItem>& items, BatchStatistics& statistics) {
+    if (items.empty()) return;
+
+    const BatchBuildResult result = m_batchBuilder.build(items);
     for (const auto reason : result.breakReasons) {
         statistics.recordBreak(reason);
     }
 
-    m_batches.reserve(result.groups.size());
+    m_batches.reserve(m_batches.size() + result.groups.size());
     for (const auto& group : result.groups) {
         if (group.itemIndices.empty()) continue;
-        const auto& firstItem = m_renderables[group.itemIndices.front()];
+        const auto& firstItem = items[group.itemIndices.front()];
         RenderBatch newBatch = RenderBatchPool::getInstance().acquire(
             firstItem.material->getShaderName(),
             firstItem.material->isSSBOShader());
 
         for (const uint32_t itemIndex : group.itemIndices) {
-            const auto& item = m_renderables[itemIndex];
+            const auto& item = items[itemIndex];
             newBatch.materials.emplace_back(item.material);
             newBatch.meshFilters.emplace_back(item.meshFilter);
             newBatch.transforms.emplace_back(item.transform);
         }
         m_batches.emplace_back(std::move(newBatch));
     }
-
-    m_batchesDirty = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +222,9 @@ void BatchManager::renderStandardBatch(std::shared_ptr<FrameState> frameState, R
 
         auto meshFilter = batch.meshFilters[index];
         auto meshRenderer = meshFilter->getComponent<MeshRenderer>();
+        if (!meshRenderer) {
+            continue;
+        }
         meshRenderer->getVertexArray()->updateFromMeshes(frameState, material->getShader(), {batch.meshFilters[index]});
         if (batch.isSSBOShader) {
             m_ubo->bind(material->getShader());

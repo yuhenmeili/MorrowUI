@@ -32,9 +32,11 @@ public:
     BatchManager();
 
     /// 收集可渲染对象（Widget 树遍历时每帧调用）
+    /// @param underlay 为 true 时该渲染项排在普通项之前绘制（如阴影等底层效果）
     void addRenderable(std::shared_ptr<Material> material,
                        std::shared_ptr<MeshFilter> meshFilter,
-                       std::shared_ptr<Transform> transform);
+                       std::shared_ptr<Transform> transform,
+                       bool underlay = false);
 
     /// 执行合批渲染（在 commitRenderPass 中调用）
     void renderBatches(std::shared_ptr<FrameState> frameState);
@@ -47,6 +49,9 @@ private:
 
     /// 调用纯逻辑 BatchBuilder，并将结果物化为带 GPU 资源的 RenderBatch
     void buildBatches(BatchStatistics& statistics);
+
+    /// 将一组 RenderItem 合批并物化为 RenderBatch，追加到 m_batches
+    void buildFromItems(const std::vector<RenderItem>& items, BatchStatistics& statistics);
 
     /// 检查本帧可渲染列表是否与上一帧相同（增量合批判断）
     bool isRenderableListUnchanged() const;
@@ -65,8 +70,10 @@ private:
 
     // ---- 数据成员 ----
 
-    std::vector<RenderItem> m_renderables; // 本帧收集
+    std::vector<RenderItem> m_renderables; // 本帧收集（普通渲染项）
     std::vector<RenderItem> m_prevRenderables; // 上一帧（增量比对）
+    std::vector<RenderItem> m_underlayRenderables; // 本帧收集（底层渲染项，先绘制）
+    std::vector<RenderItem> m_prevUnderlayRenderables; // 上一帧（增量比对）
     std::vector<RenderBatch> m_batches; // 构建的批次
     BatchBuilder m_batchBuilder;
     bool m_batchesDirty = true; // 本帧是否需要重建批次
