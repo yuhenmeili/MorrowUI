@@ -856,14 +856,15 @@ Present
 
 ### 15.4 Widget Dirty 体系完善 ⚠️
 
-已有：`Transform::m_matrixDirty` + 子节点传播；`Widget` 不可见子树跳过 update；`MRLabel` 双层文本脏标记；`Mesh::m_revision` 驱动 VBO 跳过上传；`Material::m_revision` 驱动批次缓存比对。缺失统一 Dirty 枚举和视口裁剪。
+已有：`Transform::m_matrixDirty` + 子节点传播；`Widget` 不可见子树跳过 update；`MRLabel` 双层文本脏标记；`Mesh::m_revision` 驱动 VBO 跳过上传；`Material::m_revision` 驱动批次缓存比对。缺失统一 Dirty 枚举。
 
 优化方向：
 
-- 完善 Layout / Transform / Geometry / Material / Visibility Dirty 统一枚举；
-- 未变化 Transform 缓存世界矩阵，避免每帧重新级联计算；
-- 仅在结构或渲染状态变化时更新批次 revision；
-- 对大型 UI 树增加轻量可见区域裁剪。
+1. **统一 Dirty 枚举**：将 Layout / Transform / Geometry / Material / Visibility 的零散 bool 与 revision（`Transform::m_matrixDirty`、`MRLabel` 双层脏标记、`Mesh`/`Material::m_revision`、Widget 可见性遍历）收敛为统一的 DirtyFlag 位掩码；组件与资源按变更类型上报，引擎据此决定跳过 update / 几何上传 / 批次重建，消除各模块语义不一致和重复实现。
+2. **世界矩阵独立 dirty 判定**：`getLocalMatrix()` 已有 dirty 缓存，但 `getWorldMatrix()` 在本地矩阵未变化时每帧仍执行一次父级级联乘法；为世界矩阵增加独立 dirty 标记（父级 `setDirty()` 传播时置位），未变化节点直接返回缓存矩阵。GUI 中静态节点占多数，可省去每帧整条节点链的矩阵乘法。
+3. **批次重建与 revision 收敛**：`Material::m_revision` 目前所有 setter 均递增，包含不影响合批兼容的属性（如仅 per-object uniform 变化），会引发无意义的 cache miss；拆分「合批兼容 revision」与「per-object revision」，并让 `renderStateRevision` 覆盖真实渲染状态（clip / stencil / blend）变化，减少批次重建、提高增量合批命中率。
+
+> 说明：引擎面向全屏 GUI 渲染，Widget 总是在视口内绘制，不存在屏幕外可见区域剔除（视口裁剪）需求，该方向不作为优化目标。
 
 ### 15.5 GPU 状态缓存 ✅
 

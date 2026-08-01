@@ -12,17 +12,18 @@ Transform::Transform()
       , m_localRotation(0.0f, 0.0f, 0.0f, 1.0f)
       , m_localMatrix(Matrix4())
       , m_worldMatrix(Matrix4())
-      , m_matrixDirty(true) {
+      , m_matrixDirty(true)
+      , m_worldMatrixDirty(true) {
 }
 
 void Transform::setPosition(float x, float y, float z) {
     m_localPosition.set(x, y, z);
-    m_matrixDirty = true;
+    markDirty();
 }
 
 void Transform::setPosition(const Vector3& position) {
     m_localPosition = position;
-    m_matrixDirty = true;
+    markDirty();
 }
 
 Vector3 Transform::getPosition() const {
@@ -51,12 +52,12 @@ Vector3 Transform::getCenter() const {
 
 void Transform::setScale(float x, float y, float z) {
     m_localScale.set(x, y, z);
-    m_matrixDirty = true;
+    markDirty();
 }
 
 void Transform::setScale(const Vector3& scale) {
     m_localScale = scale;
-    m_matrixDirty = true;
+    markDirty();
 }
 
 Vector3 Transform::getScale() const {
@@ -65,17 +66,17 @@ Vector3 Transform::getScale() const {
 
 void Transform::setRotation(float x, float y, float z, float w) {
     m_localRotation.set(x, y, z, w);
-    m_matrixDirty = true;
+    markDirty();
 }
 
 void Transform::setRotation(const Quaternion& rotation) {
     m_localRotation = rotation;
-    m_matrixDirty = true;
+    markDirty();
 }
 
 void Transform::setRotation(const Vector3& axis, float angle) {
     m_localRotation.setFromAxisAngle(axis, angle);
-    m_matrixDirty = true;
+    markDirty();
 }
 
 Quaternion Transform::getRotation() const {
@@ -84,12 +85,12 @@ Quaternion Transform::getRotation() const {
 
 void Transform::setPivot(const Vector3& pivot) {
     m_pivotScreen = pivot;
-    m_matrixDirty = true;
+    markDirty();
 }
 
 void Transform::setPivot(float x, float y, float z) {
     m_pivotScreen.set(x, y, z);
-    m_matrixDirty = true;
+    markDirty();
 }
 
 Vector3 Transform::getPivot() const {
@@ -117,15 +118,27 @@ const Matrix4& Transform::getLocalMatrix() {
 }
 
 const Matrix4& Transform::getWorldMatrix() {
-    if (m_matrixDirty) {
-        updateMatrix();
-    }
-
     auto parentTransform = getComponentInParent<Transform>();
-    if (parentTransform) {
-        m_worldMatrix.multiplyMatrices(parentTransform->getWorldMatrix(), m_localMatrix);
-    } else {
-        m_worldMatrix = m_localMatrix;
+    const uint64_t parentWorldVersion = parentTransform ? parentTransform->getWorldVersion() : 0;
+
+    // 自身 local 变化或父链版本变化时重新计算世界矩阵，否则直接返回缓存
+    if (m_worldMatrixDirty || m_cachedParentWorldVersion != parentWorldVersion) {
+        if (m_matrixDirty) {
+            updateMatrix();
+        }
+
+        if (parentTransform) {
+            m_worldMatrix.multiplyMatrices(parentTransform->getWorldMatrix(), m_localMatrix);
+        } else {
+            m_worldMatrix = m_localMatrix;
+        }
+
+        m_worldMatrixDirty = false;
+        m_cachedParentWorldVersion = parentWorldVersion;
+        // 继承父链版本：父级世界变化时本节点版本同步递增，供子节点检测
+        if (parentWorldVersion > m_worldVersion) {
+            m_worldVersion = parentWorldVersion;
+        }
     }
 
     return m_worldMatrix;
@@ -148,10 +161,16 @@ void Transform::notifySizeChange() {
 }
 
 void Transform::setDirty() {
-    m_matrixDirty = true;
+    markDirty();
     for (auto& child : m_children) {
         child->setDirty();
     }
+}
+
+void Transform::markDirty() {
+    m_matrixDirty = true;
+    m_worldMatrixDirty = true;
+    ++m_worldVersion;
 }
 
 void Transform::updateMatrix() {

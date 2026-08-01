@@ -56,7 +56,10 @@ void Component::setGameObject(Widget* gameObject) {
 
 // Explicit instantiations for commonly used transform component lookups.
 template std::shared_ptr<Transform> Component::getComponent<Transform>();
+
 template std::shared_ptr<Transform> Component::getComponentInParent<Transform>();
+
 template std::shared_ptr<Transform3D> Component::getComponent<Transform3D>();
+
 template std::shared_ptr<Transform3D> Component::getComponentInParent<Transform3D>();
 } // namespace morrow

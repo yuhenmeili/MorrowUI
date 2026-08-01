@@ -27,13 +27,21 @@ public:
     /// onDetach:   组件被 removeComponent 从 Widget 移除前
     /// onDestroy:  组件销毁时
     virtual void onAttach();
+
     virtual void awake();
+
     virtual void start();
+
     virtual void update(FrameStateSharedPtr frameState);
+
     virtual void lateUpdate(FrameStateSharedPtr frameState);
+
     virtual void onEnable();
+
     virtual void onDisable();
+
     virtual void onDetach();
+
     virtual void onDestroy();
 
     // 组件启用/禁用
