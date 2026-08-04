@@ -5,13 +5,14 @@
 #ifndef MORROW_RENDERER_THREADBUFFERESDEVICE_H_
 #define MORROW_RENDERER_THREADBUFFERESDEVICE_H_
 
-#include "RenderDeviceProxyBase.h"
-#include "PlatformSemaphore.h"
-#include "CommandBuffer.h"
-#include <vector>
 #include <memory>
 #include <queue>
+#include <vector>
+
+#include "CommandBuffer.h"
+#include "PlatformSemaphore.h"
 #include "RecyclePool.h"
+#include "RenderDeviceProxyBase.h"
 
 namespace morrow {
 using VBODataRecyclePool = RecyclePool<VBOData>;
@@ -109,20 +110,27 @@ public:
     void updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) override;
 
     void* insertFence() override;
+
     bool waitFence(void* fence, uint64_t timeoutNs) override;
+
     void deleteFence(void* fence) override;
 
     // FBO操作
-    HwRenderTarget createRenderTarget(int32_t w, int32_t h,
-                                      HwTexture2D* outColorTexture = nullptr) override;
+    HwRenderTarget createRenderTarget(int32_t w, int32_t h, HwTexture2D colorTexture);
+
     void deleteRenderTarget(HwRenderTarget rt) override;
+
     void bindRenderTarget(HwRenderTarget rt) override;
+
     void unbindRenderTarget() override;
 
     // 深度/状态
     void setDepthTest(bool enable) override;
+
     void setDepthWrite(bool enable) override;
+
     void setCullFace(CullFaceMode mode) override;
+
     void clearDepth() override;
 
     //----------------------------------------------------Frame control---------------------------------------------------
@@ -135,14 +143,22 @@ public:
     void endFrame();
 
     /// 主线程从池中取 VBOData / UBOData / SSBOData
-    VBODataRecyclePool* getVBODataRecyclePool() { return m_vboRecyclePool.get(); }
+    VBODataRecyclePool* getVBODataRecyclePool() {
+        return m_vboRecyclePool.get();
+    }
 
-    UBODataRecyclePool* getUBODataRecyclePool() { return m_uboRecyclePool.get(); }
+    UBODataRecyclePool* getUBODataRecyclePool() {
+        return m_uboRecyclePool.get();
+    }
 
-    SSBODataRecyclePool* getSSBODataRecyclePool() { return m_ssboRecyclePool.get(); }
+    SSBODataRecyclePool* getSSBODataRecyclePool() {
+        return m_ssboRecyclePool.get();
+    }
 
     /// 主线程从池中取像素上传缓冲（原始指针路径，无 shared_ptr 所有权时使用）
-    PixelDataRecyclePool* getPixelDataRecyclePool() { return m_pixelDataRecyclePool.get(); }
+    PixelDataRecyclePool* getPixelDataRecyclePool() {
+        return m_pixelDataRecyclePool.get();
+    }
 
     /// 在持有 GL 上下文的线程调用：等待已完成的 fence 并将对应 VBOData 回收到池。多线程时在渲染线程 runCommand 内调用，单线程时在 endFrame 后由 Engine 调用。
     void tryRecycle();
@@ -191,7 +207,7 @@ private:
 
     // Ring buffer slots – one CommandBuffer per slot (pre-allocated, fixed size)
     CommandBuffer m_commandBuffers[kRingSize];
-    uint32_t m_writeIdx = 0; // main-thread write cursor (no sharing)
+    uint32_t m_writeIdx = 0;  // main-thread write cursor (no sharing)
 
     // m_frameReadySem: main thread signals once per endFrame(); render thread
     //                  waits for it before draining a buffer.
@@ -203,6 +219,6 @@ private:
 };
 
 using ThreadBufferESDeviceSharedPtr = std::shared_ptr<RenderDeviceProxy>;
-} // MORROWGUI
+}  // namespace morrow
 
-#endif //MORROW_RENDERER_THREADBUFFERESDEVICE_H_
+#endif  // MORROW_RENDERER_THREADBUFFERESDEVICE_H_

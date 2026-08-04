@@ -2,15 +2,17 @@
 // Created by lance on 2023/12/8.
 //
 
+#include "GLRenderDevice.h"
+
 #include <algorithm>
 #include <fstream>
-#include "GLRenderDevice.h"
+
 #include "GlResourceObjects.h"
 #include "PixelFormat.h"
 #include "TextureLoader.h"
-#include "unistd.h"
-#include "sys/stat.h"
 #include "ToolUtils.h"
+#include "sys/stat.h"
+#include "unistd.h"
 #include "utils/OpenglUtils.h"
 #ifdef OPENGL_EGL
 #include "egl/QNXPlatform.h"
@@ -106,9 +108,7 @@ void GLRenderDevice::clear() {
 }
 
 void GLRenderDevice::setViewPort(int32_t x, int32_t y, int32_t width, int32_t height) {
-    if (m_stateCache.viewportValid &&
-        m_stateCache.viewportX == x && m_stateCache.viewportY == y &&
-        m_stateCache.viewportW == width && m_stateCache.viewportH == height) {
+    if (m_stateCache.viewportValid && m_stateCache.viewportX == x && m_stateCache.viewportY == y && m_stateCache.viewportW == width && m_stateCache.viewportH == height) {
         return;
     }
     m_stateCache.viewportX = x;
@@ -152,9 +152,7 @@ bool GLRenderDevice::checkSSBOSupport() {
         return (major > 4 || (major == 4 && minor >= 3));
     } else {
         // OpenGL ES版
-        return (strstr(versionStr, "OpenGL ES 3.1") ||
-                strstr(versionStr, "OpenGL ES 3.2") ||
-                strstr(versionStr, "OpenGL ES 4."));
+        return (strstr(versionStr, "OpenGL ES 3.1") || strstr(versionStr, "OpenGL ES 3.2") || strstr(versionStr, "OpenGL ES 4."));
     }
 }
 
@@ -176,7 +174,8 @@ void GLRenderDevice::commitVBO(HwVBO handle) {
 void GLRenderDevice::updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr vboData) {
     auto* glVbo = m_registry.getVBO(vbo);
     auto* glProg = m_registry.getGPUProgram(program);
-    if (!glVbo || !glProg) return;
+    if (!glVbo || !glProg)
+        return;
 
     glBindVertexArray(glVbo->vertexArrayID);
     glBindBuffer(GL_ARRAY_BUFFER, glVbo->vertexbuffer);
@@ -221,10 +220,7 @@ void GLRenderDevice::updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr
     // 处理索引数据
     if (vboData->indexCount > 0) {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glVbo->elementbuffer);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                     vboData->indexCount * sizeof(uint32_t),
-                     vboData->indices.data(),
-                     GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, vboData->indexCount * sizeof(uint32_t), vboData->indices.data(), GL_STATIC_DRAW);
     }
 
     glVbo->verticesCount = vboData->vertexCount;
@@ -232,14 +228,14 @@ void GLRenderDevice::updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr
     glVbo->drawMode = GLenum(vboData->drawMode);
 }
 
-
 void GLRenderDevice::deleteVBO(HwVBO vbo) {
     m_registry.destroyVBO(vbo);
 }
 
 void GLRenderDevice::drawVBO(HwVBO vbo, int32_t instanceCount) {
     auto* glVbo = m_registry.getVBO(vbo);
-    if (!glVbo) return;
+    if (!glVbo)
+        return;
     glBindVertexArray(glVbo->vertexArrayID);
     glDisable(GL_CULL_FACE);
     // drawVBO 直接修改了 GL 的 cull face 状态，同步缓存
@@ -305,17 +301,17 @@ void GLRenderDevice::deleteTexture2D(HwTexture2D texture) {
     }
 #endif
 
-    if (!realTex->m_ownedByFBO) {
-        glDeleteTextures(1, &realTex->textureID);
-    }
-    delete realTex;
+    m_registry.destroyTexture2D(texture);
 }
 
 void GLRenderDevice::useTexture2D(HwTexture2D texture, uint32_t index) {
-    if (index >= GLStateCache::kMaxTextureUnits) return;
+    if (index >= GLStateCache::kMaxTextureUnits)
+        return;
     auto* textureImp = m_registry.getTexture2D(texture);
-    if (!textureImp) return;
-    if (m_stateCache.currentTextures[index] == texture) return;
+    if (!textureImp)
+        return;
+    if (m_stateCache.currentTextures[index] == texture)
+        return;
     m_stateCache.currentTextures[index] = texture;
     glActiveTexture(GL_TEXTURE0 + index);
     glBindTexture(textureImp->textureTarget, textureImp->textureID);
@@ -339,24 +335,20 @@ bool GLRenderDevice::isTextureFormatSupported(PixelDataFormat textureFormat) {
 
 void GLRenderDevice::updateTexture2D(HwTexture2D texture, const TextureData& data) {
     auto* tex = m_registry.getTexture2D(texture);
-    if (!tex) return;
+    if (!tex)
+        return;
     data.imageType == ImageType::OES ? upLoadOESTexture(tex, data) : upLoadTexture(tex, data);
 }
 
 void GLRenderDevice::updateSubTexture2D(HwTexture2D texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) {
     auto* textureImp = m_registry.getTexture2D(texture);
-    if (!textureImp) return;
+    if (!textureImp)
+        return;
     GLenum textureTarget = textureImp->textureTarget;
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(textureTarget, textureImp->textureID);
 
-    int32_t unpackAlignment = data.imageType == ImageType::TEXT
-                                  ? 1
-                                  : PixelFormat::alignmentInBytes(
-                                      data.format,
-                                      GL_UNSIGNED_BYTE,
-                                      data.width
-                                      );
+    int32_t unpackAlignment = data.imageType == ImageType::TEXT ? 1 : PixelFormat::alignmentInBytes(data.format, GL_UNSIGNED_BYTE, data.width);
     glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
 
     GLenum format = OpenglUtils::getFormat(data.format);
@@ -364,15 +356,8 @@ void GLRenderDevice::updateSubTexture2D(HwTexture2D texture, const TextureData& 
 
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
-        LOG_E("glTexSubImage2D failed for texture update, imageType={}, format={}, formatEnum=0x{:x}, region=({}, {}, {}, {}), glError=0x{:x}",
-              static_cast<int32_t>(data.imageType),
-              static_cast<int32_t>(data.format),
-              static_cast<uint32_t>(format),
-              x,
-              y,
-              width,
-              height,
-              static_cast<uint32_t>(error));
+        LOG_E("glTexSubImage2D failed for texture update, imageType={}, format={}, formatEnum=0x{:x}, region=({}, {}, {}, {}), glError=0x{:x}", static_cast<int32_t>(data.imageType),
+              static_cast<int32_t>(data.format), static_cast<uint32_t>(format), x, y, width, height, static_cast<uint32_t>(error));
     }
 }
 
@@ -392,39 +377,19 @@ bool GLRenderDevice::upLoadTexture(GlTexture2D* textureImp, const TextureData& d
     GLenum internalFormat = OpenglUtils::getInternalFormat(data.format);
     GLenum format = OpenglUtils::getFormat(data.format);
 
-    int32_t unpackAlignment = data.imageType == ImageType::TEXT
-                                  ? 1
-                                  : PixelFormat::alignmentInBytes(
-                                      data.format,
-                                      GL_UNSIGNED_BYTE,
-                                      data.width
-                                      );
+    int32_t unpackAlignment = data.imageType == ImageType::TEXT ? 1 : PixelFormat::alignmentInBytes(data.format, GL_UNSIGNED_BYTE, data.width);
     glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
 
     if (data.compressedTexture) {
         glCompressedTexImage2D(textureTarget, 0, internalFormat, data.width, data.height, 0, data.bytes, data.pixels);
     } else {
-        glTexImage2D(textureTarget,
-                     0,
-                     internalFormat,
-                     data.width,
-                     data.height,
-                     0,
-                     format,
-                     GL_UNSIGNED_BYTE,
-                     data.pixels);
+        glTexImage2D(textureTarget, 0, internalFormat, data.width, data.height, 0, format, GL_UNSIGNED_BYTE, data.pixels);
     }
 
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
-        LOG_E("glTexImage2D failed, imageType={}, format={}, internalFormat=0x{:x}, formatEnum=0x{:x}, size={}x{}, glError=0x{:x}",
-              static_cast<int32_t>(data.imageType),
-              static_cast<int32_t>(data.format),
-              static_cast<uint32_t>(internalFormat),
-              static_cast<uint32_t>(format),
-              data.width,
-              data.height,
-              static_cast<uint32_t>(error));
+        LOG_E("glTexImage2D failed, imageType={}, format={}, internalFormat=0x{:x}, formatEnum=0x{:x}, size={}x{}, glError=0x{:x}", static_cast<int32_t>(data.imageType),
+              static_cast<int32_t>(data.format), static_cast<uint32_t>(internalFormat), static_cast<uint32_t>(format), data.width, data.height, static_cast<uint32_t>(error));
     }
     //    free(data.pixels);
     return true;
@@ -432,7 +397,7 @@ bool GLRenderDevice::upLoadTexture(GlTexture2D* textureImp, const TextureData& d
 
 bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData& data) {
 #ifdef OPENGL_GLFW
-    //do nothing
+    // do nothing
 #else
     auto textureImp = dynamic_cast<GlTexture2D*>(texture);
     GLenum textureTarget = textureImp->textureTarget;
@@ -446,8 +411,7 @@ bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData
         LOG_I("ERROR: no eglCreateImageKHR support");
         return false;
     }
-    textureImp->p_glEGLImageTargetTexture2DOES = (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC)eglGetProcAddress(
-        "glEGLImageTargetTexture2DOES");
+    textureImp->p_glEGLImageTargetTexture2DOES = (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC)eglGetProcAddress("glEGLImageTargetTexture2DOES");
     if (textureImp->p_glEGLImageTargetTexture2DOES == NULL) {
         LOG_I("ERROR: no glEGLImageTargetTexture2DOES support");
         return false;
@@ -456,30 +420,37 @@ bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData
     uint32_t width = data.width;
     uint32_t height = data.height;
 
-    //default GL_RGBA
+    // default GL_RGBA
     uint32_t alignment = 64;
     uint32_t numbers = 4;
     GLenum format = EGL_FORMAT_RGBA_8888_QCOM;
     if (data.format == PixelDataFormat::RGB) {
-        //应用端确定
+        // 应用端确定
         alignment = 256;
         numbers = 3;
         format = EGL_FORMAT_RGB_888_QCOM;
     }
-    uint32_t stride = numbers * ((width + (alignment - 1)) & ~(alignment - 1)); //YUV is 2*...
+    uint32_t stride = numbers * ((width + (alignment - 1)) & ~(alignment - 1));  // YUV is 2*...
     uint32_t size = (((stride * height) + 4096 - 1) & ~(4096 - 1));
-    EGLint attribs[] = {
-        EGL_WIDTH, (GLint)width,
-        EGL_HEIGHT, (GLint)height,
-        EGL_IMAGE_FORMAT_QCOM, (GLint)format,
-        EGL_IMAGE_EXT_BUFFER_BASE_ADDR_LOW_QCOM, 0,
-        EGL_IMAGE_EXT_BUFFER_BASE_ADDR_HIGH_QCOM, 0,
-        EGL_IMAGE_EXT_BUFFER_SIZE_QCOM, (EGLint)(size),
-        EGL_IMAGE_EXT_BUFFER_STRIDE_QCOM, (GLint)stride,
-        EGL_IMAGE_EXT_BUFFER_MEMORY_TYPE_QCOM, EGL_IMAGE_EXT_BUFFER_MEMORY_TYPE_PMEM_QCOM,
-        EGL_IMAGE_EXT_BUFFER_PLANE0_OFFSET_QCOM, 0, // for RGB format only
-        EGL_NONE
-    };
+    EGLint attribs[] = {EGL_WIDTH,
+                        (GLint)width,
+                        EGL_HEIGHT,
+                        (GLint)height,
+                        EGL_IMAGE_FORMAT_QCOM,
+                        (GLint)format,
+                        EGL_IMAGE_EXT_BUFFER_BASE_ADDR_LOW_QCOM,
+                        0,
+                        EGL_IMAGE_EXT_BUFFER_BASE_ADDR_HIGH_QCOM,
+                        0,
+                        EGL_IMAGE_EXT_BUFFER_SIZE_QCOM,
+                        (EGLint)(size),
+                        EGL_IMAGE_EXT_BUFFER_STRIDE_QCOM,
+                        (GLint)stride,
+                        EGL_IMAGE_EXT_BUFFER_MEMORY_TYPE_QCOM,
+                        EGL_IMAGE_EXT_BUFFER_MEMORY_TYPE_PMEM_QCOM,
+                        EGL_IMAGE_EXT_BUFFER_PLANE0_OFFSET_QCOM,
+                        0,  // for RGB format only
+                        EGL_NONE};
 
     auto buff_addr = (unsigned char*)(data.pixels);
 
@@ -526,7 +497,8 @@ bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData
 }
 
 void GLRenderDevice::enableBlend() {
-    if (m_stateCache.blendStateValid && m_stateCache.blendEnabled) return;
+    if (m_stateCache.blendStateValid && m_stateCache.blendEnabled)
+        return;
     m_stateCache.blendEnabled = true;
     m_stateCache.blendStateValid = true;
     glEnable(GL_BLEND);
@@ -535,7 +507,8 @@ void GLRenderDevice::enableBlend() {
 }
 
 void GLRenderDevice::disableBlend() {
-    if (m_stateCache.blendStateValid && !m_stateCache.blendEnabled) return;
+    if (m_stateCache.blendStateValid && !m_stateCache.blendEnabled)
+        return;
     m_stateCache.blendEnabled = false;
     m_stateCache.blendStateValid = true;
     glDisable(GL_BLEND);
@@ -622,28 +595,28 @@ void GLRenderDevice::commitGPUProgram(HwGPUProgram handle, const std::string& pr
 
 #ifdef OPENGL_GLFW
 #else
-        //save shader to binary
-        // if (makeFolder()) {
-        //     GLint formats = 0;
-        //     glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &formats);
-        //     if (formats >= 1) {
-        //         // Get the binary length
-        //         GLint length = 0;
-        //         glGetProgramiv(programObject, GL_PROGRAM_BINARY_LENGTH, &length);
+        // save shader to binary
+        //  if (makeFolder()) {
+        //      GLint formats = 0;
+        //      glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &formats);
+        //      if (formats >= 1) {
+        //          // Get the binary length
+        //          GLint length = 0;
+        //          glGetProgramiv(programObject, GL_PROGRAM_BINARY_LENGTH, &length);
         //
-        //         // Retrieve the binary code
-        //         std::vector<GLubyte> buffer(length);
-        //         GLenum format = 0;
-        //         glGetProgramBinary(programObject, length, nullptr, &format, buffer.data());
+        //          // Retrieve the binary code
+        //          std::vector<GLubyte> buffer(length);
+        //          GLenum format = 0;
+        //          glGetProgramBinary(programObject, length, nullptr, &format, buffer.data());
         //
-        //         // Write the binary to a file.
-        //         std::string fName(SHADERS_FOLDER_PATH + programFileName + "." + version);
-        //         std::ofstream out(fName.c_str(), std::ios::binary);
-        //         out.write(reinterpret_cast<char*>(buffer.data()), length);
-        //         out.close();
-        //         LOG_I("{} Saved Succeed!", programFileName);
-        //     }
-        // }
+        //          // Write the binary to a file.
+        //          std::string fName(SHADERS_FOLDER_PATH + programFileName + "." + version);
+        //          std::ofstream out(fName.c_str(), std::ios::binary);
+        //          out.write(reinterpret_cast<char*>(buffer.data()), length);
+        //          out.close();
+        //          LOG_I("{} Saved Succeed!", programFileName);
+        //      }
+        //  }
 #endif
 
         // delete the shaders as they're linked into our program now and no longer necessery
@@ -687,12 +660,13 @@ bool GLRenderDevice::checkCompileErrors(const std::string& programFileName, GLui
     return !!success;
 }
 
-
 void GLRenderDevice::useGPUProgram(HwGPUProgram program) {
-    if (m_stateCache.currentProgram == program) return;
+    if (m_stateCache.currentProgram == program)
+        return;
     m_stateCache.currentProgram = program;
     auto* prog = m_registry.getGPUProgram(program);
-    if (!prog) return;
+    if (!prog)
+        return;
     glUseProgram(prog->ProgramID);
 }
 
@@ -702,43 +676,50 @@ void GLRenderDevice::deletGPUProgram(HwGPUProgram program) {
 
 void GLRenderDevice::setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) {
     auto* prog = m_registry.getGPUProgram(program);
-    if (!prog) return;
+    if (!prog)
+        return;
     glUniform1i(prog->getUniformLocation(uniformName), value);
 }
 
 void GLRenderDevice::setGPUProgramParamAsFloat(HwGPUProgram program, const std::string& uniformName, float value) {
     auto* prog = m_registry.getGPUProgram(program);
-    if (!prog) return;
+    if (!prog)
+        return;
     glUniform1f(prog->getUniformLocation(uniformName), value);
 }
 
 void GLRenderDevice::setGPUProgramParamAsVec2(HwGPUProgram program, const std::string& uniformName, float x, float y) {
     auto* prog = m_registry.getGPUProgram(program);
-    if (!prog) return;
+    if (!prog)
+        return;
     glUniform2f(prog->getUniformLocation(uniformName), x, y);
 }
 
 void GLRenderDevice::setGPUProgramParamAsVec3(HwGPUProgram program, const std::string& uniformName, float x, float y, float z) {
     auto* prog = m_registry.getGPUProgram(program);
-    if (!prog) return;
+    if (!prog)
+        return;
     glUniform3f(prog->getUniformLocation(uniformName), x, y, z);
 }
 
 void GLRenderDevice::setGPUProgramParamAsVec4(HwGPUProgram program, const std::string& uniformName, float x, float y, float z, float w) {
     auto* prog = m_registry.getGPUProgram(program);
-    if (!prog) return;
+    if (!prog)
+        return;
     glUniform4f(prog->getUniformLocation(uniformName), x, y, z, w);
 }
 
 void GLRenderDevice::setGPUProgramParamAsMat4(HwGPUProgram program, const std::string& uniformName, const Matrix4& mat) {
     auto* prog = m_registry.getGPUProgram(program);
-    if (!prog) return;
+    if (!prog)
+        return;
     glUniformMatrix4fv(prog->getUniformLocation(uniformName), 1, GL_FALSE, mat.elements);
 }
 
 void GLRenderDevice::setGPUProgramParamAsIntArray(HwGPUProgram program, const std::string& uniformName, const int32_t* values, int32_t size, int32_t step) {
     auto* prog = m_registry.getGPUProgram(program);
-    if (!prog) return;
+    if (!prog)
+        return;
     GLint loc = prog->getUniformLocation(uniformName);
     if (step == 1)
         glUniform1iv(loc, size, values);
@@ -752,7 +733,8 @@ void GLRenderDevice::setGPUProgramParamAsIntArray(HwGPUProgram program, const st
 
 void GLRenderDevice::setGPUProgramParamAsFloatArray(HwGPUProgram program, const std::string& uniformName, const float* values, int32_t size, int32_t step) {
     auto* prog = m_registry.getGPUProgram(program);
-    if (!prog) return;
+    if (!prog)
+        return;
     GLint loc = prog->getUniformLocation(uniformName);
     if (step == 1)
         glUniform1fv(loc, size, values);
@@ -800,7 +782,8 @@ void GLRenderDevice::updateUBO(HwUBO ubo, std::shared_ptr<UBOData> uboData) {
 void GLRenderDevice::bindUBO(HwGPUProgram program, HwUBO ubo, const std::string& blockName, uint32_t bindingPoint) {
     auto* glUbo = m_registry.getUBO(ubo);
     auto* glProg = m_registry.getGPUProgram(program);
-    if (!glUbo || !glProg) return;
+    if (!glUbo || !glProg)
+        return;
     GLuint programID = glProg->ProgramID;
     GLuint blockIndex = glGetUniformBlockIndex(programID, blockName.c_str());
 
@@ -824,7 +807,8 @@ void GLRenderDevice::commitSSBO(HwSSBO handle) {
 
 void GLRenderDevice::updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) {
     auto* glSsbo = m_registry.getSSBO(ssbo);
-    if (!glSsbo) return;
+    if (!glSsbo)
+        return;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, glSsbo->bufferID);
     glBufferData(GL_SHADER_STORAGE_BUFFER, ssboData->size, ssboData->data.data(), GL_STREAM_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, glSsbo->bufferID);
@@ -842,30 +826,28 @@ void* GLRenderDevice::insertFence() {
 }
 
 bool GLRenderDevice::waitFence(void* fence, uint64_t timeoutNs) {
-    if (!fence) return true;
+    if (!fence)
+        return true;
     GLenum r = glClientWaitSync((GLsync)fence, GL_SYNC_FLUSH_COMMANDS_BIT, timeoutNs);
     return (r == GL_ALREADY_SIGNALED || r == GL_CONDITION_SATISFIED);
 }
 
 void GLRenderDevice::deleteFence(void* fence) {
-    if (!fence) return;
+    if (!fence)
+        return;
     glDeleteSync((GLsync)fence);
 }
 
 // ---------------------------------------------------------------------------
 // RenderTarget (FBO)
 // ---------------------------------------------------------------------------
+void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle, int32_t w, int32_t h, HwTexture2D colorTexture) {
+    auto* colorTex = m_registry.getTexture2D(colorTexture);
+    if (!colorTex || colorTex->textureTarget != GL_TEXTURE_2D) {
+        LOG_E("GLRenderDevice::commitRenderTarget requires a valid GL_TEXTURE_2D color attachment");
+        return;
+    }
 
-HwRenderTarget GLRenderDevice::createRenderTarget(int32_t w, int32_t h, HwTexture2D* outColorTexture) {
-    HwRenderTarget rt = allocateRenderTarget();
-    commitRenderTarget(rt, w, h, outColorTexture);
-    return rt;
-}
-
-void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle,
-                                        int32_t w,
-                                        int32_t h,
-                                        HwTexture2D* outColorTexture) {
     auto* rt = new GlRenderTarget();
     rt->width = w;
     rt->height = h;
@@ -880,15 +862,10 @@ void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle,
 #endif
     const int32_t requestedSamples = m_platform ? std::max(m_platform->getRequestedSamples(), 1) : 1;
     rt->samples = std::max(1, std::min(requestedSamples, maxSamples));
-    LOG_I("GLRenderDevice::createRenderTarget {}x{}, requestedSamples={}, actualSamples={}",
-          w,
-          h,
-          requestedSamples,
-          rt->samples);
+    LOG_I("GLRenderDevice::createRenderTarget {}x{}, requestedSamples={}, actualSamples={}", w, h, requestedSamples, rt->samples);
 
-    // Resolve colour texture (always sampleable by the display quad)
-    glGenTextures(1, &rt->colorTexID);
-    glBindTexture(GL_TEXTURE_2D, rt->colorTexID);
+    // Allocate storage for the caller-owned texture and attach it below.
+    glBindTexture(GL_TEXTURE_2D, colorTex->textureID);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -918,7 +895,7 @@ void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle,
 
         glGenFramebuffers(1, &rt->resolveFBOID);
         glBindFramebuffer(GL_FRAMEBUFFER, rt->resolveFBOID);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rt->colorTexID, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTex->textureID, 0);
 
         status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (status != GL_FRAMEBUFFER_COMPLETE) {
@@ -932,7 +909,7 @@ void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle,
 
         glGenFramebuffers(1, &rt->fboID);
         glBindFramebuffer(GL_FRAMEBUFFER, rt->fboID);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rt->colorTexID, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTex->textureID, 0);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rt->depthRBOID);
 
         GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -942,18 +919,6 @@ void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle,
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // Optionally expose the colour texture via a GlTexture2D wrapper
-    if (outColorTexture) {
-        auto* colorTex = new GlTexture2D(rt->colorTexID);
-        colorTex->m_ownedByFBO = true;
-        // The threaded proxy preallocates this handle so subsequent commands
-        // can reference it before the render thread executes this command.
-        if (!outColorTexture->isValid()) {
-            *outColorTexture = m_registry.allocateTexture2D();
-        }
-        m_registry.commitTexture2D(*outColorTexture, colorTex);
-    }
 
     m_registry.commitRenderTarget(rtHandle, rt);
 }
@@ -967,7 +932,8 @@ void GLRenderDevice::deleteRenderTarget(HwRenderTarget rt) {
 
 void GLRenderDevice::bindRenderTarget(HwRenderTarget rt) {
     auto* glRt = m_registry.getRenderTarget(rt);
-    if (!glRt) return;
+    if (!glRt)
+        return;
     glBindFramebuffer(GL_FRAMEBUFFER, glRt->fboID);
     glViewport(0, 0, glRt->width, glRt->height);
     // FBO 切换后 viewport 已变更，同步缓存
@@ -985,16 +951,7 @@ void GLRenderDevice::unbindRenderTarget() {
         if (glRt && glRt->resolveFBOID != 0 && glRt->samples > 1) {
             glBindFramebuffer(GL_READ_FRAMEBUFFER, glRt->fboID);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, glRt->resolveFBOID);
-            glBlitFramebuffer(0,
-                              0,
-                              glRt->width,
-                              glRt->height,
-                              0,
-                              0,
-                              glRt->width,
-                              glRt->height,
-                              GL_COLOR_BUFFER_BIT,
-                              GL_NEAREST);
+            glBlitFramebuffer(0, 0, glRt->width, glRt->height, 0, 0, glRt->width, glRt->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1008,7 +965,8 @@ void GLRenderDevice::unbindRenderTarget() {
 // ---------------------------------------------------------------------------
 
 void GLRenderDevice::setDepthTest(bool enable) {
-    if (m_stateCache.depthTestValid && m_stateCache.depthTestEnabled == enable) return;
+    if (m_stateCache.depthTestValid && m_stateCache.depthTestEnabled == enable)
+        return;
     m_stateCache.depthTestEnabled = enable;
     m_stateCache.depthTestValid = true;
     if (enable) {
@@ -1020,14 +978,16 @@ void GLRenderDevice::setDepthTest(bool enable) {
 }
 
 void GLRenderDevice::setDepthWrite(bool enable) {
-    if (m_stateCache.depthWriteValid && m_stateCache.depthWriteEnabled == enable) return;
+    if (m_stateCache.depthWriteValid && m_stateCache.depthWriteEnabled == enable)
+        return;
     m_stateCache.depthWriteEnabled = enable;
     m_stateCache.depthWriteValid = true;
     glDepthMask(enable ? GL_TRUE : GL_FALSE);
 }
 
 void GLRenderDevice::setCullFace(CullFaceMode mode) {
-    if (m_stateCache.cullFaceValid && m_stateCache.cullFaceMode == mode) return;
+    if (m_stateCache.cullFaceValid && m_stateCache.cullFaceMode == mode)
+        return;
     m_stateCache.cullFaceMode = mode;
     m_stateCache.cullFaceValid = true;
     if (mode == CullFaceMode::NONE) {
@@ -1036,11 +996,14 @@ void GLRenderDevice::setCullFace(CullFaceMode mode) {
     }
     glEnable(GL_CULL_FACE);
     switch (mode) {
-        case CullFaceMode::FRONT: glCullFace(GL_FRONT);
+        case CullFaceMode::FRONT:
+            glCullFace(GL_FRONT);
             break;
-        case CullFaceMode::BACK: glCullFace(GL_BACK);
+        case CullFaceMode::BACK:
+            glCullFace(GL_BACK);
             break;
-        case CullFaceMode::FRONT_AND_BACK: glCullFace(GL_FRONT_AND_BACK);
+        case CullFaceMode::FRONT_AND_BACK:
+            glCullFace(GL_FRONT_AND_BACK);
             break;
         default:
             break;
@@ -1058,4 +1021,4 @@ void GLRenderDevice::clearDepth() {
         glDepthMask(depthMask);
     }
 }
-} // MORROWGUI
+}  // namespace morrow

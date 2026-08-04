@@ -16,12 +16,14 @@
 #include <unordered_map>
 
 namespace morrow {
-
 class GlProgram {
 public:
-    explicit GlProgram(GLuint id) : ProgramID(id) {}
+    explicit GlProgram(GLuint id) : ProgramID(id) {
+    }
 
-    ~GlProgram() { glDeleteProgram(ProgramID); }
+    ~GlProgram() {
+        glDeleteProgram(ProgramID);
+    }
 
     GLint getUniformLocation(const std::string& name) const {
         return glGetUniformLocation(ProgramID, name.c_str());
@@ -36,15 +38,16 @@ public:
 
 class GlTexture2D {
 public:
-    explicit GlTexture2D(GLuint id) : textureID(id) {}
+    explicit GlTexture2D(GLuint id) : textureID(id) {
+    }
 
     ~GlTexture2D() {
-        if (!m_ownedByFBO && textureID) glDeleteTextures(1, &textureID);
+        if (textureID)
+            glDeleteTextures(1, &textureID);
     }
 
     GLuint textureID;
     GLenum textureTarget = GL_TEXTURE_2D;
-    bool   m_ownedByFBO  = false;
 #ifdef OPENGL_EGL
     PFNEGLCREATEIMAGEKHRPROC p_eglCreateImageKHR = nullptr;
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC p_glEGLImageTargetTexture2DOES = nullptr;
@@ -57,9 +60,12 @@ public:
 class GlVBO {
 public:
     ~GlVBO() {
-        if (vertexArrayID) glDeleteVertexArrays(1, &vertexArrayID);
-        if (vertexbuffer) glDeleteBuffers(1, &vertexbuffer);
-        if (elementbuffer) glDeleteBuffers(1, &elementbuffer);
+        if (vertexArrayID)
+            glDeleteVertexArrays(1, &vertexArrayID);
+        if (vertexbuffer)
+            glDeleteBuffers(1, &vertexbuffer);
+        if (elementbuffer)
+            glDeleteBuffers(1, &elementbuffer);
     }
 
     GLuint vertexArrayID = 0;
@@ -72,7 +78,10 @@ public:
 
 class GlUBO {
 public:
-    ~GlUBO() { if (bufferID) glDeleteBuffers(1, &bufferID); }
+    ~GlUBO() {
+        if (bufferID)
+            glDeleteBuffers(1, &bufferID);
+    }
 
     GLuint bufferID = 0;
     size_t bufferSize = 0;
@@ -81,7 +90,10 @@ public:
 
 class GlSSBO {
 public:
-    ~GlSSBO() { if (bufferID) glDeleteBuffers(1, &bufferID); }
+    ~GlSSBO() {
+        if (bufferID)
+            glDeleteBuffers(1, &bufferID);
+    }
 
     GLuint bufferID = 0;
     size_t bufferSize = 0;
@@ -91,20 +103,21 @@ public:
 class GlRenderTarget {
 public:
     ~GlRenderTarget() {
-        if (fboID) glDeleteFramebuffers(1, &fboID);
-        if (resolveFBOID) glDeleteFramebuffers(1, &resolveFBOID);
-        if (colorTexID) glDeleteTextures(1, &colorTexID);
-        if (colorRBOID) glDeleteRenderbuffers(1, &colorRBOID);
-        if (depthRBOID) glDeleteRenderbuffers(1, &depthRBOID);
+        if (fboID)
+            glDeleteFramebuffers(1, &fboID);
+        if (resolveFBOID)
+            glDeleteFramebuffers(1, &resolveFBOID);
+        if (colorRBOID)
+            glDeleteRenderbuffers(1, &colorRBOID);
+        if (depthRBOID)
+            glDeleteRenderbuffers(1, &depthRBOID);
     }
 
     GLuint fboID = 0;
     GLuint resolveFBOID = 0;
-    GLuint colorTexID = 0;
     GLuint colorRBOID = 0;
     GLuint depthRBOID = 0;
     int32_t width = 0, height = 0;
     int32_t samples = 1;
 };
-
-} // namespace morrow
+}  // namespace morrow

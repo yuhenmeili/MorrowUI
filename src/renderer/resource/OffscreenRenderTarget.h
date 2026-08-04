@@ -21,17 +21,19 @@ public:
     /// Colour attachment HwTexture2D – passed to useTexture2D() for the display quad.
     [[nodiscard]] HwTexture2D getColorTexture() const;
 
-    [[nodiscard]] int32_t getWidth() const { return m_width; }
+    [[nodiscard]] int32_t getWidth() const {
+        return m_width;
+    }
 
-    [[nodiscard]] int32_t getHeight() const { return m_height; }
+    [[nodiscard]] int32_t getHeight() const {
+        return m_height;
+    }
 
 private:
     HwRenderTarget m_renderTarget{0};
     HwTexture2D m_colorTexture{0};
     int32_t m_width = 0, m_height = 0;
-
-    friend class MR3DSceneView; // Scene3DView sets m_colorTexture after GL creation
 };
-} // morrow
+}  // namespace morrow
 
-#endif //MORROW_GUI_OFFSCREENRENDERTARGET_H
+#endif  // MORROW_GUI_OFFSCREENRENDERTARGET_H

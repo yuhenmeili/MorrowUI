@@ -21,10 +21,12 @@
 //
 
 #include "RenderDeviceProxy.h"
+
+#include <cstring>
+
+#include "PixelFormat.h"
 #include "RenderDevice.h"
 #include "RenderDeviceProxyBase.h"
-#include "PixelFormat.h"
-#include <cstring>
 
 namespace morrow {
 // ---------------------------------------------------------------------------
@@ -237,7 +239,7 @@ struct UpdateSSBOPayload {
 // --- FBO / depth state payloads ---
 struct CreateRenderTargetPayload {
     HwRenderTarget rt{0};
-    HwTexture2D    colorTex{0};
+    HwTexture2D colorTexture{0};
     int32_t w = 0, h = 0;
 };
 
@@ -284,14 +286,13 @@ struct SetGPUProgramParamMat4ArrayPayload {
 // ---------------------------------------------------------------------------
 // Helpers – shorthand so encoding sites are one-liners
 // ---------------------------------------------------------------------------
-#define CMD_BUF  m_commandBuffers[m_writeIdx]
+#define CMD_BUF m_commandBuffers[m_writeIdx]
 
 // ---------------------------------------------------------------------------
 // Constructor / Destructor
 // ---------------------------------------------------------------------------
 
-RenderDeviceProxy::RenderDeviceProxy(PlatformSharedPtr platform, bool returnResImmediately)
-    : RenderDeviceProxyBase(std::move(platform), returnResImmediately) {
+RenderDeviceProxy::RenderDeviceProxy(PlatformSharedPtr platform, bool returnResImmediately) : RenderDeviceProxyBase(std::move(platform), returnResImmediately) {
     m_vboRecyclePool = std::make_unique<VBODataRecyclePool>();
     m_uboRecyclePool = std::make_unique<UBODataRecyclePool>();
     m_ssboRecyclePool = std::make_unique<SSBODataRecyclePool>();
@@ -356,9 +357,7 @@ void RenderDeviceProxy::useGPUProgram(HwGPUProgram program) {
     pl->program = program;
 }
 
-HwGPUProgram RenderDeviceProxy::createGPUProgram(const std::string& programFileName,
-                                                  const std::string& vertexShader,
-                                                  const std::string& fragmentShader) {
+HwGPUProgram RenderDeviceProxy::createGPUProgram(const std::string& programFileName, const std::string& vertexShader, const std::string& fragmentShader) {
     HwGPUProgram handle = m_realDevice->allocateGPUProgram();
     if (!m_threaded) {
         m_realDevice->commitGPUProgram(handle, programFileName, vertexShader, fragmentShader);
@@ -417,14 +416,16 @@ void RenderDeviceProxy::useTexture2D(HwTexture2D texture, uint32_t index) {
 }
 
 bool RenderDeviceProxy::isTextureFormatSupported(PixelDataFormat textureFormat) {
-    if (!m_threaded) return m_realDevice->isTextureFormatSupported(textureFormat);
+    if (!m_threaded)
+        return m_realDevice->isTextureFormatSupported(textureFormat);
     return true;
 }
 
 void RenderDeviceProxy::updateTexture2D(HwTexture2D texture, const TextureData& data) {
     if (!m_threaded) {
         m_realDevice->updateTexture2D(texture, data);
-        if (data.releaseCallback) data.releaseCallback();
+        if (data.releaseCallback)
+            data.releaseCallback();
         return;
     }
     auto* pl = CMD_BUF.pushNT<UpdateTexture2DPayload>(Cmd_UpdateTexture2D);
@@ -432,8 +433,7 @@ void RenderDeviceProxy::updateTexture2D(HwTexture2D texture, const TextureData& 
     pl->data = data;
     if (!data.pixelOwner && data.pixels && data.bytes > 0 && data.imageType != ImageType::OES) {
         auto buf = m_pixelDataRecyclePool->acquire();
-        buf->assign(static_cast<const uint8_t*>(data.pixels),
-                    static_cast<const uint8_t*>(data.pixels) + data.bytes);
+        buf->assign(static_cast<const uint8_t*>(data.pixels), static_cast<const uint8_t*>(data.pixels) + data.bytes);
         pl->data.pixels = buf->data();
         pl->pixelStorage = std::move(buf);
     }
@@ -441,13 +441,11 @@ void RenderDeviceProxy::updateTexture2D(HwTexture2D texture, const TextureData& 
     // 零拷贝路径：data.pixelOwner 持有内存，pl->data.pixels 已指向正确位置，无需额外操作。
 }
 
-void RenderDeviceProxy::updateSubTexture2D(HwTexture2D texture, const TextureData& data,
-                                           int32_t x, int32_t y,
-                                           int32_t width, int32_t height,
-                                           const unsigned char* sourceData) {
+void RenderDeviceProxy::updateSubTexture2D(HwTexture2D texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) {
     if (!m_threaded) {
         m_realDevice->updateSubTexture2D(texture, data, x, y, width, height, sourceData);
-        if (data.releaseCallback) data.releaseCallback();
+        if (data.releaseCallback)
+            data.releaseCallback();
         return;
     }
     auto* pl = CMD_BUF.pushNT<UpdateSubTexture2DPayload>(Cmd_UpdateSubTexture2D);
@@ -487,10 +485,7 @@ void RenderDeviceProxy::setViewPort(int32_t x, int32_t y, int32_t width, int32_t
     pl->v = Vector4(float(x), float(y), float(width), float(height));
 }
 
-void RenderDeviceProxy::dumpFrameBuffer(int32_t x, int32_t y,
-                                        int32_t displayWidth, int32_t displayHeight,
-                                        int32_t rectX, int32_t rectY,
-                                        int32_t rectWidth, int32_t rectHeight, int32_t comp) {
+void RenderDeviceProxy::dumpFrameBuffer(int32_t x, int32_t y, int32_t displayWidth, int32_t displayHeight, int32_t rectX, int32_t rectY, int32_t rectWidth, int32_t rectHeight, int32_t comp) {
     if (!m_threaded) {
         m_realDevice->dumpFrameBuffer(x, y, displayWidth, displayHeight, rectX, rectY, rectWidth, rectHeight, comp);
         return;
@@ -508,7 +503,8 @@ void RenderDeviceProxy::dumpFrameBuffer(int32_t x, int32_t y,
 }
 
 bool RenderDeviceProxy::checkSSBOSupport() {
-    if (!m_threaded) return m_realDevice->checkSSBOSupport();
+    if (!m_threaded)
+        return m_realDevice->checkSSBOSupport();
 
     bool result = false;
     auto* pl = CMD_BUF.push<CheckSSBOSupportPayload>(Cmd_CheckSSBOSupport);
@@ -588,7 +584,10 @@ void RenderDeviceProxy::disableBlend() {
 // ---------------------------------------------------------------------------
 
 void RenderDeviceProxy::setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) {
-    if (!m_threaded) { m_realDevice->setGPUProgramParamAsInt(program, uniformName, value); return; }
+    if (!m_threaded) {
+        m_realDevice->setGPUProgramParamAsInt(program, uniformName, value);
+        return;
+    }
     auto* pl = CMD_BUF.pushNT<SetGPUProgramParamIntPayload>(Cmd_SetGPUProgramAsInt);
     pl->program = program;
     pl->uniformName = uniformName;
@@ -596,7 +595,10 @@ void RenderDeviceProxy::setGPUProgramParamAsInt(HwGPUProgram program, const std:
 }
 
 void RenderDeviceProxy::setGPUProgramParamAsFloat(HwGPUProgram program, const std::string& uniformName, float value) {
-    if (!m_threaded) { m_realDevice->setGPUProgramParamAsFloat(program, uniformName, value); return; }
+    if (!m_threaded) {
+        m_realDevice->setGPUProgramParamAsFloat(program, uniformName, value);
+        return;
+    }
     auto* pl = CMD_BUF.pushNT<SetGPUProgramParamFloatPayload>(Cmd_SetGPUProgramAsFloat);
     pl->program = program;
     pl->uniformName = uniformName;
@@ -604,62 +606,90 @@ void RenderDeviceProxy::setGPUProgramParamAsFloat(HwGPUProgram program, const st
 }
 
 void RenderDeviceProxy::setGPUProgramParamAsVec2(HwGPUProgram program, const std::string& uniformName, float x, float y) {
-    if (!m_threaded) { m_realDevice->setGPUProgramParamAsVec2(program, uniformName, x, y); return; }
+    if (!m_threaded) {
+        m_realDevice->setGPUProgramParamAsVec2(program, uniformName, x, y);
+        return;
+    }
     auto* pl = CMD_BUF.pushNT<SetGPUProgramParamVec2Payload>(Cmd_SetGPUProgramAsVec2);
     pl->program = program;
     pl->uniformName = uniformName;
-    pl->x = x; pl->y = y;
+    pl->x = x;
+    pl->y = y;
 }
 
 void RenderDeviceProxy::setGPUProgramParamAsVec3(HwGPUProgram program, const std::string& uniformName, float x, float y, float z) {
-    if (!m_threaded) { m_realDevice->setGPUProgramParamAsVec3(program, uniformName, x, y, z); return; }
+    if (!m_threaded) {
+        m_realDevice->setGPUProgramParamAsVec3(program, uniformName, x, y, z);
+        return;
+    }
     auto* pl = CMD_BUF.pushNT<SetGPUProgramParamVec3Payload>(Cmd_SetGPUProgramAsVec3);
     pl->program = program;
     pl->uniformName = uniformName;
-    pl->x = x; pl->y = y; pl->z = z;
+    pl->x = x;
+    pl->y = y;
+    pl->z = z;
 }
 
 void RenderDeviceProxy::setGPUProgramParamAsVec4(HwGPUProgram program, const std::string& uniformName, float x, float y, float z, float w) {
-    if (!m_threaded) { m_realDevice->setGPUProgramParamAsVec4(program, uniformName, x, y, z, w); return; }
+    if (!m_threaded) {
+        m_realDevice->setGPUProgramParamAsVec4(program, uniformName, x, y, z, w);
+        return;
+    }
     auto* pl = CMD_BUF.pushNT<SetGPUProgramParamVec4Payload>(Cmd_SetGPUProgramAsVec4);
     pl->program = program;
     pl->uniformName = uniformName;
-    pl->x = x; pl->y = y; pl->z = z; pl->w = w;
+    pl->x = x;
+    pl->y = y;
+    pl->z = z;
+    pl->w = w;
 }
 
 void RenderDeviceProxy::setGPUProgramParamAsMat4(HwGPUProgram program, const std::string& uniformName, const Matrix4& mat) {
-    if (!m_threaded) { m_realDevice->setGPUProgramParamAsMat4(program, uniformName, mat); return; }
+    if (!m_threaded) {
+        m_realDevice->setGPUProgramParamAsMat4(program, uniformName, mat);
+        return;
+    }
     auto* pl = CMD_BUF.pushNT<SetGPUProgramParamMat4Payload>(Cmd_SetGPUProgramAsMat4);
     pl->program = program;
     pl->uniformName = uniformName;
     pl->mat = mat;
 }
 
-void RenderDeviceProxy::setGPUProgramParamAsIntArray(HwGPUProgram program, const std::string& uniformName,
-                                                     const int32_t* values, int32_t size, int32_t step) {
-    if (!m_threaded) { m_realDevice->setGPUProgramParamAsIntArray(program, uniformName, values, size, step); return; }
+void RenderDeviceProxy::setGPUProgramParamAsIntArray(HwGPUProgram program, const std::string& uniformName, const int32_t* values, int32_t size, int32_t step) {
+    if (!m_threaded) {
+        m_realDevice->setGPUProgramParamAsIntArray(program, uniformName, values, size, step);
+        return;
+    }
     auto* pl = CMD_BUF.pushNT<SetGPUProgramParamIntArrayPayload>(Cmd_SetGPUProgramAsIntArray);
     pl->program = program;
     pl->uniformName = uniformName;
-    pl->size = size; pl->step = step;
+    pl->size = size;
+    pl->step = step;
     const int32_t n = (size > 0 && step > 0) ? size * step : 0;
-    if (values && n > 0) pl->values.assign(values, values + n);
+    if (values && n > 0)
+        pl->values.assign(values, values + n);
 }
 
-void RenderDeviceProxy::setGPUProgramParamAsFloatArray(HwGPUProgram program, const std::string& uniformName,
-                                                       const float* values, int32_t size, int32_t step) {
-    if (!m_threaded) { m_realDevice->setGPUProgramParamAsFloatArray(program, uniformName, values, size, step); return; }
+void RenderDeviceProxy::setGPUProgramParamAsFloatArray(HwGPUProgram program, const std::string& uniformName, const float* values, int32_t size, int32_t step) {
+    if (!m_threaded) {
+        m_realDevice->setGPUProgramParamAsFloatArray(program, uniformName, values, size, step);
+        return;
+    }
     auto* pl = CMD_BUF.pushNT<SetGPUProgramParamFloatArrayPayload>(Cmd_SetGPUProgramAsFloatArray);
     pl->program = program;
     pl->uniformName = uniformName;
-    pl->size = size; pl->step = step;
+    pl->size = size;
+    pl->step = step;
     const int32_t n = (size > 0 && step > 0) ? size * step : 0;
-    if (values && n > 0) pl->values.assign(values, values + n);
+    if (values && n > 0)
+        pl->values.assign(values, values + n);
 }
 
-void RenderDeviceProxy::setGPUProgramParamAsMat4Array(HwGPUProgram program, const std::string& uniformName,
-                                                      const std::vector<Matrix4>& values) {
-    if (!m_threaded) { m_realDevice->setGPUProgramParamAsMat4Array(program, uniformName, values); return; }
+void RenderDeviceProxy::setGPUProgramParamAsMat4Array(HwGPUProgram program, const std::string& uniformName, const std::vector<Matrix4>& values) {
+    if (!m_threaded) {
+        m_realDevice->setGPUProgramParamAsMat4Array(program, uniformName, values);
+        return;
+    }
     auto* pl = CMD_BUF.pushNT<SetGPUProgramParamMat4ArrayPayload>(Cmd_SetGPUProgramAsMat4Array);
     pl->program = program;
     pl->uniformName = uniformName;
@@ -692,8 +722,7 @@ void RenderDeviceProxy::updateUBO(HwUBO ubo, std::shared_ptr<UBOData> uboData) {
     pl->uboData = std::move(uboData);
 }
 
-void RenderDeviceProxy::bindUBO(HwGPUProgram program, HwUBO ubo,
-                                const std::string& blockName, uint32_t bindingPoint) {
+void RenderDeviceProxy::bindUBO(HwGPUProgram program, HwUBO ubo, const std::string& blockName, uint32_t bindingPoint) {
     if (!m_threaded) {
         m_realDevice->bindUBO(program, ubo, blockName, bindingPoint);
         return;
@@ -753,27 +782,19 @@ void RenderDeviceProxy::deleteFence(void* fence) {
 // FBO (RenderTarget)
 // ---------------------------------------------------------------------------
 
-HwRenderTarget RenderDeviceProxy::createRenderTarget(int32_t w, int32_t h,
-                                                      HwTexture2D* outColorTexture) {
-    HwRenderTarget rtHandle = m_realDevice->allocateRenderTarget();
-    HwTexture2D colorTexHandle{0};
+HwRenderTarget RenderDeviceProxy::createRenderTarget(int32_t w, int32_t h, HwTexture2D colorTexture) {
+    const HwRenderTarget rtHandle = m_realDevice->allocateRenderTarget();
 
     if (!m_threaded) {
-        m_realDevice->commitRenderTarget(rtHandle, w, h, outColorTexture ? &colorTexHandle : nullptr);
-        if (outColorTexture) *outColorTexture = colorTexHandle;
+        m_realDevice->commitRenderTarget(rtHandle, w, h, colorTexture);
         return rtHandle;
     }
+
     auto* pl = CMD_BUF.push<CreateRenderTargetPayload>(Cmd_CreateRenderTarget);
     pl->rt = rtHandle;
-    pl->w  = w;
-    pl->h  = h;
-    // Preallocate the attachment handle so later commands in the same frame
-    // can reference it before the render thread creates the GL texture.
-    if (outColorTexture) {
-        colorTexHandle = m_realDevice->allocateTexture2D();
-        pl->colorTex = colorTexHandle;
-        *outColorTexture = colorTexHandle;
-    }
+    pl->colorTexture = colorTexture;
+    pl->w = w;
+    pl->h = h;
     return rtHandle;
 }
 
@@ -808,25 +829,37 @@ void RenderDeviceProxy::unbindRenderTarget() {
 // ---------------------------------------------------------------------------
 
 void RenderDeviceProxy::setDepthTest(bool enable) {
-    if (!m_threaded) { m_realDevice->setDepthTest(enable); return; }
+    if (!m_threaded) {
+        m_realDevice->setDepthTest(enable);
+        return;
+    }
     auto* pl = CMD_BUF.push<SetDepthTestPayload>(Cmd_SetDepthTest);
     pl->enable = enable;
 }
 
 void RenderDeviceProxy::setDepthWrite(bool enable) {
-    if (!m_threaded) { m_realDevice->setDepthWrite(enable); return; }
+    if (!m_threaded) {
+        m_realDevice->setDepthWrite(enable);
+        return;
+    }
     auto* pl = CMD_BUF.push<SetDepthWritePayload>(Cmd_SetDepthWrite);
     pl->enable = enable;
 }
 
 void RenderDeviceProxy::setCullFace(CullFaceMode mode) {
-    if (!m_threaded) { m_realDevice->setCullFace(mode); return; }
+    if (!m_threaded) {
+        m_realDevice->setCullFace(mode);
+        return;
+    }
     auto* pl = CMD_BUF.push<SetCullFacePayload>(Cmd_SetCullFace);
     pl->mode = mode;
 }
 
 void RenderDeviceProxy::clearDepth() {
-    if (!m_threaded) { m_realDevice->clearDepth(); return; }
+    if (!m_threaded) {
+        m_realDevice->clearDepth();
+        return;
+    }
     CMD_BUF.push(Cmd_ClearDepth);
 }
 
@@ -845,12 +878,7 @@ void RenderDeviceProxy::submitCurrentBufferAndAdvance() {
 
 void RenderDeviceProxy::endFrame() {
     if (!m_threaded) {
-        m_pendingFrames.push({
-            m_realDevice->insertFence(),
-            std::move(m_currentFrameRecyclables),
-            std::move(m_currentFrameUBORecyclables),
-            std::move(m_currentFrameSSBORecyclables)
-        });
+        m_pendingFrames.push({m_realDevice->insertFence(), std::move(m_currentFrameRecyclables), std::move(m_currentFrameUBORecyclables), std::move(m_currentFrameSSBORecyclables)});
         tryRecycle();
         return;
     }
@@ -889,7 +917,8 @@ void RenderDeviceProxy::runCommand() {
     while (!isQuit()) {
         // Wait until the main thread has submitted a frame.
         m_frameReadySem.waitForSignal();
-        if (isQuit()) break;
+        if (isQuit())
+            break;
 
         executeFrame(m_commandBuffers[readIdx]);
 
@@ -900,12 +929,7 @@ void RenderDeviceProxy::runCommand() {
         m_framePixelRecyclables.clear();
 
         // Insert fence and book-keep recyclables collected during executeFrame.
-        m_pendingFrames.push({
-            m_realDevice->insertFence(),
-            std::move(m_frameRecyclables),
-            std::move(m_frameUBORecyclables),
-            std::move(m_frameSSBORecyclables)
-        });
+        m_pendingFrames.push({m_realDevice->insertFence(), std::move(m_frameRecyclables), std::move(m_frameUBORecyclables), std::move(m_frameSSBORecyclables)});
         tryRecycle();
 
         // Advance read cursor and release a ring slot to the main thread.
@@ -938,7 +962,8 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
         auto* h = reinterpret_cast<CommandBuffer::CmdHeader*>(ptr);
         void* p = ptr + sizeof(CommandBuffer::CmdHeader);
 
-        if (h->type == Cmd_EndFrame) break;
+        if (h->type == Cmd_EndFrame)
+            break;
 
         switch (h->type) {
             case Cmd_MakeCurrent: {
@@ -956,7 +981,8 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
                 break;
             case Cmd_UseGPUProgram: {
                 auto* pl = static_cast<UseGPUProgramPayload*>(p);
-                if (pl->program.isValid()) m_realDevice->useGPUProgram(pl->program);
+                if (pl->program.isValid())
+                    m_realDevice->useGPUProgram(pl->program);
                 break;
             }
             case Cmd_CreateGPUProgram: {
@@ -967,40 +993,45 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             }
             case Cmd_DeleteGPUProgram: {
                 auto* pl = static_cast<DeleteGPUProgramPayload*>(p);
-                if (pl->program.isValid()) m_realDevice->deletGPUProgram(pl->program);
+                if (pl->program.isValid())
+                    m_realDevice->deletGPUProgram(pl->program);
                 break;
             }
             case Cmd_CreateTexture2D: {
                 auto* pl = static_cast<CreateTexture2DPayload*>(p);
-                if (pl->texture.isValid()) m_realDevice->commitTexture2D(pl->texture, pl->imageType);
+                if (pl->texture.isValid())
+                    m_realDevice->commitTexture2D(pl->texture, pl->imageType);
                 break;
             }
             case Cmd_DeleteTexture2D: {
                 auto* pl = static_cast<DeleteTexture2DPayload*>(p);
-                if (pl->texture.isValid()) m_realDevice->deleteTexture2D(pl->texture);
+                if (pl->texture.isValid())
+                    m_realDevice->deleteTexture2D(pl->texture);
                 break;
             }
             case Cmd_UseTexture2D: {
                 auto* pl = static_cast<UseTexture2DPayload*>(p);
-                if (pl->texture.isValid()) m_realDevice->useTexture2D(pl->texture, pl->index);
+                if (pl->texture.isValid())
+                    m_realDevice->useTexture2D(pl->texture, pl->index);
                 break;
             }
             case Cmd_UpdateTexture2D: {
                 auto* pl = static_cast<UpdateTexture2DPayload*>(p);
                 if (pl->texture.isValid()) {
                     m_realDevice->updateTexture2D(pl->texture, pl->data);
-                    if (pl->data.releaseCallback) pl->data.releaseCallback();
-                    if (pl->pixelStorage) m_framePixelRecyclables.push_back(std::move(pl->pixelStorage));
+                    if (pl->data.releaseCallback)
+                        pl->data.releaseCallback();
+                    if (pl->pixelStorage)
+                        m_framePixelRecyclables.push_back(std::move(pl->pixelStorage));
                 }
                 break;
             }
             case Cmd_UpdateSubTexture2D: {
                 auto* pl = static_cast<UpdateSubTexture2DPayload*>(p);
                 if (pl->texture.isValid() && pl->pixelStorage) {
-                    m_realDevice->updateSubTexture2D(pl->texture, pl->data,
-                                                     pl->x, pl->y, pl->width, pl->height,
-                                                     pl->pixelStorage->data());
-                    if (pl->data.releaseCallback) pl->data.releaseCallback();
+                    m_realDevice->updateSubTexture2D(pl->texture, pl->data, pl->x, pl->y, pl->width, pl->height, pl->pixelStorage->data());
+                    if (pl->data.releaseCallback)
+                        pl->data.releaseCallback();
                     m_framePixelRecyclables.push_back(std::move(pl->pixelStorage));
                 }
                 break;
@@ -1012,20 +1043,18 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             }
             case Cmd_SetViewPort: {
                 auto* pl = static_cast<SetViewPortPayload*>(p);
-                m_realDevice->setViewPort(
-                    static_cast<int32_t>(pl->v.x), static_cast<int32_t>(pl->v.y),
-                    static_cast<int32_t>(pl->v.z), static_cast<int32_t>(pl->v.w));
+                m_realDevice->setViewPort(static_cast<int32_t>(pl->v.x), static_cast<int32_t>(pl->v.y), static_cast<int32_t>(pl->v.z), static_cast<int32_t>(pl->v.w));
                 break;
             }
             case Cmd_DumpFrameBuffer: {
                 auto* pl = static_cast<DumpFrameBufferPayload*>(p);
-                m_realDevice->dumpFrameBuffer(pl->x, pl->y, pl->displayWidth, pl->displayHeight,
-                                              pl->rectX, pl->rectY, pl->rectWidth, pl->rectHeight, pl->comp);
+                m_realDevice->dumpFrameBuffer(pl->x, pl->y, pl->displayWidth, pl->displayHeight, pl->rectX, pl->rectY, pl->rectWidth, pl->rectHeight, pl->comp);
                 break;
             }
             case Cmd_CreateVBO: {
                 auto* pl = static_cast<CreateVBOPayload*>(p);
-                if (pl->vbo.isValid()) m_realDevice->commitVBO(pl->vbo);
+                if (pl->vbo.isValid())
+                    m_realDevice->commitVBO(pl->vbo);
                 break;
             }
             case Cmd_UpdateVBO: {
@@ -1038,46 +1067,56 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             }
             case Cmd_DeleteVBO: {
                 auto* pl = static_cast<DeleteVBOPayload*>(p);
-                if (pl->vbo.isValid()) m_realDevice->deleteVBO(pl->vbo);
+                if (pl->vbo.isValid())
+                    m_realDevice->deleteVBO(pl->vbo);
                 break;
             }
             case Cmd_DrawVBO: {
                 auto* pl = static_cast<DrawVBOPayload*>(p);
-                if (pl->vbo.isValid()) m_realDevice->drawVBO(pl->vbo, pl->instanceCount);
+                if (pl->vbo.isValid())
+                    m_realDevice->drawVBO(pl->vbo, pl->instanceCount);
                 break;
             }
-            case Cmd_EnableBlend: m_realDevice->enableBlend();
+            case Cmd_EnableBlend:
+                m_realDevice->enableBlend();
                 break;
-            case Cmd_DisableBlend: m_realDevice->disableBlend();
+            case Cmd_DisableBlend:
+                m_realDevice->disableBlend();
                 break;
             case Cmd_SetGPUProgramAsInt: {
                 auto* pl = static_cast<SetGPUProgramParamIntPayload*>(p);
-                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsInt(pl->program, pl->uniformName, pl->value);
+                if (pl->program.isValid())
+                    m_realDevice->setGPUProgramParamAsInt(pl->program, pl->uniformName, pl->value);
                 break;
             }
             case Cmd_SetGPUProgramAsFloat: {
                 auto* pl = static_cast<SetGPUProgramParamFloatPayload*>(p);
-                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsFloat(pl->program, pl->uniformName, pl->value);
+                if (pl->program.isValid())
+                    m_realDevice->setGPUProgramParamAsFloat(pl->program, pl->uniformName, pl->value);
                 break;
             }
             case Cmd_SetGPUProgramAsVec2: {
                 auto* pl = static_cast<SetGPUProgramParamVec2Payload*>(p);
-                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsVec2(pl->program, pl->uniformName, pl->x, pl->y);
+                if (pl->program.isValid())
+                    m_realDevice->setGPUProgramParamAsVec2(pl->program, pl->uniformName, pl->x, pl->y);
                 break;
             }
             case Cmd_SetGPUProgramAsVec3: {
                 auto* pl = static_cast<SetGPUProgramParamVec3Payload*>(p);
-                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsVec3(pl->program, pl->uniformName, pl->x, pl->y, pl->z);
+                if (pl->program.isValid())
+                    m_realDevice->setGPUProgramParamAsVec3(pl->program, pl->uniformName, pl->x, pl->y, pl->z);
                 break;
             }
             case Cmd_SetGPUProgramAsVec4: {
                 auto* pl = static_cast<SetGPUProgramParamVec4Payload*>(p);
-                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsVec4(pl->program, pl->uniformName, pl->x, pl->y, pl->z, pl->w);
+                if (pl->program.isValid())
+                    m_realDevice->setGPUProgramParamAsVec4(pl->program, pl->uniformName, pl->x, pl->y, pl->z, pl->w);
                 break;
             }
             case Cmd_SetGPUProgramAsMat4: {
                 auto* pl = static_cast<SetGPUProgramParamMat4Payload*>(p);
-                if (pl->program.isValid()) m_realDevice->setGPUProgramParamAsMat4(pl->program, pl->uniformName, pl->mat);
+                if (pl->program.isValid())
+                    m_realDevice->setGPUProgramParamAsMat4(pl->program, pl->uniformName, pl->mat);
                 break;
             }
             case Cmd_SetGPUProgramAsIntArray: {
@@ -1100,7 +1139,8 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             }
             case Cmd_CreateUBO: {
                 auto* pl = static_cast<CreateUBOPayload*>(p);
-                if (pl->ubo.isValid()) m_realDevice->commitUBO(pl->ubo);
+                if (pl->ubo.isValid())
+                    m_realDevice->commitUBO(pl->ubo);
                 break;
             }
             case Cmd_UpdateUBO: {
@@ -1119,7 +1159,8 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             }
             case Cmd_CreateSSBO: {
                 auto* pl = static_cast<CreateSSBOPayload*>(p);
-                if (pl->ssbo.isValid()) m_realDevice->commitSSBO(pl->ssbo);
+                if (pl->ssbo.isValid())
+                    m_realDevice->commitSSBO(pl->ssbo);
                 break;
             }
             case Cmd_UpdateSSBO: {
@@ -1142,19 +1183,21 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
                 break;
             case Cmd_CreateRenderTarget: {
                 auto* pl = static_cast<CreateRenderTargetPayload*>(p);
-                if (pl->rt.isValid()) {
-                    m_realDevice->commitRenderTarget(pl->rt, pl->w, pl->h, pl->colorTex.isValid() ? &pl->colorTex : nullptr);
+                if (pl->rt.isValid() && pl->colorTexture.isValid()) {
+                    m_realDevice->commitRenderTarget(pl->rt, pl->w, pl->h, pl->colorTexture);
                 }
                 break;
             }
             case Cmd_DeleteRenderTarget: {
                 auto* pl = static_cast<DeleteRenderTargetPayload*>(p);
-                if (pl->rt.isValid()) m_realDevice->deleteRenderTarget(pl->rt);
+                if (pl->rt.isValid())
+                    m_realDevice->deleteRenderTarget(pl->rt);
                 break;
             }
             case Cmd_BindRenderTarget: {
                 auto* pl = static_cast<BindRenderTargetPayload*>(p);
-                if (pl->rt.isValid()) m_realDevice->bindRenderTarget(pl->rt);
+                if (pl->rt.isValid())
+                    m_realDevice->bindRenderTarget(pl->rt);
                 break;
             }
             case Cmd_UnbindRenderTarget:
@@ -1178,7 +1221,8 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             case Cmd_ClearDepth:
                 m_realDevice->clearDepth();
                 break;
-            default: break;
+            default:
+                break;
         }
 
         ptr += sizeof(CommandBuffer::CmdHeader) + CommandBuffer::align8(h->payloadSize);
@@ -1186,4 +1230,4 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
 }
 
 #undef CMD_BUF
-} // namespace morrow
+}  // namespace morrow

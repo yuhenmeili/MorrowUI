@@ -12,8 +12,8 @@
 #include "platform/egl/GLESHeader.h"
 #endif
 
-#include "RenderDevice.h"
 #include "Platform.h"
+#include "RenderDevice.h"
 #include "ResourceRegistry.h"
 
 namespace morrow {
@@ -31,17 +31,29 @@ public:
     ~GLRenderDevice() override;
 
     // ── Handle 预分配（线程安全，前端调用）──
-    HwTexture2D allocateTexture2D() { return m_registry.allocateTexture2D(); }
+    HwTexture2D allocateTexture2D() {
+        return m_registry.allocateTexture2D();
+    }
 
-    HwVBO allocateVBO() { return m_registry.allocateVBO(); }
+    HwVBO allocateVBO() {
+        return m_registry.allocateVBO();
+    }
 
-    HwUBO allocateUBO() { return m_registry.allocateUBO(); }
+    HwUBO allocateUBO() {
+        return m_registry.allocateUBO();
+    }
 
-    HwSSBO allocateSSBO() { return m_registry.allocateSSBO(); }
+    HwSSBO allocateSSBO() {
+        return m_registry.allocateSSBO();
+    }
 
-    HwGPUProgram allocateGPUProgram() { return m_registry.allocateGPUProgram(); }
+    HwGPUProgram allocateGPUProgram() {
+        return m_registry.allocateGPUProgram();
+    }
 
-    HwRenderTarget allocateRenderTarget() { return m_registry.allocateRenderTarget(); }
+    HwRenderTarget allocateRenderTarget() {
+        return m_registry.allocateRenderTarget();
+    }
 
     void makeCurrent(void* window) override;
 
@@ -60,9 +72,9 @@ public:
     bool checkSSBOSupport() override;
 
     //------------------------------------------------------VBO------------------------------------------------------
-    HwVBO createVBO() override; // interface (allocate+commit)
+    HwVBO createVBO() override;  // interface (allocate+commit)
 
-    void commitVBO(HwVBO handle); // proxy helper (handle pre-allocated)
+    void commitVBO(HwVBO handle);  // proxy helper (handle pre-allocated)
 
     void updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr vboData) override;
 
@@ -71,9 +83,9 @@ public:
     void drawVBO(HwVBO vbo, int32_t instanceCount) override;
 
     //------------------------------------------------------Texture2D------------------------------------------------------
-    HwTexture2D createTexture2D(ImageType imageType) override; // interface
+    HwTexture2D createTexture2D(ImageType imageType) override;  // interface
 
-    void commitTexture2D(HwTexture2D handle, ImageType imageType); // proxy helper
+    void commitTexture2D(HwTexture2D handle, ImageType imageType);  // proxy helper
 
     void deleteTexture2D(HwTexture2D texture) override;
 
@@ -93,9 +105,9 @@ public:
     //------------------------------------------------------GPUProgram------------------------------------------------------
     void useGPUProgram(HwGPUProgram program) override;
 
-    HwGPUProgram createGPUProgram(const std::string&, const std::string&, const std::string&) override; // interface
+    HwGPUProgram createGPUProgram(const std::string&, const std::string&, const std::string&) override;  // interface
 
-    void commitGPUProgram(HwGPUProgram handle, const std::string& programFileName, const std::string& vertexShader, const std::string& fragmentShader); // proxy helper
+    void commitGPUProgram(HwGPUProgram handle, const std::string& programFileName, const std::string& vertexShader, const std::string& fragmentShader);  // proxy helper
 
     void deletGPUProgram(HwGPUProgram program) override;
 
@@ -119,18 +131,18 @@ public:
     void setGPUProgramParamAsMat4Array(HwGPUProgram program, const std::string& uniformName, const std::vector<Matrix4>& values) override;
 
     //---------------------------------------------------UBO---------------------------------------------------
-    HwUBO createUBO() override; // interface
+    HwUBO createUBO() override;  // interface
 
-    void commitUBO(HwUBO handle); // proxy helper
+    void commitUBO(HwUBO handle);  // proxy helper
 
     void updateUBO(HwUBO ubo, std::shared_ptr<UBOData> uboData) override;
 
     void bindUBO(HwGPUProgram program, HwUBO ubo, const std::string& blockName, uint32_t bindingPoint) override;
 
     //---------------------------------------------------SSBO---------------------------------------------------
-    HwSSBO createSSBO() override; // interface
+    HwSSBO createSSBO() override;  // interface
 
-    void commitSSBO(HwSSBO handle); // proxy helper
+    void commitSSBO(HwSSBO handle);  // proxy helper
 
     void updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) override;
 
@@ -141,9 +153,7 @@ public:
     void deleteFence(void* fence) override;
 
     // FBO操作
-    HwRenderTarget createRenderTarget(int32_t w, int32_t h, HwTexture2D* outColorTexture = nullptr) override; // interface
-
-    void commitRenderTarget(HwRenderTarget rtHandle, int32_t w, int32_t h, HwTexture2D* outColorTexture = nullptr); // proxy helper
+    void commitRenderTarget(HwRenderTarget rtHandle, int32_t w, int32_t h, HwTexture2D colorTexture);
 
     void deleteRenderTarget(HwRenderTarget rt) override;
 
@@ -161,7 +171,9 @@ public:
     void clearDepth() override;
 
     // ── 内部辅助 ──
-    ResourceRegistry& getRegistry() { return m_registry; }
+    ResourceRegistry& getRegistry() {
+        return m_registry;
+    }
 
 private:
     // GPU 状态缓存：避免重复调用相同的 GL 状态设置命令。
@@ -190,7 +202,8 @@ private:
         /// 上下文切换或 RenderTarget 解绑后调用，强制下次全量设置
         void invalidate() {
             currentProgram = HwGPUProgram{0};
-            for (auto& t : currentTextures) t = HwTexture2D{0};
+            for (auto& t : currentTextures)
+                t = HwTexture2D{0};
             blendStateValid = false;
             viewportValid = false;
             depthTestValid = false;
@@ -214,6 +227,6 @@ private:
 
     bool checkCompileErrors(const std::string& programFileName, GLuint shader, std::string type);
 };
-} // MORROWGUI
+}  // namespace morrow
 
-#endif //MORROW_RENDERER_ESDEVICEIMP_H_
+#endif  // MORROW_RENDERER_ESDEVICEIMP_H_

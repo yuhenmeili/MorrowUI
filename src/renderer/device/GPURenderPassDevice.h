@@ -13,7 +13,6 @@
 #include "GpuTypes.h"
 
 namespace morrow {
-
 class GPURenderPassDevice {
 public:
     virtual ~GPURenderPassDevice() = default;
@@ -32,9 +31,7 @@ public:
 
     virtual void setViewPort(int32_t x, int32_t y, int32_t width, int32_t height) = 0;
 
-    virtual void dumpFrameBuffer(int32_t x, int32_t y, int32_t displayWidth, int32_t displayHeight,
-                                 int32_t rectX, int32_t rectY, int32_t rectWidth, int32_t rectHeight,
-                                 int32_t comp) = 0;
+    virtual void dumpFrameBuffer(int32_t x, int32_t y, int32_t displayWidth, int32_t displayHeight, int32_t rectX, int32_t rectY, int32_t rectWidth, int32_t rectHeight, int32_t comp) = 0;
 
     virtual bool checkSSBOSupport() = 0;
 
@@ -53,16 +50,12 @@ public:
     virtual void clearDepth() = 0;
 
     //---------------------------------------------------FBO---------------------------------------------------
-    virtual HwRenderTarget createRenderTarget(int32_t w, int32_t h,
-                                              HwTexture2D* outColorTexture = nullptr) = 0;
-
     virtual void deleteRenderTarget(HwRenderTarget rt) = 0;
 
     virtual void bindRenderTarget(HwRenderTarget rt) = 0;
 
     virtual void unbindRenderTarget() = 0;
 };
+}  // namespace morrow
 
-} // namespace morrow
-
-#endif // MORROW_RENDERER_GPURENDERPASSDEVICE_H_
+#endif  // MORROW_RENDERER_GPURENDERPASSDEVICE_H_
