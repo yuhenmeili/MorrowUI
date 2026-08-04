@@ -42,6 +42,8 @@ int main(int argc, char** argv) {
     auto sceneLoader = Scene3DAsyncLoader::create(engine, scene3DView);
     Scene3DAsyncLoader::GLTFLoadOptions loadOptions;
     loadOptions.sceneOptions.debugLabel = modelPath;
+    loadOptions.sceneOptions.cameraFit.enabled = true;
+    loadOptions.sceneOptions.cameraFit.paddingScale = 1.25f;
     loadOptions.sceneOptions.onError = [modelPath](const std::string& error) {
         LOG_E("Failed to load GLTF '{}': {}", modelPath, error);
     };
@@ -53,14 +55,6 @@ int main(int argc, char** argv) {
 
         LOG_I("GLTF loaded successfully ({} nodes, {} meshes, {} animations)",
               gltfScene->nodes.size(), gltfScene->meshes.size(), gltfScene->animations.size());
-
-        auto sceneRootTransform = sceneRoot->getTransform();
-        if (sceneRootTransform) {
-            sceneRootTransform->setLocalScale(100.0f, 100.0f, 100.0f);
-            // auto autoRotateDriver = sceneRoot->addComponent<MR3DAutoRotate>();
-            // autoRotateDriver->setup(sceneRootTransform, 1.0f);
-            LOG_I("Applied GLTF scene root scale: 100x");
-        }
 
         LOG_I("GLTF loaded: {}  nodes={}  meshes={}  anims={}", modelPath, gltfScene->nodes.size(), gltfScene->meshes.size(), gltfScene->animations.size());
         LOG_I("Using IBL directory: {}", iblDirectory);

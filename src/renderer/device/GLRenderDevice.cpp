@@ -24,7 +24,6 @@
 #define MR_BATCH "a_batch"
 
 namespace morrow {
-
 GLRenderDevice::GLRenderDevice(PlatformSharedPtr platform) : m_platform(platform) {
 }
 
@@ -154,12 +153,17 @@ bool GLRenderDevice::checkSSBOSupport() {
     } else {
         // OpenGL ES版
         return (strstr(versionStr, "OpenGL ES 3.1") ||
-            strstr(versionStr, "OpenGL ES 3.2") ||
-            strstr(versionStr, "OpenGL ES 4."));
+                strstr(versionStr, "OpenGL ES 3.2") ||
+                strstr(versionStr, "OpenGL ES 4."));
     }
 }
 
-HwVBO GLRenderDevice::createVBO() { HwVBO h = allocateVBO(); commitVBO(h); return h; }
+HwVBO GLRenderDevice::createVBO() {
+    HwVBO h = allocateVBO();
+    commitVBO(h);
+    return h;
+}
+
 void GLRenderDevice::commitVBO(HwVBO handle) {
     auto* vbo = new GlVBO();
     glGenVertexArrays(1, &vbo->vertexArrayID);
@@ -183,12 +187,30 @@ void GLRenderDevice::updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr
         GLint loc = -1;
         GLint size = 3;
         switch (attr.type) {
-            case VertexAttributeType::Position:  loc = glProg->getAttribLocation(MR_POSITION); size = 3; break;
-            case VertexAttributeType::Color:     loc = glProg->getAttribLocation(MR_COLOR);    size = 4; break;
-            case VertexAttributeType::UV:        loc = glProg->getAttribLocation(MR_TEXCOORD); size = 2; break;
-            case VertexAttributeType::Normal:    loc = glProg->getAttribLocation(MR_NORMAL);   size = 3; break;
-            case VertexAttributeType::Tangent:   loc = glProg->getAttribLocation(MR_TANGENT);  size = 4; break;
-            case VertexAttributeType::BatchID:   loc = glProg->getAttribLocation(MR_BATCH);    size = 1; break;
+            case VertexAttributeType::Position:
+                loc = glProg->getAttribLocation(MR_POSITION);
+                size = 3;
+                break;
+            case VertexAttributeType::Color:
+                loc = glProg->getAttribLocation(MR_COLOR);
+                size = 4;
+                break;
+            case VertexAttributeType::UV:
+                loc = glProg->getAttribLocation(MR_TEXCOORD);
+                size = 2;
+                break;
+            case VertexAttributeType::Normal:
+                loc = glProg->getAttribLocation(MR_NORMAL);
+                size = 3;
+                break;
+            case VertexAttributeType::Tangent:
+                loc = glProg->getAttribLocation(MR_TANGENT);
+                size = 4;
+                break;
+            case VertexAttributeType::BatchID:
+                loc = glProg->getAttribLocation(MR_BATCH);
+                size = 1;
+                break;
         }
         if (loc != -1) {
             glEnableVertexAttribArray(loc);
@@ -199,8 +221,10 @@ void GLRenderDevice::updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr
     // 处理索引数据
     if (vboData->indexCount > 0) {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glVbo->elementbuffer);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, vboData->indexCount * sizeof(uint32_t),
-                     vboData->indices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                     vboData->indexCount * sizeof(uint32_t),
+                     vboData->indices.data(),
+                     GL_STATIC_DRAW);
     }
 
     glVbo->verticesCount = vboData->vertexCount;
@@ -243,7 +267,12 @@ void GLRenderDevice::drawVBO(HwVBO vbo, int32_t instanceCount) {
     }
 }
 
-HwTexture2D GLRenderDevice::createTexture2D(ImageType imageType) { HwTexture2D h = allocateTexture2D(); commitTexture2D(h, imageType); return h; }
+HwTexture2D GLRenderDevice::createTexture2D(ImageType imageType) {
+    HwTexture2D h = allocateTexture2D();
+    commitTexture2D(h, imageType);
+    return h;
+}
+
 void GLRenderDevice::commitTexture2D(HwTexture2D handle, ImageType imageType) {
     GLuint textureID = 0;
     glGenTextures(1, &textureID);
@@ -284,10 +313,10 @@ void GLRenderDevice::deleteTexture2D(HwTexture2D texture) {
 
 void GLRenderDevice::useTexture2D(HwTexture2D texture, uint32_t index) {
     if (index >= GLStateCache::kMaxTextureUnits) return;
-    if (m_stateCache.currentTextures[index] == texture) return;
-    m_stateCache.currentTextures[index] = texture;
     auto* textureImp = m_registry.getTexture2D(texture);
     if (!textureImp) return;
+    if (m_stateCache.currentTextures[index] == texture) return;
+    m_stateCache.currentTextures[index] = texture;
     glActiveTexture(GL_TEXTURE0 + index);
     glBindTexture(textureImp->textureTarget, textureImp->textureID);
 }
@@ -327,7 +356,7 @@ void GLRenderDevice::updateSubTexture2D(HwTexture2D texture, const TextureData& 
                                       data.format,
                                       GL_UNSIGNED_BYTE,
                                       data.width
-                                  );
+                                      );
     glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
 
     GLenum format = OpenglUtils::getFormat(data.format);
@@ -339,7 +368,10 @@ void GLRenderDevice::updateSubTexture2D(HwTexture2D texture, const TextureData& 
               static_cast<int32_t>(data.imageType),
               static_cast<int32_t>(data.format),
               static_cast<uint32_t>(format),
-              x, y, width, height,
+              x,
+              y,
+              width,
+              height,
               static_cast<uint32_t>(error));
     }
 }
@@ -366,7 +398,7 @@ bool GLRenderDevice::upLoadTexture(GlTexture2D* textureImp, const TextureData& d
                                       data.format,
                                       GL_UNSIGNED_BYTE,
                                       data.width
-                                  );
+                                      );
     glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
 
     if (data.compressedTexture) {
@@ -390,7 +422,8 @@ bool GLRenderDevice::upLoadTexture(GlTexture2D* textureImp, const TextureData& d
               static_cast<int32_t>(data.format),
               static_cast<uint32_t>(internalFormat),
               static_cast<uint32_t>(format),
-              data.width, data.height,
+              data.width,
+              data.height,
               static_cast<uint32_t>(error));
     }
     //    free(data.pixels);
@@ -530,7 +563,12 @@ bool GLRenderDevice::makeFolder() {
     return true;
 }
 
-HwGPUProgram GLRenderDevice::createGPUProgram(const std::string& a, const std::string& b, const std::string& c) { HwGPUProgram h = allocateGPUProgram(); commitGPUProgram(h, a, b, c); return h; }
+HwGPUProgram GLRenderDevice::createGPUProgram(const std::string& a, const std::string& b, const std::string& c) {
+    HwGPUProgram h = allocateGPUProgram();
+    commitGPUProgram(h, a, b, c);
+    return h;
+}
+
 void GLRenderDevice::commitGPUProgram(HwGPUProgram handle, const std::string& programFileName, const std::string& vertexShaderStr, const std::string& fragmentShaderStr) {
     // LOG_I("shader: {}, vert: {}, frag: {}", programFileName, vertexShaderStr, fragmentShaderStr);
     GLenum binaryFormat = 0x8740;
@@ -702,20 +740,28 @@ void GLRenderDevice::setGPUProgramParamAsIntArray(HwGPUProgram program, const st
     auto* prog = m_registry.getGPUProgram(program);
     if (!prog) return;
     GLint loc = prog->getUniformLocation(uniformName);
-    if (step == 1)      glUniform1iv(loc, size, values);
-    else if (step == 2) glUniform2iv(loc, size, values);
-    else if (step == 3) glUniform3iv(loc, size, values);
-    else if (step == 4) glUniform4iv(loc, size, values);
+    if (step == 1)
+        glUniform1iv(loc, size, values);
+    else if (step == 2)
+        glUniform2iv(loc, size, values);
+    else if (step == 3)
+        glUniform3iv(loc, size, values);
+    else if (step == 4)
+        glUniform4iv(loc, size, values);
 }
 
 void GLRenderDevice::setGPUProgramParamAsFloatArray(HwGPUProgram program, const std::string& uniformName, const float* values, int32_t size, int32_t step) {
     auto* prog = m_registry.getGPUProgram(program);
     if (!prog) return;
     GLint loc = prog->getUniformLocation(uniformName);
-    if (step == 1)      glUniform1fv(loc, size, values);
-    else if (step == 2) glUniform2fv(loc, size, values);
-    else if (step == 3) glUniform3fv(loc, size, values);
-    else if (step == 4) glUniform4fv(loc, size, values);
+    if (step == 1)
+        glUniform1fv(loc, size, values);
+    else if (step == 2)
+        glUniform2fv(loc, size, values);
+    else if (step == 3)
+        glUniform3fv(loc, size, values);
+    else if (step == 4)
+        glUniform4fv(loc, size, values);
 }
 
 void GLRenderDevice::setGPUProgramParamAsMat4Array(HwGPUProgram program, const std::string& uniformName, const std::vector<Matrix4>& values) {
@@ -723,7 +769,12 @@ void GLRenderDevice::setGPUProgramParamAsMat4Array(HwGPUProgram program, const s
 }
 
 //---------------------------------------------------UBO---------------------------------------------------
-HwUBO GLRenderDevice::createUBO() { HwUBO h = allocateUBO(); commitUBO(h); return h; }
+HwUBO GLRenderDevice::createUBO() {
+    HwUBO h = allocateUBO();
+    commitUBO(h);
+    return h;
+}
+
 void GLRenderDevice::commitUBO(HwUBO handle) {
     auto* ubo = new GlUBO();
     glGenBuffers(1, &ubo->bufferID);
@@ -759,7 +810,12 @@ void GLRenderDevice::bindUBO(HwGPUProgram program, HwUBO ubo, const std::string&
     }
 }
 
-HwSSBO GLRenderDevice::createSSBO() { HwSSBO h = allocateSSBO(); commitSSBO(h); return h; }
+HwSSBO GLRenderDevice::createSSBO() {
+    HwSSBO h = allocateSSBO();
+    commitSSBO(h);
+    return h;
+}
+
 void GLRenderDevice::commitSSBO(HwSSBO handle) {
     auto* ssbo = new GlSSBO();
     glGenBuffers(1, &ssbo->bufferID);
@@ -800,11 +856,18 @@ void GLRenderDevice::deleteFence(void* fence) {
 // RenderTarget (FBO)
 // ---------------------------------------------------------------------------
 
-HwRenderTarget GLRenderDevice::createRenderTarget(int32_t w, int32_t h, HwTexture2D* outColorTexture) { HwRenderTarget rt = allocateRenderTarget(); commitRenderTarget(rt, w, h, outColorTexture); return rt; }
-void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle, int32_t w, int32_t h,
-                                                  HwTexture2D* outColorTexture) {
+HwRenderTarget GLRenderDevice::createRenderTarget(int32_t w, int32_t h, HwTexture2D* outColorTexture) {
+    HwRenderTarget rt = allocateRenderTarget();
+    commitRenderTarget(rt, w, h, outColorTexture);
+    return rt;
+}
+
+void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle,
+                                        int32_t w,
+                                        int32_t h,
+                                        HwTexture2D* outColorTexture) {
     auto* rt = new GlRenderTarget();
-    rt->width  = w;
+    rt->width = w;
     rt->height = h;
 
     GLint maxSamples = 1;
@@ -884,7 +947,11 @@ void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle, int32_t w, int3
     if (outColorTexture) {
         auto* colorTex = new GlTexture2D(rt->colorTexID);
         colorTex->m_ownedByFBO = true;
-        *outColorTexture = m_registry.allocateTexture2D();
+        // The threaded proxy preallocates this handle so subsequent commands
+        // can reference it before the render thread executes this command.
+        if (!outColorTexture->isValid()) {
+            *outColorTexture = m_registry.allocateTexture2D();
+        }
         m_registry.commitTexture2D(*outColorTexture, colorTex);
     }
 
@@ -918,9 +985,16 @@ void GLRenderDevice::unbindRenderTarget() {
         if (glRt && glRt->resolveFBOID != 0 && glRt->samples > 1) {
             glBindFramebuffer(GL_READ_FRAMEBUFFER, glRt->fboID);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, glRt->resolveFBOID);
-            glBlitFramebuffer(0, 0, glRt->width, glRt->height,
-                              0, 0, glRt->width, glRt->height,
-                              GL_COLOR_BUFFER_BIT, GL_NEAREST);
+            glBlitFramebuffer(0,
+                              0,
+                              glRt->width,
+                              glRt->height,
+                              0,
+                              0,
+                              glRt->width,
+                              glRt->height,
+                              GL_COLOR_BUFFER_BIT,
+                              GL_NEAREST);
         }
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -962,10 +1036,14 @@ void GLRenderDevice::setCullFace(CullFaceMode mode) {
     }
     glEnable(GL_CULL_FACE);
     switch (mode) {
-        case CullFaceMode::FRONT:          glCullFace(GL_FRONT);          break;
-        case CullFaceMode::BACK:           glCullFace(GL_BACK);           break;
-        case CullFaceMode::FRONT_AND_BACK: glCullFace(GL_FRONT_AND_BACK); break;
-        default: break;
+        case CullFaceMode::FRONT: glCullFace(GL_FRONT);
+            break;
+        case CullFaceMode::BACK: glCullFace(GL_BACK);
+            break;
+        case CullFaceMode::FRONT_AND_BACK: glCullFace(GL_FRONT_AND_BACK);
+            break;
+        default:
+            break;
     }
 }
 
@@ -980,7 +1058,4 @@ void GLRenderDevice::clearDepth() {
         glDepthMask(depthMask);
     }
 }
-
 } // MORROWGUI
-
-

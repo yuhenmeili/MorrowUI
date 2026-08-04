@@ -767,7 +767,8 @@ HwRenderTarget RenderDeviceProxy::createRenderTarget(int32_t w, int32_t h,
     pl->rt = rtHandle;
     pl->w  = w;
     pl->h  = h;
-    // Async path: outColorTexture filled after render thread execution via submitCurrentBufferAndAdvance
+    // Preallocate the attachment handle so later commands in the same frame
+    // can reference it before the render thread creates the GL texture.
     if (outColorTexture) {
         colorTexHandle = m_realDevice->allocateTexture2D();
         pl->colorTex = colorTexHandle;

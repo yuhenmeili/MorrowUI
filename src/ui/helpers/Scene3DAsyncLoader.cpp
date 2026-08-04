@@ -133,6 +133,7 @@ void Scene3DAsyncLoader::loadGLTF(const std::string& modelPath,
     auto shaderName = resolvedOptions.shaderName.empty() ? std::string("gltf_pbr") : resolvedOptions.shaderName;
     auto onSceneBuilt = std::move(resolvedOptions.onSceneBuilt);
     const bool autoPlayFirstAnimation = resolvedOptions.autoPlayFirstAnimation;
+    const Scene3DNormalizationOptions normalization = resolvedOptions.normalization;
     auto sceneOptions = std::move(resolvedOptions.sceneOptions);
     if (sceneOptions.debugLabel.empty()) {
         sceneOptions.debugLabel = modelPath;
@@ -145,7 +146,7 @@ void Scene3DAsyncLoader::loadGLTF(const std::string& modelPath,
                 completion(std::static_pointer_cast<void>(scene), error);
             });
         },
-        [shaderName, autoPlayFirstAnimation, onSceneBuilt](const WorkerPayload& payload) -> Scene3DAsyncLoadResult {
+        [shaderName, autoPlayFirstAnimation, normalization, onSceneBuilt](const WorkerPayload& payload) -> Scene3DAsyncLoadResult {
             Scene3DAsyncLoadResult result;
             auto gltfScene = std::static_pointer_cast<GLTFScene>(payload);
             if (!gltfScene) {
@@ -160,6 +161,28 @@ void Scene3DAsyncLoader::loadGLTF(const std::string& modelPath,
             }
 
             result.hasBounds = GLTFSceneBuilder::computeBounds(gltfScene, result.boundsMin, result.boundsMax);
+            if (result.hasBounds && normalization.enabled) {
+                const Scene3DNormalizationResult normalized =
+                    calculateScene3DNormalization(
+                        result.boundsMin,
+                        result.boundsMax,
+                        normalization);
+                if (normalized.applied) {
+                    if (auto transform = result.sceneRoot->getTransform()) {
+                        transform->setLocalScale(
+                            normalized.uniformScale,
+                            normalized.uniformScale,
+                            normalized.uniformScale);
+                        result.boundsMin = normalized.boundsMin;
+                        result.boundsMax = normalized.boundsMax;
+                        LOG_I(
+                            "Scene3DAsyncLoader: normalized GLTF radius {} -> {} (scale={})",
+                            normalized.sourceRadius,
+                            normalized.normalizedRadius,
+                            normalized.uniformScale);
+                    }
+                }
+            }
 
             if (autoPlayFirstAnimation && !gltfScene->animations.empty()) {
                 auto animCtrl = result.sceneRoot->addComponent<GLTFAnimationController>();

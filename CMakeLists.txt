@@ -81,4 +81,8 @@ if(BUILD_TESTING)
     add_executable(Transform3DTests tests/Transform3DTests.cpp)
     target_link_libraries(Transform3DTests morrow)
     add_test(NAME Transform3DTests COMMAND Transform3DTests)
+
+    add_executable(Scene3DNormalizationTests tests/Scene3DNormalizationTests.cpp)
+    target_link_libraries(Scene3DNormalizationTests morrow)
+    add_test(NAME Scene3DNormalizationTests COMMAND Scene3DNormalizationTests)
 endif()

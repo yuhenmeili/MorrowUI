@@ -13,6 +13,7 @@
 
 #include "Engine.h"
 #include "ui/elements/MR3DSceneView.h"
+#include "ui/helpers/Scene3DNormalization.h"
 #include "GLTFTypes.h"
 
 namespace morrow {
@@ -52,6 +53,9 @@ public:
     struct GLTFLoadOptions {
         std::string shaderName = "gltf_pbr";
         bool autoPlayFirstAnimation = true;
+        /// Enabled by default so GLTF files authored in different units have
+        /// a consistent scene size. Set enabled=false to preserve source units.
+        Scene3DNormalizationOptions normalization;
         Scene3DAsyncLoadOptions sceneOptions;
         std::function<void(const std::shared_ptr<GLTFScene>& scene,
                            const std::shared_ptr<SceneNode>& sceneRoot)> onSceneBuilt;
