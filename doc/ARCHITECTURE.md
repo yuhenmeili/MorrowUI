@@ -856,13 +856,13 @@ Present
 
 ### 15.4 Widget Dirty 体系完善 ⚠️
 
-已有：`Transform::m_matrixDirty` + 子节点传播；`Widget` 不可见子树跳过 update；`MRLabel` 双层文本脏标记；`Mesh::m_revision` 驱动 VBO 跳过上传；`Material::m_revision` 驱动批次缓存比对。缺失统一 Dirty 枚举。
+已有：`Transform` 通过局部数据版本、局部矩阵版本、世界矩阵使用的局部版本及父节点世界版本进行缓存失效检测；`Widget` 不可见子树跳过 update；`MRLabel` 双层文本脏标记；`Mesh::m_revision` 驱动 VBO 跳过上传；`Material::m_revision` 驱动批次缓存比对。统一 Dirty 枚举以及批次 revision 进一步收敛仍未完成。
 
 优化方向：
 
-1. **统一 Dirty 枚举**：将 Layout / Transform / Geometry / Material / Visibility 的零散 bool 与 revision（`Transform::m_matrixDirty`、`MRLabel` 双层脏标记、`Mesh`/`Material::m_revision`、Widget 可见性遍历）收敛为统一的 DirtyFlag 位掩码；组件与资源按变更类型上报，引擎据此决定跳过 update / 几何上传 / 批次重建，消除各模块语义不一致和重复实现。
-2. **世界矩阵独立 dirty 判定**：`getLocalMatrix()` 已有 dirty 缓存，但 `getWorldMatrix()` 在本地矩阵未变化时每帧仍执行一次父级级联乘法；为世界矩阵增加独立 dirty 标记（父级 `setDirty()` 传播时置位），未变化节点直接返回缓存矩阵。GUI 中静态节点占多数，可省去每帧整条节点链的矩阵乘法。
-3. **批次重建与 revision 收敛**：`Material::m_revision` 目前所有 setter 均递增，包含不影响合批兼容的属性（如仅 per-object uniform 变化），会引发无意义的 cache miss；拆分「合批兼容 revision」与「per-object revision」，并让 `renderStateRevision` 覆盖真实渲染状态（clip / stencil / blend）变化，减少批次重建、提高增量合批命中率。
+1. **统一 Dirty 枚举**：将 Layout / Transform / Geometry / Material / Visibility 的零散 bool 与 revision（`Transform` 版本机制、`MRLabel` 双层脏标记、`Mesh`/`Material::m_revision`、Widget 可见性遍历）收敛为统一的 DirtyFlag 位掩码；组件与资源按变更类型上报，引擎据此决定跳过 update / 几何上传 / 批次重建，消除各模块语义不一致和重复实现。**未完成**。
+2. **世界矩阵独立 dirty 判定**：**已完成**。`Transform` 已移除 `m_matrixDirty` 与 `m_worldMatrixDirty`，改用版本号判断局部矩阵和世界矩阵是否失效；`getWorldMatrix()` 会比较父节点身份及父节点世界版本，未失效时直接返回缓存矩阵。父节点版本读取前会先刷新父世界矩阵，以确保祖先节点变化可以正确向下传播。
+3. **批次重建与 revision 收敛**：`Material::m_revision` 目前所有 setter 均递增，包含不影响合批兼容的属性（如仅 per-object uniform 变化），会引发无意义的 cache miss；拆分「合批兼容 revision」与「per-object revision」，并让 `renderStateRevision` 覆盖真实渲染状态（clip / stencil / blend）变化，减少批次重建、提高增量合批命中率。**未完成**。
 
 > 说明：引擎面向全屏 GUI 渲染，Widget 总是在视口内绘制，不存在屏幕外可见区域剔除（视口裁剪）需求，该方向不作为优化目标。
 
@@ -1058,9 +1058,4 @@ Upload bytes
 Memory peak
 Visual correctness
 ```
-
-##最高优先级待实现
-1：静态单位 Quad + 实例数据 //完成
-2：资源前端统一使用ResourceHandle //完成
-
 如果复杂方案不能在真实目标场景中产生可测量收益，应优先保留简单实现。

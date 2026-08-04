@@ -121,14 +121,14 @@ public:
 
     void notifySizeChange();
 
-    /// 世界矩阵版本号：自身变换或父链变化时递增，供子节点检测世界矩阵失效
+    /// 世界矩阵版本号：世界矩阵实际重算后递增，供子节点检测父链变化。
     uint64_t getWorldVersion() const { return m_worldVersion; }
 
     // 标记矩阵需要更新
     void setDirty();
 
 private:
-    /// 自身变换变化时调用：置 local/world dirty 并递增世界版本号
+    /// 自身变换数据变化时调用：递增局部数据版本。
     void markDirty();
 
     void updateMatrix();
@@ -153,11 +153,17 @@ private:
 
     Matrix4 m_localMatrix;
     Matrix4 m_worldMatrix;
-    bool m_matrixDirty;
-    bool m_worldMatrixDirty;
-    /// 世界矩阵版本号（自身变换递增，重算后继承父版本）
+
+    /// Local transform data revision. Incremented whenever transform data changes.
+    uint64_t m_localVersion = 1;
+    /// Local data revision used to build m_localMatrix.
+    uint64_t m_localMatrixVersion = 0;
+    /// Local matrix revision used to build m_worldMatrix.
+    uint64_t m_worldLocalMatrixVersion = 0;
+    /// Incremented whenever m_worldMatrix is actually rebuilt.
     uint64_t m_worldVersion = 1;
-    /// 缓存的父节点世界版本号，用于检测父链变化
+    /// Parent identity and world revision used to build m_worldMatrix.
+    Transform* m_cachedWorldParent = nullptr;
     uint64_t m_cachedParentWorldVersion = 0;
 
     std::vector<std::function<void()>> m_sizeChangeListeners;

@@ -11,9 +11,7 @@ Transform::Transform()
       , m_size(0.0f, 0.0f, 0.0f)
       , m_localRotation(0.0f, 0.0f, 0.0f, 1.0f)
       , m_localMatrix(Matrix4())
-      , m_worldMatrix(Matrix4())
-      , m_matrixDirty(true)
-      , m_worldMatrixDirty(true) {
+      , m_worldMatrix(Matrix4()) {
 }
 
 void Transform::setPosition(float x, float y, float z) {
@@ -111,7 +109,7 @@ Anchor Transform::getAnchor() const {
 }
 
 const Matrix4& Transform::getLocalMatrix() {
-    if (m_matrixDirty) {
+    if (m_localMatrixVersion != m_localVersion) {
         updateMatrix();
     }
     return m_localMatrix;
@@ -119,33 +117,44 @@ const Matrix4& Transform::getLocalMatrix() {
 
 const Matrix4& Transform::getWorldMatrix() {
     auto parentTransform = getComponentInParent<Transform>();
-    const uint64_t parentWorldVersion = parentTransform ? parentTransform->getWorldVersion() : 0;
+    Transform* const parent = parentTransform.get();
+    const Matrix4* parentWorldMatrix = nullptr;
+    uint64_t parentWorldVersion = 0;
 
-    // 自身 local 变化或父链版本变化时重新计算世界矩阵，否则直接返回缓存
-    if (m_worldMatrixDirty || m_cachedParentWorldVersion != parentWorldVersion) {
-        if (m_matrixDirty) {
-            updateMatrix();
-        }
+    // Refresh the parent first so changes higher in the hierarchy propagate
+    // through transforms whose world matrices have not been queried yet.
+    if (parentTransform) {
+        parentWorldMatrix = &parentTransform->getWorldMatrix();
+        parentWorldVersion = parentTransform->getWorldVersion();
+    }
 
-        if (parentTransform) {
-            m_worldMatrix.multiplyMatrices(parentTransform->getWorldMatrix(), m_localMatrix);
+    const bool parentChanged =
+        m_cachedWorldParent != parent ||
+        m_cachedParentWorldVersion != parentWorldVersion;
+
+    // The UI local matrix contains an offset derived from the parent's size.
+    if (m_localMatrixVersion != m_localVersion || parentChanged) {
+        updateMatrix();
+    }
+
+    if (m_worldLocalMatrixVersion != m_localMatrixVersion || parentChanged) {
+        if (parentWorldMatrix) {
+            m_worldMatrix.multiplyMatrices(*parentWorldMatrix, m_localMatrix);
         } else {
             m_worldMatrix = m_localMatrix;
         }
 
-        m_worldMatrixDirty = false;
+        m_worldLocalMatrixVersion = m_localMatrixVersion;
+        m_cachedWorldParent = parent;
         m_cachedParentWorldVersion = parentWorldVersion;
-        // 继承父链版本：父级世界变化时本节点版本同步递增，供子节点检测
-        if (parentWorldVersion > m_worldVersion) {
-            m_worldVersion = parentWorldVersion;
-        }
+        ++m_worldVersion;
     }
 
     return m_worldMatrix;
 }
 
 void Transform::update(FrameStateSharedPtr /*frameState*/) {
-    if (m_matrixDirty) {
+    if (m_localMatrixVersion != m_localVersion) {
         updateMatrix();
     }
 }
@@ -168,9 +177,7 @@ void Transform::setDirty() {
 }
 
 void Transform::markDirty() {
-    m_matrixDirty = true;
-    m_worldMatrixDirty = true;
-    ++m_worldVersion;
+    ++m_localVersion;
 }
 
 void Transform::updateMatrix() {
@@ -198,7 +205,7 @@ void Transform::updateMatrix() {
     m_localMatrix.applyScale(m_localScale.x, m_localScale.y, m_localScale.z);
     m_localMatrix.applyTranslation(-pivotPoint.x, -pivotPoint.y, -pivotPoint.z);
 
-    m_matrixDirty = false;
+    m_localMatrixVersion = m_localVersion;
     REQUESTRENDER;
 }
 
