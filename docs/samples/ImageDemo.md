@@ -14,6 +14,16 @@ cmake --build "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw" --target 
 & "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw\ImageDemo.exe"
 ```
 
+启用按需渲染：
+
+```powershell
+.\build\ImageDemo.exe --request-render
+```
+
+静态场景完成首帧和资源加载触发的必要帧后，会进入事件等待；Widget、输入、resize、
+异步资源或动画发出 render request 时再继续渲染。`--frames` 在该模式下统计实际
+完成的渲染帧，因此没有新请求时会等待，而不是用空闲循环补足帧数。
+
 ## 示例做了什么
 
 1. 创建窗口并设置白色背景。

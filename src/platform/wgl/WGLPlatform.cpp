@@ -34,6 +34,14 @@ bool WGLPlatform::beginFrame(FrameStateSharedPtr frameState) {
     return true;
 }
 
+void WGLPlatform::waitForEvents(double timeoutSeconds) {
+    glfwWaitEventsTimeout(timeoutSeconds);
+}
+
+void WGLPlatform::wakeEventLoop() {
+    glfwPostEmptyEvent();
+}
+
 void WGLPlatform::beginRenderPass(FrameStateSharedPtr frameState) {
     frameState->isSSBOSupport = m_isSSBOSupport;
     m_window->beginRenderPass(frameState);

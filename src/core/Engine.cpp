@@ -90,6 +90,8 @@ Observable<>& Engine::preRender() {
 void Engine::render() {
     m_lastHeartbeatTime = Math::getCurrentMonotonicTime();
     uint32_t renderedFrameCount = 0;
+    constexpr double idleWaitSeconds = 1.0 / 60.0;
+    const auto renderingThread = GlobalObject::getInstance().getRenderingThread();
     while (!m_platform->shouldClose()) {
         updateFrameState();
 
@@ -98,6 +100,17 @@ void Engine::render() {
             break;
         }
         m_platform->dispatchEvents(m_frameState);
+        if (m_platform->shouldClose()) {
+            break;
+        }
+
+        if (m_requestRenderEnabled &&
+            renderingThread &&
+            !renderingThread->consumeRenderRequest()) {
+            heartbeat();
+            m_platform->waitForEvents(idleWaitSeconds);
+            continue;
+        }
 
         // ── 阶段 2: 动画准备 ──
         m_preRender.notify();

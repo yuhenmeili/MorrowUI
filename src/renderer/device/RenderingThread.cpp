@@ -8,6 +8,7 @@ namespace morrow
 {
 void RenderingThread::run(PlatformSharedPtr platform, bool multithread)
 {
+    m_platform = platform;
     m_esDevice = std::make_shared<RenderDeviceProxy>(platform, false);
     m_esDevice->run(multithread);
 }
@@ -19,16 +20,26 @@ const ThreadBufferESDeviceSharedPtr& RenderingThread::getDevice() const
 
 void RenderingThread::requestRender()
 {
-    m_needRender = true;
+    const bool wasRequested = m_needRender.exchange(true, std::memory_order_acq_rel);
+    if (!wasRequested) {
+        if (const auto platform = m_platform.lock()) {
+            platform->wakeEventLoop();
+        }
+    }
 }
 
 bool RenderingThread::isNeedRender() const
 {
-    return m_needRender;
+    return m_needRender.load(std::memory_order_acquire);
+}
+
+bool RenderingThread::consumeRenderRequest()
+{
+    return m_needRender.exchange(false, std::memory_order_acq_rel);
 }
 
 void RenderingThread::resetRenderStatus()
 {
-    m_needRender = false;
+    m_needRender.store(false, std::memory_order_release);
 }
 } // MORROWGUI

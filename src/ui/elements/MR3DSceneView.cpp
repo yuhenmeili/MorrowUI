@@ -85,6 +85,7 @@ MR3DSceneView::~MR3DSceneView() {
 
 void MR3DSceneView::setSceneRoot(std::shared_ptr<SceneNode> sceneRoot) {
     m_sceneRoot = std::move(sceneRoot);
+    requestRender("MR3DSceneView::setSceneRoot");
 }
 
 void MR3DSceneView::setSceneRoot(std::shared_ptr<SceneNode> sceneRoot,
@@ -93,6 +94,7 @@ void MR3DSceneView::setSceneRoot(std::shared_ptr<SceneNode> sceneRoot,
                                  const Scene3DCameraFitOptions& fitOptions) {
     m_sceneRoot = std::move(sceneRoot);
     fitCameraToBounds(boundsMin, boundsMax, fitOptions);
+    requestRender("MR3DSceneView::setSceneRoot");
 }
 
 const std::shared_ptr<SceneNode>& MR3DSceneView::getSceneRoot() const {
@@ -119,6 +121,7 @@ bool MR3DSceneView::fitCameraToBounds(const Vector3& boundsMin,
 
     m_orbitCamera->lookAt(sceneCenter);
     m_orbitCamera->setDistance(finalDistance);
+    requestRender("MR3DSceneView::fitCameraToBounds");
 
     LOG_I("Scene3DView fit camera: min=({}, {}, {}), max=({}, {}, {}), radius={}, distance={}",
           boundsMin.x, boundsMin.y, boundsMin.z,
@@ -152,6 +155,7 @@ bool MR3DSceneView::isOrbitEnabled() const {
 
 void MR3DSceneView::setSceneClearColor(const Vector4& clearColor) {
     m_sceneClearColor = clearColor;
+    requestRender("MR3DSceneView::setSceneClearColor");
 }
 
 const Vector4& MR3DSceneView::getSceneClearColor() const {
@@ -162,11 +166,13 @@ void MR3DSceneView::setSunLight(const Vector3& direction, const Vector3& color, 
     m_scene3DPassContext->lighting.sunDirection = direction;
     m_scene3DPassContext->lighting.sunColor = color;
     m_scene3DPassContext->lighting.sunIntensity = intensity;
+    requestRender("MR3DSceneView::setSunLight");
 }
 
 void MR3DSceneView::setAmbientLight(const Vector3& color, float intensity) {
     m_scene3DPassContext->lighting.ambientColor = color;
     m_scene3DPassContext->lighting.ambientIntensity = intensity;
+    requestRender("MR3DSceneView::setAmbientLight");
 }
 
 Scene3DLightingState& MR3DSceneView::getLighting() {
@@ -193,6 +199,7 @@ void MR3DSceneView::setIBL(const TextureSharedPtr& irradianceTexture,
     m_scene3DPassContext->ibl.specularMipWidths = specularMipWidths;
     m_scene3DPassContext->ibl.specularMipHeights = specularMipHeights;
     m_scene3DPassContext->ibl.specularMipOffsetsY = specularMipOffsetsY;
+    requestRender("MR3DSceneView::setIBL");
 }
 
 bool MR3DSceneView::setIBLFromDirectory(const std::string& iblDirectory, float intensity) {
@@ -214,6 +221,7 @@ bool MR3DSceneView::setIBLFromDirectory(const std::string& iblDirectory, float i
 
 void MR3DSceneView::clearIBL() {
     m_scene3DPassContext->ibl = {};
+    requestRender("MR3DSceneView::clearIBL");
 }
 
 Scene3DIBLState& MR3DSceneView::getIBL() {
@@ -242,6 +250,7 @@ void MR3DSceneView::resizeFBO(int32_t w, int32_t h) {
     if (auto transform = getTransform()) {
         transform->setSize(float(w), float(h));
     }
+    requestRender("MR3DSceneView::resizeFBO");
 }
 
 void MR3DSceneView::syncToParentSize() {

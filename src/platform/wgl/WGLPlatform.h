@@ -21,6 +21,10 @@ public:
 
     bool beginFrame(FrameStateSharedPtr frameState) override;
 
+    void waitForEvents(double timeoutSeconds) override;
+
+    void wakeEventLoop() override;
+
     void beginRenderPass(FrameStateSharedPtr frameState) override;
     void updateWidgets(FrameStateSharedPtr frameState) override;
     void commitRenderPass(FrameStateSharedPtr frameState) override;

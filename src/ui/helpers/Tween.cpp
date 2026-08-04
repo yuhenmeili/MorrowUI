@@ -3,6 +3,8 @@
 #include <cmath>
 #include <memory>
 
+#include "GlobalObject.h"
+
 namespace morrow {
 
 std::shared_ptr<Tween> Tween::create(float from, float to, float duration) {
@@ -36,6 +38,7 @@ Tween& Tween::onComplete(TweenCompleteCallback callback) {
 
 void Tween::play() {
     m_state = TweenState::Playing;
+    REQUESTRENDER;
 }
 
 void Tween::pause() {
@@ -119,9 +122,11 @@ TweenManager& TweenManager::getInstance() {
 
 void TweenManager::addTween(TweenSharedPtr tween) {
     m_tweens.push_back(tween);
+    REQUESTRENDER;
 }
 
 void TweenManager::update(FrameStateSharedPtr frameState) {
+    bool hasPlayingTween = false;
     // 更新所有Tween
     for (auto it = m_tweens.begin(); it != m_tweens.end();) {
         (*it)->update(frameState);
@@ -130,8 +135,12 @@ void TweenManager::update(FrameStateSharedPtr frameState) {
         if ((*it)->getCurrentValue() == (*it)->getTargetValue()) {
             it = m_tweens.erase(it);
         } else {
+            hasPlayingTween = hasPlayingTween || (*it)->isPlaying();
             ++it;
         }
+    }
+    if (hasPlayingTween) {
+        REQUESTRENDER;
     }
 }
 

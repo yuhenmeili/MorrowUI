@@ -27,6 +27,12 @@ public:
     /// poll 输入事件 + 解析 hit-test 目标
     virtual bool beginFrame(FrameStateSharedPtr frameState) = 0;
 
+    /// 按需渲染空闲等待。平台可使用原生事件等待，默认使用短超时 sleep。
+    virtual void waitForEvents(double timeoutSeconds);
+
+    /// 从其他线程唤醒事件等待。默认实现为空。
+    virtual void wakeEventLoop();
+
     /// 将输入事件派发到目标 Widget（原 eventHandler，提升为 public）
     void dispatchEvents(const FrameStateSharedPtr& frameState);
 

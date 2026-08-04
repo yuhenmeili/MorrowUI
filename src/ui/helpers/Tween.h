@@ -56,6 +56,8 @@ public:
 
     float getTargetValue() const {return m_to;}
 
+    bool isPlaying() const { return m_state == TweenState::Playing; }
+
 private:
     Tween(float from, float to, float duration);
 

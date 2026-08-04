@@ -5,6 +5,8 @@
 #ifndef MORROW_RENDERER_RENDERINGTHREAD_H_
 #define MORROW_RENDERER_RENDERINGTHREAD_H_
 
+#include <atomic>
+
 #include "Platform.h"
 #include "RenderDeviceProxy.h"
 
@@ -22,11 +24,14 @@ public:
 
     bool isNeedRender() const;
 
+    bool consumeRenderRequest();
+
     void resetRenderStatus();
 
 private:
     ThreadBufferESDeviceSharedPtr m_esDevice;
-    bool m_needRender = true;
+    std::weak_ptr<Platform> m_platform;
+    std::atomic_bool m_needRender{true};
 };
 
 using RenderingThreadSharedPtr = std::shared_ptr<RenderingThread>;

@@ -66,16 +66,15 @@ foreach(FILE_PATH ${DEMO_LIST})
 endforeach()
 
 if(BUILD_TESTING)
-    add_executable(BatchBuilderTests
-        tests/BatchBuilderTests.cpp
-        src/core/BatchBuilder.cpp)
-    target_include_directories(BatchBuilderTests PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(BatchBuilderTests tests/BatchBuilderTests.cpp src/core/BatchBuilder.cpp)
+    target_include_directories(BatchBuilderTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME BatchBuilderTests COMMAND BatchBuilderTests)
 
-    add_executable(BatchCompatibilityKeyCacheTests
-        tests/BatchCompatibilityKeyCacheTests.cpp)
+    add_executable(BatchCompatibilityKeyCacheTests tests/BatchCompatibilityKeyCacheTests.cpp)
     target_link_libraries(BatchCompatibilityKeyCacheTests morrow)
-    add_test(NAME BatchCompatibilityKeyCacheTests
-        COMMAND BatchCompatibilityKeyCacheTests)
+    add_test(NAME BatchCompatibilityKeyCacheTests COMMAND BatchCompatibilityKeyCacheTests)
+
+    add_executable(RequestRenderTests tests/RequestRenderTests.cpp)
+    target_link_libraries(RequestRenderTests morrow)
+    add_test(NAME RequestRenderTests COMMAND RequestRenderTests)
 endif()

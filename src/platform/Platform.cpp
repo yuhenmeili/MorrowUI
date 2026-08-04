@@ -4,6 +4,9 @@
 
 #include "Platform.h"
 
+#include <chrono>
+#include <thread>
+
 #include "FontManager.h"
 #include "GlobalObject.h"
 #include "OrthographicCamera.h"
@@ -20,6 +23,14 @@ void Platform::initialize(bool multithread) {
 
 WindowSharedPtr Platform::getWindow() const {
     return m_window;
+}
+
+void Platform::waitForEvents(double timeoutSeconds) {
+    if (timeoutSeconds <= 0.0) return;
+    std::this_thread::sleep_for(std::chrono::duration<double>(timeoutSeconds));
+}
+
+void Platform::wakeEventLoop() {
 }
 
 bool Platform::shouldClose() const {

@@ -52,7 +52,13 @@ bool WGLWindow::initializeIfNeeded() {
 }
 
 void WGLWindow::setClearColor(float r, float g, float b, float a) {
-    m_clearColor.set(r, g, b, a);
+    if (m_clearColor.x != r ||
+        m_clearColor.y != g ||
+        m_clearColor.z != b ||
+        m_clearColor.w != a) {
+        m_clearColor.set(r, g, b, a);
+        requestRender("setClearColor");
+    }
 }
 
 void WGLWindow::beginRenderPass(FrameStateSharedPtr frameState) {
@@ -107,6 +113,7 @@ void WGLWindow::window_size_callback(GLFWwindow* window, int width, int height) 
     auto* self = static_cast<WGLWindow*>(glfwGetWindowUserPointer(window));
     if (!self) return;
     self->m_windowSize.set(static_cast<float>(width), static_cast<float>(height));
+    self->requestRender("window_size_callback");
 }
 
 void WGLWindow::framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -114,6 +121,7 @@ void WGLWindow::framebuffer_size_callback(GLFWwindow* window, int width, int hei
     auto* self = static_cast<WGLWindow*>(glfwGetWindowUserPointer(window));
     if (!self) return;
     self->m_framebufferSize.set(static_cast<float>(width), static_cast<float>(height));
+    self->requestRender("framebuffer_size_callback");
 }
 
 void WGLWindow::mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {

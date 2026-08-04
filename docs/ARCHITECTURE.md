@@ -1088,24 +1088,23 @@ Present
 对应测试覆盖当前纹理由 Material 持有，以及替换后旧纹理在无其他 owner 时可以
 正常析构。`m_batchCompatibilityRevision` 的失效行为保持不变。
 
-#### P0：按需渲染链路闭环
+#### P0：按需渲染链路闭环 ✅
 
-当前 `EngineOptions::enableRequestRender` 只保存到 `Engine::m_requestRenderEnabled`；
-`RenderingThread::m_needRender` 虽然支持 set/reset，但渲染循环没有读取该状态。
-Windows 和 QNX 平台仍会每轮执行 Widget update、Batch、Present。对大部分时间
-静止的车载 GUI，这是最直接的 CPU/GPU 和功耗浪费。
+已完成：
 
-建议：
+- `RenderingThread` 使用原子 render request，并通过 consume 语义保证每个请求
+  至少触发一帧；
+- `Engine` 在输入派发后消费请求；无请求时跳过动画、Widget update、3D Pass、
+  Batch、Present 和 rendered frame 计数；
+- Windows 使用 `glfwWaitEventsTimeout()` 空闲等待，并可通过
+  `glfwPostEmptyEvent()` 跨线程唤醒；其他平台使用短超时等待保证输入轮询；
+- Window resize、异步资源更新和已有 Widget `requestRender()` 可以唤醒引擎；
+- Tween 和 GLTF animation 在活跃期间持续请求下一帧，完成或暂停后停止请求；
+- MR3DSceneView 的场景、相机适配、灯光、IBL 和 FBO 变化会请求重绘；
+- `enableRequestRender=false` 时保持原有连续渲染行为。
 
-- 由 Engine 在帧入口统一判断输入、resize、`REQUESTRENDER` 和持续动画状态；
-- 无变化时不执行 Widget update、3D Pass、Batch、Present，并使用平台等待机制
-  避免空轮询；
-- 将 render request 改为线程安全标志，并保证异步加载、视频帧和输入可以唤醒；
-- Tween、GLTF animation 和流式纹理显式提供“需要持续帧”状态；
-- `maxFrames` 统计实际渲染帧，而不是空闲循环次数。
-
-验收：静态场景完成首帧后不再产生 Draw Call/Present；输入和属性变化能在一个
-目标帧周期内唤醒；Tween、GLTF 动画和视频流不中断。
+对应 CPU 测试覆盖初始请求、单次 consume、跨线程发布、Tween 首帧唤醒、连续帧
+请求和完成后停止请求。`maxFrames` 继续只统计实际完成的渲染帧。
 
 #### P1：Transform3D 世界矩阵版本缓存
 

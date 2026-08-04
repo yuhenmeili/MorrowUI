@@ -20,11 +20,14 @@ int main(int argc, char** argv)
 {
     uint32_t maxFrames = 0;
     bool reportJson = false;
+    bool enableRequestRender = false;
     std::string objectSnapshotPath;
     std::string objectSnapshotCommandPath;
     for (int index = 1; index < argc; ++index) {
         if (std::strcmp(argv[index], "--report-json") == 0) {
             reportJson = true;
+        } else if (std::strcmp(argv[index], "--request-render") == 0) {
+            enableRequestRender = true;
         } else if (std::strcmp(argv[index], "--frames") == 0 && index + 1 < argc) {
             maxFrames = static_cast<uint32_t>(std::strtoul(argv[++index], nullptr, 10));
         } else if (std::strcmp(argv[index], "--object-snapshot") == 0 &&
@@ -41,6 +44,7 @@ int main(int argc, char** argv)
 
     EngineOptions engineOptions;
     engineOptions.multithread = false;
+    engineOptions.enableRequestRender = enableRequestRender;
     engineOptions.maxFrames = maxFrames;
     engineOptions.objectSnapshotPath = objectSnapshotPath;
     engineOptions.objectSnapshotCommandPath = objectSnapshotCommandPath;
