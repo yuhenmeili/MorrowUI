@@ -792,16 +792,25 @@ Present
 
 ## 15. 后续优化方向
 
-本章只记录尚未完成或仍需持续推进的工作。已实现项标注 ✅，部分实现标注 ⚠️，未实现标注 ❌。
-按优先级从高到低排列：工程质量基础 → CPU 关键优化 → 框架补全 → GPU 优化 → 架构演进 → 已完成/基础项。
+状态标记：
+
+- ✅：已完成或当前方案已收敛；
+- ⏸️：保留为需求驱动的候选项，不属于短期计划；
+- 🔜：结合当前代码热路径确认值得近期推进。
+
+原有 Tier 仅表示问题类别，不再表示当前实施优先级。除已完成项外，15.1～15.18
+中原有的剩余方向统一降为非短期候选；近期建议以 15.19 的代码审查结果为准。
 
 ---
 
 #### Tier 1 — 工程质量基础
 
-### 15.1 渲染回归测试 ❌
+### 15.1 渲染回归测试 ⏸️
 
-当前仅 `BatchBuilderTests.cpp` 有 4 个纯 CPU 批次构建单元测试，无任何渲染级回归覆盖。
+> 当前状态：非短期。出现明确渲染兼容性风险或跨平台回归后再扩展。
+
+当前已有 `BatchBuilderTests.cpp` 和 `BatchCompatibilityKeyCacheTests.cpp` 两组纯 CPU
+单元测试，但无渲染级回归覆盖。
 
 需要覆盖：
 
@@ -816,7 +825,9 @@ Present
 - 单线程和多线程一致性；
 - golden image 或 perceptual diff。
 
-### 15.2 压力测试与 CI ❌
+### 15.2 压力测试与 CI ⏸️
+
+> 当前状态：非短期。随发布流程和目标平台交付要求推进。
 
 无 CI 配置，无压力测试。
 
@@ -835,7 +846,9 @@ Present
 - QNX / EGL 交叉编译；
 - 单元测试、固定帧示例和渲染回归自动执行。
 
-### 15.3 性能时间线 ⚠️
+### 15.3 性能时间线 ⏸️
+
+> 当前状态：非短期。短期优化先使用固定场景、现有 Batch 统计和局部计时验证。
 
 已有：`DebugPlane` 显示 FPS、Batch 统计（cache hit/miss、break reason 计数、Draw Call 计数）。缺失各阶段耗时分离。
 
@@ -856,7 +869,7 @@ Present
 
 ### 15.4 Widget Dirty 体系完善 ✅
 
-已有：`Transform` 通过局部数据版本、局部矩阵版本、世界矩阵使用的局部版本及父节点世界版本进行缓存失效检测；`Widget` 不可见子树跳过 update；`MRLabel` 双层文本脏标记；`Mesh::m_revision` 驱动 VBO 跳过上传；`Material::m_revision` 驱动批次列表变化检测，同时 `BatchCompatibilityKey` 用于判断批次兼容性。当前不建议强行引入跨模块统一 Dirty 枚举，主要问题应转为明确各级缓存的失效边界，避免“数据变化”与“结构变化”混用。
+已有：`Transform` 通过局部数据版本、局部矩阵版本、世界矩阵使用的局部版本及父节点世界版本进行缓存失效检测；`Widget` 不可见子树跳过 update；`MRLabel` 双层文本脏标记；`Mesh::m_revision` 驱动 VBO 跳过上传；`Material::m_batchCompatibilityRevision` 驱动合批 key 缓存失效，`Material::m_uniformRevision` 独立记录普通 uniform 数据变化。当前不建议强行引入跨模块统一 Dirty 枚举，主要问题应转为明确各级缓存的失效边界，避免“数据变化”与“结构变化”混用。
 
 优化方向：
 
@@ -887,7 +900,10 @@ Present
 
 对应 CPU 测试覆盖缓存复用，以及 blend、topology、vertex layout 变化时的正确失效。该项按当前方案全部完成。
 
-### 15.7 RenderItem 热路径紧凑化 ⚠️
+### 15.7 RenderItem 热路径紧凑化 ⏸️
+
+> 当前状态：非短期。SoA、整数 ID 和所有权调整仅在 profiling 证明 RenderItem
+> 遍历或引用计数为主要瓶颈后推进。
 
 已有：`BatchCompatibilityKey` 已大量使用整数/位域；`RenderItem` 列表通过 swap 复用容量；`RenderBatchPool` 按 shader 键池化。缺失 SoA 布局和指针消除。
 
@@ -898,7 +914,9 @@ Present
 - 将高频字段组织为连续紧凑结构；
 - 评估 SoA 布局对遍历、排序和合批的收益。
 
-### 15.8 Clip 与 Stencil ⚠️
+### 15.8 Clip 与 Stencil ⏸️
+
+> 当前状态：非短期。属于功能补全，不作为当前性能优化目标。
 
 已有：`BatchCompatibilityKey` 包含 `clipStateId`/`stencilStateId`；`BatchBreakReason::ClipState` 产生断批；`DebugPlane` 显示断批次数。缺失底层 GL 状态实现。
 
@@ -914,7 +932,10 @@ Present
 
 #### Tier 4 — GPU 优化
 
-### 15.9 3D GUI 性能 ❌
+### 15.9 3D GUI 性能 ⏸️
+
+> 当前状态：原列表整体非短期。近期只推进 15.19 中范围更明确的
+> Transform3D 缓存和 SceneView 按变化重绘。
 
 已有：IBL 资源可通过 `Scene3DPassContext` 跨视图共享；Offscreen 分辨率可动态调整。缺失视锥裁剪和 Dirty 体系。
 
@@ -926,7 +947,9 @@ Present
 - 3D 视图按实际变化决定是否重绘；
 - 大量相同 Mesh 使用实例化绘制。
 
-### 15.10 纹理和 Buffer 上传 ⚠️
+### 15.10 纹理和 Buffer 上传 ⏸️
+
+> 当前状态：非短期。除非目标设备 profiling 明确显示上传阻塞或带宽峰值问题。
 
 已有：`PixelDataRecyclePool` 上传缓冲池；`shared_ptr` owner 传递避免 memcpy；`glTexSubImage2D` 局部更新；`VBODataRecyclePool` Fence 回收。缺失统计和高级 buffer 策略。
 
@@ -941,7 +964,9 @@ Present
 
 #### Tier 5 — 架构演进（需需求驱动）
 
-### 15.11 安全重排 ❌
+### 15.11 安全重排 ⏸️
+
+> 当前状态：非短期。当前继续严格保持 painter's order。
 
 `BatchBuilder` 当前 `preservePainterOrder = true` 硬编码。仅在 painter's order 严重限制批次规模时考虑。
 
@@ -953,7 +978,9 @@ Present
 - 不跨越 Clip、Stencil、RenderTarget 和透明边界；
 - 为重排前后结果建立图像回归测试。
 
-### 15.12 非 SSBO 路径减少 Draw Call ⚠️
+### 15.12 非 SSBO 路径减少 Draw Call ⏸️
+
+> 当前状态：非短期。SSBO 仍是主要路径，标准路径只承担正确性回退。
 
 已有：SSBO 路径（实例化绘制 + per-object SSBO 数据）；标准路径（逐对象 `material->apply()` + `drawVBO`）；SSBO fallback。SSBO 已是主要优化路径，标准路径作为回退足够。
 
@@ -964,7 +991,9 @@ Present
 - 合并兼容静态几何；
 - 保留逐对象绘制作为正确性回退路径。
 
-### 15.13 2D/3D Pass 编排 ⚠️
+### 15.13 2D/3D Pass 编排 ⏸️
+
+> 当前状态：非短期。不提前引入 RenderGraph 或统一 transient resource 系统。
 
 已有：`Engine::render()` 固定顺序（begin→2D update→lateUpdate→commit）；`MR3DSceneView` 自行管理 FBO 子 Pass 并恢复 GL 状态。缺失统一管理和统计。
 
@@ -977,7 +1006,9 @@ Present
 - 记录每种 Pass 的 CPU/GPU 时间；
 - 仅在出现跨 Pass 依赖和 transient resource 复用需求后评估 RenderGraph。
 
-### 15.14 FrameState 与全局依赖 ⚠️
+### 15.14 FrameState 与全局依赖 ⏸️
+
+> 当前状态：非短期。仅在相关模块修改时局部收敛依赖，不进行全局重构。
 
 已有：`FrameState` 携带相机、BatchManager、SSBOManager 等服务引用。缺失依赖注入和可测试性。
 
@@ -990,7 +1021,9 @@ Present
 - 明确 Engine、Platform、Window 和 RenderingThread 的销毁顺序；
 - 提升模块可测试性。
 
-### 15.15 Window 与 UI 根节点解耦 ❌
+### 15.15 Window 与 UI 根节点解耦 ⏸️
+
+> 当前状态：非短期。等待多窗口、嵌入式 Surface 或离屏 UI 的明确需求。
 
 当前 `Window` 直接继承 `UIWidget`，同时承担平台窗口和 UI 根节点职责。仅在多窗口、嵌入式 Surface 或离屏 UI 需求出现时评估：
 
@@ -1008,7 +1041,7 @@ Present
 
 已有：删除操作通过 `Cmd_DeleteVBO/Cmd_DeleteTexture2D/Cmd_DeleteGPUProgram/Cmd_DeleteRenderTarget` 编码到 CommandBuffer；`PendingFrame` 携带 Fence，仅在 GPU 完成后回池；像素缓冲立即回收；`~RenderDeviceProxyBase()` 设置 quit 信号并 join 渲染线程。
 
-剩余工作（低优先级）：
+剩余工作（⏸️ 非短期）：
 
 - 明确各 GPU wrapper 的析构线程文档；
 - 为反复创建和销毁 Texture、Buffer、Shader、RenderTarget 增加压力测试。
@@ -1017,14 +1050,17 @@ Present
 
 已有：3 槽环形缓冲（`kRingSize=3`），信号量控制主线程等待；`CommandBuffer` 固定 16MB，`push<T>()` 零分配编码；命令字节数可通过 `size()` 获取。
 
-剩余工作（低优先级）：
+剩余工作（⏸️ 非短期）：
 
 - 记录每帧命令字节数峰值、环形缓冲等待次数和等待时长；
 - 为 CommandBuffer 溢出提供明确错误（当前依赖 debug assert）；
 - 在编码端增加冗余状态过滤；
 - 根据目标设备调整 frame slot 数量和容量。
 
-### 15.18 文本与字体 ⚠️
+### 15.18 文本与字体 ⏸️
+
+> 当前状态：非短期。现有文本 dirty 和连续合批满足当前目标，Atlas 分页等能力
+> 在多语言大字符集场景出现明确压力后推进。
 
 已实现：~~未变化文本避免重新生成几何~~（MRLabel 双层脏标记 + Mesh revision 跳过链）、~~相同字体和 Atlas 的文本连续合批~~（BatchCompatibilityKey 包含 Shader + Texture 集合）。
 
@@ -1034,6 +1070,112 @@ Present
 - 文本布局结果缓存（跨实例复用）；
 - 降低多语言和动态字号导致的 Atlas 抖动（扩容丢弃旧纹理）；
 - 记录字形上传、Atlas 命中和文本重建统计。
+
+---
+
+### 15.19 近期高价值优化建议 🔜
+
+以下方向来自 2026-08-04 对当前代码热路径的审查，目标是优先减少静态 GUI 的
+持续消耗、3D 子场景重复计算和确定性的资源滞留。排序依据是收益、实现范围和
+对现有架构的影响，不要求一次全部实施。
+
+#### P0：Material 纹理所有权收敛 ✅
+
+已完成：`Material::setTexture()` 只维护 `m_textureMap`，已删除没有读取点的
+`m_textures` 和对应线性查找。替换同名 sampler 的纹理后，旧纹理不再被 Material
+额外持有。
+
+对应测试覆盖当前纹理由 Material 持有，以及替换后旧纹理在无其他 owner 时可以
+正常析构。`m_batchCompatibilityRevision` 的失效行为保持不变。
+
+#### P0：按需渲染链路闭环
+
+当前 `EngineOptions::enableRequestRender` 只保存到 `Engine::m_requestRenderEnabled`；
+`RenderingThread::m_needRender` 虽然支持 set/reset，但渲染循环没有读取该状态。
+Windows 和 QNX 平台仍会每轮执行 Widget update、Batch、Present。对大部分时间
+静止的车载 GUI，这是最直接的 CPU/GPU 和功耗浪费。
+
+建议：
+
+- 由 Engine 在帧入口统一判断输入、resize、`REQUESTRENDER` 和持续动画状态；
+- 无变化时不执行 Widget update、3D Pass、Batch、Present，并使用平台等待机制
+  避免空轮询；
+- 将 render request 改为线程安全标志，并保证异步加载、视频帧和输入可以唤醒；
+- Tween、GLTF animation 和流式纹理显式提供“需要持续帧”状态；
+- `maxFrames` 统计实际渲染帧，而不是空闲循环次数。
+
+验收：静态场景完成首帧后不再产生 Draw Call/Present；输入和属性变化能在一个
+目标帧周期内唤醒；Tween、GLTF 动画和视频流不中断。
+
+#### P1：Transform3D 世界矩阵版本缓存
+
+当前 `Transform3D::getWorldTransformMatrix()` 每次调用都会通过组件表查找父
+`Transform3D`，递归获取父矩阵并重新执行矩阵乘法，即使整个 3D 层级没有变化。
+这与 2D `Transform` 已有的版本缓存能力不一致。
+
+建议：
+
+- 为 Transform3D 增加 local/world revision；
+- 缓存父 Transform 身份和上次使用的父 world revision；
+- local revision 和父 world revision 均未变化时直接返回世界矩阵；
+- GLTF 动画只使实际修改节点及其依赖子树失效。
+
+验收：静态 3D 层级预热后世界矩阵重算次数为 0；修改一个节点时只重算该节点
+及其后代，渲染结果与现有实现一致。
+
+#### P1：MR3DSceneView 按变化重绘
+
+当前 `MR3DSceneView::update()` 每帧都会绑定并清空 FBO、更新 frame UBO、遍历
+完整 SceneNode 树，还会为局部 3D FrameState 创建新的 `shared_ptr`。静态模型
+即使画面没有变化也会完整重绘。
+
+建议：
+
+- 建立 scene、camera、lighting、IBL、animation 和 FBO size revision；
+- 仅在任一 revision 变化时执行 3D FBO Pass；
+- 未变化时直接复用上次 FBO color texture，只执行必要的 2D composite；
+- 复用局部 FrameState，消除每帧 `make_shared<FrameState>`；
+- 与按需渲染联动：活跃 GLTF 动画保持 3D Pass 连续更新，暂停后自动静止。
+
+验收：静态 3D SceneView 首帧后不再产生 3D Draw Call 和 frame UBO 更新；相机、
+灯光、模型或 FBO 尺寸变化会准确触发一次重绘；动画期间保持连续更新。
+
+#### P2：Material Uniform/UBO 提交收敛
+
+当前 `Material::apply()` 每次绘制都会遍历多个 `unordered_map`，并以 uniform
+名称字符串编码命令。现有 `m_uniformRevision` 已经把普通 uniform 与合批状态
+分离，可作为后续刷新机制的失效依据。
+
+建议分阶段推进，现阶段不立即修改上传模式：
+
+- 先以 `m_uniformRevision` 缓存已打包的 Material uniform payload；
+- Shader/Material 常量迁移到 Material UBO；
+- model 等逐对象数据使用 per-draw UBO ring 或现有 SSBO；
+- texture/sampler 状态继续独立管理，不与普通 uniform dirty 混用；
+- 保留逐项 uniform 路径作为兼容性回退。
+
+验收：Material uniform 未变化时不重复构建字符串命令或上传常量数据；动态
+model 数据仍能逐帧更新；SSBO 与标准路径画面一致。
+
+#### P2：SSBO 实例数据打包去字符串查找
+
+当前 `SSBOLayout::filler` 在每个实例上通过 `getFloat("...")`、
+`getVector("...")` 查询 Material 的字符串 map，并通过 `std::function` 间接调用。
+大量 Widget 时，这部分可能成为 CPU 热点，但应先使用固定场景确认占比。
+
+建议：
+
+- 为内建 shader 使用类型化 instance payload 或稳定字段句柄；
+- Material revision 未变化时复用已解析的 per-instance 常量；
+- 保留 Transform matrix 等真正逐帧变化的数据直接写入；
+- 评估 `ShaderStorageBuffer` 数据容量复用，避免每批每帧重复获取和 resize DTO。
+
+验收：仅在 profiling 显示 SSBO 填充占用显著 CPU 时间后实施；优化后比较相同
+RenderItem 数量下的 collection/pack 时间、命令字节数和内存峰值。
+
+近期不建议推进 SoA、RenderGraph、安全重排、Window/UI root 解耦、非 SSBO
+复杂实例化和字体 Atlas 分页。这些方向保留在前述非短期清单中，由真实需求和
+profiling 数据触发。
 
 ---
 

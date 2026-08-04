@@ -152,7 +152,6 @@ private:
     HwUBO m_scene3DMaterialUbo{0};
     Scene3DMaterialUBO m_scene3DMaterialData{};
     bool m_scene3DMaterialDirty = true;
-    std::vector<TextureSharedPtr> m_textures{};
     std::vector<std::string> m_defines =  {"ENABLE_SSBO"};
     std::string m_vertexShaderResource;
     std::string m_fragmentShaderResource;

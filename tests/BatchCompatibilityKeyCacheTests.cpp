@@ -48,6 +48,22 @@ void testMaterialBatchCompatibilityCache() {
            "unchanged blend state should reuse the cached compatibility key");
 }
 
+void testMaterialReleasesReplacedTexture() {
+    const auto material = Material::create();
+    auto firstTexture = Texture::create(ImageType::IMAGE);
+    std::weak_ptr<Texture> firstTextureWeak = firstTexture;
+
+    material->setTexture("texture", firstTexture);
+    firstTexture.reset();
+    expect(!firstTextureWeak.expired(),
+           "material should own the currently bound texture");
+
+    const auto secondTexture = Texture::create(ImageType::IMAGE);
+    material->setTexture("texture", secondTexture);
+    expect(firstTextureWeak.expired(),
+           "replacing a sampler texture should release the previous texture");
+}
+
 void testMeshBatchCompatibilityCache() {
     Mesh mesh;
     const uint64_t initialHash = mesh.getBatchCompatibilityHash();
@@ -74,6 +90,7 @@ void testMeshBatchCompatibilityCache() {
 
 int main() {
     testMaterialBatchCompatibilityCache();
+    testMaterialReleasesReplacedTexture();
     testMeshBatchCompatibilityCache();
 
     if (g_failures != 0) {

@@ -3,7 +3,6 @@
 //
 
 #include "Material.h"
-#include <algorithm>
 #include <cstring>
 #include "EmbeddedShaders.h"
 #include "GlobalObject.h"
@@ -32,12 +31,6 @@ void Material::setTexture(const std::string& name, const TextureSharedPtr& textu
     }
     m_textureMap[key] = texture;
     ++m_batchCompatibilityRevision;
-    
-    // 同时更新vector中的textures
-    auto it = std::find(m_textures.begin(), m_textures.end(), texture);
-    if (it == m_textures.end()) {
-        m_textures.push_back(texture);
-    }
 }
 
 TextureSharedPtr Material::getTexture(const std::string& name) const {
