@@ -383,6 +383,7 @@ uint64_t Material::getBatchCompatibilityHash() const {
     hash = hashCombine(hash, static_cast<uint64_t>(static_cast<uint32_t>(m_dstBlendFactor)));
     hash = hashCombine(hash, static_cast<uint64_t>(m_doubleSided));
     hash = hashCombine(hash, static_cast<uint64_t>(m_textureMap.size()));
+    hash = hashCombine(hash, static_cast<uint64_t>(isSSBOShader()));
 
     // unordered_map iteration order is not stable, so fold each entry independently.
     uint64_t textureHash = 0;

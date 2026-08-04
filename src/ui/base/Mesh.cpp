@@ -75,6 +75,19 @@ PrimitiveType Mesh::getDrawMode() const {
     return m_drawMode;
 }
 
+uint64_t Mesh::getBatchCompatibilityHash() const {
+    auto hashCombine = [](uint64_t seed, uint64_t value) {
+        return seed ^ (value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2));
+    };
+
+    uint64_t layoutMask = 1u; // position
+    if (!m_colors.empty())  layoutMask |= 1u << 1;
+    if (!m_uvs.empty())     layoutMask |= 1u << 2;
+    if (!m_normals.empty()) layoutMask |= 1u << 3;
+
+    return hashCombine(static_cast<uint64_t>(m_drawMode), layoutMask);
+}
+
 uint64_t Mesh::getRevision() const {
     return m_revision;
 }

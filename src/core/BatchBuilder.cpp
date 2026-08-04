@@ -7,41 +7,22 @@ bool BatchBuilder::canBatch(const RenderItem& previous, const RenderItem& curren
     return previous.batchKey == current.batchKey;
 }
 
-BatchBreakReason BatchBuilder::getBreakReason(const RenderItem& previous,
-                                              const RenderItem& current) {
+BatchBreakReason BatchBuilder::getBreakReason(const RenderItem& previous, const RenderItem& current) {
     if (previous.displayLayer != current.displayLayer) {
         return BatchBreakReason::DisplayLayer;
     }
-    if (previous.batchKey.shaderName != current.batchKey.shaderName) {
-        return BatchBreakReason::Shader;
-    }
-    if (previous.batchKey.primaryTexture != current.batchKey.primaryTexture) {
-        return BatchBreakReason::Texture;
-    }
-    if (previous.batchKey.primitiveTopology != current.batchKey.primitiveTopology ||
-        previous.batchKey.vertexLayoutMask != current.batchKey.vertexLayoutMask) {
-        return BatchBreakReason::Geometry;
-    }
-    if (previous.batchKey.renderTargetId != current.batchKey.renderTargetId) {
-        return BatchBreakReason::RenderTarget;
-    }
-    if (previous.batchKey.clipStateId != current.batchKey.clipStateId ||
-        previous.batchKey.stencilStateId != current.batchKey.stencilStateId) {
-        return BatchBreakReason::ClipState;
-    }
-    if (!(previous.batchKey == current.batchKey)) {
+    if (previous.batchKey.materialStateHash != current.batchKey.materialStateHash) {
         return BatchBreakReason::MaterialState;
+    }
+    if (previous.batchKey.meshStateHash != current.batchKey.meshStateHash) {
+        return BatchBreakReason::Geometry;
     }
     return BatchBreakReason::OrderBarrier;
 }
 
-BatchBuildResult BatchBuilder::build(const std::vector<RenderItem>& items,
-                                     const BatchBuildOptions& options) const {
+BatchBuildResult BatchBuilder::build(const std::vector<RenderItem>& items) const {
     BatchBuildResult result;
     if (items.empty()) return result;
-
-    // P0.2 仅提供安全模式。保留 options 是为了后续显式增加可证明安全的 reorder 策略。
-    (void)options;
 
     result.groups.reserve(items.size());
     result.breakReasons.reserve(items.size() - 1);

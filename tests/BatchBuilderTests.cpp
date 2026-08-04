@@ -18,24 +18,16 @@ void expect(bool condition, const std::string& message) {
     }
 }
 
-RenderItem makeItem(const std::string& shader,
-                    uintptr_t texture,
-                    uint64_t materialState,
-                    int32_t displayLayer = 0) {
+RenderItem makeItem(uint64_t materialState, int32_t displayLayer = 0) {
     RenderItem item;
     item.displayLayer = displayLayer;
-    item.batchKey.shaderName = shader;
-    item.batchKey.primaryTexture = reinterpret_cast<const void*>(texture);
     item.batchKey.materialStateHash = materialState;
-    item.batchKey.blendEnabled = true;
-    item.batchKey.srcBlendFactor = 1;
-    item.batchKey.dstBlendFactor = 0;
     return item;
 }
 
 void testSameMaterialFormsOneBatch() {
     BatchBuilder builder;
-    std::vector<RenderItem> items(10, makeItem("image", 0x1000, 1));
+    std::vector<RenderItem> items(10, makeItem(1));
     const auto result = builder.build(items);
     expect(result.groups.size() == 1, "10 identical items should form one batch");
     expect(result.groups[0].itemIndices.size() == 10, "the batch should contain all 10 items");
@@ -45,21 +37,21 @@ void testSameMaterialFormsOneBatch() {
 void testDifferentTextureBreaksBatch() {
     BatchBuilder builder;
     const auto result = builder.build({
-        makeItem("image", 0x1000, 1),
-        makeItem("image", 0x2000, 2)
+        makeItem(1),
+        makeItem(2)
     });
     expect(result.groups.size() == 2, "different textures should form two batches");
     expect(result.breakReasons.size() == 1 &&
-           result.breakReasons[0] == BatchBreakReason::Texture,
-           "different textures should report Texture");
+           result.breakReasons[0] == BatchBreakReason::MaterialState,
+           "different material state should report MaterialState");
 }
 
 void testPainterOrderIsPreserved() {
     BatchBuilder builder;
     const auto result = builder.build({
-        makeItem("imageA", 0x1000, 1),
-        makeItem("imageB", 0x2000, 2),
-        makeItem("imageA", 0x1000, 1)
+        makeItem(1),
+        makeItem(2),
+        makeItem(1)
     });
     expect(result.groups.size() == 3, "A-B-A must remain three ordered batches");
     expect(result.groups[0].itemIndices[0] == 0 &&
@@ -70,9 +62,8 @@ void testPainterOrderIsPreserved() {
 
 void testBlendStateBreaksBatch() {
     BatchBuilder builder;
-    auto first = makeItem("image", 0x1000, 1);
-    auto second = makeItem("image", 0x1000, 2);
-    second.batchKey.dstBlendFactor = 1;
+    auto first = makeItem(1);
+    auto second = makeItem(2);
     const auto result = builder.build({first, second});
     expect(result.groups.size() == 2, "different blend state should break the batch");
     expect(result.breakReasons[0] == BatchBreakReason::MaterialState,
@@ -82,8 +73,8 @@ void testBlendStateBreaksBatch() {
 void testDisplayLayerBreaksBatch() {
     BatchBuilder builder;
     const auto result = builder.build({
-        makeItem("image", 0x1000, 1, 0),
-        makeItem("image", 0x1000, 1, 1)
+        makeItem(1, 0),
+        makeItem(1, 1)
     });
     expect(result.groups.size() == 2, "different display layer should break the batch");
     expect(result.breakReasons[0] == BatchBreakReason::DisplayLayer,
@@ -92,38 +83,18 @@ void testDisplayLayerBreaksBatch() {
 
 void testGeometryBreaksBatch() {
     BatchBuilder builder;
-    auto first = makeItem("image", 0x1000, 1);
-    auto second = first;
-    first.batchKey.primitiveTopology = 1;
-    second.batchKey.primitiveTopology = 2;
+    auto first = makeItem(1);
+    auto second = makeItem(1);
+    first.batchKey.meshStateHash = 1;
+    second.batchKey.meshStateHash = 2;
     const auto result = builder.build({first, second});
-    expect(result.groups.size() == 2, "different topology should break the batch");
+    expect(result.groups.size() == 2, "different mesh state should break the batch");
     expect(result.breakReasons[0] == BatchBreakReason::Geometry,
-           "different topology should report Geometry");
-}
-
-void testRenderTargetBreaksBatch() {
-    BatchBuilder builder;
-    auto first = makeItem("image", 0x1000, 1);
-    auto second = first;
-    second.batchKey.renderTargetId = 5;
-    const auto result = builder.build({first, second});
-    expect(result.breakReasons[0] == BatchBreakReason::RenderTarget,
-           "different render target should report RenderTarget");
-}
-
-void testClipBreaksBatch() {
-    BatchBuilder builder;
-    auto first = makeItem("image", 0x1000, 1);
-    auto second = first;
-    second.batchKey.clipStateId = 7;
-    const auto result = builder.build({first, second});
-    expect(result.breakReasons[0] == BatchBreakReason::ClipState,
-           "different clip state should report ClipState");
+           "different mesh state should report Geometry");
 }
 
 void testResourceRevisionsDoNotInvalidateBatchStructure() {
-    auto current = std::vector<RenderItem>{makeItem("image", 0x1000, 1)};
+    auto current = std::vector<RenderItem>{makeItem(1)};
     auto previous = current;
     expect(BatchBuilder::areRenderItemListsEquivalent(current, previous),
            "identical render item lists should be cache-compatible");
@@ -148,8 +119,6 @@ int main() {
     testBlendStateBreaksBatch();
     testDisplayLayerBreaksBatch();
     testGeometryBreaksBatch();
-    testRenderTargetBreaksBatch();
-    testClipBreaksBatch();
     testResourceRevisionsDoNotInvalidateBatchStructure();
 
     if (g_failures != 0) {

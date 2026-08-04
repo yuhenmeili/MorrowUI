@@ -10,12 +10,8 @@ namespace morrow {
 enum class BatchBreakReason : uint8_t {
     None = 0,
     DisplayLayer,
-    Shader,
-    Texture,
     MaterialState,
     Geometry,
-    RenderTarget,
-    ClipState,
     OrderBarrier,
     Count
 };

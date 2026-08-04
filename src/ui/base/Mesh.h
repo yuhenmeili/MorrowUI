@@ -64,6 +64,8 @@ public:
 
     PrimitiveType getDrawMode() const;
 
+    uint64_t getBatchCompatibilityHash() const;
+
     uint64_t getRevision() const;
 
     void clear();

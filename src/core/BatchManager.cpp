@@ -114,32 +114,9 @@ BatchCompatibilityKey BatchManager::createBatchKey(const std::shared_ptr<Materia
     BatchCompatibilityKey key;
     if (!material) return key;
 
-    key.shaderName = material->getShaderName();
-    key.shaderVariantHash = std::hash<std::string>{}(key.shaderName) ^
-                            (static_cast<uint64_t>(material->isSSBOShader()) << 63);
-    auto texture = material->getTexture("texture");
-    if (!texture) texture = material->getTexture("u_texture");
-    if (!texture) texture = material->getTexture("mainTexture");
-    if (!texture) texture = material->getTexture("diffuseMap");
-    key.primaryTexture = texture.get();
-    key.blendEnabled = material->isBlendEnabled();
-    material->getBlendFunc(key.srcBlendFactor, key.dstBlendFactor);
-    key.doubleSided = material->isDoubleSided();
-
     key.materialStateHash = material->getBatchCompatibilityHash();
-    key.textureSetHash = key.materialStateHash;
-    key.ssboLayoutHash = material->isSSBOShader()
-                             ? std::hash<std::string>{}(key.shaderName + "|ssbo")
-                             : 0;
-
     if (meshFilter && meshFilter->getMesh()) {
-        const auto& mesh = meshFilter->getMesh();
-        key.primitiveTopology = static_cast<uint32_t>(mesh->getDrawMode());
-        uint32_t layoutMask = 1u; // position
-        if (!mesh->getColors().empty()) layoutMask |= 1u << 1;
-        if (!mesh->getUVs().empty()) layoutMask |= 1u << 2;
-        if (!mesh->getNormals().empty()) layoutMask |= 1u << 3;
-        key.vertexLayoutMask = layoutMask;
+        key.meshStateHash = meshFilter->getMesh()->getBatchCompatibilityHash();
     }
     return key;
 }
