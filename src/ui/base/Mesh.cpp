@@ -30,8 +30,12 @@ const std::vector<int16_t>& Mesh::getIndices() const {
 }
 
 void Mesh::setUVs(const std::vector<Vector2>& uvs) {
+    const bool layoutChanged = m_uvs.empty() != uvs.empty();
     m_uvs = uvs;
     ++m_revision;
+    if (layoutChanged) {
+        markBatchCompatibilityDirty();
+    }
 }
 
 const std::vector<Vector2>& Mesh::getUVs() const {
@@ -39,8 +43,12 @@ const std::vector<Vector2>& Mesh::getUVs() const {
 }
 
 void Mesh::setNormals(const std::vector<Vector3>& normals) {
+    const bool layoutChanged = m_normals.empty() != normals.empty();
     m_normals = normals;
     ++m_revision;
+    if (layoutChanged) {
+        markBatchCompatibilityDirty();
+    }
 }
 
 const std::vector<Vector3>& Mesh::getNormals() const {
@@ -48,8 +56,12 @@ const std::vector<Vector3>& Mesh::getNormals() const {
 }
 
 void Mesh::setColors(const std::vector<Vector4>& colors) {
+    const bool layoutChanged = m_colors.empty() != colors.empty();
     m_colors = colors;
     ++m_revision;
+    if (layoutChanged) {
+        markBatchCompatibilityDirty();
+    }
 }
 
 const std::vector<Vector4>& Mesh::getColors() const {
@@ -68,6 +80,7 @@ void Mesh::setDrawMode(PrimitiveType mode) {
     if (m_drawMode != mode) {
         m_drawMode = mode;
         ++m_revision;
+        markBatchCompatibilityDirty();
     }
 }
 
@@ -76,6 +89,10 @@ PrimitiveType Mesh::getDrawMode() const {
 }
 
 uint64_t Mesh::getBatchCompatibilityHash() const {
+    if (m_cachedBatchCompatibilityRevision == m_batchCompatibilityRevision) {
+        return m_cachedBatchCompatibilityHash;
+    }
+
     auto hashCombine = [](uint64_t seed, uint64_t value) {
         return seed ^ (value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2));
     };
@@ -85,7 +102,9 @@ uint64_t Mesh::getBatchCompatibilityHash() const {
     if (!m_uvs.empty())     layoutMask |= 1u << 2;
     if (!m_normals.empty()) layoutMask |= 1u << 3;
 
-    return hashCombine(static_cast<uint64_t>(m_drawMode), layoutMask);
+    m_cachedBatchCompatibilityHash = hashCombine(static_cast<uint64_t>(m_drawMode), layoutMask);
+    m_cachedBatchCompatibilityRevision = m_batchCompatibilityRevision;
+    return m_cachedBatchCompatibilityHash;
 }
 
 uint64_t Mesh::getRevision() const {
@@ -93,12 +112,20 @@ uint64_t Mesh::getRevision() const {
 }
 
 void Mesh::clear() {
+    const bool layoutChanged = !m_colors.empty() || !m_uvs.empty() || !m_normals.empty();
     m_vertices.clear();
     m_colors.clear();
     m_uvs.clear();
     m_normals.clear();
     m_indices.clear();
     ++m_revision;
+    if (layoutChanged) {
+        markBatchCompatibilityDirty();
+    }
+}
+
+void Mesh::markBatchCompatibilityDirty() {
+    ++m_batchCompatibilityRevision;
 }
 
 MeshSharedPtr Mesh::createQuad(float width, float height) {

@@ -874,16 +874,18 @@ Present
 
 #### Tier 3 — 框架补全
 
-### 15.6 合批 Key 缓存 ⚠️
+### 15.6 合批 Key 缓存 ✅
 
-已有：`BatchCompatibilityKey` 使用 `uint64_t` hash + `uint32_t` bitfield + `uintptr_t` 比较（仅 `shaderName` 为 string 比较）；`BatchBreakReason` 细分 8 类断批原因并在 `DebugPlane` 显示；`cacheHitCount/cacheMissCount` 统计。缺失 Material/Mesh 上的 Key 缓存。
+已完成：`Material` 和 `Mesh` 分别缓存自身的 `BatchCompatibilityKey` hash 部分。Material 使用 `m_batchCompatibilityRevision` 和 `m_uniformRevision` 分离合批兼容状态与普通 uniform 数据变化；当前合批缓存只消费前者，后者预留给后续 uniform dirty/UBO 上传刷新机制。Mesh 因资源 revision 还承担 VBO 上传判断，额外使用 batch compatibility revision。对应合批 revision 未变化时，`createBatchKey()` 直接复用缓存结果，不再重复遍历 Material 纹理集合或重算 Mesh layout hash。
 
-优化方向：
+失效边界：
 
-- 缓存 Material 和 Mesh 的 `BatchCompatibilityKey`；
-- revision 未变化时直接复用 key，避免每帧 `createBatchKey()` 重算纹理集合 hash；
-- `shaderName` 改为整数 ID；
-- 根据真实场景数据决定是否引入分层排序。
+- Material 的 texture、shader、blend 和 double-sided 状态变化时失效；普通 uniform 参数变化不影响缓存；
+- Mesh 的 primitive topology 或 vertex layout 变化时失效；顶点、索引和 attribute 内容变化不影响缓存；
+- `shaderName` 保持现有 string 表示，本阶段不改为整数 ID；
+- 保持现有绘制顺序和合批策略，本阶段不引入分层排序。
+
+对应 CPU 测试覆盖缓存复用，以及 blend、topology、vertex layout 变化时的正确失效。该项按当前方案全部完成。
 
 ### 15.7 RenderItem 热路径紧凑化 ⚠️
 

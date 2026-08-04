@@ -31,7 +31,7 @@ void Material::setTexture(const std::string& name, const TextureSharedPtr& textu
         return;
     }
     m_textureMap[key] = texture;
-    ++m_revision;
+    ++m_batchCompatibilityRevision;
     
     // 同时更新vector中的textures
     auto it = std::find(m_textures.begin(), m_textures.end(), texture);
@@ -54,17 +54,17 @@ bool Material::hasTexture(const std::string& name) const {
 
 void Material::setVector(const std::string& name, const Vector2& value) {
     m_vectorMap[m_attributePrefix + name] = value;
-    ++m_revision;
+    ++m_uniformRevision;
 }
 
 void Material::setVector(const std::string& name, const Vector3& value) {
     m_vectorMap[m_attributePrefix + name] = value;
-    ++m_revision;
+    ++m_uniformRevision;
 }
 
 void Material::setVector(const std::string& name, const Vector4& value) {
     m_vectorMap[m_attributePrefix + name] = value;
-    ++m_revision;
+    ++m_uniformRevision;
 }
 
 VectorVariant Material::getVector(const std::string& name) const {
@@ -77,6 +77,7 @@ VectorVariant Material::getVector(const std::string& name) const {
 
 void Material::setMatrix4(const std::string& name, const Matrix4& matrix) {
     m_matrix4Map[m_attributePrefix + name] = matrix;
+    ++m_uniformRevision;
 }
 
 Matrix4 Material::getMatrix4(const std::string& name) const {
@@ -90,7 +91,7 @@ Matrix4 Material::getMatrix4(const std::string& name) const {
 
 void Material::setFloat(const std::string& name, float value) {
     m_floatMap[m_attributePrefix + name] = value;
-    ++m_revision;
+    ++m_uniformRevision;
 }
 
 float Material::getFloat(const std::string& name) const {
@@ -103,7 +104,7 @@ float Material::getFloat(const std::string& name) const {
 
 void Material::setInt(const std::string& name, int32_t value) {
     m_intMap[m_attributePrefix + name] = value;
-    ++m_revision;
+    ++m_uniformRevision;
 }
 
 int32_t Material::getInt(const std::string& name) const {
@@ -116,7 +117,7 @@ int32_t Material::getInt(const std::string& name) const {
 
 void Material::setBool(const std::string& name, bool value) {
     m_intMap[m_attributePrefix + name] = value ? 1 : 0;
-    ++m_revision;
+    ++m_uniformRevision;
 }
 
 bool Material::getBool(const std::string& name) const {
@@ -134,7 +135,7 @@ void Material::setIntArray(const std::string& name, const int32_t* values, int32
     int_array_data.size = size;
     int_array_data.step = step;
     m_intArrayMap[int_array_data.name] = int_array_data;
-    ++m_revision;
+    ++m_uniformRevision;
 }
 
 // void ShaderMaterial::setShader(const ShaderSharedPtr& shader) {
@@ -145,7 +146,8 @@ void Material::setShader(const std::string& shaderName) {
     if (m_shaderName != shaderName) {
         m_shaderName = shaderName;
         loadShader();
-        ++m_revision;
+        ++m_batchCompatibilityRevision;
+        ++m_uniformRevision;
         LOG_I("set shader {}", shaderName);
     }
 }
@@ -159,7 +161,8 @@ void Material::setShaderFromMemory(const std::string& shaderName,
     // 清除已缓存的 shader，下次 apply 时重新 buildShader
     m_shader = HwGPUProgram{0};
     m_batchShader = HwGPUProgram{0};
-    ++m_revision;
+    ++m_batchCompatibilityRevision;
+    ++m_uniformRevision;
 }
 
 std::string Material::getShaderName() const {
@@ -177,7 +180,7 @@ HwGPUProgram Material::getBatchShader() const {
 void Material::setBlendEnabled(bool enabled) {
     if (m_blendEnabled != enabled) {
         m_blendEnabled = enabled;
-        ++m_revision;
+        ++m_batchCompatibilityRevision;
     }
 }
 
@@ -185,7 +188,7 @@ void Material::setBlendFunc(int srcFactor, int dstFactor) {
     if (m_srcBlendFactor != srcFactor || m_dstBlendFactor != dstFactor) {
         m_srcBlendFactor = srcFactor;
         m_dstBlendFactor = dstFactor;
-        ++m_revision;
+        ++m_batchCompatibilityRevision;
     }
 }
 
@@ -201,7 +204,7 @@ void Material::getBlendFunc(int& srcFactor, int& dstFactor) const {
 void Material::setDoubleSided(bool doubleSided) {
     if (m_doubleSided != doubleSided) {
         m_doubleSided = doubleSided;
-        ++m_revision;
+        ++m_batchCompatibilityRevision;
     }
 }
 
@@ -212,6 +215,7 @@ bool Material::isDoubleSided() const {
 void Material::setScene3DMaterialUBO(const Scene3DMaterialUBO& materialData) {
     m_scene3DMaterialData = materialData;
     m_scene3DMaterialDirty = true;
+    ++m_uniformRevision;
 }
 
 const Scene3DMaterialUBO& Material::getScene3DMaterialUBO() const {
@@ -373,6 +377,10 @@ bool Material::operator==(const Material& other) const {
 }
 
 uint64_t Material::getBatchCompatibilityHash() const {
+    if (m_cachedBatchCompatibilityRevision == m_batchCompatibilityRevision) {
+        return m_cachedBatchCompatibilityHash;
+    }
+
     auto hashCombine = [](uint64_t seed, uint64_t value) {
         return seed ^ (value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2));
     };
@@ -393,11 +401,21 @@ uint64_t Material::getBatchCompatibilityHash() const {
             static_cast<uint64_t>(reinterpret_cast<uintptr_t>(texture.get())));
         textureHash ^= entryHash;
     }
-    return hashCombine(hash, textureHash);
+    m_cachedBatchCompatibilityHash = hashCombine(hash, textureHash);
+    m_cachedBatchCompatibilityRevision = m_batchCompatibilityRevision;
+    return m_cachedBatchCompatibilityHash;
+}
+
+uint64_t Material::getBatchCompatibilityRevision() const {
+    return m_batchCompatibilityRevision;
+}
+
+uint64_t Material::getUniformRevision() const {
+    return m_uniformRevision;
 }
 
 uint64_t Material::getRevision() const {
-    return m_revision;
+    return getBatchCompatibilityRevision();
 }
 
 bool Material::isSSBOShader() const {

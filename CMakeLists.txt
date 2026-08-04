@@ -72,4 +72,10 @@ if(BUILD_TESTING)
     target_include_directories(BatchBuilderTests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME BatchBuilderTests COMMAND BatchBuilderTests)
+
+    add_executable(BatchCompatibilityKeyCacheTests
+        tests/BatchCompatibilityKeyCacheTests.cpp)
+    target_link_libraries(BatchCompatibilityKeyCacheTests morrow)
+    add_test(NAME BatchCompatibilityKeyCacheTests
+        COMMAND BatchCompatibilityKeyCacheTests)
 endif()

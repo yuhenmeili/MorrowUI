@@ -71,6 +71,8 @@ public:
     void clear();
 
 private:
+    void markBatchCompatibilityDirty();
+
     std::vector<Vector3> m_vertices;
     std::vector<int16_t> m_indices;
     std::vector<Vector2> m_uvs;
@@ -78,6 +80,9 @@ private:
     std::vector<Vector4> m_colors;
     PrimitiveType m_drawMode = PrimitiveType::TRIANGLES;
     uint64_t m_revision = 1;
+    uint64_t m_batchCompatibilityRevision = 1;
+    mutable uint64_t m_cachedBatchCompatibilityRevision = 0;
+    mutable uint64_t m_cachedBatchCompatibilityHash = 0;
 };
 
 using MeshSharedPtr = std::shared_ptr<Mesh>;
