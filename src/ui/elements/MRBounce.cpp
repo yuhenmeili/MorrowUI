@@ -16,7 +16,7 @@ MRBounceSharedPtr MRBounce::create()
 
 MRBounce::MRBounce()
 {
-    m_widgetType = "MRBounce";
+    setWidgetType("MRBounce");
     m_material->setShader("bounce");
 }
 }

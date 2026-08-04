@@ -16,7 +16,7 @@ MRGearsShineSharedPtr MRGearsShine::create()
 
 MRGearsShine::MRGearsShine()
 {
-    m_widgetType = "MRGearsShine";
+    setWidgetType("MRGearsShine");
     m_options = std::make_shared<MRGearsShineOptions>();
     m_material->setShader("gears_shine");
 }

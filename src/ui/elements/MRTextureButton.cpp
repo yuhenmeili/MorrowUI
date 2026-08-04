@@ -56,7 +56,7 @@ void MRTextureButton::updateVisualState() {
 }
 
 MRTextureButton::MRTextureButton() {
-    m_widgetType = "MRTextureButton";
+    setWidgetType("MRTextureButton");
     m_material->setShader("texture_button");
 }
 } // morrow

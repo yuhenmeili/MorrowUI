@@ -7,7 +7,7 @@ namespace morrow {
 SceneNode::SceneNode()
     : Widget() {
     addComponent<Transform3D>();
-    m_widgetType = "SceneNode";
+    setWidgetType("SceneNode");
 }
 
 Transform3DSharedPtr SceneNode::getTransform() {

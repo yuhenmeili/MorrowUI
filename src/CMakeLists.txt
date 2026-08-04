@@ -3,6 +3,8 @@ add_subdirectory(math)
 
 set(MORROW_LIB_NAME "morrow")
 
+option(MORROW_ENABLE_OBJECT_DIAGNOSTICS "Enable lightweight ObjectRegistry snapshots" ON)
+
 set(MORROW_SHADER_DIR ${CMAKE_SOURCE_DIR}/assets/shaders)
 set(MORROW_SHADER_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 file(GLOB MORROW_SHADER_FILES
@@ -179,6 +181,11 @@ set(MORROW_SRC
 add_library(${MORROW_LIB_NAME} STATIC ${MORROW_SRC})
 add_dependencies(${MORROW_LIB_NAME} morrow_generate_embedded_shaders)
 target_compile_definitions(${MORROW_LIB_NAME} PUBLIC ${MORROW_PUBLIC_DEFINES})
+if(MORROW_ENABLE_OBJECT_DIAGNOSTICS)
+    target_compile_definitions(${MORROW_LIB_NAME} PUBLIC MORROW_ENABLE_OBJECT_DIAGNOSTICS=1)
+else()
+    target_compile_definitions(${MORROW_LIB_NAME} PUBLIC MORROW_ENABLE_OBJECT_DIAGNOSTICS=0)
+endif()
 if(MORROW_PLATFORM STREQUAL "Windows")
     target_link_directories(${MORROW_LIB_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/libs/GLFW)
 endif()

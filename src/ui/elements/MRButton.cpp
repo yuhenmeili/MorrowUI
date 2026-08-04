@@ -10,7 +10,7 @@
 
 namespace morrow {
 MRButton::MRButton() {
-    m_widgetType = "MRButton";
+    setWidgetType("MRButton");
     // 创建标签组件
     m_label = std::make_shared<MRLabel>();
     m_label->setFontColor(m_currentTextColor);

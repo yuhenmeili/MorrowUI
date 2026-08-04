@@ -29,7 +29,7 @@ EGLWindow::EGLWindow(EGLOperationsQNXSharedPtr platform, const WindowInfo& windo
     m_windowSize.x = float(windowInfo.width);
     m_windowSize.y = float(windowInfo.height);
 
-    m_widgetType = "MRWindow";
+    setWidgetType("MRWindow");
     m_platform = platform;
 }
 

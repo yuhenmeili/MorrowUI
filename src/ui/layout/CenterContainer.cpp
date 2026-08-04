@@ -10,7 +10,7 @@ namespace morrow {
 
 CenterContainer::CenterContainer()
     : UIWidget(false) {
-    m_widgetType = "CenterContainer";
+    setWidgetType("CenterContainer");
 }
 
 void CenterContainer::update(FrameStateSharedPtr frameState) {

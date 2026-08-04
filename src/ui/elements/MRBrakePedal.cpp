@@ -14,7 +14,7 @@ MRBrakePedal::create()
 
 MRBrakePedal::MRBrakePedal()
 {
-    m_widgetType = "MRBrakePedal";
+    setWidgetType("MRBrakePedal");
     m_material->setShader("brake_pedal");
 }
 

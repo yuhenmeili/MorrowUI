@@ -69,7 +69,7 @@ std::shared_ptr<MR3DSceneView> MR3DSceneView::create(int32_t fboW, int32_t fboH)
 }
 
 MR3DSceneView::MR3DSceneView() : UIWidget(false) {
-    m_widgetType = "Scene3DView";
+    setWidgetType("Scene3DView");
     m_scene3DPassContext = std::make_shared<Scene3DPassContext>();
 }
 

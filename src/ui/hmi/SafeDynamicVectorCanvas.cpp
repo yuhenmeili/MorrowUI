@@ -84,7 +84,7 @@ SafeDynamicVectorCanvasSharedPtr SafeDynamicVectorCanvas::create(int maxVertices
 
 SafeDynamicVectorCanvas::SafeDynamicVectorCanvas(int maxVertices)
     : m_maxVertices(maxVertices) {
-    m_widgetType = "SafeDynamicVectorCanvas";
+    setWidgetType("SafeDynamicVectorCanvas");
 
     // 预分配 CPU 端顶点缓冲
     m_vertices.reserve(maxVertices);

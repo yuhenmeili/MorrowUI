@@ -41,7 +41,7 @@ void MRFlowingLight::initialize() {
 
 MRFlowingLight::MRFlowingLight()
 {
-    m_widgetType = "MRFlowingLight";
+    setWidgetType("MRFlowingLight");
     m_material->setShader("flowing_light");
     m_options = std::make_shared<MRFlowingLightOptions>();
 }

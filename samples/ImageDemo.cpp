@@ -20,11 +20,19 @@ int main(int argc, char** argv)
 {
     uint32_t maxFrames = 0;
     bool reportJson = false;
+    std::string objectSnapshotPath;
+    std::string objectSnapshotCommandPath;
     for (int index = 1; index < argc; ++index) {
         if (std::strcmp(argv[index], "--report-json") == 0) {
             reportJson = true;
         } else if (std::strcmp(argv[index], "--frames") == 0 && index + 1 < argc) {
             maxFrames = static_cast<uint32_t>(std::strtoul(argv[++index], nullptr, 10));
+        } else if (std::strcmp(argv[index], "--object-snapshot") == 0 &&
+                   index + 1 < argc) {
+            objectSnapshotPath = argv[++index];
+        } else if (std::strcmp(argv[index], "--object-snapshot-command") == 0 &&
+                   index + 1 < argc) {
+            objectSnapshotCommandPath = argv[++index];
         }
     }
     if (reportJson && maxFrames == 0) {
@@ -34,6 +42,8 @@ int main(int argc, char** argv)
     EngineOptions engineOptions;
     engineOptions.multithread = false;
     engineOptions.maxFrames = maxFrames;
+    engineOptions.objectSnapshotPath = objectSnapshotPath;
+    engineOptions.objectSnapshotCommandPath = objectSnapshotCommandPath;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
     auto window = engine->getWindow();

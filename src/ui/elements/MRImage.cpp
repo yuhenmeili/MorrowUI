@@ -11,7 +11,7 @@ MRImageSharedPtr MRImage::create() {
 }
 
 MRImage::MRImage() {
-    m_widgetType = "MRImage";
+    setWidgetType("MRImage");
     m_material->setShader("image_normal");
     m_material->setFloat("rounding", 0.0f);
 

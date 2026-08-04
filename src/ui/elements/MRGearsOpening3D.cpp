@@ -16,7 +16,7 @@ MRGearsOpening3DSharedPtr MRGearsOpening3D::create()
 
 MRGearsOpening3D::MRGearsOpening3D()
 {
-    m_widgetType = "MRGearsOpening3D";
+    setWidgetType("MRGearsOpening3D");
     m_material->setShader("gears_opening3D");
     m_options = std::make_shared<MRGearsOpening3DOptions>();
 }

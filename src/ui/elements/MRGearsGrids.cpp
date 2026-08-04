@@ -52,7 +52,7 @@ void MRGearsGrids::initialize()
 
 MRGearsGrids::MRGearsGrids()
 {
-    m_widgetType = "MRGearsGrids";
+    setWidgetType("MRGearsGrids");
     m_material->setShader("gears_grids");
     m_options = std::make_shared<MRGearsGridsOptions>();
 }

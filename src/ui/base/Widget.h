@@ -9,6 +9,7 @@
 #include "FrameState.h"
 #include "ComponentManager.h"
 #include "Rect.h"
+#include "debug/ObjectRegistry.h"
 
 namespace morrow {
 class Interaction;
@@ -21,7 +22,7 @@ class Widget : public std::enable_shared_from_this<Widget> {
 public:
     Widget();
 
-    virtual ~Widget() = default;
+    virtual ~Widget();
 
     void setWidgetName(std::string widgetName);
 
@@ -34,6 +35,11 @@ public:
     const std::string& getUuid() const;
 
     const std::string& getWidgetName() const;
+
+    DebugObjectId getDebugObjectId() const;
+
+    /// Snapshot 前同步类型、名称和树关系；仅用于调试，不改变对象所有权。
+    void refreshDebugObjectTree(DebugObjectId parentId = 0);
 
     int32_t getDisplayLayer() const;
 
@@ -107,6 +113,8 @@ public:
     std::vector<std::shared_ptr<Widget>> m_children;
 
 protected:
+    void setWidgetType(std::string widgetType);
+
     std::string m_widgetName;
     std::string m_widgetType = "MRWidget";
     std::atomic_bool m_visible{true};
@@ -116,6 +124,7 @@ protected:
     std::unique_ptr<ComponentManager> m_componentManager;
 
 private:
+    DebugObjectHandle m_debugObject{DebugObjectCategory::Widget, "MRWidget"};
     std::string m_uniqueID = Math::generate_uuid();
 };
 }

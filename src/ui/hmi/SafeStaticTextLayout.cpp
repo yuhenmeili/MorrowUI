@@ -97,7 +97,7 @@ SafeStaticTextLayoutSharedPtr SafeStaticTextLayout::create(const std::string& at
 
 SafeStaticTextLayout::SafeStaticTextLayout(const std::string& atlasName)
     : m_atlasName(atlasName), m_color(1.0f, 1.0f, 1.0f, 1.0f) {
-    m_widgetType = "SafeStaticTextLayout";
+    setWidgetType("SafeStaticTextLayout");
 
     // 将默认 Quad Mesh 改为空 Mesh（由 buildTextMesh 动态重建）
     auto mesh = m_meshFilter->getMesh();

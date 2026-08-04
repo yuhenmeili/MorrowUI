@@ -14,6 +14,7 @@ DynamicFont::~DynamicFont() {
 }
 
 bool DynamicFont::LoadFromFile(const std::string& filename, float pixelHeight) {
+    m_debugObject.setName(filename);
     FILE* file = fopen(filename.c_str(), "rb");
     if (!file) {
         LOG_E("fail to load font {}", filename);

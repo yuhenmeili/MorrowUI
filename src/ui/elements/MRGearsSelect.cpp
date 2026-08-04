@@ -15,7 +15,7 @@ MRGearsSelectSharedPtr MRGearsSelect::create()
 
 MRGearsSelect::MRGearsSelect()
 {
-    m_widgetType = "MRGearsSelect";
+    setWidgetType("MRGearsSelect");
     m_material->setShader("gears_select");
     m_options = std::make_shared<MRGearsSelectOptions>();
 }

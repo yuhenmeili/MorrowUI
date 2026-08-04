@@ -10,7 +10,7 @@ namespace morrow {
 
 HBoxContainer::HBoxContainer()
     : UIWidget(false) {
-    m_widgetType = "HBoxContainer";
+    setWidgetType("HBoxContainer");
 }
 
 void HBoxContainer::setSpacing(float spacing) {

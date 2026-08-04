@@ -12,6 +12,7 @@
 #include "FrameState.h"
 #include "GpuTypes.h"    // Texture2D, TextureData（无需拉入完整设备接口）
 #include "basis_universal/transcoder/basisu_containers.h"
+#include "debug/ObjectRegistry.h"
 
 namespace morrow {
 struct TextureInfo {
@@ -100,6 +101,7 @@ protected:
     TextureData m_textureData;
 
 private:
+    DebugObjectHandle m_debugObject{DebugObjectCategory::Texture, "Texture"};
     std::string m_uniqueID = Math::generate_uuid();
 };
 

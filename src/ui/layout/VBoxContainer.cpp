@@ -10,7 +10,7 @@ namespace morrow {
 
 VBoxContainer::VBoxContainer()
     : UIWidget(false) {
-    m_widgetType = "VBoxContainer";
+    setWidgetType("VBoxContainer");
 }
 
 void VBoxContainer::setSpacing(float spacing) {

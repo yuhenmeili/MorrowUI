@@ -10,7 +10,7 @@ namespace morrow {
 
 MarginContainer::MarginContainer()
     : UIWidget(false) {
-    m_widgetType = "MarginContainer";
+    setWidgetType("MarginContainer");
 }
 
 void MarginContainer::setMarginLeft(float value) {

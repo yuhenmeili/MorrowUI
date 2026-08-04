@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include "FrameState.h"
+#include "debug/ObjectRegistry.h"
 
 namespace morrow {
 class Widget;
@@ -14,7 +15,7 @@ class Component : public std::enable_shared_from_this<Component> {
 public:
     Component() = default;
 
-    virtual ~Component() = default;
+    virtual ~Component();
 
     /// ────────── 生命周期（调用于 ComponentManager / Widget）──────────
     /// onAttach:   组件被 addComponent 添加到 Widget 后
@@ -54,6 +55,10 @@ public:
 
     void setGameObject(Widget* gameObject);
 
+    DebugObjectId getDebugObjectId() const;
+
+    void setDebugTypeName(const std::string& typeName);
+
     template <typename T>
     std::shared_ptr<T> getComponent();
 
@@ -65,6 +70,7 @@ protected:
 
 private:
     Widget* m_gameObject = nullptr;
+    DebugObjectHandle m_debugObject{DebugObjectCategory::Component, "Component"};
 };
 
 using ComponentSharedPtr = std::shared_ptr<Component>;

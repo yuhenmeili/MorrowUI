@@ -17,6 +17,7 @@
 #include "stb_truetype.h"
 
 #include "FontTexture.h"
+#include "debug/ObjectRegistry.h"
 
 namespace morrow {
 // 字符字形信息
@@ -111,6 +112,7 @@ private:
     std::vector<PendingUpload> m_pendingUploads;
 
 private:
+    DebugObjectHandle m_debugObject{DebugObjectCategory::Font, "DynamicFont"};
     stbtt_fontinfo m_fontInfo;
     std::vector<unsigned char> m_fontData;
     float m_pixelHeight = 16.0f;

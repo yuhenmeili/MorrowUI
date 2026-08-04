@@ -21,6 +21,7 @@ public:
         static_assert(std::is_base_of<Component, T>::value, "T must derive from Component");
 
         auto component = std::make_shared<T>(std::forward<Args>(args)...);
+        component->setDebugTypeName(debugTypeName<T>());
         auto typeId = std::type_index(typeid(T));
 
         // 添加到组件列表

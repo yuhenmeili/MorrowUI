@@ -13,7 +13,7 @@ MRCustomParkingSharedPtr MRCustomParking::create()
 
 MRCustomParking::MRCustomParking()
 {
-    m_widgetType = "MRCustomParking";
+    setWidgetType("MRCustomParking");
     m_material->setShader("custom_parking");
 }
 }

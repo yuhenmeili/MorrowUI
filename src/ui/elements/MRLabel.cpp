@@ -11,7 +11,7 @@
 
 namespace morrow {
 MRLabel::MRLabel() {
-    m_widgetType = "MRTextRenderer";
+    setWidgetType("MRTextRenderer");
     m_material->setShader("font");
     m_material->setVector("fontColor", Vector4(1.0f, 1.0f, 1.0f, 1.0f));
     auto transform = getComponent<Transform>();

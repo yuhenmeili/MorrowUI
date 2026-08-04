@@ -97,7 +97,7 @@ SafeStreamTextureSharedPtr SafeStreamTexture::create(int width, int height) {
 
 SafeStreamTexture::SafeStreamTexture(int width, int height)
     : m_width(width), m_height(height) {
-    m_widgetType = "SafeStreamTexture";
+    setWidgetType("SafeStreamTexture");
 
     // 预分配 GPU 纹理
     initTexture();

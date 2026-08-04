@@ -90,7 +90,7 @@ SafeStaticSpriteSharedPtr SafeStaticSprite::create(const std::string& atlasName)
 
 SafeStaticSprite::SafeStaticSprite(const std::string& atlasName)
     : m_atlasName(atlasName) {
-    m_widgetType = "SafeStaticSprite";
+    setWidgetType("SafeStaticSprite");
 
     // 1) 注入内置着色器 → Material（绕过文件 IO）
     initShader();

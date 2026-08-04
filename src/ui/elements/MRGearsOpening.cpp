@@ -38,7 +38,7 @@ void MRGearsOpening::initialize() {
 
 MRGearsOpening::MRGearsOpening()
 {
-    m_widgetType = "MRGearsOpening";
+    setWidgetType("MRGearsOpening");
     m_material->setShader("gears_opening");
     m_options = std::make_shared<MRGearsOpeningOptions>();
 }

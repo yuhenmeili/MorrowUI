@@ -12,6 +12,7 @@
 
 namespace morrow {
 WGLWindow::WGLWindow(const WindowInfo& info) {
+    setWidgetType("MRWindow");
     if (!glfwInit()) {
         LOG_E("Failed to initialize GLFW");
         return;

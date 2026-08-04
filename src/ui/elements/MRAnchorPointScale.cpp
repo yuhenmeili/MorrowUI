@@ -11,7 +11,7 @@ MRAnchorPointScaleSharedPtr MRAnchorPointScale::create() {
 }
 
 MRAnchorPointScale::MRAnchorPointScale() {
-    m_widgetType = "MRAnchorPointScale";
+    setWidgetType("MRAnchorPointScale");
     m_material->setShader("anchor_point_scale");
 }
 }

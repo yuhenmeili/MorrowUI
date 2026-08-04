@@ -5,6 +5,8 @@
 #include "Component.inl"
 
 namespace morrow {
+Component::~Component() = default;
+
 void Component::onAttach() {
 }
 
@@ -52,6 +54,15 @@ Widget* Component::getGameObject() const {
 
 void Component::setGameObject(Widget* gameObject) {
     m_gameObject = gameObject;
+    m_debugObject.setOwnerId(gameObject ? gameObject->getDebugObjectId() : 0);
+}
+
+DebugObjectId Component::getDebugObjectId() const {
+    return m_debugObject.id();
+}
+
+void Component::setDebugTypeName(const std::string& typeName) {
+    m_debugObject.setTypeName(typeName);
 }
 
 // Explicit instantiations for commonly used transform component lookups.

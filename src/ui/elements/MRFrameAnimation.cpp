@@ -13,7 +13,7 @@ MRFrameAnimationSharedPtr MRFrameAnimation::create()
 
 MRFrameAnimation::MRFrameAnimation()
 {
-    m_widgetType = "MRFrameAnimation";
+    setWidgetType("MRFrameAnimation");
     m_material->setShader("frame_animation");
 }
 

@@ -1,6 +1,9 @@
 #include "Engine.h"
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 #include "FontManager.h"
 #include "MathUtils.h"
@@ -9,7 +12,26 @@
 #include "PlatformFactory.h"
 #include "debug/DebugPlane.h"
 #include "ui/helpers/Tween.h"
+#include "debug/ObjectRegistry.h"
 #include "renderer/device/RenderDeviceProxy.h"
+
+namespace {
+std::filesystem::path makeFrameTaggedSnapshotPath(const std::string& requestedPath,
+                                                  uint64_t frame) {
+    const std::filesystem::path outputPath(requestedPath);
+    const auto parentPath = outputPath.parent_path();
+    const auto stem = outputPath.stem().string();
+    const auto extension = outputPath.extension().string();
+    const auto frameTaggedStem = stem + "-frame-" + std::to_string(frame);
+
+    auto candidate = parentPath / (frameTaggedStem + extension);
+    std::error_code error;
+    for (uint32_t sequence = 1; std::filesystem::exists(candidate, error) && !error; ++sequence) {
+        candidate = parentPath / (frameTaggedStem + "-" + std::to_string(sequence) + extension);
+    }
+    return candidate;
+}
+}
 
 namespace morrow {
 Engine::Engine(const EngineOptions& options) {
@@ -22,6 +44,8 @@ Engine::Engine(const EngineOptions& options) {
           windowInfo.samples);
     m_requestRenderEnabled = options.enableRequestRender;
     m_maxFrames = options.maxFrames;
+    m_objectSnapshotPath = options.objectSnapshotPath;
+    m_objectSnapshotCommandPath = options.objectSnapshotCommandPath;
     m_platform = PlatformFactory::create(windowInfo);
     m_platform->initialize(options.multithread);
 
@@ -87,6 +111,7 @@ void Engine::render() {
 
         // ── 阶段 4: 帧后处理 ──
         m_frameState->frameNumber++;
+        ObjectRegistry::getInstance().setCurrentFrame(m_frameState->frameNumber);
         heartbeat();
         m_debugPlane->update(m_frameState);
         m_afterRender.notify();
@@ -99,11 +124,82 @@ void Engine::render() {
         }
     }
 
+    if (!m_objectSnapshotPath.empty()) {
+        writeObjectSnapshot(m_objectSnapshotPath);
+    }
     m_platform->terminate();
 }
 
 Observable<>& Engine::afterRender() {
     return m_afterRender;
+}
+
+bool Engine::writeObjectSnapshot(const std::string& path) const {
+    const auto root = m_platform ? m_platform->getWindow() : nullptr;
+    if (!root || path.empty()) return false;
+    root->refreshDebugObjectTree();
+    const uint64_t frame = m_frameState ? m_frameState->frameNumber : 0;
+    const auto outputPath = makeFrameTaggedSnapshotPath(path, frame);
+    if (ObjectRegistry::getInstance().writeSnapshot(outputPath.string(), frame, root->getDebugObjectId())) {
+        LOG_I("Object snapshot written: {}", outputPath.string());
+        return true;
+    }
+    LOG_E("Failed to write object snapshot: {}", outputPath.string());
+    return false;
+}
+
+void Engine::processObjectSnapshotCommand() {
+    if (m_objectSnapshotCommandPath.empty()) return;
+
+    std::ifstream input(m_objectSnapshotCommandPath);
+    if (!input.is_open()) return;
+
+    std::string command;
+    std::getline(input, command);
+    input.close();
+    if (command.size() >= 3 &&
+        static_cast<unsigned char>(command[0]) == 0xEF &&
+        static_cast<unsigned char>(command[1]) == 0xBB &&
+        static_cast<unsigned char>(command[2]) == 0xBF) {
+        command.erase(0, 3);
+    }
+    const auto first = command.find_first_not_of(" \t\r\n");
+    const auto last = command.find_last_not_of(" \t\r\n");
+    command = first == std::string::npos
+                  ? std::string{}
+                  : command.substr(first, last - first + 1);
+
+    // Consume each command at most once. Writers should publish atomically
+    // (temporary file + rename) if they can race with the heartbeat.
+    std::error_code error;
+    std::filesystem::remove(m_objectSnapshotCommandPath, error);
+
+    constexpr const char* prefix = "snapshot";
+    if (command.compare(0, std::char_traits<char>::length(prefix), prefix) != 0) {
+        LOG_W("Unknown object snapshot command: {}", command);
+        return;
+    }
+
+    std::string path;
+    const auto pathPosition = command.find("path=");
+    if (pathPosition != std::string::npos) {
+        path = command.substr(pathPosition + 5);
+    } else {
+        std::istringstream stream(command);
+        std::string ignored;
+        stream >> ignored >> path;
+    }
+    const auto pathFirst = path.find_first_not_of(" \t\r\n");
+    const auto pathLast = path.find_last_not_of(" \t\r\n");
+    path = pathFirst == std::string::npos
+               ? std::string{}
+               : path.substr(pathFirst, pathLast - pathFirst + 1);
+
+    if (path.empty()) {
+        LOG_W("Object snapshot command requires a path");
+        return;
+    }
+    writeObjectSnapshot(path);
 }
 
 void Engine::updateFrameState() {
@@ -145,6 +241,7 @@ void Engine::heartbeat() {
         }
         m_lastHeartbeatFrameNumber = m_frameState->frameNumber;
         m_frameState->fps = fps;
+        processObjectSnapshotCommand();
         // LOG_I("Render FPS : {}", fps);
     } else if (deltaTime < 0) {
         m_lastHeartbeatTime = m_monotonicTime;

@@ -45,7 +45,7 @@ void MRGearsIris::initialize() {
 
 MRGearsIris::MRGearsIris()
 {
-    m_widgetType = "MRGearsIris";
+    setWidgetType("MRGearsIris");
     m_material->setShader("gears_iris");
     m_options = std::make_shared<MRGearsIrisOptions>();
 }

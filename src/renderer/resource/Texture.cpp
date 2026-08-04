@@ -23,6 +23,7 @@ TextureSharedPtr Texture::create(ImageType imageType) {
 
 Texture::Texture(ImageType imageType) {
     m_textureInfo->imageType = imageType;
+    m_debugObject.setName(m_uniqueID);
 }
 
 Texture::~Texture() {
@@ -76,6 +77,7 @@ Texture& Texture::setTextureData(void* textureData,
 
 Texture& Texture::setTextureName(std::string textureName) {
     m_textureInfo->textureName = textureName;
+    m_debugObject.setName(m_textureInfo->textureName);
     return *this;
 }
 
