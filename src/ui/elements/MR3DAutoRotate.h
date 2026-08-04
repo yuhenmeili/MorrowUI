@@ -17,6 +17,8 @@ public:
 
     void update(FrameStateSharedPtr /*frameState*/) override;
 
+    bool requiresContinuousUpdate() const override;
+
 private:
     Transform3DSharedPtr m_transform;
     float m_degreesPerFrame = 1.0f;

@@ -99,6 +99,15 @@ public:
         }
     }
 
+    bool requiresContinuousUpdate() const {
+        for (const auto& component : m_updateOrder) {
+            if (component && component->isEnabled() && component->requiresContinuousUpdate()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 private:
     std::unordered_map<std::type_index, std::vector<ComponentSharedPtr>> m_components;
     std::vector<ComponentSharedPtr> m_updateOrder;

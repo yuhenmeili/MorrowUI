@@ -55,6 +55,10 @@ public:
 
     float getSpeed() const { return m_speed; }
 
+    bool isPlaying() const;
+
+    bool requiresContinuousUpdate() const override;
+
     // Component lifecycle
     void update(FrameStateSharedPtr frameState) override;
 

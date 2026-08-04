@@ -1,14 +1,10 @@
 #include "Transform3D.h"
 
 #include "Component.inl"
+#include "GlobalObject.h"
 
 namespace morrow {
-Transform3D::Transform3D()
-    : m_localPosition(0.0f, 0.0f, 0.0f)
-      , m_localScale(1.0f, 1.0f, 1.0f)
-      , m_localRotation(0.0f, 0.0f, 0.0f, 1.0f)
-      , m_localMatrix(Matrix4())
-      , m_worldMatrix(Matrix4()) {
+Transform3D::Transform3D() : m_localPosition(0.0f, 0.0f, 0.0f), m_localScale(1.0f, 1.0f, 1.0f), m_localRotation(0.0f, 0.0f, 0.0f, 1.0f), m_localMatrix(Matrix4()), m_worldMatrix(Matrix4()) {
 }
 
 void Transform3D::setLocalPosition(float x, float y, float z) {
@@ -95,9 +91,7 @@ const Matrix4& Transform3D::getWorldTransformMatrix() {
         parentWorldVersion = parentTransform->getWorldVersion();
     }
 
-    const bool parentChanged =
-        m_cachedWorldParent != parent ||
-        m_cachedParentWorldVersion != parentWorldVersion;
+    const bool parentChanged = m_cachedWorldParent != parent || m_cachedParentWorldVersion != parentWorldVersion;
 
     const Matrix4& localMatrix = getLocalTransformMatrix();
     if (m_worldLocalMatrixVersion != m_localMatrixVersion || parentChanged) {
@@ -139,6 +133,7 @@ void Transform3D::switchToTRSMode() {
 
 void Transform3D::markDirty() {
     ++m_localVersion;
+    REQUESTRENDER;
 }
 
 void Transform3D::updateMatrix() {
@@ -150,4 +145,4 @@ void Transform3D::updateMatrix() {
     m_localMatrix.compose(m_localPosition, m_localRotation, m_localScale);
     m_localMatrixVersion = m_localVersion;
 }
-} // namespace morrow
+}  // namespace morrow

@@ -937,7 +937,9 @@ Present
 > 当前状态：原列表整体非短期。近期只推进 15.19 中范围更明确的
 > Transform3D 缓存和 SceneView 按变化重绘。
 
-已有：IBL 资源可通过 `Scene3DPassContext` 跨视图共享；Offscreen 分辨率可动态调整。缺失视锥裁剪和 Dirty 体系。
+已有：IBL 资源可通过 `Scene3DPassContext` 跨视图共享；Offscreen 分辨率可动态调整；
+`MR3DSceneView` 已按场景签名和持续更新状态决定是否重绘。仍缺失视锥裁剪和
+SceneNode 级局部 Dirty 更新。
 
 优化方向：
 
@@ -1122,22 +1124,27 @@ Present
 重挂接和显式矩阵替换。静态层级预热后不再执行局部矩阵组合或世界矩阵乘法；
 节点变化后，仅在该节点及相关后代下次查询时重建。
 
-#### P1：MR3DSceneView 按变化重绘
+#### P1：MR3DSceneView 按变化重绘 ✅
 
-当前 `MR3DSceneView::update()` 每帧都会绑定并清空 FBO、更新 frame UBO、遍历
-完整 SceneNode 树，还会为局部 3D FrameState 创建新的 `shared_ptr`。静态模型
-即使画面没有变化也会完整重绘。
+已完成：
 
-建议：
+- `MR3DSceneView` 缓存场景渲染签名，覆盖场景层级、可见性、Transform3D、
+  MeshRenderer3D、Material、Texture、相机、灯光、IBL 和 FBO 尺寸；
+- 仅在显式失效、签名变化或存在持续更新组件时执行 3D FBO Pass；
+- 比较 3D Pass 前后签名；若懒创建 Shader、绑定 IBL 或准备 GPU 资源导致状态在
+  Pass 内变化，则自动请求一个收敛帧，签名稳定后才复用 FBO；
+- 静态帧直接复用上次 FBO color texture，只执行 2D composite；
+- 局部 3D `FrameState` 改为成员复用，不再逐帧 `make_shared<FrameState>`；
+- `OrbitCamera` 通过变化回调使 SceneView 失效，外部相机控制和 OrbitController
+  均可准确触发重绘；
+- `Component::requiresContinuousUpdate()` 统一描述持续更新需求，GLTF animation、
+  `MR3DAutoRotate` 和 `MR3DCameraOrbitPosition` 活跃时保持连续 3D Pass，暂停、
+  禁用或速度为零后自动静止；
+- `Scene3DRedrawTests.cpp` 覆盖相机失效回调、持续更新组件检测以及
+  Texture revision 向 Material 渲染签名传播。
 
-- 建立 scene、camera、lighting、IBL、animation 和 FBO size revision；
-- 仅在任一 revision 变化时执行 3D FBO Pass；
-- 未变化时直接复用上次 FBO color texture，只执行必要的 2D composite；
-- 复用局部 FrameState，消除每帧 `make_shared<FrameState>`；
-- 与按需渲染联动：活跃 GLTF 动画保持 3D Pass 连续更新，暂停后自动静止。
-
-验收：静态 3D SceneView 首帧后不再产生 3D Draw Call 和 frame UBO 更新；相机、
-灯光、模型或 FBO 尺寸变化会准确触发一次重绘；动画期间保持连续更新。
+静态 3D SceneView 首帧后不再清空 FBO、更新 frame UBO 或产生 3D Draw Call；
+相机、灯光、模型、纹理或 FBO 尺寸变化会重新生成离屏内容。
 
 #### P2：Material Uniform/UBO 提交收敛
 

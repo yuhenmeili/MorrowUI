@@ -34,6 +34,10 @@ void Component::onDetach() {
 void Component::onDestroy() {
 }
 
+bool Component::requiresContinuousUpdate() const {
+    return false;
+}
+
 void Component::setEnabled(bool enabled) {
     if (m_enabled == enabled) return;
     m_enabled = enabled;

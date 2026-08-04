@@ -2,17 +2,19 @@
 // Created by lance on 2022/10/11.
 //
 
+#include "Texture.h"
+
 #include <fstream>
 #include <iostream>
-#include "Texture.h"
-#include "MathUtils.h"
-#include "utils/Log.h"
-#include "PixelFormat.h"
+
 #include "BasisTextureLoader.h"
-#include "ToolUtils.h"
 #include "GlobalObject.h"
+#include "MathUtils.h"
+#include "PixelFormat.h"
 #include "TextureLoader.h"
 #include "TextureManager.h"
+#include "ToolUtils.h"
+#include "utils/Log.h"
 
 namespace morrow {
 TextureSharedPtr Texture::create(ImageType imageType) {
@@ -42,14 +44,13 @@ Texture& Texture::setImageUrl(const std::string& imageUrl) {
         m_textureInfo->textureDataSharedPtr.reset();
         m_textureInfo->textureDataRawPtr = nullptr;
         m_textureInfo->textureNeedUpLoad = true;
+        ++m_revision;
         REQUESTRENDER;
     }
     return *this;
 }
 
-Texture& Texture::setTextureData(std::shared_ptr<unsigned char> textureData,
-                                 int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes,
-                                 bool compressedTexture) {
+Texture& Texture::setTextureData(std::shared_ptr<unsigned char> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes, bool compressedTexture) {
     m_textureInfo->textureDataSharedPtr = textureData;
     m_textureInfo->imageWidth = imageWidth;
     m_textureInfo->imageHeight = imageHeight;
@@ -57,13 +58,12 @@ Texture& Texture::setTextureData(std::shared_ptr<unsigned char> textureData,
     m_textureInfo->bytes = bytes;
     m_textureInfo->compressedTexture = compressedTexture;
     m_textureInfo->textureNeedUpLoad = true;
+    ++m_revision;
     REQUESTRENDER;
     return *this;
 }
 
-Texture& Texture::setTextureData(void* textureData,
-                                 int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes,
-                                 bool compressedTexture) {
+Texture& Texture::setTextureData(void* textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes, bool compressedTexture) {
     m_textureInfo->textureDataRawPtr = textureData;
     m_textureInfo->imageWidth = imageWidth;
     m_textureInfo->imageHeight = imageHeight;
@@ -71,6 +71,7 @@ Texture& Texture::setTextureData(void* textureData,
     m_textureInfo->bytes = bytes;
     m_textureInfo->compressedTexture = compressedTexture;
     m_textureInfo->textureNeedUpLoad = true;
+    ++m_revision;
     REQUESTRENDER;
     return *this;
 }
@@ -83,30 +84,35 @@ Texture& Texture::setTextureName(std::string textureName) {
 
 Texture& Texture::setFormat(PixelDataFormat format) {
     m_textureInfo->format = format;
+    ++m_revision;
     REQUESTRENDER;
     return *this;
 }
 
 Texture& Texture::setMinFilterType(SamplerMinFilter minFilterType) {
     m_textureInfo->minFilterType = minFilterType;
+    ++m_revision;
     REQUESTRENDER;
     return *this;
 }
 
 Texture& Texture::setMagFilterType(SamplerMagFilter magFilterType) {
     m_textureInfo->magFilterType = magFilterType;
+    ++m_revision;
     REQUESTRENDER;
     return *this;
 }
 
 Texture& Texture::setWidth(int32_t width) {
     m_textureInfo->imageWidth = width;
+    ++m_revision;
     REQUESTRENDER;
     return *this;
 }
 
 Texture& Texture::setHeight(int32_t height) {
     m_textureInfo->imageHeight = height;
+    ++m_revision;
     REQUESTRENDER;
     return *this;
 }
@@ -121,6 +127,10 @@ int32_t Texture::getWidth() {
 
 int32_t Texture::getHeight() {
     return m_textureInfo->imageHeight;
+}
+
+uint64_t Texture::getRevision() const {
+    return m_revision;
 }
 
 std::string Texture::getImageInfo() {
@@ -188,8 +198,8 @@ bool Texture::deployTexture() {
     // 若持有 shared_ptr 所有权，多线程路径直接共享引用，无需 memcpy 全部像素。
     // textureDataSharedPtr 可为 nullptr（原始指针路径），此时退化到池复用拷贝。
     m_textureData.pixelOwner = m_textureInfo->textureDataSharedPtr;
-    //TODO 由外部传入
-    // m_textureData.releaseCallback = nullptr;
+    // TODO 由外部传入
+    //  m_textureData.releaseCallback = nullptr;
     RENDERINGTHREAD->updateTexture2D(m_textureHandle, m_textureData);
     return true;
 }
@@ -198,8 +208,7 @@ void Texture::startLoadImage() {
     LOG_I("start loadImage {}", getImageInfo());
     int32_t comp;
     int32_t re_comp = PixelFormat::componentsLength(m_textureInfo->format);
-    unsigned char* textureData = TextureFromFile::load(
-        m_textureInfo->imageUrl.c_str(), &m_textureInfo->imageWidth, &m_textureInfo->imageHeight, &comp, re_comp);
+    unsigned char* textureData = TextureFromFile::load(m_textureInfo->imageUrl.c_str(), &m_textureInfo->imageWidth, &m_textureInfo->imageHeight, &comp, re_comp);
     if (!textureData) {
         LOG_I("loadImageFile {} failed", m_textureInfo->imageUrl);
         m_textureInfo->textureDataSharedPtr.reset();
@@ -209,9 +218,7 @@ void Texture::startLoadImage() {
     /// shared_ptr will take the ownership of the raw pointer
     /// free is not needed
     /// stbi_image_free(textureData);
-    m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(textureData, [](unsigned char* ptr) {
-        TextureFromFile::free(ptr);
-    });
+    m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(textureData, [](unsigned char* ptr) { TextureFromFile::free(ptr); });
 
     m_textureInfo->bytes = m_textureInfo->imageWidth * m_textureInfo->imageHeight * re_comp;
     m_textureInfo->compressedTexture = false;
@@ -231,4 +238,4 @@ void Texture::startLoadBasis() {
 void Texture::reUploadTexture(const char* result) {
     m_textureInfo->textureNeedUpLoad = true;
 }
-}
+}  // namespace morrow

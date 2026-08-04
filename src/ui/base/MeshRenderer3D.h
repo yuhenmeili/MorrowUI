@@ -8,6 +8,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <cstdint>
 #include "Component.h"
 #include "Material.h"
 #include "GLTFTypes.h"
@@ -26,9 +27,12 @@ public:
 
     void update(FrameStateSharedPtr frameState) override;
 
+    uint64_t getRenderRevision() const;
+
 private:
     struct Impl;
     std::unique_ptr<Impl> m_impl;
+    uint64_t m_revision = 1;
 };
 } // namespace morrow
 

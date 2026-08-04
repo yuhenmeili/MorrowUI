@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <vector>
+#include <cstdint>
 #include "Material.h"
 #include "OffscreenRenderTarget.h"
 #include "OrbitCamera.h"
@@ -90,6 +91,9 @@ public:
     /// Resize the offscreen FBO.  Call when the view's display size changes.
     void resizeFBO(int32_t w, int32_t h);
 
+    /// Force the cached 3D pass to be regenerated on the next render.
+    void invalidateSceneRender();
+
     /// Widget update – issues 3D pass then composites into 2D pass.
     void update(FrameStateSharedPtr frameState) override;
 
@@ -100,6 +104,10 @@ private:
 
     /// Build the display quad in local widget space for the scene3d_display shader.
     void buildDisplayQuad();
+
+    uint64_t computeSceneRenderSignature() const;
+
+    bool hasContinuousSceneUpdate() const;
 
     std::shared_ptr<OrbitCamera> m_orbitCamera;
     OrbitControllerSharedPtr m_orbitController;
@@ -114,7 +122,11 @@ private:
 
     Vector4 m_sceneClearColor = {0.22f, 0.23f, 0.31f, 1.0f};
     Scene3DPassContextSharedPtr m_scene3DPassContext;
+    FrameStateSharedPtr m_local3DFrameState;
     int32_t m_fboW = 1280, m_fboH = 720;
+    uint64_t m_lastSceneRenderSignature = 0;
+    bool m_sceneRenderDirty = true;
+    bool m_hasRenderedScene = false;
 };
 } // namespace morrow
 

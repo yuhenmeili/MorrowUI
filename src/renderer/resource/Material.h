@@ -121,6 +121,9 @@ public:
 
     uint64_t getUniformRevision() const;
 
+    /// Rendering fingerprint including material state and referenced textures.
+    uint64_t getRenderRevisionHash() const;
+
     /// Compatibility alias for existing callers.
     uint64_t getRevision() const;
 

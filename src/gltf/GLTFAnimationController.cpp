@@ -91,6 +91,14 @@ void GLTFAnimationController::setSpeed(float speed) {
     }
 }
 
+bool GLTFAnimationController::isPlaying() const {
+    return m_currentAnimIndex >= 0 && !m_paused && m_speed != 0.0f && m_scene;
+}
+
+bool GLTFAnimationController::requiresContinuousUpdate() const {
+    return isPlaying();
+}
+
 // ---------------------------------------------------------------------------
 // Per-frame update
 // ---------------------------------------------------------------------------

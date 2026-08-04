@@ -45,6 +45,9 @@ public:
 
     virtual void onDestroy();
 
+    /// Whether the owning scene must keep updating while this component is enabled.
+    virtual bool requiresContinuousUpdate() const;
+
     // 组件启用/禁用
     void setEnabled(bool enabled);
 

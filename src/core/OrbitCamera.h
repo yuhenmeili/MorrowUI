@@ -1,6 +1,8 @@
 #ifndef MORROW_GUI_ORBIT_CAMERA_H
 #define MORROW_GUI_ORBIT_CAMERA_H
 
+#include <functional>
+
 #include "PerspectiveCamera.h"
 
 namespace morrow {
@@ -37,16 +39,21 @@ public:
 
     [[nodiscard]] const Vector3& getTarget() const;
 
+    void setChangeCallback(std::function<void()> callback);
+
 private:
     void syncSphericalFromPosition();
 
     void updatePositionFromSpherical();
+
+    void notifyChanged();
 
     Vector3 m_target = {0.0f, 0.0f, 0.0f};
     float m_yaw = 0.0f;
     float m_pitch = 0.0f;
     float m_distance = 5.0f;
     bool m_sphericalDirty = true;
+    std::function<void()> m_changeCallback;
 };
 } // namespace morrow
 

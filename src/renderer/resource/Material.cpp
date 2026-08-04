@@ -3,7 +3,9 @@
 //
 
 #include "Material.h"
+
 #include <cstring>
+
 #include "EmbeddedShaders.h"
 #include "GlobalObject.h"
 #include "MaterialUtil.h"
@@ -78,9 +80,8 @@ Matrix4 Material::getMatrix4(const std::string& name) const {
     if (it != m_matrix4Map.end()) {
         return it->second;
     }
-    return Matrix4(); // 返回单位矩阵
+    return Matrix4();  // 返回单位矩阵
 }
-
 
 void Material::setFloat(const std::string& name, float value) {
     m_floatMap[m_attributePrefix + name] = value;
@@ -145,9 +146,7 @@ void Material::setShader(const std::string& shaderName) {
     }
 }
 
-void Material::setShaderFromMemory(const std::string& shaderName,
-                                   const std::string& vertexSource,
-                                   const std::string& fragmentSource) {
+void Material::setShaderFromMemory(const std::string& shaderName, const std::string& vertexSource, const std::string& fragmentSource) {
     m_shaderName = shaderName;
     m_vertexShaderResource = vertexSource;
     m_fragmentShaderResource = fragmentSource;
@@ -264,16 +263,18 @@ void Material::apply(HwGPUProgram shader) {
 
     // 应用向量
     for (const auto& pair : m_vectorMap) {
-        std::visit([targetShader, &pair](const auto& vec) {
-            using T = std::decay_t<decltype(vec)>;
-            if constexpr (std::is_same_v<T, Vector2>) {
-                RENDERINGTHREAD->setGPUProgramParamAsFloatArray(targetShader, pair.first, vec.elements, 1, 2);
-            } else if constexpr (std::is_same_v<T, Vector3>) {
-                RENDERINGTHREAD->setGPUProgramParamAsFloatArray(targetShader, pair.first, vec.elements, 1, 3);
-            } else if constexpr (std::is_same_v<T, Vector4>) {
-                RENDERINGTHREAD->setGPUProgramParamAsFloatArray(targetShader, pair.first, vec.elements, 1, 4);
-            }
-        }, pair.second);
+        std::visit(
+            [targetShader, &pair](const auto& vec) {
+                using T = std::decay_t<decltype(vec)>;
+                if constexpr (std::is_same_v<T, Vector2>) {
+                    RENDERINGTHREAD->setGPUProgramParamAsFloatArray(targetShader, pair.first, vec.elements, 1, 2);
+                } else if constexpr (std::is_same_v<T, Vector3>) {
+                    RENDERINGTHREAD->setGPUProgramParamAsFloatArray(targetShader, pair.first, vec.elements, 1, 3);
+                } else if constexpr (std::is_same_v<T, Vector4>) {
+                    RENDERINGTHREAD->setGPUProgramParamAsFloatArray(targetShader, pair.first, vec.elements, 1, 4);
+                }
+            },
+            pair.second);
     }
 
     // 应用浮点数
@@ -291,7 +292,7 @@ void Material::apply(HwGPUProgram shader) {
         RENDERINGTHREAD->setGPUProgramParamAsMat4(targetShader, pair.first, pair.second);
     }
 
-    //intArrayData
+    // intArrayData
     for (const auto& pair : m_intArrayMap) {
         RENDERINGTHREAD->setGPUProgramParamAsIntArray(targetShader, pair.first, pair.second.data, pair.second.size, pair.second.step);
     }
@@ -330,12 +331,8 @@ bool Material::isEqual(std::shared_ptr<Material> other) {
     if (!other) {
         return false;
     }
-    if (m_shaderName != other->m_shaderName ||
-        m_blendEnabled != other->m_blendEnabled ||
-        m_srcBlendFactor != other->m_srcBlendFactor ||
-        m_dstBlendFactor != other->m_dstBlendFactor ||
-        m_doubleSided != other->m_doubleSided ||
-        m_textureMap.size() != other->m_textureMap.size()) {
+    if (m_shaderName != other->m_shaderName || m_blendEnabled != other->m_blendEnabled || m_srcBlendFactor != other->m_srcBlendFactor || m_dstBlendFactor != other->m_dstBlendFactor ||
+        m_doubleSided != other->m_doubleSided || m_textureMap.size() != other->m_textureMap.size()) {
         return false;
     }
 
@@ -350,12 +347,8 @@ bool Material::isEqual(std::shared_ptr<Material> other) {
 }
 
 bool Material::operator==(const Material& other) const {
-    if (m_shaderName != other.m_shaderName ||
-        m_blendEnabled != other.m_blendEnabled ||
-        m_srcBlendFactor != other.m_srcBlendFactor ||
-        m_dstBlendFactor != other.m_dstBlendFactor ||
-        m_doubleSided != other.m_doubleSided ||
-        m_textureMap.size() != other.m_textureMap.size()) {
+    if (m_shaderName != other.m_shaderName || m_blendEnabled != other.m_blendEnabled || m_srcBlendFactor != other.m_srcBlendFactor || m_dstBlendFactor != other.m_dstBlendFactor ||
+        m_doubleSided != other.m_doubleSided || m_textureMap.size() != other.m_textureMap.size()) {
         return false;
     }
 
@@ -374,9 +367,7 @@ uint64_t Material::getBatchCompatibilityHash() const {
         return m_cachedBatchCompatibilityHash;
     }
 
-    auto hashCombine = [](uint64_t seed, uint64_t value) {
-        return seed ^ (value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2));
-    };
+    auto hashCombine = [](uint64_t seed, uint64_t value) { return seed ^ (value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2)); };
 
     uint64_t hash = std::hash<std::string>{}(m_shaderName);
     hash = hashCombine(hash, static_cast<uint64_t>(m_blendEnabled));
@@ -390,8 +381,7 @@ uint64_t Material::getBatchCompatibilityHash() const {
     uint64_t textureHash = 0;
     for (const auto& [name, texture] : m_textureMap) {
         uint64_t entryHash = std::hash<std::string>{}(name);
-        entryHash = hashCombine(entryHash,
-            static_cast<uint64_t>(reinterpret_cast<uintptr_t>(texture.get())));
+        entryHash = hashCombine(entryHash, static_cast<uint64_t>(reinterpret_cast<uintptr_t>(texture.get())));
         textureHash ^= entryHash;
     }
     m_cachedBatchCompatibilityHash = hashCombine(hash, textureHash);
@@ -407,6 +397,20 @@ uint64_t Material::getUniformRevision() const {
     return m_uniformRevision;
 }
 
+uint64_t Material::getRenderRevisionHash() const {
+    uint64_t hash = m_batchCompatibilityRevision;
+    hash ^= m_uniformRevision + 0x9e3779b97f4a7c15ULL + (hash << 6U) + (hash >> 2U);
+    for (const auto& [name, texture] : m_textureMap) {
+        uint64_t textureHash = static_cast<uint64_t>(std::hash<std::string>{}(name));
+        textureHash ^= static_cast<uint64_t>(reinterpret_cast<uintptr_t>(texture.get())) + 0x9e3779b97f4a7c15ULL + (textureHash << 6U) + (textureHash >> 2U);
+        if (texture) {
+            textureHash ^= texture->getRevision() + 0x9e3779b97f4a7c15ULL + (textureHash << 6U) + (textureHash >> 2U);
+        }
+        hash ^= textureHash;
+    }
+    return hash;
+}
+
 uint64_t Material::getRevision() const {
     return getBatchCompatibilityRevision();
 }
@@ -420,10 +424,9 @@ void Material::loadShader() {
     const std::string fragmentShaderName = m_shaderName + ".frag";
 
     // Packaged builds load shaders directly from the shared library.
-    if (embedded_shaders::get(vertexShaderName, m_vertexShaderResource) &&
-        embedded_shaders::get(fragmentShaderName, m_fragmentShaderResource)) {
+    if (embedded_shaders::get(vertexShaderName, m_vertexShaderResource) && embedded_shaders::get(fragmentShaderName, m_fragmentShaderResource)) {
         return;
-        }
+    }
 
     // Keep external files as a fallback for custom shaders and development.
     const std::string vertexShaderPath = "assets/shaders/" + vertexShaderName;
@@ -438,12 +441,8 @@ void Material::loadShader() {
         return;
     }
 
-    m_vertexShaderResource.assign(
-        std::istreambuf_iterator<char>(vertexShaderFile),
-        std::istreambuf_iterator<char>());
-    m_fragmentShaderResource.assign(
-        std::istreambuf_iterator<char>(fragmentShaderFile),
-        std::istreambuf_iterator<char>());
+    m_vertexShaderResource.assign(std::istreambuf_iterator<char>(vertexShaderFile), std::istreambuf_iterator<char>());
+    m_fragmentShaderResource.assign(std::istreambuf_iterator<char>(fragmentShaderFile), std::istreambuf_iterator<char>());
 }
 
 HwGPUProgram Material::buildShader(bool enableSSBO) {
@@ -459,9 +458,6 @@ HwGPUProgram Material::buildShader(bool enableSSBO) {
             fragmentHead += "#define " + define + "\n";
         }
     }
-    return RENDERINGTHREAD->createGPUProgram(
-        m_shaderName,
-        MaterialUtil::buildShaderSource(vertexSource, vertexHead),
-        MaterialUtil::buildShaderSource(fragmentSource, fragmentHead));
+    return RENDERINGTHREAD->createGPUProgram(m_shaderName, MaterialUtil::buildShaderSource(vertexSource, vertexHead), MaterialUtil::buildShaderSource(fragmentSource, fragmentHead));
 }
-} // namespace morrow
+}  // namespace morrow

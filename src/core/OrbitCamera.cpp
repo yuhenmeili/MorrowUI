@@ -7,13 +7,12 @@ namespace morrow {
 
 namespace {
 constexpr float kPi = 3.14159265358979323846f;
-constexpr float kMinPitch = -1.55334306f; // about -89 deg
-constexpr float kMaxPitch = 1.55334306f;  // about  89 deg
+constexpr float kMinPitch = -1.55334306f;  // about -89 deg
+constexpr float kMaxPitch = 1.55334306f;   // about  89 deg
 constexpr float kMinDistance = 0.01f;
-}
+}  // namespace
 
-OrbitCamera::OrbitCamera(float fov, float aspect, float near, float far)
-    : PerspectiveCamera(fov, aspect, near, far) {
+OrbitCamera::OrbitCamera(float fov, float aspect, float near, float far) : PerspectiveCamera(fov, aspect, near, far) {
     syncSphericalFromPosition();
 }
 
@@ -34,23 +33,29 @@ void OrbitCamera::update(float x, float y, float displayWidth, float displayHeig
 }
 
 void OrbitCamera::setPosition(float x, float y, float z) {
+    if (m_position.x == x && m_position.y == y && m_position.z == z) {
+        return;
+    }
     PerspectiveCamera::setPosition(x, y, z);
     syncSphericalFromPosition();
+    notifyChanged();
 }
 
 void OrbitCamera::setPosition(const Vector3& position) {
-    PerspectiveCamera::setPosition(position.x, position.y, position.z);
-    syncSphericalFromPosition();
+    setPosition(position.x, position.y, position.z);
 }
 
 void OrbitCamera::setTarget(float x, float y, float z) {
+    if (m_target.x == x && m_target.y == y && m_target.z == z) {
+        return;
+    }
     m_target.set(x, y, z);
     syncSphericalFromPosition();
+    notifyChanged();
 }
 
 void OrbitCamera::setTarget(const Vector3& target) {
-    m_target.set(target.x, target.y, target.z);
-    syncSphericalFromPosition();
+    setTarget(target.x, target.y, target.z);
 }
 
 void OrbitCamera::lookAt(float x, float y, float z) {
@@ -62,9 +67,14 @@ void OrbitCamera::lookAt(const Vector3& target) {
 }
 
 void OrbitCamera::setAngles(float yaw, float pitch) {
+    const float clampedPitch = std::max(kMinPitch, std::min(kMaxPitch, pitch));
+    if (m_yaw == yaw && m_pitch == clampedPitch) {
+        return;
+    }
     m_yaw = yaw;
-    m_pitch = std::max(kMinPitch, std::min(kMaxPitch, pitch));
+    m_pitch = clampedPitch;
     m_sphericalDirty = true;
+    notifyChanged();
 }
 
 void OrbitCamera::orbit(float deltaYaw, float deltaPitch) {
@@ -72,8 +82,13 @@ void OrbitCamera::orbit(float deltaYaw, float deltaPitch) {
 }
 
 void OrbitCamera::setDistance(float distance) {
-    m_distance = std::max(kMinDistance, distance);
+    const float clampedDistance = std::max(kMinDistance, distance);
+    if (m_distance == clampedDistance) {
+        return;
+    }
+    m_distance = clampedDistance;
     m_sphericalDirty = true;
+    notifyChanged();
 }
 
 void OrbitCamera::dolly(float deltaDistance) {
@@ -82,6 +97,16 @@ void OrbitCamera::dolly(float deltaDistance) {
 
 const Vector3& OrbitCamera::getTarget() const {
     return m_target;
+}
+
+void OrbitCamera::setChangeCallback(std::function<void()> callback) {
+    m_changeCallback = std::move(callback);
+}
+
+void OrbitCamera::notifyChanged() {
+    if (m_changeCallback) {
+        m_changeCallback();
+    }
 }
 
 void OrbitCamera::syncSphericalFromPosition() {
@@ -94,8 +119,10 @@ void OrbitCamera::syncSphericalFromPosition() {
     const float xzLen = std::sqrt(dx * dx + dz * dz);
     m_pitch = std::max(kMinPitch, std::min(kMaxPitch, std::atan2(dy, xzLen)));
     m_yaw = std::atan2(dx, dz);
-    if (m_yaw > kPi) m_yaw -= 2.0f * kPi;
-    if (m_yaw < -kPi) m_yaw += 2.0f * kPi;
+    if (m_yaw > kPi)
+        m_yaw -= 2.0f * kPi;
+    if (m_yaw < -kPi)
+        m_yaw += 2.0f * kPi;
 
     m_sphericalDirty = true;
 }
@@ -106,11 +133,7 @@ void OrbitCamera::updatePositionFromSpherical() {
     const float sinYaw = std::sin(m_yaw);
     const float cosYaw = std::cos(m_yaw);
 
-    m_position.set(
-        m_target.x + m_distance * sinYaw * cosPitch,
-        m_target.y + m_distance * sinPitch,
-        m_target.z + m_distance * cosYaw * cosPitch);
+    m_position.set(m_target.x + m_distance * sinYaw * cosPitch, m_target.y + m_distance * sinPitch, m_target.z + m_distance * cosYaw * cosPitch);
 }
 
-} // namespace morrow
-
+}  // namespace morrow

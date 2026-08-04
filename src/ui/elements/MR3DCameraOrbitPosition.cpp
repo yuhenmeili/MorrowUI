@@ -28,4 +28,8 @@ void MR3DCameraOrbitPosition::update(FrameStateSharedPtr frameState) {
         m_focus.y + m_height,
         m_focus.z + std::cos(m_angle) * m_radius);
 }
+
+bool MR3DCameraOrbitPosition::requiresContinuousUpdate() const {
+    return m_camera && m_angularSpeed != 0.0f;
+}
 } // morrow

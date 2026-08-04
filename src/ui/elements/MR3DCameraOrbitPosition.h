@@ -21,6 +21,8 @@ public:
 
     void update(FrameStateSharedPtr frameState) override;
 
+    bool requiresContinuousUpdate() const override;
+
 private:
     OrbitCamera* m_camera = nullptr;
     Vector3 m_focus = {0.0f, 0.0f, 0.0f};

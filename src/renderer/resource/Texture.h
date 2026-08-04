@@ -5,13 +5,14 @@
 #ifndef MORROW_TEXTURE_H
 #define MORROW_TEXTURE_H
 
-#include <string>
+#include <cstdint>
 #include <memory>
+#include <string>
+
 #include "DriverEnums.h"
-#include "GlobalDefine.h"  // ImageType
 #include "FrameState.h"
-#include "GpuTypes.h"    // Texture2D, TextureData（无需拉入完整设备接口）
-#include "basis_universal/transcoder/basisu_containers.h"
+#include "GlobalDefine.h"  // ImageType
+#include "GpuTypes.h"      // Texture2D, TextureData锛堟棤闇€鎷夊叆瀹屾暣璁惧鎺ュ彛锛?#10;#include "basis_universal/transcoder/basisu_containers.h"
 #include "debug/ObjectRegistry.h"
 
 namespace morrow {
@@ -46,13 +47,10 @@ public:
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~options~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Texture& setImageUrl(const std::string& imageUrl);
 
-    Texture& setTextureData(std::shared_ptr<unsigned char> textureData,
-                            int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0,
+    Texture& setTextureData(std::shared_ptr<unsigned char> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0,
                             bool compressedTexture = false);
 
-    Texture& setTextureData(void* textureData,
-                            int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0,
-                            bool compressedTexture = false);
+    Texture& setTextureData(void* textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0, bool compressedTexture = false);
 
     Texture& setTextureName(std::string textureName);
 
@@ -72,6 +70,8 @@ public:
     int32_t getWidth();
 
     int32_t getHeight();
+
+    uint64_t getRevision() const;
 
     std::string getImageInfo();
 
@@ -103,10 +103,11 @@ protected:
 private:
     DebugObjectHandle m_debugObject{DebugObjectCategory::Texture, "Texture"};
     std::string m_uniqueID = Math::generate_uuid();
+    uint64_t m_revision = 1;
 };
 
 using TextureSharedPtr = std::shared_ptr<Texture>;
 using TextureWeakPtr = std::weak_ptr<Texture>;
-}
+}  // namespace morrow
 
-#endif //MORROW_TEXTURE_H
+#endif  // MORROW_TEXTURE_H

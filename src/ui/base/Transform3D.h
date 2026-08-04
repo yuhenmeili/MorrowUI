@@ -4,9 +4,9 @@
 #include <cstdint>
 
 #include "Component.h"
-#include "Vector3.h"
-#include "Quaternion.h"
 #include "Matrix4.h"
+#include "Quaternion.h"
+#include "Vector3.h"
 
 namespace morrow {
 using namespace Math;
@@ -49,7 +49,14 @@ public:
     const Matrix4& getSceneTransformMatrix();
 
     /// Incremented whenever the cached world matrix is actually rebuilt.
-    uint64_t getWorldVersion() const { return m_worldVersion; }
+    uint64_t getWorldVersion() const {
+        return m_worldVersion;
+    }
+
+    /// Incremented whenever local transform data changes.
+    uint64_t getLocalVersion() const {
+        return m_localVersion;
+    }
 
     void update(FrameStateSharedPtr frameState) override;
 
@@ -85,6 +92,6 @@ private:
 };
 
 using Transform3DSharedPtr = std::shared_ptr<Transform3D>;
-} // namespace morrow
+}  // namespace morrow
 
-#endif // MORROW_TRANSFORM3D_H
+#endif  // MORROW_TRANSFORM3D_H

@@ -9,11 +9,11 @@
 #include <cstring>
 
 #include "GlobalObject.h"
-#include "Transform3D.h"
-#include "Texture.h"
-#include "RenderDeviceProxy.h"
 #include "PerspectiveCamera.h"
+#include "RenderDeviceProxy.h"
 #include "Scene3DUBO.h"
+#include "Texture.h"
+#include "Transform3D.h"
 
 namespace morrow {
 namespace {
@@ -33,22 +33,13 @@ TextureSharedPtr createTextureFromGLTFData(const TextureData& textureData) {
     }
 
     auto texture = Texture::create(textureData.imageType);
-    texture->setTextureData(
-        std::shared_ptr<unsigned char>(
-            static_cast<unsigned char*>(textureData.pixels),
-            [owner = textureData.pixelOwner](unsigned char*) mutable {
-                owner.reset();
-            }),
-        textureData.width,
-        textureData.height,
-        textureData.format,
-        textureData.bytes,
-        textureData.compressedTexture);
+    texture->setTextureData(std::shared_ptr<unsigned char>(static_cast<unsigned char*>(textureData.pixels), [owner = textureData.pixelOwner](unsigned char*) mutable { owner.reset(); }),
+                            textureData.width, textureData.height, textureData.format, textureData.bytes, textureData.compressedTexture);
     texture->setMinFilterType(textureData.minFilterType);
     texture->setMagFilterType(textureData.magFilterType);
     return texture;
 }
-} // namespace
+}  // namespace
 
 // ---------------------------------------------------------------------------
 // Internal primitive state (one per GLTFPrimitive)
@@ -56,8 +47,8 @@ TextureSharedPtr createTextureFromGLTFData(const TextureData& textureData) {
 struct Prim3D {
     MaterialSharedPtr material;
     VBODataSharedPtr vboData;
-    HwVBO vbo{0}; // created lazily
-    bool uploaded = false; // true after first updateVBO
+    HwVBO vbo{0};           // created lazily
+    bool uploaded = false;  // true after first updateVBO
 };
 
 // We store the primitives list behind a shared_ptr so the class stays
@@ -71,6 +62,7 @@ struct MeshRenderer3D::Impl {
 
 void MeshRenderer3D::setFromGLTFMesh(const GLTFMesh& mesh, const std::vector<GLTFMaterial>& materials, const std::string& shaderName) {
     m_impl = std::make_unique<Impl>();
+    ++m_revision;
 
     for (const auto& prim : mesh.primitives) {
         Prim3D pd;
@@ -111,11 +103,27 @@ void MeshRenderer3D::setFromGLTFMesh(const GLTFMesh& mesh, const std::vector<GLT
     }
 }
 
+uint64_t MeshRenderer3D::getRenderRevision() const {
+    uint64_t revision = m_revision;
+    if (!m_impl) {
+        return revision;
+    }
+    for (const auto& prim : m_impl->prims) {
+        revision ^= static_cast<uint64_t>(reinterpret_cast<uintptr_t>(prim.vboData.get())) + 0x9e3779b97f4a7c15ULL + (revision << 6U) + (revision >> 2U);
+        if (prim.material) {
+            revision ^= prim.material->getRenderRevisionHash() + 0x9e3779b97f4a7c15ULL + (revision << 6U) + (revision >> 2U);
+        }
+    }
+    return revision;
+}
+
 void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
-    if (!m_impl || m_impl->prims.empty()) return;
+    if (!m_impl || m_impl->prims.empty())
+        return;
 
     auto transform3D = getComponent<Transform3D>();
-    if (!transform3D) return;
+    if (!transform3D)
+        return;
 
     Matrix4 modelMatrix = transform3D->getWorldTransformMatrix();
 
@@ -132,7 +140,8 @@ void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
             scene3DFrameUbo = frameState->scene3DFrameUBO;
         }
     }
-    if (!scene3DFrameUbo.isValid()) return;
+    if (!scene3DFrameUbo.isValid())
+        return;
 
     if (!m_impl->drawUbo.isValid()) {
         m_impl->drawUbo = RENDERINGTHREAD->createUBO();
@@ -141,9 +150,9 @@ void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
     const Scene3DDrawUBO drawUboPayload{modelMatrix};
     RENDERINGTHREAD->updateUBO(m_impl->drawUbo, makeUBOData(drawUboPayload));
 
-
     for (auto& pd : m_impl->prims) {
-        if (!pd.vboData) continue;
+        if (!pd.vboData)
+            continue;
 
         if (ibl.isValid()) {
             pd.material->setTexture("irradianceTexture", ibl.irradianceTexture);
@@ -159,7 +168,8 @@ void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
         pd.material->apply();
 
         auto shader = pd.material->getShader();
-        if (!shader.isValid()) continue;
+        if (!shader.isValid())
+            continue;
 
         RENDERINGTHREAD->bindUBO(shader, scene3DFrameUbo, "Scene3DFrame", kScene3DFrameBindingPoint);
         RENDERINGTHREAD->bindUBO(shader, m_impl->drawUbo, "Scene3DDraw", kScene3DDrawBindingPoint);
@@ -190,7 +200,8 @@ void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
 MeshRenderer3D::MeshRenderer3D() = default;
 
 MeshRenderer3D::~MeshRenderer3D() {
-    if (!m_impl) return;
+    if (!m_impl)
+        return;
 
     for (auto& prim : m_impl->prims) {
         if (prim.vbo.isValid()) {
@@ -199,4 +210,4 @@ MeshRenderer3D::~MeshRenderer3D() {
         }
     }
 }
-} // namespace morrow
+}  // namespace morrow

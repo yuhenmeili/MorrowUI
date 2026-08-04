@@ -17,3 +17,7 @@ void morrow::MR3DAutoRotate::update(FrameStateSharedPtr frame_state) {
     m_angleRadians += m_degreesPerFrame * kDegreesToRadians;
     m_transform->setLocalRotation(Quaternion::fromAxisAngle(Vector3(0.0f, 1.0f, 0.0f), m_angleRadians));
 }
+
+bool morrow::MR3DAutoRotate::requiresContinuousUpdate() const {
+    return m_transform && m_degreesPerFrame != 0.0f;
+}

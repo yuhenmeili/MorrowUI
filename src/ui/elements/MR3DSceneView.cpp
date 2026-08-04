@@ -7,14 +7,17 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <functional>
 
 #include "GlobalObject.h"
 #include "GlobalTools.h"
-#include "RenderDeviceProxy.h"
 #include "OrthographicCamera.h"
+#include "RenderDeviceProxy.h"
 #include "Scene3DIBLLoader.h"
 #include "Scene3DUBO.h"
+#include "base/MeshRenderer3D.h"
 #include "base/Transform.h"
+#include "base/Transform3D.h"
 
 namespace morrow {
 namespace {
@@ -27,7 +30,39 @@ std::shared_ptr<UBOData> makeUBOData(const T& payload) {
     std::memcpy(uboData->data.data(), &payload, sizeof(T));
     return uboData;
 }
-} // namespace
+
+void hashCombine(uint64_t& seed, uint64_t value) {
+    seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6U) + (seed >> 2U);
+}
+
+void hashFloat(uint64_t& seed, float value) {
+    uint32_t bits = 0;
+    static_assert(sizeof(bits) == sizeof(value));
+    std::memcpy(&bits, &value, sizeof(bits));
+    hashCombine(seed, bits);
+}
+
+void hashVector3(uint64_t& seed, const Vector3& value) {
+    hashFloat(seed, value.x);
+    hashFloat(seed, value.y);
+    hashFloat(seed, value.z);
+}
+
+void hashTexture(uint64_t& seed, const TextureSharedPtr& texture) {
+    hashCombine(seed, static_cast<uint64_t>(reinterpret_cast<uintptr_t>(texture.get())));
+    if (texture) {
+        hashCombine(seed, texture->getRevision());
+    }
+}
+
+template <typename T>
+void hashVector(uint64_t& seed, const std::vector<T>& values) {
+    hashCombine(seed, values.size());
+    for (const auto value : values) {
+        hashCombine(seed, static_cast<uint64_t>(value));
+    }
+}
+}  // namespace
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -43,13 +78,18 @@ std::shared_ptr<MR3DSceneView> MR3DSceneView::create(int32_t fboW, int32_t fboH)
     view->m_orbitCamera->lookAt(0.0f, 0.0f, 0.0f);
     view->m_orbitCamera->update(0.0f, 0.0f, float(fboW), float(fboH));
     view->m_orbitController = std::make_shared<OrbitController>(view);
+    std::weak_ptr<MR3DSceneView> weakView = view;
+    view->m_orbitCamera->setChangeCallback([weakView]() {
+        if (auto strongView = weakView.lock()) {
+            strongView->invalidateSceneRender();
+        }
+    });
     view->m_scene3DPassContext->camera = view->m_orbitCamera;
     view->m_scene3DPassContext->passWidth = fboW;
     view->m_scene3DPassContext->passHeight = fboH;
 
     if (auto transform = view->getTransform()) {
         transform->setSize(float(fboW), float(fboH));
-        std::weak_ptr<MR3DSceneView> weakView = view;
         transform->addSizeChangeListener([weakView]() {
             if (auto strongView = weakView.lock()) {
                 strongView->buildDisplayQuad();
@@ -71,6 +111,7 @@ std::shared_ptr<MR3DSceneView> MR3DSceneView::create(int32_t fboW, int32_t fboH)
 MR3DSceneView::MR3DSceneView() : UIWidget(false) {
     setWidgetType("Scene3DView");
     m_scene3DPassContext = std::make_shared<Scene3DPassContext>();
+    m_local3DFrameState = std::make_shared<FrameState>();
 }
 
 MR3DSceneView::~MR3DSceneView() {
@@ -85,26 +126,22 @@ MR3DSceneView::~MR3DSceneView() {
 
 void MR3DSceneView::setSceneRoot(std::shared_ptr<SceneNode> sceneRoot) {
     m_sceneRoot = std::move(sceneRoot);
-    requestRender("MR3DSceneView::setSceneRoot");
+    invalidateSceneRender();
 }
 
-void MR3DSceneView::setSceneRoot(std::shared_ptr<SceneNode> sceneRoot,
-                                 const Vector3& boundsMin,
-                                 const Vector3& boundsMax,
-                                 const Scene3DCameraFitOptions& fitOptions) {
+void MR3DSceneView::setSceneRoot(std::shared_ptr<SceneNode> sceneRoot, const Vector3& boundsMin, const Vector3& boundsMax, const Scene3DCameraFitOptions& fitOptions) {
     m_sceneRoot = std::move(sceneRoot);
     fitCameraToBounds(boundsMin, boundsMax, fitOptions);
-    requestRender("MR3DSceneView::setSceneRoot");
+    invalidateSceneRender();
 }
 
 const std::shared_ptr<SceneNode>& MR3DSceneView::getSceneRoot() const {
     return m_sceneRoot;
 }
 
-bool MR3DSceneView::fitCameraToBounds(const Vector3& boundsMin,
-                                      const Vector3& boundsMax,
-                                      const Scene3DCameraFitOptions& fitOptions) {
-    if (!fitOptions.enabled || !m_orbitCamera) return false;
+bool MR3DSceneView::fitCameraToBounds(const Vector3& boundsMin, const Vector3& boundsMax, const Scene3DCameraFitOptions& fitOptions) {
+    if (!fitOptions.enabled || !m_orbitCamera)
+        return false;
 
     const Vector3 sceneCenter = (boundsMin + boundsMax) * 0.5f;
     const Vector3 sceneExtent = boundsMax - boundsMin;
@@ -121,12 +158,9 @@ bool MR3DSceneView::fitCameraToBounds(const Vector3& boundsMin,
 
     m_orbitCamera->lookAt(sceneCenter);
     m_orbitCamera->setDistance(finalDistance);
-    requestRender("MR3DSceneView::fitCameraToBounds");
+    invalidateSceneRender();
 
-    LOG_I("Scene3DView fit camera: min=({}, {}, {}), max=({}, {}, {}), radius={}, distance={}",
-          boundsMin.x, boundsMin.y, boundsMin.z,
-          boundsMax.x, boundsMax.y, boundsMax.z,
-          sceneRadius,
+    LOG_I("Scene3DView fit camera: min=({}, {}, {}), max=({}, {}, {}), radius={}, distance={}", boundsMin.x, boundsMin.y, boundsMin.z, boundsMax.x, boundsMax.y, boundsMax.z, sceneRadius,
           finalDistance);
     return true;
 }
@@ -155,7 +189,7 @@ bool MR3DSceneView::isOrbitEnabled() const {
 
 void MR3DSceneView::setSceneClearColor(const Vector4& clearColor) {
     m_sceneClearColor = clearColor;
-    requestRender("MR3DSceneView::setSceneClearColor");
+    invalidateSceneRender();
 }
 
 const Vector4& MR3DSceneView::getSceneClearColor() const {
@@ -166,16 +200,17 @@ void MR3DSceneView::setSunLight(const Vector3& direction, const Vector3& color, 
     m_scene3DPassContext->lighting.sunDirection = direction;
     m_scene3DPassContext->lighting.sunColor = color;
     m_scene3DPassContext->lighting.sunIntensity = intensity;
-    requestRender("MR3DSceneView::setSunLight");
+    invalidateSceneRender();
 }
 
 void MR3DSceneView::setAmbientLight(const Vector3& color, float intensity) {
     m_scene3DPassContext->lighting.ambientColor = color;
     m_scene3DPassContext->lighting.ambientIntensity = intensity;
-    requestRender("MR3DSceneView::setAmbientLight");
+    invalidateSceneRender();
 }
 
 Scene3DLightingState& MR3DSceneView::getLighting() {
+    invalidateSceneRender();
     return m_scene3DPassContext->lighting;
 }
 
@@ -183,14 +218,8 @@ const Scene3DLightingState& MR3DSceneView::getLighting() const {
     return m_scene3DPassContext->lighting;
 }
 
-void MR3DSceneView::setIBL(const TextureSharedPtr& irradianceTexture,
-                           const TextureSharedPtr& specularTexture,
-                           const TextureSharedPtr& brdfLUTTexture,
-                           float rgbmRange,
-                           const std::vector<int32_t>& specularMipWidths,
-                           const std::vector<int32_t>& specularMipHeights,
-                           const std::vector<int32_t>& specularMipOffsetsY,
-                           float intensity) {
+void MR3DSceneView::setIBL(const TextureSharedPtr& irradianceTexture, const TextureSharedPtr& specularTexture, const TextureSharedPtr& brdfLUTTexture, float rgbmRange,
+                           const std::vector<int32_t>& specularMipWidths, const std::vector<int32_t>& specularMipHeights, const std::vector<int32_t>& specularMipOffsetsY, float intensity) {
     m_scene3DPassContext->ibl.irradianceTexture = irradianceTexture;
     m_scene3DPassContext->ibl.specularTexture = specularTexture;
     m_scene3DPassContext->ibl.brdfLUTTexture = brdfLUTTexture;
@@ -199,7 +228,7 @@ void MR3DSceneView::setIBL(const TextureSharedPtr& irradianceTexture,
     m_scene3DPassContext->ibl.specularMipWidths = specularMipWidths;
     m_scene3DPassContext->ibl.specularMipHeights = specularMipHeights;
     m_scene3DPassContext->ibl.specularMipOffsetsY = specularMipOffsetsY;
-    requestRender("MR3DSceneView::setIBL");
+    invalidateSceneRender();
 }
 
 bool MR3DSceneView::setIBLFromDirectory(const std::string& iblDirectory, float intensity) {
@@ -208,23 +237,17 @@ bool MR3DSceneView::setIBLFromDirectory(const std::string& iblDirectory, float i
         return false;
     }
 
-    setIBL(ibl.irradianceTexture,
-           ibl.specularTexture,
-           ibl.brdfLUTTexture,
-           ibl.rgbmRange,
-           ibl.specularMipWidths,
-           ibl.specularMipHeights,
-           ibl.specularMipOffsetsY,
-           ibl.intensity);
+    setIBL(ibl.irradianceTexture, ibl.specularTexture, ibl.brdfLUTTexture, ibl.rgbmRange, ibl.specularMipWidths, ibl.specularMipHeights, ibl.specularMipOffsetsY, ibl.intensity);
     return true;
 }
 
 void MR3DSceneView::clearIBL() {
     m_scene3DPassContext->ibl = {};
-    requestRender("MR3DSceneView::clearIBL");
+    invalidateSceneRender();
 }
 
 Scene3DIBLState& MR3DSceneView::getIBL() {
+    invalidateSceneRender();
     return m_scene3DPassContext->ibl;
 }
 
@@ -250,7 +273,12 @@ void MR3DSceneView::resizeFBO(int32_t w, int32_t h) {
     if (auto transform = getTransform()) {
         transform->setSize(float(w), float(h));
     }
-    requestRender("MR3DSceneView::resizeFBO");
+    invalidateSceneRender();
+}
+
+void MR3DSceneView::invalidateSceneRender() {
+    m_sceneRenderDirty = true;
+    requestRender("MR3DSceneView::invalidateSceneRender");
 }
 
 void MR3DSceneView::syncToParentSize() {
@@ -338,62 +366,159 @@ void MR3DSceneView::buildDisplayQuad() {
     m_displayQuadVBOData = std::move(vboData);
 }
 
+uint64_t MR3DSceneView::computeSceneRenderSignature() const {
+    uint64_t signature = 0xcbf29ce484222325ULL;
+    hashCombine(signature, static_cast<uint64_t>(m_fboW));
+    hashCombine(signature, static_cast<uint64_t>(m_fboH));
+    hashFloat(signature, m_sceneClearColor.x);
+    hashFloat(signature, m_sceneClearColor.y);
+    hashFloat(signature, m_sceneClearColor.z);
+    hashFloat(signature, m_sceneClearColor.w);
+
+    if (m_orbitCamera) {
+        hashVector3(signature, m_orbitCamera->getPosition());
+        hashVector3(signature, m_orbitCamera->getDirection());
+        hashVector3(signature, m_orbitCamera->getUp());
+        hashVector3(signature, m_orbitCamera->getTarget());
+    }
+
+    if (m_scene3DPassContext) {
+        const auto& lighting = m_scene3DPassContext->lighting;
+        hashVector3(signature, lighting.sunDirection);
+        hashVector3(signature, lighting.sunColor);
+        hashFloat(signature, lighting.sunIntensity);
+        hashVector3(signature, lighting.ambientColor);
+        hashFloat(signature, lighting.ambientIntensity);
+
+        const auto& ibl = m_scene3DPassContext->ibl;
+        hashTexture(signature, ibl.irradianceTexture);
+        hashTexture(signature, ibl.specularTexture);
+        hashTexture(signature, ibl.brdfLUTTexture);
+        hashFloat(signature, ibl.rgbmRange);
+        hashFloat(signature, ibl.intensity);
+        hashVector(signature, ibl.specularMipWidths);
+        hashVector(signature, ibl.specularMipHeights);
+        hashVector(signature, ibl.specularMipOffsetsY);
+    }
+
+    std::function<void(const std::shared_ptr<Widget>&)> hashNode = [&](const std::shared_ptr<Widget>& node) {
+        if (!node) {
+            hashCombine(signature, 0);
+            return;
+        }
+
+        hashCombine(signature, static_cast<uint64_t>(reinterpret_cast<uintptr_t>(node.get())));
+        const bool visible = node->getVisible();
+        hashCombine(signature, visible ? 1U : 0U);
+        if (!visible) {
+            return;
+        }
+        hashCombine(signature, static_cast<uint64_t>(node->getDisplayLayer()));
+
+        if (auto transform = node->getComponent<Transform3D>()) {
+            hashCombine(signature, transform->getLocalVersion());
+        }
+        if (auto renderer = node->getComponent<MeshRenderer3D>()) {
+            hashCombine(signature, renderer->isEnabled() ? 1U : 0U);
+            hashCombine(signature, renderer->getRenderRevision());
+        }
+
+        hashCombine(signature, node->m_children.size());
+        for (const auto& child : node->m_children) {
+            hashNode(child);
+        }
+    };
+    hashNode(m_sceneRoot);
+    return signature;
+}
+
+bool MR3DSceneView::hasContinuousSceneUpdate() const {
+    bool active = false;
+    std::function<void(const std::shared_ptr<Widget>&)> visit = [&](const std::shared_ptr<Widget>& node) {
+        if (!node || active || !node->getVisible()) {
+            return;
+        }
+        if (const auto* components = node->getComponentManager(); components && components->requiresContinuousUpdate()) {
+            active = true;
+            return;
+        }
+        for (const auto& child : node->m_children) {
+            visit(child);
+        }
+    };
+    visit(m_sceneRoot);
+    return active;
+}
+
 // ---------------------------------------------------------------------------
 // Per-frame update
 // ---------------------------------------------------------------------------
 
 void MR3DSceneView::update(FrameStateSharedPtr frameState) {
-    if (!m_renderTarget || !m_renderTarget->getRenderTarget()) return;
+    if (!m_renderTarget || !m_renderTarget->getRenderTarget())
+        return;
 
     syncToParentSize();
 
     if (m_orbitController) {
         m_orbitController->update(frameState);
     }
-
-    // 3D pass
-    // Bind FBO
-    RENDERINGTHREAD->bindRenderTarget(m_renderTarget->getRenderTarget());
-    RENDERINGTHREAD->setDepthWrite(true);
-    RENDERINGTHREAD->setDepthTest(true);
-    RENDERINGTHREAD->setClearColor(m_sceneClearColor.x, m_sceneClearColor.y, m_sceneClearColor.z, m_sceneClearColor.w);
-    RENDERINGTHREAD->clear();
-    RENDERINGTHREAD->setCullFace(CullFaceMode::BACK);
-
-    if (m_sceneRoot && m_orbitCamera) {
-        if (!m_scene3DPassContext->frameUBO) {
-            m_scene3DPassContext->frameUBO = RENDERINGTHREAD->createUBO();
-        }
-
-        // Build a local FrameState copy – inject perspective camera, disable batch
-        FrameState local3D = *frameState;
+    if (m_orbitCamera) {
         m_orbitCamera->update(0.0f, 0.0f, float(m_fboW), float(m_fboH));
-
-        m_scene3DPassContext->camera = m_orbitCamera;
-        m_scene3DPassContext->passWidth = m_fboW;
-        m_scene3DPassContext->passHeight = m_fboH;
-
-        const Scene3DFrameUBO frameUboPayload = buildScene3DFrameUBO(*m_scene3DPassContext);
-        RENDERINGTHREAD->updateUBO(m_scene3DPassContext->frameUBO, makeUBOData(frameUboPayload));
-
-        local3D.perspectiveCamera = m_orbitCamera;
-        local3D.batchManager = nullptr; // 3D pass skips batch accumulation
-        local3D.scene3DPassContext = m_scene3DPassContext;
-        local3D.scene3DLighting = m_scene3DPassContext->lighting;
-        local3D.scene3DIBL = m_scene3DPassContext->ibl;
-        local3D.scene3DFrameUBO = m_scene3DPassContext->frameUBO;
-        local3D.drawCallCount = 0;
-
-        auto local3DState = std::make_shared<FrameState>(local3D);
-        m_sceneRoot->update(local3DState);
-        frameState->drawCallCount += local3DState->drawCallCount;
     }
 
-    // Restore state
-    RENDERINGTHREAD->setDepthTest(false);
-    RENDERINGTHREAD->setDepthWrite(false);
-    RENDERINGTHREAD->setCullFace(CullFaceMode::NONE);
-    RENDERINGTHREAD->unbindRenderTarget();
+    const uint64_t sceneSignature = computeSceneRenderSignature();
+    const bool continuousSceneUpdate = hasContinuousSceneUpdate();
+    const bool renderScene = !m_hasRenderedScene || m_sceneRenderDirty || continuousSceneUpdate || sceneSignature != m_lastSceneRenderSignature;
+
+    if (renderScene) {
+        RENDERINGTHREAD->bindRenderTarget(m_renderTarget->getRenderTarget());
+        RENDERINGTHREAD->setDepthWrite(true);
+        RENDERINGTHREAD->setDepthTest(true);
+        RENDERINGTHREAD->setClearColor(m_sceneClearColor.x, m_sceneClearColor.y, m_sceneClearColor.z, m_sceneClearColor.w);
+        RENDERINGTHREAD->clear();
+        RENDERINGTHREAD->setCullFace(CullFaceMode::BACK);
+
+        if (m_sceneRoot && m_orbitCamera) {
+            if (!m_scene3DPassContext->frameUBO) {
+                m_scene3DPassContext->frameUBO = RENDERINGTHREAD->createUBO();
+            }
+
+            *m_local3DFrameState = *frameState;
+
+            m_scene3DPassContext->camera = m_orbitCamera;
+            m_scene3DPassContext->passWidth = m_fboW;
+            m_scene3DPassContext->passHeight = m_fboH;
+
+            const Scene3DFrameUBO frameUboPayload = buildScene3DFrameUBO(*m_scene3DPassContext);
+            RENDERINGTHREAD->updateUBO(m_scene3DPassContext->frameUBO, makeUBOData(frameUboPayload));
+
+            m_local3DFrameState->perspectiveCamera = m_orbitCamera;
+            m_local3DFrameState->batchManager = nullptr;
+            m_local3DFrameState->scene3DPassContext = m_scene3DPassContext;
+            m_local3DFrameState->scene3DLighting = m_scene3DPassContext->lighting;
+            m_local3DFrameState->scene3DIBL = m_scene3DPassContext->ibl;
+            m_local3DFrameState->scene3DFrameUBO = m_scene3DPassContext->frameUBO;
+            m_local3DFrameState->drawCallCount = 0;
+
+            m_sceneRoot->update(m_local3DFrameState);
+            frameState->drawCallCount += m_local3DFrameState->drawCallCount;
+        }
+
+        RENDERINGTHREAD->setDepthTest(false);
+        RENDERINGTHREAD->setDepthWrite(false);
+        RENDERINGTHREAD->setCullFace(CullFaceMode::NONE);
+        RENDERINGTHREAD->unbindRenderTarget();
+
+        const uint64_t renderedSceneSignature = computeSceneRenderSignature();
+        const bool changedDuringScenePass = renderedSceneSignature != sceneSignature;
+        m_lastSceneRenderSignature = changedDuringScenePass ? sceneSignature : renderedSceneSignature;
+        m_sceneRenderDirty = changedDuringScenePass;
+        m_hasRenderedScene = true;
+        if (continuousSceneUpdate || changedDuringScenePass) {
+            requestRender(changedDuringScenePass ? "MR3DSceneView::sceneChangedDuringPass" : "MR3DSceneView::continuousSceneUpdate");
+        }
+    }
 
     // 2D composite pass
     if (m_renderTarget->getColorTexture() && frameState->camera) {
@@ -426,4 +551,4 @@ void MR3DSceneView::update(FrameStateSharedPtr frameState) {
     // Propagate normal 2D child updates (labels, buttons, etc. overlaid on 3D)
     Widget::update(frameState);
 }
-} // namespace morrow
+}  // namespace morrow
