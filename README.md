@@ -118,7 +118,7 @@ Recommended build dirs:
 
 ## Demos
 
-Sample programs are under `samples/`. Each demo has a corresponding preview video in `doc/videos/`.
+Sample programs are under `samples/`. Each demo has a corresponding preview video in `docs/videos/`.
 
 | Demo | Preview |
 |------|---------|

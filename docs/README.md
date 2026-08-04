@@ -5,8 +5,8 @@
 ## 目录约定
 
 - 源码目录：`samples/`
-- 文档目录：`doc/samples/`
-- 命名规则：`samples/<DemoName>.cpp` 对应 `doc/samples/<DemoName>.md`
+- 文档目录：`docs/samples/`
+- 命名规则：`samples/<DemoName>.cpp` 对应 `docs/samples/<DemoName>.md`
 
 ## Demo 一览
 
