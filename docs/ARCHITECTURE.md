@@ -1106,21 +1106,21 @@ Present
 对应 CPU 测试覆盖初始请求、单次 consume、跨线程发布、Tween 首帧唤醒、连续帧
 请求和完成后停止请求。`maxFrames` 继续只统计实际完成的渲染帧。
 
-#### P1：Transform3D 世界矩阵版本缓存
+#### P1：Transform3D 世界矩阵版本缓存 ✅
 
-当前 `Transform3D::getWorldTransformMatrix()` 每次调用都会通过组件表查找父
-`Transform3D`，递归获取父矩阵并重新执行矩阵乘法，即使整个 3D 层级没有变化。
-这与 2D `Transform` 已有的版本缓存能力不一致。
+已完成：
 
-建议：
+- `Transform3D` 使用 local revision 缓存 TRS 组合后的局部矩阵；
+- 世界矩阵记录使用的 local matrix revision、父 `Transform3D` 身份和父 world
+  revision，三者均未变化时直接复用；
+- world revision 只在世界矩阵实际重建时递增；查询子节点前先刷新父节点，使祖先
+  变化可以穿过尚未单独查询的中间节点惰性传播；
+- 重挂接通过父对象身份变化失效，不需要 Widget 层级额外递归标脏；
+- 显式 local matrix 与 TRS 模式共用 revision 机制，保持 GLTF 节点矩阵语义。
 
-- 为 Transform3D 增加 local/world revision；
-- 缓存父 Transform 身份和上次使用的父 world revision；
-- local revision 和父 world revision 均未变化时直接返回世界矩阵；
-- GLTF 动画只使实际修改节点及其依赖子树失效。
-
-验收：静态 3D 层级预热后世界矩阵重算次数为 0；修改一个节点时只重算该节点
-及其后代，渲染结果与现有实现一致。
+`Transform3DTests.cpp` 覆盖静态重复查询、本地修改、父节点修改、祖先链传播、
+重挂接和显式矩阵替换。静态层级预热后不再执行局部矩阵组合或世界矩阵乘法；
+节点变化后，仅在该节点及相关后代下次查询时重建。
 
 #### P1：MR3DSceneView 按变化重绘
 

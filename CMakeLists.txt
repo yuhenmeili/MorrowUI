@@ -77,4 +77,8 @@ if(BUILD_TESTING)
     add_executable(RequestRenderTests tests/RequestRenderTests.cpp)
     target_link_libraries(RequestRenderTests morrow)
     add_test(NAME RequestRenderTests COMMAND RequestRenderTests)
+
+    add_executable(Transform3DTests tests/Transform3DTests.cpp)
+    target_link_libraries(Transform3DTests morrow)
+    add_test(NAME Transform3DTests COMMAND Transform3DTests)
 endif()

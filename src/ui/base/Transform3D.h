@@ -1,6 +1,8 @@
 #ifndef MORROW_TRANSFORM3D_H
 #define MORROW_TRANSFORM3D_H
 
+#include <cstdint>
+
 #include "Component.h"
 #include "Vector3.h"
 #include "Quaternion.h"
@@ -46,12 +48,17 @@ public:
 
     const Matrix4& getSceneTransformMatrix();
 
+    /// Incremented whenever the cached world matrix is actually rebuilt.
+    uint64_t getWorldVersion() const { return m_worldVersion; }
+
     void update(FrameStateSharedPtr frameState) override;
 
     void setDirty();
 
 private:
     void switchToTRSMode();
+
+    void markDirty();
 
     void updateMatrix();
 
@@ -63,7 +70,18 @@ private:
     Matrix4 m_localMatrix;
     Matrix4 m_worldMatrix;
     bool m_useExplicitLocalMatrix = false;
-    bool m_matrixDirty = true;
+
+    /// Local transform data revision.
+    uint64_t m_localVersion = 1;
+    /// Local data revision used to build m_localMatrix.
+    uint64_t m_localMatrixVersion = 0;
+    /// Local matrix revision used to build m_worldMatrix.
+    uint64_t m_worldLocalMatrixVersion = 0;
+    /// Incremented whenever m_worldMatrix is actually rebuilt.
+    uint64_t m_worldVersion = 1;
+    /// Parent identity and world revision used to build m_worldMatrix.
+    Transform3D* m_cachedWorldParent = nullptr;
+    uint64_t m_cachedParentWorldVersion = 0;
 };
 
 using Transform3DSharedPtr = std::shared_ptr<Transform3D>;
