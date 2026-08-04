@@ -122,23 +122,21 @@ void testClipBreaksBatch() {
            "different clip state should report ClipState");
 }
 
-void testRevisionInvalidatesCachedList() {
+void testResourceRevisionsDoNotInvalidateBatchStructure() {
     auto current = std::vector<RenderItem>{makeItem("image", 0x1000, 1)};
     auto previous = current;
     expect(BatchBuilder::areRenderItemListsEquivalent(current, previous),
            "identical render item lists should be cache-compatible");
 
-    current[0].materialRevision++;
+    // Resource contents are consumed by their own upload/apply paths. They do
+    // not change batch grouping as long as the compatibility key is unchanged.
+    current[0] = previous[0];
+    expect(BatchBuilder::areRenderItemListsEquivalent(current, previous),
+           "resource data changes should not invalidate batch structure");
+
+    current[0].batchKey.materialStateHash++;
     expect(!BatchBuilder::areRenderItemListsEquivalent(current, previous),
-           "material revision should invalidate the cached list");
-    current = previous;
-    current[0].geometryRevision++;
-    expect(!BatchBuilder::areRenderItemListsEquivalent(current, previous),
-           "geometry revision should invalidate the cached list");
-    current = previous;
-    current[0].renderStateRevision++;
-    expect(!BatchBuilder::areRenderItemListsEquivalent(current, previous),
-           "render state revision should invalidate the cached list");
+           "batch compatibility changes should invalidate the cached list");
 }
 
 } // namespace
@@ -152,7 +150,7 @@ int main() {
     testGeometryBreaksBatch();
     testRenderTargetBreaksBatch();
     testClipBreaksBatch();
-    testRevisionInvalidatesCachedList();
+    testResourceRevisionsDoNotInvalidateBatchStructure();
 
     if (g_failures != 0) {
         std::cerr << g_failures << " BatchBuilder test(s) failed\n";

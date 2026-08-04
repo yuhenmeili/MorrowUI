@@ -34,8 +34,6 @@ void BatchManager::addRenderable(std::shared_ptr<Material> material,
     item.meshFilter = std::move(meshFilter);
     item.transform = std::move(transform);
     item.batchKey = createBatchKey(item.material, item.meshFilter);
-    item.materialRevision = item.material ? item.material->getRevision() : 0;
-    item.geometryRevision = item.meshFilter ? item.meshFilter->getGeometryRevision() : 0;
     item.insertionIndex = m_insertionCounter++;
 
     // 从 Widget 获取 displayLayer（-10 ~ 10）
@@ -45,9 +43,6 @@ void BatchManager::addRenderable(std::shared_ptr<Material> material,
             item.displayLayer = widget->getDisplayLayer();
         }
     }
-    item.renderStateRevision = static_cast<uint64_t>(
-        static_cast<uint32_t>(item.displayLayer));
-
     if (underlay) {
         m_underlayRenderables.push_back(std::move(item));
     } else {

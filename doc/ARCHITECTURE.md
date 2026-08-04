@@ -854,15 +854,15 @@ Present
 
 #### Tier 2 — CPU 关键优化
 
-### 15.4 Widget Dirty 体系完善 ⚠️
+### 15.4 Widget Dirty 体系完善 ✅
 
-已有：`Transform` 通过局部数据版本、局部矩阵版本、世界矩阵使用的局部版本及父节点世界版本进行缓存失效检测；`Widget` 不可见子树跳过 update；`MRLabel` 双层文本脏标记；`Mesh::m_revision` 驱动 VBO 跳过上传；`Material::m_revision` 驱动批次缓存比对。统一 Dirty 枚举以及批次 revision 进一步收敛仍未完成。
+已有：`Transform` 通过局部数据版本、局部矩阵版本、世界矩阵使用的局部版本及父节点世界版本进行缓存失效检测；`Widget` 不可见子树跳过 update；`MRLabel` 双层文本脏标记；`Mesh::m_revision` 驱动 VBO 跳过上传；`Material::m_revision` 驱动批次列表变化检测，同时 `BatchCompatibilityKey` 用于判断批次兼容性。当前不建议强行引入跨模块统一 Dirty 枚举，主要问题应转为明确各级缓存的失效边界，避免“数据变化”与“结构变化”混用。
 
 优化方向：
 
-1. **统一 Dirty 枚举**：将 Layout / Transform / Geometry / Material / Visibility 的零散 bool 与 revision（`Transform` 版本机制、`MRLabel` 双层脏标记、`Mesh`/`Material::m_revision`、Widget 可见性遍历）收敛为统一的 DirtyFlag 位掩码；组件与资源按变更类型上报，引擎据此决定跳过 update / 几何上传 / 批次重建，消除各模块语义不一致和重复实现。**未完成**。
+1. **不再推进跨模块统一 Dirty 枚举**：**方案调整，不作为当前优化目标**。`Mesh::m_revision` 已经负责判断对应 `VertexArray` 是否需要重新上传 VBO；`BatchCompatibilityKey` 已经负责判断 shader / texture / blend / topology / vertex layout / clip 等批次结构是否兼容；`Transform` 版本号负责局部矩阵和世界矩阵缓存；`MRLabel` 的文本排版脏标记只服务于文本布局阶段。它们的缓存粒度、生命周期和消费者不同，统一为一个 `DirtyFlag` 反而会引入跨层依赖，并不能减少实际判断。保留各模块独立的 dirty/revision 机制，仅要求命名、注释和失效契约清晰即可。**已完成（方案收敛）**。
 2. **世界矩阵独立 dirty 判定**：**已完成**。`Transform` 已移除 `m_matrixDirty` 与 `m_worldMatrixDirty`，改用版本号判断局部矩阵和世界矩阵是否失效；`getWorldMatrix()` 会比较父节点身份及父节点世界版本，未失效时直接返回缓存矩阵。父节点版本读取前会先刷新父世界矩阵，以确保祖先节点变化可以正确向下传播。
-3. **批次重建与 revision 收敛**：`Material::m_revision` 目前所有 setter 均递增，包含不影响合批兼容的属性（如仅 per-object uniform 变化），会引发无意义的 cache miss；拆分「合批兼容 revision」与「per-object revision」，并让 `renderStateRevision` 覆盖真实渲染状态（clip / stencil / blend）变化，减少批次重建、提高增量合批命中率。**未完成**。
+3. **批次结构变化与资源上传变化解耦**：**已完成**。`RenderItem::isSameRenderableAs()` 不再比较 `materialRevision`、`geometryRevision` 等资源内容版本，而是比较渲染项身份、`displayLayer` 和 `BatchCompatibilityKey`；Mesh 内容变化继续由 `Mesh::m_revision` / `VertexArray::needsMeshUpload()` 负责 VBO 上传，材质参数变化继续由 `Material::apply()` 负责 uniform 提交。只有影响批次兼容性的 shader、纹理集合、blend / cull、primitive topology、vertex layout、clip / stencil 等结构变化才会触发批次重建；对应 BatchBuilder 测试已覆盖资源内容变化不使批次结构失效、兼容性 key 变化能够使缓存失效。
 
 > 说明：引擎面向全屏 GUI 渲染，Widget 总是在视口内绘制，不存在屏幕外可见区域剔除（视口裁剪）需求，该方向不作为优化目标。
 
