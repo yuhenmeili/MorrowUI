@@ -61,7 +61,9 @@ void SSBOManager::registerSSBOLayout(SSBOLayout& layout) {
             instanceData->model = batch.transforms[index]->getWorldMatrix();
             instanceData->attr = Vector4(batch.materials[index]->getFloat("alpha"), 0.0f, 0.0f, 0.0f);
         };
-    } else if (layout.name == "image_normal" || layout.name == "image_text_debug") {
+    } else if (layout.name == "image_normal" ||
+               layout.name == "image_text_debug" ||
+               layout.name == "image_oes") {
         layout.elementSize = sizeof(DefaultBatchData2Attr);
         // 数据填充函数
         layout.filler = [](void* data, const RenderBatch& batch, int index) {

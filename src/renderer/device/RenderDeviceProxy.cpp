@@ -24,6 +24,7 @@
 
 #include <cstring>
 
+#include "Log.h"
 #include "PixelFormat.h"
 #include "RenderDevice.h"
 #include "RenderDeviceProxyBase.h"
@@ -530,6 +531,10 @@ HwVBO RenderDeviceProxy::createVBO() {
 
 void RenderDeviceProxy::updateVBO(HwGPUProgram program, HwVBO vbo, VBODataSharedPtr vboData) {
     if (!m_threaded) {
+        if (!program.isValid() || !vbo.isValid() || !vboData) {
+            LOG_E("RenderDeviceProxy::updateVBO received an invalid argument");
+            return;
+        }
         m_realDevice->updateVBO(program, vbo, vboData);
         m_currentFrameRecyclables.push_back(std::move(vboData));
         return;
@@ -542,6 +547,10 @@ void RenderDeviceProxy::updateVBO(HwGPUProgram program, HwVBO vbo, VBODataShared
 
 void RenderDeviceProxy::deleteVBO(HwVBO vbo) {
     if (!m_threaded) {
+        if (!vbo.isValid()) {
+            LOG_E("RenderDeviceProxy::deleteVBO received an invalid VBO");
+            return;
+        }
         m_realDevice->deleteVBO(vbo);
         return;
     }
@@ -551,6 +560,10 @@ void RenderDeviceProxy::deleteVBO(HwVBO vbo) {
 
 void RenderDeviceProxy::drawVBO(HwVBO vbo, int32_t instanceCount) {
     if (!m_threaded) {
+        if (!vbo.isValid()) {
+            LOG_E("RenderDeviceProxy::drawVBO received an invalid VBO");
+            return;
+        }
         m_realDevice->drawVBO(vbo, instanceCount);
         return;
     }

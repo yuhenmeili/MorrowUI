@@ -934,6 +934,7 @@ void GLRenderDevice::bindRenderTarget(HwRenderTarget rt) {
     auto* glRt = m_registry.getRenderTarget(rt);
     if (!glRt)
         return;
+    glGetIntegerv(GL_VIEWPORT, m_viewportBeforeRenderTarget);
     glBindFramebuffer(GL_FRAMEBUFFER, glRt->fboID);
     glViewport(0, 0, glRt->width, glRt->height);
     // FBO 切换后 viewport 已变更，同步缓存
@@ -946,7 +947,8 @@ void GLRenderDevice::bindRenderTarget(HwRenderTarget rt) {
 }
 
 void GLRenderDevice::unbindRenderTarget() {
-    if (m_boundRenderTarget.isValid()) {
+    const bool hasBoundRenderTarget = m_boundRenderTarget.isValid();
+    if (hasBoundRenderTarget) {
         auto* glRt = m_registry.getRenderTarget(m_boundRenderTarget);
         if (glRt && glRt->resolveFBOID != 0 && glRt->samples > 1) {
             glBindFramebuffer(GL_READ_FRAMEBUFFER, glRt->fboID);
@@ -955,9 +957,20 @@ void GLRenderDevice::unbindRenderTarget() {
         }
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (hasBoundRenderTarget) {
+        glViewport(m_viewportBeforeRenderTarget[0],
+                   m_viewportBeforeRenderTarget[1],
+                   m_viewportBeforeRenderTarget[2],
+                   m_viewportBeforeRenderTarget[3]);
+        m_stateCache.viewportX = m_viewportBeforeRenderTarget[0];
+        m_stateCache.viewportY = m_viewportBeforeRenderTarget[1];
+        m_stateCache.viewportW = m_viewportBeforeRenderTarget[2];
+        m_stateCache.viewportH = m_viewportBeforeRenderTarget[3];
+        m_stateCache.viewportValid = true;
+    } else {
+        m_stateCache.viewportValid = false;
+    }
     m_boundRenderTarget = HwRenderTarget{0};
-    // 回到默认 framebuffer 后 viewport 可能已变，强制下次重设
-    m_stateCache.viewportValid = false;
 }
 
 // ---------------------------------------------------------------------------

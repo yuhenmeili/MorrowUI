@@ -216,6 +216,7 @@ private:
 
     PlatformSharedPtr m_platform;
     HwRenderTarget m_boundRenderTarget{0};
+    GLint m_viewportBeforeRenderTarget[4] = {0, 0, 0, 0};
     ResourceRegistry m_registry;
 
     // ── 内部 GL helper（不对外暴露）──

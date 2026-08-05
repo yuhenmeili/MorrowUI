@@ -51,6 +51,6 @@ void main()
     }
     vec4 base_color = texture(u_texture, v_texCoord.st);
     vec4 color = v_color * base_color;
-    fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    fragColor = color;
     fragColor.a *= alpha;
 }
