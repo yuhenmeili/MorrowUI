@@ -72,6 +72,8 @@ void MeshRenderer3D::setFromGLTFMesh(const GLTFMesh& mesh, const std::vector<GLT
         pd.material = Material::create(shaderName);
         pd.material->setBlendEnabled(false);
         pd.material->setDoubleSided(false);
+        pd.material->setDepthTestEnabled(true);
+        pd.material->setDepthWriteEnabled(true);
         pd.material->setScene3DMaterialUBO(buildScene3DMaterialUBO(nullptr));
 
         // Configure material from GLTFMaterial
@@ -80,6 +82,7 @@ void MeshRenderer3D::setFromGLTFMesh(const GLTFMesh& mesh, const std::vector<GLT
 
             pd.material->setBlendEnabled(gm.alphaBlend);
             pd.material->setDoubleSided(gm.doubleSided);
+            pd.material->setDepthWriteEnabled(!gm.alphaBlend);
             pd.material->setScene3DMaterialUBO(buildScene3DMaterialUBO(&gm));
 
             if (auto tex = createTextureFromGLTFData(gm.baseColorTexture)) {
@@ -160,9 +163,6 @@ void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
             pd.material->setTexture("brdfLUTTexture", ibl.brdfLUTTexture);
         }
 
-        RENDERINGTHREAD->setCullFace(pd.material->isDoubleSided() ? CullFaceMode::NONE : CullFaceMode::BACK);
-        RENDERINGTHREAD->setDepthWrite(!pd.material->isBlendEnabled());
-
         // Apply material – this builds & binds the shader, uploads textures,
         // and sets all stored uniforms (including the matrices above).
         pd.material->apply();
@@ -192,9 +192,6 @@ void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
         }
         RENDERINGTHREAD->drawVBO(pd.vbo, 1);
     }
-
-    RENDERINGTHREAD->setCullFace(CullFaceMode::BACK);
-    RENDERINGTHREAD->setDepthWrite(true);
 }
 
 MeshRenderer3D::MeshRenderer3D() = default;

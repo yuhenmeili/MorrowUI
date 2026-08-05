@@ -44,6 +44,8 @@ public:
 
     bool checkSSBOSupport() override;
 
+    void bindPipelineState(const GraphicsPipelineState& state) override;
+
     //----------------------------------------------------------VBO------------------------------------------------
     HwVBO createVBO() override;
 
@@ -65,11 +67,6 @@ public:
     void updateTexture2D(HwTexture2D texture, const TextureData& data) override;
 
     void updateSubTexture2D(HwTexture2D texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) override;
-
-    //----------------------------------------------------------Blend------------------------------------------------
-    void enableBlend() override;
-
-    void disableBlend() override;
 
     //----------------------------------------------------------GPUProgram------------------------------------------------
     void useGPUProgram(HwGPUProgram program) override;
@@ -125,12 +122,6 @@ public:
     void unbindRenderTarget() override;
 
     // 深度/状态
-    void setDepthTest(bool enable) override;
-
-    void setDepthWrite(bool enable) override;
-
-    void setCullFace(CullFaceMode mode) override;
-
     void clearDepth() override;
 
     //----------------------------------------------------Frame control---------------------------------------------------

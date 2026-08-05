@@ -26,6 +26,8 @@ GLenum getInternalFormat(PixelDataFormat pixelDataFormat);
 GLint getMinFilterType(SamplerMinFilter minFilterType);
 
 GLint getMagFilterType(SamplerMagFilter magFilterType);
-}
+
+GLenum toGLBlendFactor(BlendFactor factor);
+}  // namespace OpenglUtils
 }
 #endif //OPENGLUTILS_H

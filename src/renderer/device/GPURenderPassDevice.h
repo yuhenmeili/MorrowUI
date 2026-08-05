@@ -1,7 +1,7 @@
 //
 // GPURenderPassDevice.h — GPU 渲染通道设备接口
 //
-// 职责：FBO 管理、渲染状态（Blend/Depth/Cull/Viewport/Clear）、平台上下文管理。
+// 职责：FBO 管理、Pipeline 状态、Viewport/Clear、平台上下文管理。
 // 这是从 RenderDevice 拆分出的子接口，可按需单独依赖。
 //
 
@@ -35,18 +35,10 @@ public:
 
     virtual bool checkSSBOSupport() = 0;
 
-    //---------------------------------------------------Blend---------------------------------------------------
-    virtual void enableBlend() = 0;
-
-    virtual void disableBlend() = 0;
+    //---------------------------------------------------Pipeline state---------------------------------------------------
+    virtual void bindPipelineState(const GraphicsPipelineState& state) = 0;
 
     //---------------------------------------------------深度/剔除---------------------------------------------------
-    virtual void setDepthTest(bool enable) = 0;
-
-    virtual void setDepthWrite(bool enable) = 0;
-
-    virtual void setCullFace(CullFaceMode mode) = 0;
-
     virtual void clearDepth() = 0;
 
     //---------------------------------------------------FBO---------------------------------------------------

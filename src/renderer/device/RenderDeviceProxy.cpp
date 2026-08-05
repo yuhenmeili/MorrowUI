@@ -38,6 +38,7 @@ enum CommandType {
     Cmd_MakeCurrent,
     Cmd_Present,
     Cmd_Clear,
+    Cmd_BindPipelineState,
     Cmd_UseGPUProgram,
     Cmd_CreateGPUProgram,
     Cmd_DeleteGPUProgram,
@@ -52,8 +53,6 @@ enum CommandType {
     Cmd_UpdateVBO,
     Cmd_DeleteVBO,
     Cmd_DrawVBO,
-    Cmd_EnableBlend,
-    Cmd_DisableBlend,
     Cmd_SetGPUProgramAsInt,
     Cmd_SetGPUProgramAsFloat,
     Cmd_SetGPUProgramAsVec2,
@@ -76,9 +75,6 @@ enum CommandType {
     Cmd_DeleteRenderTarget,
     Cmd_BindRenderTarget,
     Cmd_UnbindRenderTarget,
-    Cmd_SetDepthTest,
-    Cmd_SetDepthWrite,
-    Cmd_SetCullFace,
     Cmd_ClearDepth,
     Cmd_Count
 };
@@ -96,6 +92,10 @@ enum CommandType {
 // --- Trivial ---
 struct InitContextPayload {
     void* window = nullptr;
+};
+
+struct BindPipelineStatePayload {
+    GraphicsPipelineState state;
 };
 
 struct UseGPUProgramPayload {
@@ -252,18 +252,6 @@ struct DeleteRenderTargetPayload {
     HwRenderTarget rt{0};
 };
 
-struct SetDepthTestPayload {
-    bool enable = false;
-};
-
-struct SetDepthWritePayload {
-    bool enable = false;
-};
-
-struct SetCullFacePayload {
-    CullFaceMode mode = CullFaceMode::NONE;
-};
-
 struct SetGPUProgramParamIntArrayPayload {
     HwGPUProgram program{0};
     std::string uniformName;
@@ -343,6 +331,15 @@ void RenderDeviceProxy::clear() {
         return;
     }
     CMD_BUF.push(Cmd_Clear);
+}
+
+void RenderDeviceProxy::bindPipelineState(const GraphicsPipelineState& state) {
+    if (!m_threaded) {
+        m_realDevice->bindPipelineState(state);
+        return;
+    }
+    auto* pl = CMD_BUF.push<BindPipelineStatePayload>(Cmd_BindPipelineState);
+    pl->state = state;
 }
 
 // ---------------------------------------------------------------------------
@@ -570,26 +567,6 @@ void RenderDeviceProxy::drawVBO(HwVBO vbo, int32_t instanceCount) {
     auto* pl = CMD_BUF.push<DrawVBOPayload>(Cmd_DrawVBO);
     pl->vbo = vbo;
     pl->instanceCount = instanceCount;
-}
-
-// ---------------------------------------------------------------------------
-// Blend
-// ---------------------------------------------------------------------------
-
-void RenderDeviceProxy::enableBlend() {
-    if (!m_threaded) {
-        m_realDevice->enableBlend();
-        return;
-    }
-    CMD_BUF.push(Cmd_EnableBlend);
-}
-
-void RenderDeviceProxy::disableBlend() {
-    if (!m_threaded) {
-        m_realDevice->disableBlend();
-        return;
-    }
-    CMD_BUF.push(Cmd_DisableBlend);
 }
 
 // ---------------------------------------------------------------------------
@@ -841,33 +818,6 @@ void RenderDeviceProxy::unbindRenderTarget() {
 // Depth / rasteriser state
 // ---------------------------------------------------------------------------
 
-void RenderDeviceProxy::setDepthTest(bool enable) {
-    if (!m_threaded) {
-        m_realDevice->setDepthTest(enable);
-        return;
-    }
-    auto* pl = CMD_BUF.push<SetDepthTestPayload>(Cmd_SetDepthTest);
-    pl->enable = enable;
-}
-
-void RenderDeviceProxy::setDepthWrite(bool enable) {
-    if (!m_threaded) {
-        m_realDevice->setDepthWrite(enable);
-        return;
-    }
-    auto* pl = CMD_BUF.push<SetDepthWritePayload>(Cmd_SetDepthWrite);
-    pl->enable = enable;
-}
-
-void RenderDeviceProxy::setCullFace(CullFaceMode mode) {
-    if (!m_threaded) {
-        m_realDevice->setCullFace(mode);
-        return;
-    }
-    auto* pl = CMD_BUF.push<SetCullFacePayload>(Cmd_SetCullFace);
-    pl->mode = mode;
-}
-
 void RenderDeviceProxy::clearDepth() {
     if (!m_threaded) {
         m_realDevice->clearDepth();
@@ -992,6 +942,11 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             case Cmd_Clear:
                 m_realDevice->clear();
                 break;
+            case Cmd_BindPipelineState: {
+                auto* pl = static_cast<BindPipelineStatePayload*>(p);
+                m_realDevice->bindPipelineState(pl->state);
+                break;
+            }
             case Cmd_UseGPUProgram: {
                 auto* pl = static_cast<UseGPUProgramPayload*>(p);
                 if (pl->program.isValid())
@@ -1090,12 +1045,6 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
                     m_realDevice->drawVBO(pl->vbo, pl->instanceCount);
                 break;
             }
-            case Cmd_EnableBlend:
-                m_realDevice->enableBlend();
-                break;
-            case Cmd_DisableBlend:
-                m_realDevice->disableBlend();
-                break;
             case Cmd_SetGPUProgramAsInt: {
                 auto* pl = static_cast<SetGPUProgramParamIntPayload*>(p);
                 if (pl->program.isValid())
@@ -1216,21 +1165,6 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             case Cmd_UnbindRenderTarget:
                 m_realDevice->unbindRenderTarget();
                 break;
-            case Cmd_SetDepthTest: {
-                auto* pl = static_cast<SetDepthTestPayload*>(p);
-                m_realDevice->setDepthTest(pl->enable);
-                break;
-            }
-            case Cmd_SetDepthWrite: {
-                auto* pl = static_cast<SetDepthWritePayload*>(p);
-                m_realDevice->setDepthWrite(pl->enable);
-                break;
-            }
-            case Cmd_SetCullFace: {
-                auto* pl = static_cast<SetCullFacePayload*>(p);
-                m_realDevice->setCullFace(pl->mode);
-                break;
-            }
             case Cmd_ClearDepth:
                 m_realDevice->clearDepth();
                 break;

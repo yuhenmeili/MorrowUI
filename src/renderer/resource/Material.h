@@ -5,15 +5,15 @@
 #ifndef MORROW_SHADERMATERIAL_H
 #define MORROW_SHADERMATERIAL_H
 
-#include <vector>
 #include <string>
 #include <unordered_map>
 #include <variant>
+#include <vector>
 
-#include "Texture.h"
-#include "Shader.h"
 #include "RenderDeviceProxyBase.h"
 #include "Scene3DUBO.h"
+#include "Texture.h"
+#include "Shader.h"
 #include "Vector2.h"
 #include "Vector3.h"
 #include "Vector4.h"
@@ -77,9 +77,7 @@ public:
     /// @param shaderName  着色器标识名
     /// @param vertexSource  顶点着色器 GLSL 源码
     /// @param fragmentSource  片元着色器 GLSL 源码
-    void setShaderFromMemory(const std::string& shaderName,
-                             const std::string& vertexSource,
-                             const std::string& fragmentSource);
+    void setShaderFromMemory(const std::string& shaderName, const std::string& vertexSource, const std::string& fragmentSource);
 
     std::string getShaderName() const;
 
@@ -89,15 +87,19 @@ public:
 
     void setBlendEnabled(bool enabled);
 
-    void setBlendFunc(int srcFactor, int dstFactor);
+    void setBlendFunc(BlendFactor srcRgbFactor, BlendFactor dstRgbFactor, BlendFactor srcAlphaFactor, BlendFactor dstAlphaFactor);
 
     bool isBlendEnabled() const;
 
-    void getBlendFunc(int& srcFactor, int& dstFactor) const;
+    void getBlendFunc(BlendFactor& srcRgbFactor, BlendFactor& dstRgbFactor, BlendFactor& srcAlphaFactor, BlendFactor& dstAlphaFactor) const;
 
     void setDoubleSided(bool doubleSided);
 
     bool isDoubleSided() const;
+
+    void setDepthTestEnabled(bool enabled);
+
+    void setDepthWriteEnabled(bool enabled);
 
     void setScene3DMaterialUBO(const Scene3DMaterialUBO& materialData);
 
@@ -110,7 +112,7 @@ public:
 
     void applyBatch(HwGPUProgram shader = HwGPUProgram{0});
 
-    bool isEqual(std::shared_ptr<Material>  other);
+    bool isEqual(std::shared_ptr<Material> other);
 
     bool operator==(const Material& other) const;
 
@@ -148,14 +150,11 @@ private:
     std::unordered_map<std::string, IntArrayData> m_intArrayMap;
     std::string m_shaderName;
     std::string m_attributePrefix = "u_";
-    bool m_blendEnabled = true;
-    int m_srcBlendFactor = 1; // 默认为GL_ONE
-    int m_dstBlendFactor = 0; // 默认为GL_ZERO
-    bool m_doubleSided = false;
+    GraphicsPipelineState m_pipelineState;
     HwUBO m_scene3DMaterialUbo{0};
     Scene3DMaterialUBO m_scene3DMaterialData{};
     bool m_scene3DMaterialDirty = true;
-    std::vector<std::string> m_defines =  {"ENABLE_SSBO"};
+    std::vector<std::string> m_defines = {"ENABLE_SSBO"};
     std::string m_vertexShaderResource;
     std::string m_fragmentShaderResource;
     uint64_t m_batchCompatibilityRevision = 1;
@@ -165,7 +164,6 @@ private:
 };
 
 using MaterialSharedPtr = std::shared_ptr<Material>;
-}
+}  // namespace morrow
 
-
-#endif //MORROW_SHADERMATERIAL_H
+#endif  // MORROW_SHADERMATERIAL_H

@@ -473,11 +473,8 @@ void MR3DSceneView::update(FrameStateSharedPtr frameState) {
 
     if (renderScene) {
         RENDERINGTHREAD->bindRenderTarget(m_renderTarget->getRenderTarget());
-        RENDERINGTHREAD->setDepthWrite(true);
-        RENDERINGTHREAD->setDepthTest(true);
         RENDERINGTHREAD->setClearColor(m_sceneClearColor.x, m_sceneClearColor.y, m_sceneClearColor.z, m_sceneClearColor.w);
         RENDERINGTHREAD->clear();
-        RENDERINGTHREAD->setCullFace(CullFaceMode::BACK);
 
         if (m_sceneRoot && m_orbitCamera) {
             if (!m_scene3DPassContext->frameUBO) {
@@ -505,9 +502,6 @@ void MR3DSceneView::update(FrameStateSharedPtr frameState) {
             frameState->drawCallCount += m_local3DFrameState->drawCallCount;
         }
 
-        RENDERINGTHREAD->setDepthTest(false);
-        RENDERINGTHREAD->setDepthWrite(false);
-        RENDERINGTHREAD->setCullFace(CullFaceMode::NONE);
         RENDERINGTHREAD->unbindRenderTarget();
 
         const uint64_t renderedSceneSignature = computeSceneRenderSignature();

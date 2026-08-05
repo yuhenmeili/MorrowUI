@@ -10,10 +10,10 @@
 
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <vector>
-#include <cstdint>
 
 #include "BatchDataDefine.h"
 #include "DriverEnums.h"
@@ -77,6 +77,27 @@ struct VBOData {
 
 using VBODataSharedPtr = std::shared_ptr<VBOData>;
 
+// Fixed-function state that must be established immediately before a draw.
+// Render-pass state such as framebuffer, viewport and clear values deliberately
+// stays outside this structure.
+struct GraphicsPipelineState {
+    HwGPUProgram program{0};
+    bool blendEnabled = true;
+    BlendFactor srcRgbBlendFactor = BlendFactor::SRC_ALPHA;
+    BlendFactor dstRgbBlendFactor = BlendFactor::ONE_MINUS_SRC_ALPHA;
+    BlendFactor srcAlphaBlendFactor = BlendFactor::ONE;
+    BlendFactor dstAlphaBlendFactor = BlendFactor::ONE_MINUS_SRC_ALPHA;
+    bool depthTestEnabled = false;
+    bool depthWriteEnabled = false;
+    CullFaceMode cullFaceMode = CullFaceMode::NONE;
+
+    bool isEqual(const GraphicsPipelineState& other) const {
+        return blendEnabled == other.blendEnabled && srcRgbBlendFactor == other.srcRgbBlendFactor && dstRgbBlendFactor == other.dstRgbBlendFactor &&
+               srcAlphaBlendFactor == other.srcAlphaBlendFactor && dstAlphaBlendFactor == other.dstAlphaBlendFactor && depthTestEnabled == other.depthTestEnabled &&
+               depthWriteEnabled == other.depthWriteEnabled && cullFaceMode == other.cullFaceMode;
+    }
+};
+
 // 纹理上传数据。
 struct TextureData {
     ImageType imageType = ImageType::IMAGE;
@@ -113,4 +134,4 @@ struct TextureData {
     // -----------------------------------------------------------------------
     std::function<void()> releaseCallback;
 };
-} // namespace morrow
+}  // namespace morrow

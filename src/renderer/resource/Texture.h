@@ -11,8 +11,9 @@
 
 #include "DriverEnums.h"
 #include "FrameState.h"
-#include "GlobalDefine.h"  // ImageType
-#include "GpuTypes.h"      // Texture2D, TextureData锛堟棤闇€鎷夊叆瀹屾暣璁惧鎺ュ彛锛?#10;#include "basis_universal/transcoder/basisu_containers.h"
+#include "GlobalDefine.h"
+#include "GpuTypes.h"
+#include "basis_universal/transcoder/basisu_containers.h"
 #include "debug/ObjectRegistry.h"
 
 namespace morrow {

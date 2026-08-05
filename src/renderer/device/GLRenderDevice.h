@@ -71,6 +71,8 @@ public:
 
     bool checkSSBOSupport() override;
 
+    void bindPipelineState(const GraphicsPipelineState& state) override;
+
     //------------------------------------------------------VBO------------------------------------------------------
     HwVBO createVBO() override;  // interface (allocate+commit)
 
@@ -96,11 +98,6 @@ public:
     void updateTexture2D(HwTexture2D texture, const TextureData& data) override;
 
     void updateSubTexture2D(HwTexture2D texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) override;
-
-    //------------------------------------------------------Blend------------------------------------------------------
-    void enableBlend() override;
-
-    void disableBlend() override;
 
     //------------------------------------------------------GPUProgram------------------------------------------------------
     void useGPUProgram(HwGPUProgram program) override;
@@ -162,12 +159,6 @@ public:
     void unbindRenderTarget() override;
 
     // 深度/状态
-    void setDepthTest(bool enable) override;
-
-    void setDepthWrite(bool enable) override;
-
-    void setCullFace(CullFaceMode mode) override;
-
     void clearDepth() override;
 
     // ── 内部辅助 ──
@@ -186,6 +177,11 @@ private:
 
         bool blendEnabled = false;
         bool blendStateValid = false;
+        BlendFactor srcRgbBlendFactor = BlendFactor::ONE;
+        BlendFactor dstRgbBlendFactor = BlendFactor::ZERO;
+        BlendFactor srcAlphaBlendFactor = BlendFactor::ONE;
+        BlendFactor dstAlphaBlendFactor = BlendFactor::ZERO;
+        bool blendFuncValid = false;
 
         int32_t viewportX = 0, viewportY = 0, viewportW = 0, viewportH = 0;
         bool viewportValid = false;
@@ -205,6 +201,7 @@ private:
             for (auto& t : currentTextures)
                 t = HwTexture2D{0};
             blendStateValid = false;
+            blendFuncValid = false;
             viewportValid = false;
             depthTestValid = false;
             depthWriteValid = false;
@@ -225,6 +222,18 @@ private:
     bool upLoadTexture(GlTexture2D* textureImp, const TextureData& data);
 
     bool upLoadOESTexture(GlTexture2D* textureImp, const TextureData& data);
+
+    void enableBlend();
+
+    void disableBlend();
+
+    void setBlendFunc(BlendFactor srcRgbFactor, BlendFactor dstRgbFactor, BlendFactor srcAlphaFactor, BlendFactor dstAlphaFactor);
+
+    void setDepthTest(bool enable);
+
+    void setDepthWrite(bool enable);
+
+    void setCullFace(CullFaceMode mode);
 
     bool checkCompileErrors(const std::string& programFileName, GLuint shader, std::string type);
 };

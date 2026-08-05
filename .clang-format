@@ -1,6 +1,6 @@
 Language: Cpp
 BasedOnStyle: Google
-ColumnLimit: 200
+ColumnLimit: 180
 IndentWidth: 4
 TabWidth: 4
 ContinuationIndentWidth: 4

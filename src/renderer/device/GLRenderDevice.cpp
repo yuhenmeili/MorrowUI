@@ -237,10 +237,6 @@ void GLRenderDevice::drawVBO(HwVBO vbo, int32_t instanceCount) {
     if (!glVbo)
         return;
     glBindVertexArray(glVbo->vertexArrayID);
-    glDisable(GL_CULL_FACE);
-    // drawVBO 直接修改了 GL 的 cull face 状态，同步缓存
-    m_stateCache.cullFaceMode = CullFaceMode::NONE;
-    m_stateCache.cullFaceValid = true;
     if (glVbo->indicesCount == 0) {
         if (glVbo->drawMode == GL_POINTS) {
 #ifdef OPENGL_GLFW
@@ -502,8 +498,6 @@ void GLRenderDevice::enableBlend() {
     m_stateCache.blendEnabled = true;
     m_stateCache.blendStateValid = true;
     glEnable(GL_BLEND);
-    glBlendEquation(GL_FUNC_ADD);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void GLRenderDevice::disableBlend() {
@@ -512,6 +506,33 @@ void GLRenderDevice::disableBlend() {
     m_stateCache.blendEnabled = false;
     m_stateCache.blendStateValid = true;
     glDisable(GL_BLEND);
+}
+
+void GLRenderDevice::setBlendFunc(BlendFactor srcRgbFactor, BlendFactor dstRgbFactor, BlendFactor srcAlphaFactor, BlendFactor dstAlphaFactor) {
+    if (m_stateCache.blendFuncValid && m_stateCache.srcRgbBlendFactor == srcRgbFactor && m_stateCache.dstRgbBlendFactor == dstRgbFactor &&
+        m_stateCache.srcAlphaBlendFactor == srcAlphaFactor && m_stateCache.dstAlphaBlendFactor == dstAlphaFactor)
+        return;
+    m_stateCache.srcRgbBlendFactor = srcRgbFactor;
+    m_stateCache.dstRgbBlendFactor = dstRgbFactor;
+    m_stateCache.srcAlphaBlendFactor = srcAlphaFactor;
+    m_stateCache.dstAlphaBlendFactor = dstAlphaFactor;
+    m_stateCache.blendFuncValid = true;
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFuncSeparate(OpenglUtils::toGLBlendFactor(srcRgbFactor), OpenglUtils::toGLBlendFactor(dstRgbFactor),
+                        OpenglUtils::toGLBlendFactor(srcAlphaFactor), OpenglUtils::toGLBlendFactor(dstAlphaFactor));
+}
+
+void GLRenderDevice::bindPipelineState(const GraphicsPipelineState& state) {
+    useGPUProgram(state.program);
+    if (state.blendEnabled) {
+        enableBlend();
+        setBlendFunc(state.srcRgbBlendFactor, state.dstRgbBlendFactor, state.srcAlphaBlendFactor, state.dstAlphaBlendFactor);
+    } else {
+        disableBlend();
+    }
+    setDepthTest(state.depthTestEnabled);
+    setDepthWrite(state.depthWriteEnabled);
+    setCullFace(state.cullFaceMode);
 }
 
 const std::string SHADERS_FOLDER_PATH = "/var/data/shaders/";

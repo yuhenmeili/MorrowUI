@@ -181,6 +181,22 @@ enum class CullFaceMode : uint8_t {
 };
 
 /**
+ * Backend-independent blend factors.
+ */
+enum class BlendFactor : uint8_t {
+    ZERO,
+    ONE,
+    SRC_COLOR,
+    ONE_MINUS_SRC_COLOR,
+    DST_COLOR,
+    ONE_MINUS_DST_COLOR,
+    SRC_ALPHA,
+    ONE_MINUS_SRC_ALPHA,
+    DST_ALPHA,
+    ONE_MINUS_DST_ALPHA
+};
+
+/**
  * Primitive types
  */
 enum class PrimitiveType : uint8_t {

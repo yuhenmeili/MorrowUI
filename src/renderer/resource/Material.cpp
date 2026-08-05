@@ -170,38 +170,58 @@ HwGPUProgram Material::getBatchShader() const {
 }
 
 void Material::setBlendEnabled(bool enabled) {
-    if (m_blendEnabled != enabled) {
-        m_blendEnabled = enabled;
+    if (m_pipelineState.blendEnabled != enabled) {
+        m_pipelineState.blendEnabled = enabled;
         ++m_batchCompatibilityRevision;
     }
 }
 
-void Material::setBlendFunc(int srcFactor, int dstFactor) {
-    if (m_srcBlendFactor != srcFactor || m_dstBlendFactor != dstFactor) {
-        m_srcBlendFactor = srcFactor;
-        m_dstBlendFactor = dstFactor;
+void Material::setBlendFunc(BlendFactor srcRgbFactor, BlendFactor dstRgbFactor, BlendFactor srcAlphaFactor, BlendFactor dstAlphaFactor) {
+    if (m_pipelineState.srcRgbBlendFactor != srcRgbFactor || m_pipelineState.dstRgbBlendFactor != dstRgbFactor ||
+        m_pipelineState.srcAlphaBlendFactor != srcAlphaFactor || m_pipelineState.dstAlphaBlendFactor != dstAlphaFactor) {
+        m_pipelineState.srcRgbBlendFactor = srcRgbFactor;
+        m_pipelineState.dstRgbBlendFactor = dstRgbFactor;
+        m_pipelineState.srcAlphaBlendFactor = srcAlphaFactor;
+        m_pipelineState.dstAlphaBlendFactor = dstAlphaFactor;
         ++m_batchCompatibilityRevision;
     }
 }
 
 bool Material::isBlendEnabled() const {
-    return m_blendEnabled;
+    return m_pipelineState.blendEnabled;
 }
 
-void Material::getBlendFunc(int& srcFactor, int& dstFactor) const {
-    srcFactor = m_srcBlendFactor;
-    dstFactor = m_dstBlendFactor;
+void Material::getBlendFunc(BlendFactor& srcRgbFactor, BlendFactor& dstRgbFactor, BlendFactor& srcAlphaFactor, BlendFactor& dstAlphaFactor) const {
+    srcRgbFactor = m_pipelineState.srcRgbBlendFactor;
+    dstRgbFactor = m_pipelineState.dstRgbBlendFactor;
+    srcAlphaFactor = m_pipelineState.srcAlphaBlendFactor;
+    dstAlphaFactor = m_pipelineState.dstAlphaBlendFactor;
 }
 
 void Material::setDoubleSided(bool doubleSided) {
-    if (m_doubleSided != doubleSided) {
-        m_doubleSided = doubleSided;
+    const CullFaceMode cullFaceMode = doubleSided ? CullFaceMode::NONE : CullFaceMode::BACK;
+    if (m_pipelineState.cullFaceMode != cullFaceMode) {
+        m_pipelineState.cullFaceMode = cullFaceMode;
         ++m_batchCompatibilityRevision;
     }
 }
 
 bool Material::isDoubleSided() const {
-    return m_doubleSided;
+    return m_pipelineState.cullFaceMode == CullFaceMode::NONE;
+}
+
+void Material::setDepthTestEnabled(bool enabled) {
+    if (m_pipelineState.depthTestEnabled != enabled) {
+        m_pipelineState.depthTestEnabled = enabled;
+        ++m_batchCompatibilityRevision;
+    }
+}
+
+void Material::setDepthWriteEnabled(bool enabled) {
+    if (m_pipelineState.depthWriteEnabled != enabled) {
+        m_pipelineState.depthWriteEnabled = enabled;
+        ++m_batchCompatibilityRevision;
+    }
 }
 
 void Material::setScene3DMaterialUBO(const Scene3DMaterialUBO& materialData) {
@@ -243,13 +263,8 @@ void Material::apply(HwGPUProgram shader) {
         return;
     }
 
-    if (m_blendEnabled) {
-        RENDERINGTHREAD->enableBlend();
-    } else {
-        RENDERINGTHREAD->disableBlend();
-    }
-
-    RENDERINGTHREAD->useGPUProgram(targetShader);
+    m_pipelineState.program = targetShader;
+    RENDERINGTHREAD->bindPipelineState(m_pipelineState);
 
     // 应用纹理
     int textureIndex = 0;
@@ -308,13 +323,8 @@ void Material::applyBatch(HwGPUProgram shader) {
         return;
     }
 
-    if (m_blendEnabled) {
-        RENDERINGTHREAD->enableBlend();
-    } else {
-        RENDERINGTHREAD->disableBlend();
-    }
-
-    RENDERINGTHREAD->useGPUProgram(targetShader);
+    m_pipelineState.program = targetShader;
+    RENDERINGTHREAD->bindPipelineState(m_pipelineState);
 
     // 应用纹理
     int textureIndex = 0;
@@ -331,8 +341,7 @@ bool Material::isEqual(std::shared_ptr<Material> other) {
     if (!other) {
         return false;
     }
-    if (m_shaderName != other->m_shaderName || m_blendEnabled != other->m_blendEnabled || m_srcBlendFactor != other->m_srcBlendFactor || m_dstBlendFactor != other->m_dstBlendFactor ||
-        m_doubleSided != other->m_doubleSided || m_textureMap.size() != other->m_textureMap.size()) {
+    if (m_shaderName != other->m_shaderName || !m_pipelineState.isEqual(other->m_pipelineState) || m_textureMap.size() != other->m_textureMap.size()) {
         return false;
     }
 
@@ -347,8 +356,7 @@ bool Material::isEqual(std::shared_ptr<Material> other) {
 }
 
 bool Material::operator==(const Material& other) const {
-    if (m_shaderName != other.m_shaderName || m_blendEnabled != other.m_blendEnabled || m_srcBlendFactor != other.m_srcBlendFactor || m_dstBlendFactor != other.m_dstBlendFactor ||
-        m_doubleSided != other.m_doubleSided || m_textureMap.size() != other.m_textureMap.size()) {
+    if (m_shaderName != other.m_shaderName || !m_pipelineState.isEqual(other.m_pipelineState) || m_textureMap.size() != other.m_textureMap.size()) {
         return false;
     }
 
@@ -370,10 +378,14 @@ uint64_t Material::getBatchCompatibilityHash() const {
     auto hashCombine = [](uint64_t seed, uint64_t value) { return seed ^ (value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2)); };
 
     uint64_t hash = std::hash<std::string>{}(m_shaderName);
-    hash = hashCombine(hash, static_cast<uint64_t>(m_blendEnabled));
-    hash = hashCombine(hash, static_cast<uint64_t>(static_cast<uint32_t>(m_srcBlendFactor)));
-    hash = hashCombine(hash, static_cast<uint64_t>(static_cast<uint32_t>(m_dstBlendFactor)));
-    hash = hashCombine(hash, static_cast<uint64_t>(m_doubleSided));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.blendEnabled));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.srcRgbBlendFactor));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.dstRgbBlendFactor));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.srcAlphaBlendFactor));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.dstAlphaBlendFactor));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.cullFaceMode));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.depthTestEnabled));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.depthWriteEnabled));
     hash = hashCombine(hash, static_cast<uint64_t>(m_textureMap.size()));
     hash = hashCombine(hash, static_cast<uint64_t>(isSSBOShader()));
 
