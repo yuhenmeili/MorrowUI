@@ -9,6 +9,7 @@
 
 #include "GlResourceObjects.h"
 #include "PixelFormat.h"
+#include "ShaderReflection.h"
 #include "TextureLoader.h"
 #include "ToolUtils.h"
 #include "sys/stat.h"
@@ -693,6 +694,102 @@ void GLRenderDevice::useGPUProgram(HwGPUProgram program) {
 
 void GLRenderDevice::deletGPUProgram(HwGPUProgram program) {
     m_registry.destroyGPUProgram(program);
+}
+
+// ---------------------------------------------------------------------------
+// P3：SSBO block 反射（需持有 GL context）
+// ---------------------------------------------------------------------------
+namespace {
+
+ShaderDataType mapGLTypeToShaderDataType(GLenum type) {
+    switch (type) {
+        case GL_INT: return ShaderDataType::Int;
+        case GL_FLOAT: return ShaderDataType::Float;
+        case GL_FLOAT_VEC2: return ShaderDataType::Vector2;
+        case GL_FLOAT_VEC3: return ShaderDataType::Vector3;
+        case GL_FLOAT_VEC4: return ShaderDataType::Vector4;
+        case GL_FLOAT_MAT3: return ShaderDataType::Matrix3;
+        case GL_FLOAT_MAT4: return ShaderDataType::Matrix4;
+        default: return ShaderDataType::Float;
+    }
+}
+
+// 去掉 buffer variable 全名中的数组前缀（"instances[0].model" -> "model"）
+std::string shortBufferVariableName(const std::string& fullName) {
+    const auto pos = fullName.rfind('.');
+    if (pos != std::string::npos) {
+        return fullName.substr(pos + 1);
+    }
+    return fullName;
+}
+
+SSBOReflectedLayout reflectSSBOBlockGL(GLuint program, const std::string& blockName) {
+    SSBOReflectedLayout out;
+    const GLuint blockIndex =
+        glGetProgramResourceIndex(program, GL_SHADER_STORAGE_BLOCK, blockName.c_str());
+    if (blockIndex == GL_INVALID_INDEX) {
+        return out;
+    }
+
+    // 顶层数组元素 stride（查询顶层数组变量 instances 的 GL_TOP_LEVEL_ARRAY_STRIDE）
+    static const char* kArrayNames[] = {"instances", "instances[0]"};
+    for (const char* arrayName : kArrayNames) {
+        const GLuint varIndex = glGetProgramResourceIndex(program, GL_BUFFER_VARIABLE, arrayName);
+        if (varIndex != GL_INVALID_INDEX) {
+            GLenum props[] = {GL_TOP_LEVEL_ARRAY_STRIDE};
+            GLint stride = -1;
+            glGetProgramResourceiv(program, GL_BUFFER_VARIABLE, varIndex, 1, props, 1, nullptr, &stride);
+            out.topLevelArrayStride = stride;
+            break;
+        }
+    }
+
+    // active buffer variables
+    GLint numVariables = 0;
+    {
+        GLenum props[] = {GL_NUM_ACTIVE_VARIABLES};
+        glGetProgramResourceiv(program, GL_SHADER_STORAGE_BLOCK, blockIndex, 1, props, 1, nullptr, &numVariables);
+    }
+
+    if (numVariables > 0) {
+        std::vector<GLint> variableIndices(static_cast<size_t>(numVariables));
+        {
+            GLenum props[] = {GL_ACTIVE_VARIABLES};
+            glGetProgramResourceiv(program, GL_SHADER_STORAGE_BLOCK, blockIndex, 1, props,
+                                   numVariables, nullptr, variableIndices.data());
+        }
+
+        for (GLint varIndex : variableIndices) {
+            char nameBuf[256] = {};
+            GLsizei nameLen = 0;
+            glGetProgramResourceName(program, GL_BUFFER_VARIABLE, varIndex, 255, &nameLen, nameBuf);
+
+            GLenum props[] = {GL_TYPE, GL_OFFSET, GL_ARRAY_STRIDE, GL_MATRIX_STRIDE};
+            GLint params[4] = {-1, -1, -1, -1};
+            glGetProgramResourceiv(program, GL_BUFFER_VARIABLE, varIndex, 4, props, 4, nullptr, params);
+
+            SSBOReflectedField field;
+            field.name = shortBufferVariableName(std::string(nameBuf, nameLen));
+            field.type = mapGLTypeToShaderDataType(static_cast<GLenum>(params[0]));
+            field.offset = params[1];
+            field.arrayStride = params[2];
+            field.matrixStride = params[3];
+            out.fields.push_back(std::move(field));
+        }
+    }
+
+    out.valid = true;
+    return out;
+}
+
+} // namespace
+
+SSBOReflectedLayout GLRenderDevice::reflectSSBOBlock(HwGPUProgram program, const std::string& blockName) {
+    auto* prog = m_registry.getGPUProgram(program);
+    if (prog == nullptr) {
+        return {};
+    }
+    return reflectSSBOBlockGL(prog->ProgramID, blockName);
 }
 
 void GLRenderDevice::setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) {

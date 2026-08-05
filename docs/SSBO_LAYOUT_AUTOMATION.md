@@ -40,7 +40,12 @@ if (layout.name == "button") {
 
 随着支持 SSBO 的 shader 增加，该函数会持续膨胀，并且 CPU 结构、GLSL 结构和 Material 参数之间依靠人工保持一致。
 
-本文只描述建议方案，暂不修改现有代码。
+> **实施状态（2026-08-05）**
+>
+> - P0（安全性修复）、P1（注册表重构）、P2（字段绑定）、P3（shader reflection 校验）**已实施完成**，详见第 15 节 ✅ 标记；
+> - P4（代码生成）仍为建议方案，暂未实施；
+> - P1 的独立命名 filler 已在 P2 中演进为声明式字段绑定（`SSBOLayoutFillers.h` 已删除），`SSBOLayout::filler` 仍保留为 custom packer 通道；
+> - 本节背景代码示例为重构前形态，仅供参考。
 
 ---
 
@@ -813,27 +818,22 @@ if (!ssboManager->updateSSBOForShader(batch.shaderName, batch)) {
 
 ## 14. 测试建议
 
-### 14.1 纯 CPU 单元测试
+### 14.1 纯 CPU 单元测试 ✅
 
-对每种 filler 测试：
+对每种字段绑定 / layout 测试（`tests/SSBOLayoutTests.cpp`）：
 
 - model matrix 是否写入正确；
 - Material 参数是否写入正确分量；
 - 默认值是否正确；
-- 参数缺失是否按约定失败；
+- 参数缺失是否按约定回退（类型安全，不再抛 `bad_variant_access`）；
 - element size 是否正确；
 - 多实例写入是否互不覆盖。
 
-### 14.2 布局测试
+### 14.2 布局测试 ✅
 
-验证：
-
-```cpp
-sizeof(...)
-offsetof(...)
-is_standard_layout
-is_trivially_copyable
-```
+- `sizeof` / `offsetof` / `is_standard_layout` 已在 `SSBOManager.cpp` 编译期断言；
+- `validateSSBOLayout` 的纯 CPU 用例已覆盖（匹配、offset/type/缺字段/stride 不匹配、反射不可用）；
+- `is_trivially_copyable` 未断言：`Vector4` 有用户自定义拷贝构造函数，标准布局 + 尺寸/偏移断言已足够。
 
 ### 14.3 shader reflection 集成测试
 
@@ -857,36 +857,36 @@ is_trivially_copyable
 
 ## 15. 分阶段实施顺序
 
-### P0：安全性修复
+### P0：安全性修复 ✅
 
-1. `SSBOLayout::elementSize` 默认初始化为 `0`；
-2. 验证 `filler` 是否有效；
-3. 未注册 shader 明确报错并停止 SSBO 更新；
-4. 验证 batch 各数组长度；
-5. 增加基础 `static_assert`。
+1. `SSBOLayout::elementSize` 默认初始化为 `0`；—— `SSBOLayout::elementSize = 0`
+2. 验证 `filler` 是否有效；—— 新增 `SSBOLayout::isValid()`
+3. 未注册 shader 明确报错并停止 SSBO 更新；—— `updateSSBOForShader()` 对未注册/无效 layout 输出 `LOG_E` 并安全返回
+4. 验证 batch 各数组长度；—— `materials` / `transforms` / `meshFilters` 长度不一致时拒绝填充
+5. 增加基础 `static_assert`；—— `sizeof` / `offsetof` / `is_standard_layout`
 
-### P1：注册表重构
+### P1：注册表重构 ✅
 
-1. 将 `if / else` 改为 shader → layout factory 注册表；
-2. filler 拆为独立命名函数；
-3. 模板自动设置 `sizeof(T)`；
-4. 为 filler 增加纯 CPU 测试；
-5. 合并共享 layout 的 shader 别名。
+1. 将 `if / else` 改为 shader → layout factory 注册表；—— `m_layoutFactories` + `findLayout()` 懒构建缓存
+2. filler 拆为独立命名函数；—— 已在 P2 演进为声明式字段绑定（`SSBOLayoutFillers.h` 已删除）
+3. 模板自动设置 `sizeof(T)`；—— `makeLayout<T>()`
+4. 为 filler 增加纯 CPU 测试；—— `tests/SSBOLayoutTests.cpp`（P2 后测试字段绑定）
+5. 合并共享 layout 的 shader 别名；—— `default_image`/`anchor_point_scale`、`image_normal`/`image_text_debug`/`image_oes`
 
-### P2：字段绑定
+### P2：字段绑定 ✅
 
-1. 引入 `SSBOFieldBinding`；
-2. 支持 world matrix、Material float/vector 和常量；
-3. 支持 vec4 component packing；
-4. 简单 shader 迁移到声明式 binding；
-5. 复杂 shader 保留 custom filler。
+1. 引入 `SSBOFieldBinding`；—— `SSBOFieldBinding.h`（`SSBOValueSource` / `SSBOFieldKind` / `SSBOComponentSource`）
+2. 支持 world matrix、Material float/vector 和常量；—— `writeSSBOField` 通用 writer + `Material` 类型安全接口（`tryGetFloat` / `getVector4Or` / `tryGetVectorComponent`）
+3. 支持 vec4 component packing；—— `makePackedVector4Field` + `materialFloat` / `materialVectorComponent` / `constantFloat`
+4. 简单 shader 迁移到声明式 binding；—— 6 个 shader 全部迁移，`SSBOLayout::filler` 保留为 custom packer 通道
+5. 复杂 shader 保留 custom filler；—— `fillSSBOInstance` 先写 fields 再调 filler
 
-### P3：shader reflection 校验
+### P3：shader reflection 校验 ✅
 
-1. shader 链接后反射 SSBO block；
-2. 缓存字段 offset/type/stride；
-3. 开发版本校验 CPU descriptor；
-4. shader hot reload 时重新校验。
+1. shader 链接后反射 SSBO block；—— `reflectSSBOBlock`（GLRenderDevice 实现，RenderDeviceProxy 同步命令支持多线程）
+2. 缓存字段 offset/type/stride；—— `SSBOReflectedLayout` / `SSBOReflectedField`
+3. 开发版本校验 CPU descriptor；—— `validateSSBOLayout`（纯 CPU，可测试）+ `SSBOManager::validateReflectionOnce` 首次使用时校验
+4. shader hot reload 时重新校验；—— 校验缓存记录 program id，hot reload 产生新 program 时自动重新校验
 
 ### P4：可选代码生成
 
@@ -905,14 +905,14 @@ is_trivially_copyable
   + shader reflection 校验
 ```
 
-建议优先实施 P0 和 P1：
+P0 ~ P3 已实施完成（2026-08-05），上述四项收益均已落地：
 
 - 解决未知 shader 的安全风险；
 - 移除持续增长的 `if / else`；
 - 保持当前业务行为不变；
 - 为后续自动化建立稳定接口。
 
-随后按实际重复程度实施 P2。P3 用于防止 CPU/GLSL layout 静默错位。P4 只在 shader 数量足够多时考虑。
+P4（统一 schema / 代码生成）只在 shader 数量足够多时考虑。
 
 核心结论：
 

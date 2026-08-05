@@ -28,6 +28,7 @@
 #include "PixelFormat.h"
 #include "RenderDevice.h"
 #include "RenderDeviceProxyBase.h"
+#include "ShaderReflection.h"
 
 namespace morrow {
 // ---------------------------------------------------------------------------
@@ -68,6 +69,7 @@ enum CommandType {
     Cmd_CreateSSBO,
     Cmd_UpdateSSBO,
     Cmd_CheckSSBOSupport,
+    Cmd_ReflectSSBOBlock,
     Cmd_DebugDriver,
     Cmd_UpdateSubTexture2D,
     Cmd_EndFrame,
@@ -192,6 +194,12 @@ struct CreateSSBOPayload {
 
 struct CheckSSBOSupportPayload {
     bool* result = nullptr;
+};
+
+struct ReflectSSBOBlockPayload {
+    HwGPUProgram program{0};
+    std::string blockName;
+    SSBOReflectedLayout* result = nullptr;
 };
 
 // --- Non-trivial (have std::string / std::vector / std::shared_ptr members) ---
@@ -506,6 +514,19 @@ bool RenderDeviceProxy::checkSSBOSupport() {
 
     bool result = false;
     auto* pl = CMD_BUF.push<CheckSSBOSupportPayload>(Cmd_CheckSSBOSupport);
+    pl->result = &result;
+    submitCurrentBufferAndAdvance();
+    return result;
+}
+
+SSBOReflectedLayout RenderDeviceProxy::reflectSSBOBlock(HwGPUProgram program, const std::string& blockName) {
+    if (!m_threaded)
+        return m_realDevice->reflectSSBOBlock(program, blockName);
+
+    SSBOReflectedLayout result;
+    auto* pl = CMD_BUF.pushNT<ReflectSSBOBlockPayload>(Cmd_ReflectSSBOBlock);
+    pl->program = program;
+    pl->blockName = blockName;
     pl->result = &result;
     submitCurrentBufferAndAdvance();
     return result;
@@ -1137,6 +1158,13 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
                 auto* pl = static_cast<CheckSSBOSupportPayload*>(p);
                 if (pl->result) {
                     *pl->result = m_realDevice->checkSSBOSupport();
+                }
+                break;
+            }
+            case Cmd_ReflectSSBOBlock: {
+                auto* pl = static_cast<ReflectSSBOBlockPayload*>(p);
+                if (pl->result) {
+                    *pl->result = m_realDevice->reflectSSBOBlock(pl->program, pl->blockName);
                 }
                 break;
             }

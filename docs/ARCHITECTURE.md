@@ -1165,16 +1165,25 @@ model 数据仍能逐帧更新；SSBO 与标准路径画面一致。
 
 #### P2：SSBO 实例数据打包去字符串查找
 
-当前 `SSBOLayout::filler` 在每个实例上通过 `getFloat("...")`、
-`getVector("...")` 查询 Material 的字符串 map，并通过 `std::function` 间接调用。
-大量 Widget 时，这部分可能成为 CPU 热点，但应先使用固定场景确认占比。
+> 说明：本项编号属于 15.19 的性能优化清单，与 `SSBO_LAYOUT_AUTOMATION.md` 的
+> 分阶段编号（P0~P4）是两套不同体系，不冲突。
 
-建议：
+SSBO 打包已按 `SSBO_LAYOUT_AUTOMATION.md` 的 P0~P3 重构（2026-08-05）：注册表 +
+声明式字段绑定（`SSBOFieldBinding`）+ 类型安全的 Material 读取接口
+（`tryGetFloat` / `getVector4Or` / `tryGetVectorComponent`）+ 首次使用时的 shader
+reflection 布局校验。但每个实例仍通过 `materialProperty` 字符串查询 Material 的
+map，并经由 `std::function` 间接调用 `writeSSBOField`。大量 Widget 时，这部分
+可能成为 CPU 热点，但应先使用固定场景确认占比。
 
-- 为内建 shader 使用类型化 instance payload 或稳定字段句柄；
-- Material revision 未变化时复用已解析的 per-instance 常量；
-- 保留 Transform matrix 等真正逐帧变化的数据直接写入；
-- 评估 `ShaderStorageBuffer` 数据容量复用，避免每批每帧重复获取和 resize DTO。
+建议（当前状态）：
+
+- 为内建 shader 使用类型化 instance payload 或稳定字段句柄；—— ⏸️ 未实施，
+  现有 `SSBOFieldBinding` 为声明式描述，运行时仍按字符串查找；
+- Material revision 未变化时复用已解析的 per-instance 常量；—— ⏸️ 未实施；
+- 保留 Transform matrix 等真正逐帧变化的数据直接写入；—— ✅ 已随字段绑定落地
+  （`makeWorldMatrixField` 直接写入世界矩阵）；
+- 评估 `ShaderStorageBuffer` 数据容量复用，避免每批每帧重复获取和 resize DTO；——
+  ⏸️ 未实施。
 
 验收：仅在 profiling 显示 SSBO 填充占用显著 CPU 时间后实施；优化后比较相同
 RenderItem 数量下的 collection/pack 时间、命令字节数和内存峰值。

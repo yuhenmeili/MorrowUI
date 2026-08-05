@@ -89,4 +89,8 @@ if(BUILD_TESTING)
     add_executable(Scene3DRedrawTests tests/Scene3DRedrawTests.cpp)
     target_link_libraries(Scene3DRedrawTests morrow)
     add_test(NAME Scene3DRedrawTests COMMAND Scene3DRedrawTests)
+
+    add_executable(SSBOLayoutTests tests/SSBOLayoutTests.cpp)
+    target_link_libraries(SSBOLayoutTests morrow)
+    add_test(NAME SSBOLayoutTests COMMAND SSBOLayoutTests)
   endif()

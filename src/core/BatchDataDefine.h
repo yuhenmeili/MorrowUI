@@ -4,6 +4,8 @@
 
 #ifndef BATCHDATADEFINE_H
 #define BATCHDATADEFINE_H
+#include <memory>
+#include <vector>
 #include "Vector3.h"
 #include "Vector4.h"
 #include "renderer/device/ResourceHandle.h"

@@ -75,6 +75,8 @@ public:
 
     void deletGPUProgram(HwGPUProgram program) override;
 
+    SSBOReflectedLayout reflectSSBOBlock(HwGPUProgram program, const std::string& blockName) override;
+
     void setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) override;
 
     void setGPUProgramParamAsFloat(HwGPUProgram program, const std::string& uniformName, float value) override;

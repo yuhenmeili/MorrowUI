@@ -7,21 +7,13 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 #include "GpuTypes.h"
+#include "SSBOFieldBinding.h"
 
 namespace morrow {
 class SSBOData;
 struct RenderBatch;
-
-enum class ShaderDataType {
-    Int,
-    Float,
-    Vector2,
-    Vector3,
-    Vector4,
-    Matrix3,
-    Matrix4
-};
 
 // Shader属性描述
 struct ShaderAttribute {
@@ -34,9 +26,17 @@ struct ShaderAttribute {
 // SSBO数据结构描述
 struct SSBOLayout {
     std::string name;
-    size_t elementSize;
-    // std::vector<ShaderAttribute> attributes;
+    // P0：默认初始化为 0，避免未注册 shader 使用未定义大小
+    size_t elementSize = 0;
+    // P2：声明式字段绑定（替代手工 filler）；shaderField 供 P3 reflection 校验
+    std::vector<SSBOFieldBinding> fields;
+    // P1：custom packer 通道，供复杂 shader 使用（fields 之外）
     std::function<void(void* data, const RenderBatch& batch, int index)> filler;
+
+    // P0/P2：布局是否可用于填充实例数据（fields 或 filler 任一有效即可）
+    bool isValid() const {
+        return elementSize > 0 && (filler || !fields.empty());
+    }
 };
 
 class ShaderStorageBuffer {

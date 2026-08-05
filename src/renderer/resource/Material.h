@@ -6,6 +6,7 @@
 #define MORROW_SHADERMATERIAL_H
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -57,6 +58,19 @@ public:
     void setFloat(const std::string& name, float value);
 
     float getFloat(const std::string& name) const;
+
+    // ── 类型安全读取（SSBO 字段绑定 / 声明式打包用，P2）──
+    // 缺失或类型不匹配时返回 false / 回退默认值，不抛 std::bad_variant_access。
+    bool tryGetFloat(std::string_view name, float& value) const;
+
+    float getFloatOr(std::string_view name, float defaultValue) const;
+
+    bool tryGetVector4(std::string_view name, Vector4& value) const;
+
+    Vector4 getVector4Or(std::string_view name, const Vector4& defaultValue) const;
+
+    /// 读取 Vector2/3/4 的第 component 个分量（越界返回 false）
+    bool tryGetVectorComponent(std::string_view name, int component, float& value) const;
 
     // Int相关方法
     void setInt(const std::string& name, int32_t value);

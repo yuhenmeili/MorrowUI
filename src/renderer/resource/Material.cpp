@@ -96,6 +96,64 @@ float Material::getFloat(const std::string& name) const {
     return 0.0f;
 }
 
+// ── 类型安全读取（P2：SSBO 字段绑定 / 声明式打包用）──
+
+bool Material::tryGetFloat(std::string_view name, float& value) const {
+    auto it = m_floatMap.find(m_attributePrefix + std::string(name));
+    if (it == m_floatMap.end()) {
+        return false;
+    }
+    value = it->second;
+    return true;
+}
+
+float Material::getFloatOr(std::string_view name, float defaultValue) const {
+    float value = defaultValue;
+    tryGetFloat(name, value);
+    return value;
+}
+
+bool Material::tryGetVector4(std::string_view name, Vector4& value) const {
+    auto it = m_vectorMap.find(m_attributePrefix + std::string(name));
+    if (it == m_vectorMap.end()) {
+        return false;
+    }
+    return std::visit(
+        [&value](const auto& vec) {
+            const size_t count = sizeof(vec.elements) / sizeof(float);
+            value = Vector4(
+                vec.elements[0],
+                count > 1 ? vec.elements[1] : 0.0f,
+                count > 2 ? vec.elements[2] : 0.0f,
+                count > 3 ? vec.elements[3] : 0.0f);
+            return true;
+        },
+        it->second);
+}
+
+Vector4 Material::getVector4Or(std::string_view name, const Vector4& defaultValue) const {
+    Vector4 value = defaultValue;
+    tryGetVector4(name, value);
+    return value;
+}
+
+bool Material::tryGetVectorComponent(std::string_view name, int component, float& value) const {
+    auto it = m_vectorMap.find(m_attributePrefix + std::string(name));
+    if (it == m_vectorMap.end()) {
+        return false;
+    }
+    return std::visit(
+        [&value, component](const auto& vec) -> bool {
+            const size_t count = sizeof(vec.elements) / sizeof(float);
+            if (component < 0 || static_cast<size_t>(component) >= count) {
+                return false;
+            }
+            value = vec.elements[component];
+            return true;
+        },
+        it->second);
+}
+
 void Material::setInt(const std::string& name, int32_t value) {
     m_intMap[m_attributePrefix + name] = value;
     ++m_uniformRevision;

@@ -108,6 +108,8 @@ public:
 
     void deletGPUProgram(HwGPUProgram program) override;
 
+    SSBOReflectedLayout reflectSSBOBlock(HwGPUProgram program, const std::string& blockName) override;
+
     // All uniform setting via name (GPUProgramParam removed)
     void setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) override;
 

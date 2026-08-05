@@ -14,6 +14,7 @@
 
 #include "GpuTypes.h"
 #include "Matrix4.h"
+#include "ShaderReflection.h"
 
 namespace morrow {
 using namespace Math;
@@ -30,6 +31,10 @@ public:
                                           const std::string& fragmentShader) = 0;
 
     virtual void deletGPUProgram(HwGPUProgram program) = 0;
+
+    /// P3：反射指定 program 的 SSBO block 布局（在持有 GL context 的线程执行）。
+    /// 返回 valid=false 表示 block 不存在或查询失败。
+    virtual SSBOReflectedLayout reflectSSBOBlock(HwGPUProgram program, const std::string& blockName) = 0;
 
     //------------------------------ 按名称设置 Uniform（统一接口，GPUProgramParam 不再独立存在）------------------------------
     virtual void setGPUProgramParamAsInt(HwGPUProgram program, const std::string& uniformName, int32_t value) = 0;
