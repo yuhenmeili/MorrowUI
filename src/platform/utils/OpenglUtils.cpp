@@ -99,5 +99,25 @@ GLenum toGLBlendFactor(BlendFactor factor) {
     }
     return GL_ONE;
 }
+ShaderDataType mapGLTypeToShaderDataType(GLenum type) {
+    switch (type) {
+        case GL_INT:
+            return ShaderDataType::Int;
+        case GL_FLOAT:
+            return ShaderDataType::Float;
+        case GL_FLOAT_VEC2:
+            return ShaderDataType::Vector2;
+        case GL_FLOAT_VEC3:
+            return ShaderDataType::Vector3;
+        case GL_FLOAT_VEC4:
+            return ShaderDataType::Vector4;
+        case GL_FLOAT_MAT3:
+            return ShaderDataType::Matrix3;
+        case GL_FLOAT_MAT4:
+            return ShaderDataType::Matrix4;
+        default:
+            return ShaderDataType::Float;
+    }
+}
 }  // namespace OpenglUtils
 }  // namespace morrow

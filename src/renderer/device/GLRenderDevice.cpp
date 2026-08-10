@@ -27,7 +27,8 @@
 #define MR_BATCH "a_batch"
 
 namespace morrow {
-GLRenderDevice::GLRenderDevice(PlatformSharedPtr platform) : m_platform(platform) {
+GLRenderDevice::GLRenderDevice(PlatformSharedPtr platform) :
+    m_platform(platform) {
 }
 
 GLRenderDevice::~GLRenderDevice() {
@@ -124,7 +125,8 @@ void GLRenderDevice::setClearColor(float r, float g, float b, float alpha) {
     glClearColor(r, g, b, alpha);
 }
 
-void GLRenderDevice::dumpFrameBuffer(int32_t x, int32_t y, int32_t displayWidth, int32_t displayHeight, int32_t rectX, int32_t rectY, int32_t rectWidth, int32_t rectHeight, int32_t comp) {
+void GLRenderDevice::dumpFrameBuffer(int32_t x, int32_t y, int32_t displayWidth, int32_t displayHeight, int32_t rectX, int32_t rectY, int32_t rectWidth, int32_t rectHeight,
+                                     int32_t comp) {
     std::string fileName = "/data/log/framebuffer" + Math::generate_uuid() + ".png";
     std::vector<uint8_t> data(rectWidth * rectHeight * comp);
     rectY = displayHeight - rectHeight;
@@ -157,13 +159,11 @@ bool GLRenderDevice::checkSSBOSupport() {
     }
 }
 
-HwVBO GLRenderDevice::createVBO() {
-    HwVBO h = allocateVBO();
-    commitVBO(h);
-    return h;
+HwVBO GLRenderDevice::createVBOSync() {
+    return m_registry.allocateVBO();
 }
 
-void GLRenderDevice::commitVBO(HwVBO handle) {
+void GLRenderDevice::createVBORender(HwVBO handle) {
     auto* vbo = new GlVBO();
     glGenVertexArrays(1, &vbo->vertexArrayID);
     glBindVertexArray(vbo->vertexArrayID);
@@ -260,13 +260,11 @@ void GLRenderDevice::drawVBO(HwVBO vbo, int32_t instanceCount) {
     }
 }
 
-HwTexture2D GLRenderDevice::createTexture2D(ImageType imageType) {
-    HwTexture2D h = allocateTexture2D();
-    commitTexture2D(h, imageType);
-    return h;
+HwTexture2D GLRenderDevice::createTexture2DSync() {
+    return m_registry.allocateTexture2D();
 }
 
-void GLRenderDevice::commitTexture2D(HwTexture2D handle, ImageType imageType) {
+void GLRenderDevice::createTexture2DRender(HwTexture2D handle, ImageType imageType) {
     GLuint textureID = 0;
     glGenTextures(1, &textureID);
     auto* realTexture = new GlTexture2D(textureID);
@@ -353,8 +351,8 @@ void GLRenderDevice::updateSubTexture2D(HwTexture2D texture, const TextureData& 
 
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
-        LOG_E("glTexSubImage2D failed for texture update, imageType={}, format={}, formatEnum=0x{:x}, region=({}, {}, {}, {}), glError=0x{:x}", static_cast<int32_t>(data.imageType),
-              static_cast<int32_t>(data.format), static_cast<uint32_t>(format), x, y, width, height, static_cast<uint32_t>(error));
+        LOG_E("glTexSubImage2D failed for texture update, imageType={}, format={}, formatEnum=0x{:x}, region=({}, {}, {}, {}), glError=0x{:x}",
+              static_cast<int32_t>(data.imageType), static_cast<int32_t>(data.format), static_cast<uint32_t>(format), x, y, width, height, static_cast<uint32_t>(error));
     }
 }
 
@@ -427,7 +425,7 @@ bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData
         numbers = 3;
         format = EGL_FORMAT_RGB_888_QCOM;
     }
-    uint32_t stride = numbers * ((width + (alignment - 1)) & ~(alignment - 1));  // YUV is 2*...
+    uint32_t stride = numbers * ((width + (alignment - 1)) & ~(alignment - 1)); // YUV is 2*...
     uint32_t size = (((stride * height) + 4096 - 1) & ~(4096 - 1));
     EGLint attribs[] = {EGL_WIDTH,
                         (GLint)width,
@@ -446,7 +444,7 @@ bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData
                         EGL_IMAGE_EXT_BUFFER_MEMORY_TYPE_QCOM,
                         EGL_IMAGE_EXT_BUFFER_MEMORY_TYPE_PMEM_QCOM,
                         EGL_IMAGE_EXT_BUFFER_PLANE0_OFFSET_QCOM,
-                        0,  // for RGB format only
+                        0, // for RGB format only
                         EGL_NONE};
 
     auto buff_addr = (unsigned char*)(data.pixels);
@@ -519,8 +517,8 @@ void GLRenderDevice::setBlendFunc(BlendFactor srcRgbFactor, BlendFactor dstRgbFa
     m_stateCache.dstAlphaBlendFactor = dstAlphaFactor;
     m_stateCache.blendFuncValid = true;
     glBlendEquation(GL_FUNC_ADD);
-    glBlendFuncSeparate(OpenglUtils::toGLBlendFactor(srcRgbFactor), OpenglUtils::toGLBlendFactor(dstRgbFactor),
-                        OpenglUtils::toGLBlendFactor(srcAlphaFactor), OpenglUtils::toGLBlendFactor(dstAlphaFactor));
+    glBlendFuncSeparate(OpenglUtils::toGLBlendFactor(srcRgbFactor), OpenglUtils::toGLBlendFactor(dstRgbFactor), OpenglUtils::toGLBlendFactor(srcAlphaFactor),
+                        OpenglUtils::toGLBlendFactor(dstAlphaFactor));
 }
 
 void GLRenderDevice::bindPipelineState(const GraphicsPipelineState& state) {
@@ -558,13 +556,11 @@ bool GLRenderDevice::makeFolder() {
     return true;
 }
 
-HwGPUProgram GLRenderDevice::createGPUProgram(const std::string& a, const std::string& b, const std::string& c) {
-    HwGPUProgram h = allocateGPUProgram();
-    commitGPUProgram(h, a, b, c);
-    return h;
+HwGPUProgram GLRenderDevice::createGPUProgramSync() {
+    return m_registry.allocateGPUProgram();
 }
 
-void GLRenderDevice::commitGPUProgram(HwGPUProgram handle, const std::string& programFileName, const std::string& vertexShaderStr, const std::string& fragmentShaderStr) {
+void GLRenderDevice::createGPUProgramRender(HwGPUProgram handle, const std::string& programFileName, const std::string& vertexShaderStr, const std::string& fragmentShaderStr) {
     // LOG_I("shader: {}, vert: {}, frag: {}", programFileName, vertexShaderStr, fragmentShaderStr);
     GLenum binaryFormat = 0x8740;
     std::string version = "20251031";
@@ -700,20 +696,6 @@ void GLRenderDevice::deletGPUProgram(HwGPUProgram program) {
 // P3：SSBO block 反射（需持有 GL context）
 // ---------------------------------------------------------------------------
 namespace {
-
-ShaderDataType mapGLTypeToShaderDataType(GLenum type) {
-    switch (type) {
-        case GL_INT: return ShaderDataType::Int;
-        case GL_FLOAT: return ShaderDataType::Float;
-        case GL_FLOAT_VEC2: return ShaderDataType::Vector2;
-        case GL_FLOAT_VEC3: return ShaderDataType::Vector3;
-        case GL_FLOAT_VEC4: return ShaderDataType::Vector4;
-        case GL_FLOAT_MAT3: return ShaderDataType::Matrix3;
-        case GL_FLOAT_MAT4: return ShaderDataType::Matrix4;
-        default: return ShaderDataType::Float;
-    }
-}
-
 // 去掉 buffer variable 全名中的数组前缀（"instances[0].model" -> "model"）
 std::string shortBufferVariableName(const std::string& fullName) {
     const auto pos = fullName.rfind('.');
@@ -725,8 +707,7 @@ std::string shortBufferVariableName(const std::string& fullName) {
 
 SSBOReflectedLayout reflectSSBOBlockGL(GLuint program, const std::string& blockName) {
     SSBOReflectedLayout out;
-    const GLuint blockIndex =
-        glGetProgramResourceIndex(program, GL_SHADER_STORAGE_BLOCK, blockName.c_str());
+    const GLuint blockIndex = glGetProgramResourceIndex(program, GL_SHADER_STORAGE_BLOCK, blockName.c_str());
     if (blockIndex == GL_INVALID_INDEX) {
         return out;
     }
@@ -755,8 +736,7 @@ SSBOReflectedLayout reflectSSBOBlockGL(GLuint program, const std::string& blockN
         std::vector<GLint> variableIndices(static_cast<size_t>(numVariables));
         {
             GLenum props[] = {GL_ACTIVE_VARIABLES};
-            glGetProgramResourceiv(program, GL_SHADER_STORAGE_BLOCK, blockIndex, 1, props,
-                                   numVariables, nullptr, variableIndices.data());
+            glGetProgramResourceiv(program, GL_SHADER_STORAGE_BLOCK, blockIndex, 1, props, numVariables, nullptr, variableIndices.data());
         }
 
         for (GLint varIndex : variableIndices) {
@@ -770,7 +750,7 @@ SSBOReflectedLayout reflectSSBOBlockGL(GLuint program, const std::string& blockN
 
             SSBOReflectedField field;
             field.name = shortBufferVariableName(std::string(nameBuf, nameLen));
-            field.type = mapGLTypeToShaderDataType(static_cast<GLenum>(params[0]));
+            field.type = OpenglUtils::mapGLTypeToShaderDataType(static_cast<GLenum>(params[0]));
             field.offset = params[1];
             field.arrayStride = params[2];
             field.matrixStride = params[3];
@@ -781,7 +761,6 @@ SSBOReflectedLayout reflectSSBOBlockGL(GLuint program, const std::string& blockN
     out.valid = true;
     return out;
 }
-
 } // namespace
 
 SSBOReflectedLayout GLRenderDevice::reflectSSBOBlock(HwGPUProgram program, const std::string& blockName) {
@@ -869,13 +848,11 @@ void GLRenderDevice::setGPUProgramParamAsMat4Array(HwGPUProgram program, const s
 }
 
 //---------------------------------------------------UBO---------------------------------------------------
-HwUBO GLRenderDevice::createUBO() {
-    HwUBO h = allocateUBO();
-    commitUBO(h);
-    return h;
+HwUBO GLRenderDevice::createUBOSync() {
+    return m_registry.allocateUBO();
 }
 
-void GLRenderDevice::commitUBO(HwUBO handle) {
+void GLRenderDevice::createUBORender(HwUBO handle) {
     auto* ubo = new GlUBO();
     glGenBuffers(1, &ubo->bufferID);
     m_registry.commitUBO(handle, ubo);
@@ -911,13 +888,11 @@ void GLRenderDevice::bindUBO(HwGPUProgram program, HwUBO ubo, const std::string&
     }
 }
 
-HwSSBO GLRenderDevice::createSSBO() {
-    HwSSBO h = allocateSSBO();
-    commitSSBO(h);
-    return h;
+HwSSBO GLRenderDevice::createSSBOSync() {
+    return m_registry.allocateSSBO();
 }
 
-void GLRenderDevice::commitSSBO(HwSSBO handle) {
+void GLRenderDevice::createSSBORender(HwSSBO handle) {
     auto* ssbo = new GlSSBO();
     glGenBuffers(1, &ssbo->bufferID);
     m_registry.commitSSBO(handle, ssbo);
@@ -959,10 +934,14 @@ void GLRenderDevice::deleteFence(void* fence) {
 // ---------------------------------------------------------------------------
 // RenderTarget (FBO)
 // ---------------------------------------------------------------------------
-void GLRenderDevice::commitRenderTarget(HwRenderTarget rtHandle, int32_t w, int32_t h, HwTexture2D colorTexture) {
+HwRenderTarget GLRenderDevice::createRenderTargetSync() {
+    return m_registry.allocateRenderTarget();
+}
+
+void GLRenderDevice::createRenderTargetRender(HwRenderTarget rtHandle, int32_t w, int32_t h, HwTexture2D colorTexture) {
     auto* colorTex = m_registry.getTexture2D(colorTexture);
     if (!colorTex || colorTex->textureTarget != GL_TEXTURE_2D) {
-        LOG_E("GLRenderDevice::commitRenderTarget requires a valid GL_TEXTURE_2D color attachment");
+        LOG_E("GLRenderDevice::createRenderTargetRender requires a valid GL_TEXTURE_2D color attachment");
         return;
     }
 
@@ -1076,10 +1055,7 @@ void GLRenderDevice::unbindRenderTarget() {
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     if (hasBoundRenderTarget) {
-        glViewport(m_viewportBeforeRenderTarget[0],
-                   m_viewportBeforeRenderTarget[1],
-                   m_viewportBeforeRenderTarget[2],
-                   m_viewportBeforeRenderTarget[3]);
+        glViewport(m_viewportBeforeRenderTarget[0], m_viewportBeforeRenderTarget[1], m_viewportBeforeRenderTarget[2], m_viewportBeforeRenderTarget[3]);
         m_stateCache.viewportX = m_viewportBeforeRenderTarget[0];
         m_stateCache.viewportY = m_viewportBeforeRenderTarget[1];
         m_stateCache.viewportW = m_viewportBeforeRenderTarget[2];
@@ -1152,4 +1128,4 @@ void GLRenderDevice::clearDepth() {
         glDepthMask(depthMask);
     }
 }
-}  // namespace morrow
+} // namespace morrow

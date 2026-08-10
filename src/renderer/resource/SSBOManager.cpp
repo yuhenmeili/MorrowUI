@@ -7,12 +7,12 @@
 #include <type_traits>
 #include <utility>
 
-#include "SSBOFieldBinding.h"
-#include "ShaderReflection.h"
-#include "core/BatchDataDefine.h"
 #include "GlobalObject.h"
 #include "Log.h"
 #include "Material.h"
+#include "SSBOFieldBinding.h"
+#include "ShaderReflection.h"
+#include "core/BatchDataDefine.h"
 
 namespace morrow {
 
@@ -40,12 +40,9 @@ static_assert(offsetof(DefaultBatchData3Attr, attr2) == 80, "attr2 must be at of
 static_assert(offsetof(DefaultBatchData3Attr, attr3) == 96, "attr3 must be at offset 96");
 static_assert(sizeof(DefaultBatchData3Attr) == 112, "DefaultBatchData3Attr must be 112 bytes");
 
-static_assert(std::is_standard_layout_v<DefaultBatchData1Attr>,
-              "DefaultBatchData1Attr must be standard layout");
-static_assert(std::is_standard_layout_v<DefaultBatchData2Attr>,
-              "DefaultBatchData2Attr must be standard layout");
-static_assert(std::is_standard_layout_v<DefaultBatchData3Attr>,
-              "DefaultBatchData3Attr must be standard layout");
+static_assert(std::is_standard_layout_v<DefaultBatchData1Attr>, "DefaultBatchData1Attr must be standard layout");
+static_assert(std::is_standard_layout_v<DefaultBatchData2Attr>, "DefaultBatchData2Attr must be standard layout");
+static_assert(std::is_standard_layout_v<DefaultBatchData3Attr>, "DefaultBatchData3Attr must be standard layout");
 
 // 说明：未断言 is_trivially_copyable。Vector4 的用户自定义拷贝构造函数
 // （memcpy 实现）使其不为 trivially copyable；标准布局 + 尺寸/偏移断言
@@ -58,8 +55,7 @@ template <typename T>
 SSBOLayout makeLayout(std::string name) {
     // Vector4 有用户自定义拷贝构造函数，故不要求 trivially copyable；
     // 标准布局保证字段 offset 由声明顺序确定，配合上方尺寸/偏移断言即可。
-    static_assert(std::is_standard_layout_v<T>,
-                  "SSBO instance data must be standard layout");
+    static_assert(std::is_standard_layout_v<T>, "SSBO instance data must be standard layout");
 
     SSBOLayout layout;
     layout.name = std::move(name);
@@ -76,12 +72,8 @@ SSBOManager::SSBOManager() {
         auto layout = makeLayout<DefaultBatchData2Attr>("default_color");
         layout.fields = {
             makeWorldMatrixField("model", offsetof(DefaultBatchData2Attr, model)),
-            makeMaterialVectorField("defaultColor", offsetof(DefaultBatchData2Attr, attr1),
-                                    SSBOValueSource::MaterialVector4, "color"),
-            makePackedVector4Field("defaultAttr", offsetof(DefaultBatchData2Attr, attr2), {
-                materialFloat("alpha"), constantFloat(0.0f), constantFloat(0.0f), constantFloat(0.0f)
-            })
-        };
+            makeMaterialVectorField("defaultColor", offsetof(DefaultBatchData2Attr, attr1), SSBOValueSource::MaterialVector4, "color"),
+            makePackedVector4Field("defaultAttr", offsetof(DefaultBatchData2Attr, attr2), {materialFloat("alpha"), constantFloat(0.0f), constantFloat(0.0f), constantFloat(0.0f)})};
         return layout;
     });
 
@@ -90,10 +82,7 @@ SSBOManager::SSBOManager() {
         auto layout = makeLayout<DefaultBatchData1Attr>("default_image");
         layout.fields = {
             makeWorldMatrixField("model", offsetof(DefaultBatchData1Attr, model)),
-            makePackedVector4Field("defaultAttr", offsetof(DefaultBatchData1Attr, attr), {
-                materialFloat("alpha"), constantFloat(0.0f), constantFloat(0.0f), constantFloat(0.0f)
-            })
-        };
+            makePackedVector4Field("defaultAttr", offsetof(DefaultBatchData1Attr, attr), {materialFloat("alpha"), constantFloat(0.0f), constantFloat(0.0f), constantFloat(0.0f)})};
         return layout;
     };
     registerLayout("default_image", defaultImageLayoutFactory);
@@ -102,19 +91,12 @@ SSBOManager::SSBOManager() {
     // 共享 DefaultBatchData2Attr 布局的 shader 别名
     const auto imageLayoutFactory = [] {
         auto layout = makeLayout<DefaultBatchData2Attr>("image_normal");
-        layout.fields = {
-            makeWorldMatrixField("model", offsetof(DefaultBatchData2Attr, model)),
-            makePackedVector4Field("displaySize", offsetof(DefaultBatchData2Attr, attr1), {
-                materialVectorComponent("displaySize", 0),
-                materialVectorComponent("displaySize", 1),
-                materialVectorComponent("displaySize", 2),
-                constantFloat(0.0f)
-            }),
-            makePackedVector4Field("imageAttr", offsetof(DefaultBatchData2Attr, attr2), {
-                materialFloat("rounding"), materialFloat("alpha"),
-                constantFloat(0.0f), constantFloat(0.0f)
-            })
-        };
+        layout.fields = {makeWorldMatrixField("model", offsetof(DefaultBatchData2Attr, model)),
+                         makePackedVector4Field("displaySize", offsetof(DefaultBatchData2Attr, attr1),
+                                                {materialVectorComponent("displaySize", 0), materialVectorComponent("displaySize", 1), materialVectorComponent("displaySize", 2),
+                                                 constantFloat(0.0f)}),
+                         makePackedVector4Field("imageAttr", offsetof(DefaultBatchData2Attr, attr2),
+                                                {materialFloat("rounding"), materialFloat("alpha"), constantFloat(0.0f), constantFloat(0.0f)})};
         return layout;
     };
     registerLayout("image_normal", imageLayoutFactory);
@@ -125,30 +107,19 @@ SSBOManager::SSBOManager() {
         auto layout = makeLayout<DefaultBatchData2Attr>("font");
         layout.fields = {
             makeWorldMatrixField("model", offsetof(DefaultBatchData2Attr, model)),
-            makeMaterialVectorField("fontColor", offsetof(DefaultBatchData2Attr, attr1),
-                                    SSBOValueSource::MaterialVector4, "fontColor"),
-            makePackedVector4Field("fontAttr", offsetof(DefaultBatchData2Attr, attr2), {
-                materialFloat("alpha"), constantFloat(0.0f), constantFloat(0.0f), constantFloat(0.0f)
-            })
-        };
+            makeMaterialVectorField("fontColor", offsetof(DefaultBatchData2Attr, attr1), SSBOValueSource::MaterialVector4, "fontColor"),
+            makePackedVector4Field("fontAttr", offsetof(DefaultBatchData2Attr, attr2), {materialFloat("alpha"), constantFloat(0.0f), constantFloat(0.0f), constantFloat(0.0f)})};
         return layout;
     });
 
     registerLayout("bounce", [] {
         auto layout = makeLayout<DefaultBatchData2Attr>("bounce");
-        layout.fields = {
-            makeWorldMatrixField("model", offsetof(DefaultBatchData2Attr, model)),
-            makePackedVector4Field("meshCenter", offsetof(DefaultBatchData2Attr, attr1), {
-                materialVectorComponent("meshCenter", 0),
-                materialVectorComponent("meshCenter", 1),
-                materialVectorComponent("meshCenter", 2),
-                materialFloat("alpha")
-            }),
-            makePackedVector4Field("defaultAttr", offsetof(DefaultBatchData2Attr, attr2), {
-                materialFloat("timeDelta"), materialFloat("duration"),
-                materialFloat("bounceTimes"), materialFloat("scaleRange")
-            })
-        };
+        layout.fields = {makeWorldMatrixField("model", offsetof(DefaultBatchData2Attr, model)),
+                         makePackedVector4Field("meshCenter", offsetof(DefaultBatchData2Attr, attr1),
+                                                {materialVectorComponent("meshCenter", 0), materialVectorComponent("meshCenter", 1), materialVectorComponent("meshCenter", 2),
+                                                 materialFloat("alpha")}),
+                         makePackedVector4Field("defaultAttr", offsetof(DefaultBatchData2Attr, attr2),
+                                                {materialFloat("timeDelta"), materialFloat("duration"), materialFloat("bounceTimes"), materialFloat("scaleRange")})};
         return layout;
     });
 
@@ -156,18 +127,11 @@ SSBOManager::SSBOManager() {
         auto layout = makeLayout<DefaultBatchData3Attr>("button");
         layout.fields = {
             makeWorldMatrixField("model", offsetof(DefaultBatchData3Attr, model)),
-            makeMaterialVectorField("bgColor", offsetof(DefaultBatchData3Attr, attr1),
-                                    SSBOValueSource::MaterialVector4, "color"),
-            makePackedVector4Field("defaultAttr", offsetof(DefaultBatchData3Attr, attr2), {
-                materialVectorComponent("displaySize", 0),
-                materialVectorComponent("displaySize", 1),
-                materialFloat("rounding"), materialFloat("alpha")
-            }),
-            makePackedVector4Field("textureAttr", offsetof(DefaultBatchData3Attr, attr3), {
-                materialFloat("useTexture"), constantFloat(0.0f),
-                constantFloat(0.0f), constantFloat(0.0f)
-            })
-        };
+            makeMaterialVectorField("bgColor", offsetof(DefaultBatchData3Attr, attr1), SSBOValueSource::MaterialVector4, "color"),
+            makePackedVector4Field("defaultAttr", offsetof(DefaultBatchData3Attr, attr2),
+                                   {materialVectorComponent("displaySize", 0), materialVectorComponent("displaySize", 1), materialFloat("rounding"), materialFloat("alpha")}),
+            makePackedVector4Field("textureAttr", offsetof(DefaultBatchData3Attr, attr3),
+                                   {materialFloat("useTexture"), constantFloat(0.0f), constantFloat(0.0f), constantFloat(0.0f)})};
         return layout;
     });
 }
@@ -201,8 +165,7 @@ const SSBOLayout* SSBOManager::getLayout(const std::string& shaderName) const {
 // ---------------------------------------------------------------------------
 // P3：shader 首次使用时执行一次 SSBO reflection 校验并缓存结果
 // ---------------------------------------------------------------------------
-void SSBOManager::validateReflectionOnce(const std::string& shaderName,
-                                         const SSBOLayout& layout, const RenderBatch& batch) {
+void SSBOManager::validateReflectionOnce(const std::string& shaderName, const SSBOLayout& layout, const RenderBatch& batch) {
     if (batch.materials.empty()) {
         return;
     }
@@ -247,8 +210,7 @@ void SSBOManager::updateSSBOForShader(const std::string& shaderName, RenderBatch
 
     // P0：验证 layout 有效性（elementSize > 0 且 fields/filler 有效）
     if (!layout->isValid()) {
-        LOG_E("Invalid SSBO layout for shader '{}': elementSize={}, fields={}, filler={}",
-              shaderName, layout->elementSize, layout->fields.size(),
+        LOG_E("Invalid SSBO layout for shader '{}': elementSize={}, fields={}, filler={}", shaderName, layout->elementSize, layout->fields.size(),
               static_cast<bool>(layout->filler));
         return;
     }
@@ -256,8 +218,7 @@ void SSBOManager::updateSSBOForShader(const std::string& shaderName, RenderBatch
     // P0：验证 batch 各数组长度一致，避免填充时越界
     const auto batchSize = batch.materials.size();
     if (batch.transforms.size() != batchSize || batch.meshFilters.size() != batchSize) {
-        LOG_E("Batch array length mismatch for shader '{}': materials={}, transforms={}, meshFilters={}",
-              shaderName, batchSize, batch.transforms.size(), batch.meshFilters.size());
+        LOG_E("Batch array length mismatch for shader '{}': materials={}, transforms={}, meshFilters={}", shaderName, batchSize, batch.transforms.size(), batch.meshFilters.size());
         return;
     }
 
@@ -276,4 +237,4 @@ void SSBOManager::updateSSBOForShader(const std::string& shaderName, RenderBatch
     batch.ssbo->update();
 }
 
-} // morrow
+}  // namespace morrow

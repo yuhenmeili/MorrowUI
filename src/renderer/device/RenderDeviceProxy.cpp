@@ -364,9 +364,9 @@ void RenderDeviceProxy::useGPUProgram(HwGPUProgram program) {
 }
 
 HwGPUProgram RenderDeviceProxy::createGPUProgram(const std::string& programFileName, const std::string& vertexShader, const std::string& fragmentShader) {
-    HwGPUProgram handle = m_realDevice->allocateGPUProgram();
+    HwGPUProgram handle = m_realDevice->createGPUProgramSync();
     if (!m_threaded) {
-        m_realDevice->commitGPUProgram(handle, programFileName, vertexShader, fragmentShader);
+        m_realDevice->createGPUProgramRender(handle, programFileName, vertexShader, fragmentShader);
     } else {
         auto* pl = CMD_BUF.pushNT<CreateGPUProgramPayload>(Cmd_CreateGPUProgram);
         pl->program = handle;
@@ -391,9 +391,9 @@ void RenderDeviceProxy::deletGPUProgram(HwGPUProgram program) {
 // ---------------------------------------------------------------------------
 
 HwTexture2D RenderDeviceProxy::createTexture2D(ImageType imageType) {
-    HwTexture2D handle = m_realDevice->allocateTexture2D();
+    HwTexture2D handle = m_realDevice->createTexture2DSync();
     if (!m_threaded) {
-        m_realDevice->commitTexture2D(handle, imageType);
+        m_realDevice->createTexture2DRender(handle, imageType);
         return handle;
     }
     auto* pl = CMD_BUF.push<CreateTexture2DPayload>(Cmd_CreateTexture2D);
@@ -537,9 +537,9 @@ SSBOReflectedLayout RenderDeviceProxy::reflectSSBOBlock(HwGPUProgram program, co
 // ---------------------------------------------------------------------------
 
 HwVBO RenderDeviceProxy::createVBO() {
-    HwVBO handle = m_realDevice->allocateVBO();
+    HwVBO handle = m_realDevice->createVBOSync();
     if (!m_threaded) {
-        m_realDevice->commitVBO(handle);
+        m_realDevice->createVBORender(handle);
         return handle;
     }
     auto* pl = CMD_BUF.push<CreateVBOPayload>(Cmd_CreateVBO);
@@ -712,9 +712,9 @@ void RenderDeviceProxy::setGPUProgramParamAsMat4Array(HwGPUProgram program, cons
 // ---------------------------------------------------------------------------
 
 HwUBO RenderDeviceProxy::createUBO() {
-    HwUBO handle = m_realDevice->allocateUBO();
+    HwUBO handle = m_realDevice->createUBOSync();
     if (!m_threaded) {
-        m_realDevice->commitUBO(handle);
+        m_realDevice->createUBORender(handle);
         return handle;
     }
     auto* pl = CMD_BUF.push<CreateUBOPayload>(Cmd_CreateUBO);
@@ -750,9 +750,9 @@ void RenderDeviceProxy::bindUBO(HwGPUProgram program, HwUBO ubo, const std::stri
 // ---------------------------------------------------------------------------
 
 HwSSBO RenderDeviceProxy::createSSBO() {
-    HwSSBO handle = m_realDevice->allocateSSBO();
+    HwSSBO handle = m_realDevice->createSSBOSync();
     if (!m_threaded) {
-        m_realDevice->commitSSBO(handle);
+        m_realDevice->createSSBORender(handle);
         return handle;
     }
     auto* pl = CMD_BUF.push<CreateSSBOPayload>(Cmd_CreateSSBO);
@@ -794,10 +794,10 @@ void RenderDeviceProxy::deleteFence(void* fence) {
 // ---------------------------------------------------------------------------
 
 HwRenderTarget RenderDeviceProxy::createRenderTarget(int32_t w, int32_t h, HwTexture2D colorTexture) {
-    const HwRenderTarget rtHandle = m_realDevice->allocateRenderTarget();
+    const HwRenderTarget rtHandle = m_realDevice->createRenderTargetSync();
 
     if (!m_threaded) {
-        m_realDevice->commitRenderTarget(rtHandle, w, h, colorTexture);
+        m_realDevice->createRenderTargetRender(rtHandle, w, h, colorTexture);
         return rtHandle;
     }
 
@@ -977,7 +977,7 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             case Cmd_CreateGPUProgram: {
                 auto* pl = static_cast<CreateGPUProgramPayload*>(p);
                 if (pl->program.isValid())
-                    m_realDevice->commitGPUProgram(pl->program, pl->programFileName, pl->vertexShader, pl->fragmentShader);
+                    m_realDevice->createGPUProgramRender(pl->program, pl->programFileName, pl->vertexShader, pl->fragmentShader);
                 break;
             }
             case Cmd_DeleteGPUProgram: {
@@ -989,7 +989,7 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             case Cmd_CreateTexture2D: {
                 auto* pl = static_cast<CreateTexture2DPayload*>(p);
                 if (pl->texture.isValid())
-                    m_realDevice->commitTexture2D(pl->texture, pl->imageType);
+                    m_realDevice->createTexture2DRender(pl->texture, pl->imageType);
                 break;
             }
             case Cmd_DeleteTexture2D: {
@@ -1043,7 +1043,7 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             case Cmd_CreateVBO: {
                 auto* pl = static_cast<CreateVBOPayload*>(p);
                 if (pl->vbo.isValid())
-                    m_realDevice->commitVBO(pl->vbo);
+                    m_realDevice->createVBORender(pl->vbo);
                 break;
             }
             case Cmd_UpdateVBO: {
@@ -1123,7 +1123,7 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             case Cmd_CreateUBO: {
                 auto* pl = static_cast<CreateUBOPayload*>(p);
                 if (pl->ubo.isValid())
-                    m_realDevice->commitUBO(pl->ubo);
+                    m_realDevice->createUBORender(pl->ubo);
                 break;
             }
             case Cmd_UpdateUBO: {
@@ -1143,7 +1143,7 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             case Cmd_CreateSSBO: {
                 auto* pl = static_cast<CreateSSBOPayload*>(p);
                 if (pl->ssbo.isValid())
-                    m_realDevice->commitSSBO(pl->ssbo);
+                    m_realDevice->createSSBORender(pl->ssbo);
                 break;
             }
             case Cmd_UpdateSSBO: {
@@ -1174,7 +1174,7 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             case Cmd_CreateRenderTarget: {
                 auto* pl = static_cast<CreateRenderTargetPayload*>(p);
                 if (pl->rt.isValid() && pl->colorTexture.isValid()) {
-                    m_realDevice->commitRenderTarget(pl->rt, pl->w, pl->h, pl->colorTexture);
+                    m_realDevice->createRenderTargetRender(pl->rt, pl->w, pl->h, pl->colorTexture);
                 }
                 break;
             }

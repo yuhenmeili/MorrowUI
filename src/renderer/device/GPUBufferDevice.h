@@ -42,14 +42,19 @@ public:
 
     //---------------------------------------------------GPU Fence（用于资源回收）---------------------------------------------------
     /// 在 GPU 命令流中插入 fence，返回不透明句柄（GL 下为 GLsync）。
-    virtual void* insertFence() { return nullptr; }
+    virtual void* insertFence() {
+        return nullptr;
+    }
 
     /// 等待 fence 完成，timeoutNs 为 0 表示非阻塞。返回 true 表示已完成可安全回收。
-    virtual bool waitFence(void* fence, uint64_t timeoutNs) { return false; }
+    virtual bool waitFence(void* fence, uint64_t timeoutNs) {
+        return false;
+    }
 
-    virtual void deleteFence(void* fence) {}
+    virtual void deleteFence(void* fence) {
+    }
 };
 
-} // namespace morrow
+}  // namespace morrow
 
-#endif // MORROW_RENDERER_GPUBUFFERDEVICE_H_
+#endif  // MORROW_RENDERER_GPUBUFFERDEVICE_H_

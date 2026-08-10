@@ -5,10 +5,11 @@
 #ifndef OPENGLUTILS_H
 #define OPENGLUTILS_H
 #include "DriverEnums.h"
+#include "SSBOFieldBinding.h"
 #ifdef OPENGL_GLFW
-#include "wgl/OpenglHeader.h"        // 桌面OpenGL
+#include "wgl/OpenglHeader.h"  // 桌面OpenGL
 #else
-    #include "platform/egl/GLESHeader.h"
+#include "platform/egl/GLESHeader.h"
 #endif
 
 namespace morrow {
@@ -28,6 +29,8 @@ GLint getMinFilterType(SamplerMinFilter minFilterType);
 GLint getMagFilterType(SamplerMagFilter magFilterType);
 
 GLenum toGLBlendFactor(BlendFactor factor);
+
+ShaderDataType mapGLTypeToShaderDataType(GLenum type);
 }  // namespace OpenglUtils
-}
-#endif //OPENGLUTILS_H
+}  // namespace morrow
+#endif  // OPENGLUTILS_H

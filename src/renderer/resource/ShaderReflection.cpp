@@ -13,10 +13,8 @@ std::string validateSSBOLayout(const SSBOLayout& cpuLayout, const SSBOReflectedL
     }
 
     // 1. 元素 stride 校验
-    if (cpuLayout.elementSize > 0 && glslLayout.topLevelArrayStride > 0 &&
-        cpuLayout.elementSize != static_cast<size_t>(glslLayout.topLevelArrayStride)) {
-        return "element size mismatch: cpu=" + std::to_string(cpuLayout.elementSize) +
-               " glsl=" + std::to_string(glslLayout.topLevelArrayStride);
+    if (cpuLayout.elementSize > 0 && glslLayout.topLevelArrayStride > 0 && cpuLayout.elementSize != static_cast<size_t>(glslLayout.topLevelArrayStride)) {
+        return "element size mismatch: cpu=" + std::to_string(cpuLayout.elementSize) + " glsl=" + std::to_string(glslLayout.topLevelArrayStride);
     }
 
     // 2. 字段偏移 / 类型 / 越界校验
@@ -36,10 +34,8 @@ std::string validateSSBOLayout(const SSBOLayout& cpuLayout, const SSBOReflectedL
             return "GLSL missing field '" + field.shaderField + "'";
         }
 
-        if (reflected->offset >= 0 &&
-            static_cast<size_t>(reflected->offset) != field.offset) {
-            return "field '" + field.shaderField + "' offset mismatch: cpu=" +
-                   std::to_string(field.offset) + " glsl=" + std::to_string(reflected->offset);
+        if (reflected->offset >= 0 && static_cast<size_t>(reflected->offset) != field.offset) {
+            return "field '" + field.shaderField + "' offset mismatch: cpu=" + std::to_string(field.offset) + " glsl=" + std::to_string(reflected->offset);
         }
 
         if (reflected->type != field.type) {
@@ -57,4 +53,4 @@ std::string validateSSBOLayout(const SSBOLayout& cpuLayout, const SSBOReflectedL
     return {};
 }
 
-} // namespace morrow
+}  // namespace morrow
