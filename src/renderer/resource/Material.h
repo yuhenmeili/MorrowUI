@@ -20,6 +20,9 @@
 #include "Vector4.h"
 
 namespace morrow {
+class SSBOLayoutComponent;
+using SSBOLayoutComponentSharedPtr = std::shared_ptr<const SSBOLayoutComponent>;
+
 struct IntArrayData {
     std::string name;
     int32_t* data;
@@ -145,6 +148,10 @@ public:
 
     bool isSSBOShader() const;
 
+    void setSSBOLayout(SSBOLayoutComponentSharedPtr layout);
+
+    SSBOLayoutComponentSharedPtr getSSBOLayout() const;
+
 private:
     Material();
 
@@ -175,6 +182,7 @@ private:
     uint64_t m_uniformRevision = 1;
     mutable uint64_t m_cachedBatchCompatibilityRevision = 0;
     mutable uint64_t m_cachedBatchCompatibilityHash = 0;
+    SSBOLayoutComponentSharedPtr m_ssboLayout;
 };
 
 using MaterialSharedPtr = std::shared_ptr<Material>;

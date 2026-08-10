@@ -5,10 +5,12 @@
 #include "Material.h"
 
 #include <cstring>
+#include <utility>
 
 #include "EmbeddedShaders.h"
 #include "GlobalObject.h"
 #include "MaterialUtil.h"
+#include "ssbo/SSBOLayoutComponent.h"
 
 namespace morrow {
 MaterialSharedPtr Material::create() {
@@ -399,7 +401,13 @@ bool Material::isEqual(std::shared_ptr<Material> other) {
     if (!other) {
         return false;
     }
-    if (m_shaderName != other->m_shaderName || !m_pipelineState.isEqual(other->m_pipelineState) || m_textureMap.size() != other->m_textureMap.size()) {
+    const char* layoutName = m_ssboLayout ? m_ssboLayout->getName() : nullptr;
+    const char* otherLayoutName = other->m_ssboLayout ? other->m_ssboLayout->getName() : nullptr;
+    if (m_shaderName != other->m_shaderName ||
+        (layoutName == nullptr) != (otherLayoutName == nullptr) ||
+        (layoutName && std::string(layoutName) != otherLayoutName) ||
+        !m_pipelineState.isEqual(other->m_pipelineState) ||
+        m_textureMap.size() != other->m_textureMap.size()) {
         return false;
     }
 
@@ -414,7 +422,13 @@ bool Material::isEqual(std::shared_ptr<Material> other) {
 }
 
 bool Material::operator==(const Material& other) const {
-    if (m_shaderName != other.m_shaderName || !m_pipelineState.isEqual(other.m_pipelineState) || m_textureMap.size() != other.m_textureMap.size()) {
+    const char* layoutName = m_ssboLayout ? m_ssboLayout->getName() : nullptr;
+    const char* otherLayoutName = other.m_ssboLayout ? other.m_ssboLayout->getName() : nullptr;
+    if (m_shaderName != other.m_shaderName ||
+        (layoutName == nullptr) != (otherLayoutName == nullptr) ||
+        (layoutName && std::string(layoutName) != otherLayoutName) ||
+        !m_pipelineState.isEqual(other.m_pipelineState) ||
+        m_textureMap.size() != other.m_textureMap.size()) {
         return false;
     }
 
@@ -446,6 +460,9 @@ uint64_t Material::getBatchCompatibilityHash() const {
     hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.depthWriteEnabled));
     hash = hashCombine(hash, static_cast<uint64_t>(m_textureMap.size()));
     hash = hashCombine(hash, static_cast<uint64_t>(isSSBOShader()));
+    if (m_ssboLayout) {
+        hash = hashCombine(hash, std::hash<std::string>{}(m_ssboLayout->getName()));
+    }
 
     // unordered_map iteration order is not stable, so fold each entry independently.
     uint64_t textureHash = 0;
@@ -487,6 +504,20 @@ uint64_t Material::getRevision() const {
 
 bool Material::isSSBOShader() const {
     return m_vertexShaderResource.find("ENABLE_SSBO") != std::string::npos;
+}
+
+void Material::setSSBOLayout(SSBOLayoutComponentSharedPtr layout) {
+    const char* currentName = m_ssboLayout ? m_ssboLayout->getName() : nullptr;
+    const char* nextName = layout ? layout->getName() : nullptr;
+    if ((currentName == nullptr) != (nextName == nullptr) ||
+        (currentName && std::string(currentName) != nextName)) {
+        m_ssboLayout = std::move(layout);
+        ++m_batchCompatibilityRevision;
+    }
+}
+
+SSBOLayoutComponentSharedPtr Material::getSSBOLayout() const {
+    return m_ssboLayout;
 }
 
 void Material::loadShader() {

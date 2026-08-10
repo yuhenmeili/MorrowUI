@@ -19,6 +19,8 @@ class MeshFilter;
 class Material;
 class Mesh;
 class ShaderStorageBuffer;
+class SSBOLayoutComponent;
+using SSBOLayoutComponentSharedPtr = std::shared_ptr<const SSBOLayoutComponent>;
 
 using namespace Math;
 
@@ -30,6 +32,7 @@ struct RenderBatch {
     std::vector<std::shared_ptr<MeshFilter>> meshFilters;
     std::vector<std::shared_ptr<Transform>> transforms;
     std::shared_ptr<ShaderStorageBuffer> ssbo;
+    SSBOLayoutComponentSharedPtr ssboLayout;
 };
 
 struct DefaultBatchData1Attr {

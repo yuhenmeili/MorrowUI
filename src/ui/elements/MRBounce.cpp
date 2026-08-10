@@ -6,6 +6,7 @@
 #include "utils/Log.h"
 #include "ui/helpers/Tween.h"
 #include "base/Transform.h"
+#include "renderer/resource/ssbo/layouts/BounceSSBOLayout.h"
 
 namespace morrow
 {
@@ -18,5 +19,6 @@ MRBounce::MRBounce()
 {
     setWidgetType("MRBounce");
     m_material->setShader("bounce");
+    m_material->setSSBOLayout(std::make_shared<BounceSSBOLayout>());
 }
 }

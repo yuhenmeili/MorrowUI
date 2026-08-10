@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-#include "ShaderStorageBuffer.h"
+#include "ssbo/ShaderStorageBuffer.h"
 
 namespace morrow {
 

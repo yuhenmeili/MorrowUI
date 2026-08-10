@@ -6,6 +6,7 @@
 #include "base/Transform.h"
 #include "base/MeshFilter.h"
 #include "base/MeshRenderer.h"
+#include "renderer/resource/ssbo/layouts/ButtonSSBOLayout.h"
 #include <functional>
 
 namespace morrow {
@@ -17,6 +18,7 @@ MRButton::MRButton() {
     m_label->setAlign(HorizontalAlignment::CENTER, VerticalAlignment::CENTER);
     // 设置材质
     m_material->setShader("button");
+    m_material->setSSBOLayout(std::make_shared<ButtonSSBOLayout>());
     m_material->setFloat("rounding", 0.0f);
     // 监听尺寸变化
     auto transform = getComponent<Transform>();

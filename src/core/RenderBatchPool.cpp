@@ -3,7 +3,7 @@
 //
 
 #include "RenderBatchPool.h"
-#include "ShaderStorageBuffer.h"
+#include "ssbo/ShaderStorageBuffer.h"
 #include "VertexArray.h"
 
 namespace morrow {
@@ -38,6 +38,7 @@ void RenderBatchPool::release(RenderBatch&& batch) {
     batch.materials.clear();
     batch.meshFilters.clear();
     batch.transforms.clear();
+    batch.ssboLayout.reset();
 
     std::string key = makeKey(batch.shaderName, batch.isSSBOShader);
     m_pool[key].emplace_back(std::move(batch));
@@ -49,6 +50,7 @@ void RenderBatchPool::releaseAll(std::vector<RenderBatch>& batches) {
         batch.materials.clear();
         batch.meshFilters.clear();
         batch.transforms.clear();
+        batch.ssboLayout.reset();
 
         std::string key = makeKey(batch.shaderName, batch.isSSBOShader);
         m_pool[key].emplace_back(std::move(batch));

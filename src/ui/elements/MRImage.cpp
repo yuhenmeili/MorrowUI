@@ -4,6 +4,7 @@
 
 #include "MRImage.h"
 #include "base/Transform.h"
+#include "renderer/resource/ssbo/layouts/ImageSSBOLayout.h"
 
 namespace morrow {
 MRImageSharedPtr MRImage::create() {
@@ -13,6 +14,7 @@ MRImageSharedPtr MRImage::create() {
 MRImage::MRImage() {
     setWidgetType("MRImage");
     m_material->setShader("image_normal");
+    m_material->setSSBOLayout(std::make_shared<ImageSSBOLayout>());
     m_material->setFloat("rounding", 0.0f);
 
     auto transform = getComponent<Transform>();

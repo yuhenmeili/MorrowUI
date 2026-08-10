@@ -15,8 +15,13 @@
 #include <vector>
 
 #include "core/BatchDataDefine.h"
-#include "renderer/resource/SSBOFieldBinding.h"
-#include "renderer/resource/SSBOManager.h"
+#include "renderer/resource/ssbo/SSBOFieldBinding.h"
+#include "renderer/resource/ssbo/layouts/BounceSSBOLayout.h"
+#include "renderer/resource/ssbo/layouts/ButtonSSBOLayout.h"
+#include "renderer/resource/ssbo/layouts/DefaultColorSSBOLayout.h"
+#include "renderer/resource/ssbo/layouts/DefaultImageSSBOLayout.h"
+#include "renderer/resource/ssbo/layouts/FontSSBOLayout.h"
+#include "renderer/resource/ssbo/layouts/ImageSSBOLayout.h"
 #include "renderer/resource/ShaderReflection.h"
 #include "renderer/resource/Material.h"
 #include "ui/base/Transform.h"
@@ -41,6 +46,23 @@ void expectVec4(const Vector4& actual, float x, float y, float z, float w, const
 
 bool sameMatrix(const Matrix4& a, const Matrix4& b) {
     return std::memcmp(a.elements, b.elements, sizeof(float) * 16) == 0;
+}
+
+const SSBOLayout* getLayoutForTest(const std::string& name) {
+    static const DefaultColorSSBOLayout defaultColor;
+    static const DefaultImageSSBOLayout defaultImage;
+    static const ImageSSBOLayout image;
+    static const FontSSBOLayout font;
+    static const BounceSSBOLayout bounce;
+    static const ButtonSSBOLayout button;
+
+    if (name == "default_color") return &defaultColor.getLayout();
+    if (name == "default_image") return &defaultImage.getLayout();
+    if (name == "image_normal" || name == "image_text_debug" || name == "image_oes") return &image.getLayout();
+    if (name == "font") return &font.getLayout();
+    if (name == "bounce") return &bounce.getLayout();
+    if (name == "button") return &button.getLayout();
+    return nullptr;
 }
 
 // 构建 count 个实例的 batch；第 i 个 Transform 位置为 (i, i*2, 0)
@@ -107,8 +129,7 @@ void testDefaultColorLayout() {
     batch.materials[0]->setVector("color", Vector4(1.0f, 2.0f, 3.0f, 4.0f));
     batch.materials[0]->setFloat("alpha", 0.5f);
 
-    SSBOManager manager;
-    const auto* layout = manager.getLayout("default_color");
+    const auto* layout = getLayoutForTest("default_color");
     expect(layout != nullptr, "default_color layout should be registered");
     if (!layout) return;
     std::vector<uint8_t> buffer(layout->elementSize);
@@ -125,8 +146,7 @@ void testDefaultImageLayout() {
     auto batch = makeBatch(1);
     batch.materials[0]->setFloat("alpha", 0.25f);
 
-    SSBOManager manager;
-    const auto* layout = manager.getLayout("default_image");
+    const auto* layout = getLayoutForTest("default_image");
     expect(layout != nullptr, "default_image layout should be registered");
     if (!layout) return;
     std::vector<uint8_t> buffer(layout->elementSize);
@@ -144,8 +164,7 @@ void testImageNormalLayout() {
     batch.materials[0]->setFloat("rounding", 0.3f);
     batch.materials[0]->setFloat("alpha", 0.6f);
 
-    SSBOManager manager;
-    const auto* layout = manager.getLayout("image_normal");
+    const auto* layout = getLayoutForTest("image_normal");
     expect(layout != nullptr, "image_normal layout should be registered");
     if (!layout) return;
     std::vector<uint8_t> buffer(layout->elementSize);
@@ -163,8 +182,7 @@ void testFontLayout() {
     batch.materials[0]->setVector("fontColor", Vector4(1.0f, 0.0f, 0.0f, 1.0f));
     batch.materials[0]->setFloat("alpha", 0.8f);
 
-    SSBOManager manager;
-    const auto* layout = manager.getLayout("font");
+    const auto* layout = getLayoutForTest("font");
     expect(layout != nullptr, "font layout should be registered");
     if (!layout) return;
     std::vector<uint8_t> buffer(layout->elementSize);
@@ -186,8 +204,7 @@ void testBounceLayout() {
     batch.materials[0]->setFloat("bounceTimes", 3.0f);
     batch.materials[0]->setFloat("scaleRange", 4.0f);
 
-    SSBOManager manager;
-    const auto* layout = manager.getLayout("bounce");
+    const auto* layout = getLayoutForTest("bounce");
     expect(layout != nullptr, "bounce layout should be registered");
     if (!layout) return;
     std::vector<uint8_t> buffer(layout->elementSize);
@@ -208,8 +225,7 @@ void testButtonLayout() {
     batch.materials[0]->setFloat("alpha", 0.7f);
     batch.materials[0]->setFloat("useTexture", 1.0f);
 
-    SSBOManager manager;
-    const auto* layout = manager.getLayout("button");
+    const auto* layout = getLayoutForTest("button");
     expect(layout != nullptr, "button layout should be registered");
     if (!layout) return;
     std::vector<uint8_t> buffer(layout->elementSize);
@@ -226,10 +242,9 @@ void testButtonLayout() {
 
 // 别名 shader 共享同一 factory：布局内容一致（各别名独立缓存实例，地址不同）
 void testShaderAliasesShareLayout() {
-    SSBOManager manager;
-    const auto* a = manager.getLayout("image_normal");
-    const auto* b = manager.getLayout("image_text_debug");
-    const auto* c = manager.getLayout("image_oes");
+    const auto* a = getLayoutForTest("image_normal");
+    const auto* b = getLayoutForTest("image_text_debug");
+    const auto* c = getLayoutForTest("image_oes");
     expect(a != nullptr && b != nullptr && c != nullptr,
            "image shader aliases should be registered");
     if (!a || !b || !c) return;
@@ -258,10 +273,9 @@ void testShaderAliasesShareLayout() {
 void testMissingParamsFallbackSafely() {
     auto batch = makeBatch(1);  // 未设置任何 Material 参数
 
-    SSBOManager manager;
 
     // image_normal：displaySize / rounding / alpha 全部缺失
-    const auto* imageLayout = manager.getLayout("image_normal");
+    const auto* imageLayout = getLayoutForTest("image_normal");
     std::vector<uint8_t> imageBuffer(imageLayout->elementSize);
     fillSSBOInstance(*imageLayout, imageBuffer.data(), batch, 0);  // 不应抛异常
     const auto* imageData = reinterpret_cast<const DefaultBatchData2Attr*>(imageBuffer.data());
@@ -271,7 +285,7 @@ void testMissingParamsFallbackSafely() {
                "image_normal: missing rounding/alpha should fall back to zero");
 
     // button：color / displaySize / useTexture 全部缺失
-    const auto* buttonLayout = manager.getLayout("button");
+    const auto* buttonLayout = getLayoutForTest("button");
     std::vector<uint8_t> buttonBuffer(buttonLayout->elementSize);
     fillSSBOInstance(*buttonLayout, buttonBuffer.data(), batch, 0);  // 不应抛异常
     const auto* buttonData = reinterpret_cast<const DefaultBatchData3Attr*>(buttonBuffer.data());
@@ -292,8 +306,7 @@ void testMultipleInstancesDoNotOverlap() {
         batch.materials[i]->setFloat("alpha", static_cast<float>(i) + 1.0f);
     }
 
-    SSBOManager manager;
-    const auto* layout = manager.getLayout("default_color");
+    const auto* layout = getLayoutForTest("default_color");
     std::vector<uint8_t> buffer(count * layout->elementSize, 0xAA);
     for (size_t i = 0; i < count; i++) {
         fillSSBOInstance(*layout, buffer.data() + i * layout->elementSize, batch, i);
@@ -326,15 +339,13 @@ SSBOReflectedLayout makeMatchingGlslLayout() {
 }
 
 void testValidateLayoutMatches() {
-    SSBOManager manager;
-    const auto* cpu = manager.getLayout("default_color");
+    const auto* cpu = getLayoutForTest("default_color");
     expect(validateSSBOLayout(*cpu, makeMatchingGlslLayout()).empty(),
            "matching CPU/GLSL layout should pass validation");
 }
 
 void testValidateOffsetMismatch() {
-    SSBOManager manager;
-    const auto* cpu = manager.getLayout("default_color");
+    const auto* cpu = getLayoutForTest("default_color");
     auto glsl = makeMatchingGlslLayout();
     glsl.fields[1].offset = 63;
     const std::string error = validateSSBOLayout(*cpu, glsl);
@@ -343,8 +354,7 @@ void testValidateOffsetMismatch() {
 }
 
 void testValidateTypeMismatch() {
-    SSBOManager manager;
-    const auto* cpu = manager.getLayout("default_color");
+    const auto* cpu = getLayoutForTest("default_color");
     auto glsl = makeMatchingGlslLayout();
     glsl.fields[0].type = ShaderDataType::Vector4;  // model 应为 mat4
     expect(!validateSSBOLayout(*cpu, glsl).empty(),
@@ -352,8 +362,7 @@ void testValidateTypeMismatch() {
 }
 
 void testValidateMissingField() {
-    SSBOManager manager;
-    const auto* cpu = manager.getLayout("default_color");
+    const auto* cpu = getLayoutForTest("default_color");
     auto glsl = makeMatchingGlslLayout();
     glsl.fields.pop_back();  // 缺少 defaultAttr
     const std::string error = validateSSBOLayout(*cpu, glsl);
@@ -362,8 +371,7 @@ void testValidateMissingField() {
 }
 
 void testValidateStrideMismatch() {
-    SSBOManager manager;
-    const auto* cpu = manager.getLayout("default_color");
+    const auto* cpu = getLayoutForTest("default_color");
     auto glsl = makeMatchingGlslLayout();
     glsl.topLevelArrayStride = 80;  // 与 elementSize 96 不一致
     expect(!validateSSBOLayout(*cpu, glsl).empty(),
@@ -371,8 +379,7 @@ void testValidateStrideMismatch() {
 }
 
 void testValidateUnavailableReflection() {
-    SSBOManager manager;
-    const auto* cpu = manager.getLayout("default_color");
+    const auto* cpu = getLayoutForTest("default_color");
     SSBOReflectedLayout glsl;  // valid = false
     expect(validateSSBOLayout(*cpu, glsl).empty(),
            "unavailable reflection should not fail validation");

@@ -4,6 +4,7 @@
 
 #include "MRAnchorPointScale.h"
 #include "base/Transform.h"
+#include "renderer/resource/ssbo/layouts/DefaultImageSSBOLayout.h"
 
 namespace morrow {
 MRAnchorPointScaleSharedPtr MRAnchorPointScale::create() {
@@ -13,5 +14,6 @@ MRAnchorPointScaleSharedPtr MRAnchorPointScale::create() {
 MRAnchorPointScale::MRAnchorPointScale() {
     setWidgetType("MRAnchorPointScale");
     m_material->setShader("anchor_point_scale");
+    m_material->setSSBOLayout(std::make_shared<DefaultImageSSBOLayout>());
 }
 }

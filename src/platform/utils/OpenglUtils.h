@@ -5,7 +5,7 @@
 #ifndef OPENGLUTILS_H
 #define OPENGLUTILS_H
 #include "DriverEnums.h"
-#include "SSBOFieldBinding.h"
+#include "ssbo/SSBOFieldBinding.h"
 #ifdef OPENGL_GLFW
 #include "wgl/OpenglHeader.h"  // 桌面OpenGL
 #else

@@ -6,13 +6,15 @@
 
 #include "FontManager.h"
 #include "GlobalObject.h"
-#include "ShaderStorageBuffer.h"
+#include "ssbo/ShaderStorageBuffer.h"
 #include "base/Transform.h"
+#include "renderer/resource/ssbo/layouts/FontSSBOLayout.h"
 
 namespace morrow {
 MRLabel::MRLabel() {
     setWidgetType("MRTextRenderer");
     m_material->setShader("font");
+    m_material->setSSBOLayout(std::make_shared<FontSSBOLayout>());
     m_material->setVector("fontColor", Vector4(1.0f, 1.0f, 1.0f, 1.0f));
     auto transform = getComponent<Transform>();
     transform->addSizeChangeListener([this]() {

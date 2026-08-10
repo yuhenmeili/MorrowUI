@@ -8,7 +8,7 @@
 #include "Material.h"
 #include "OrthographicCamera.h"
 #include "RenderBatchPool.h"
-#include "SSBOManager.h"
+#include "ssbo/SSBOManager.h"
 #include "UniformBuffer.h"
 #include "VertexArray.h"
 #include "base/Component.inl"
@@ -152,6 +152,7 @@ void BatchManager::buildFromItems(const std::vector<RenderItem>& items, BatchSta
         RenderBatch newBatch = RenderBatchPool::getInstance().acquire(
             firstItem.material->getShaderName(),
             firstItem.material->isSSBOShader());
+        newBatch.ssboLayout = firstItem.material->getSSBOLayout();
 
         for (const uint32_t itemIndex : group.itemIndices) {
             const auto& item = items[itemIndex];
@@ -168,7 +169,7 @@ void BatchManager::buildFromItems(const std::vector<RenderItem>& items, BatchSta
 // ---------------------------------------------------------------------------
 void BatchManager::renderSSBOBatch(std::shared_ptr<FrameState> frameState, RenderBatch& batch) {
     auto ssboManager = frameState->ssboManager;
-    ssboManager->updateSSBOForShader(batch.shaderName, batch);
+    ssboManager->updateSSBO(batch);
 
     auto material = batch.materials[0];
     material->applyBatch();

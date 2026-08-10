@@ -5,7 +5,7 @@
 #include "GlobalObject.h"
 
 #include "FontManager.h"
-#include "SSBOManager.h"
+#include "ssbo/SSBOManager.h"
 #include "TextureManager.h"
 
 namespace morrow
