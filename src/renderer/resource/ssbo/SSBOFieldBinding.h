@@ -17,36 +17,27 @@
 #include "core/BatchDataDefine.h"
 
 namespace morrow {
-
 // Shader 属性/字段数据类型（与 GLSL 类型对应）
-enum class ShaderDataType {
-    Int,
-    Float,
-    Vector2,
-    Vector3,
-    Vector4,
-    Matrix3,
-    Matrix4
-};
+enum class ShaderDataType { Int, Float, Vector2, Vector3, Vector4, Matrix3, Matrix4 };
 
 // 字段数据来源
 enum class SSBOValueSource {
-    TransformWorldMatrix,    // 世界矩阵（mat4）
-    MaterialFloat,           // Material::getFloat
-    MaterialVector2,         // Material vector（2 分量）
-    MaterialVector3,         // Material vector（3 分量）
-    MaterialVector4,         // Material vector（4 分量）
-    MaterialVectorComponent, // Material vector 的单个分量
-    ConstantFloat,           // 常量 float
-    Custom                   // 由 SSBOLayout::filler 处理
+    TransformWorldMatrix,     // 世界矩阵（mat4）
+    MaterialFloat,            // Material::getFloat
+    MaterialVector2,          // Material vector（2 分量）
+    MaterialVector3,          // Material vector（3 分量）
+    MaterialVector4,          // Material vector（4 分量）
+    MaterialVectorComponent,  // Material vector 的单个分量
+    ConstantFloat,            // 常量 float
+    Custom                    // 由 SSBOLayout::filler 处理
 };
 
 // 字段写入方式
 enum class SSBOFieldKind {
-    WorldMatrix,    // 直接写入 Transform 世界矩阵（mat4）
-    MaterialVector, // 整个 vector 写入（Vector2/3/4）
-    PackedVector4,  // 4 个分量打包为 vec4
-    Custom          // 由 SSBOLayout::filler 处理
+    WorldMatrix,     // 直接写入 Transform 世界矩阵（mat4）
+    MaterialVector,  // 整个 vector 写入（Vector2/3/4）
+    PackedVector4,   // 4 个分量打包为 vec4
+    Custom           // 由 SSBOLayout::filler 处理
 };
 
 // vec4 单个分量的来源描述（PackedVector4 用）
@@ -59,8 +50,8 @@ struct SSBOComponentSource {
 
 // 字段绑定：描述 CPU 结构字段 ← 数据来源；shaderField 对应 GLSL SSBO 字段名
 struct SSBOFieldBinding {
-    std::string shaderField;   // 对应 GLSL SSBO 字段名（P3 reflection 校验用）
-    size_t offset = 0;         // CPU 结构内字节偏移
+    std::string shaderField;  // 对应 GLSL SSBO 字段名（P3 reflection 校验用）
+    size_t offset = 0;        // CPU 结构内字节偏移
     ShaderDataType type = ShaderDataType::Vector4;
     SSBOFieldKind kind = SSBOFieldKind::Custom;
     SSBOValueSource source = SSBOValueSource::Custom;  // MaterialVector 用
@@ -80,8 +71,7 @@ inline SSBOFieldBinding makeWorldMatrixField(std::string shaderField, size_t off
     return field;
 }
 
-inline SSBOFieldBinding makeMaterialVectorField(std::string shaderField, size_t offset,
-                                                SSBOValueSource source, std::string materialProperty) {
+inline SSBOFieldBinding makeMaterialVectorField(std::string shaderField, size_t offset, SSBOValueSource source, std::string materialProperty) {
     SSBOFieldBinding field;
     field.shaderField = std::move(shaderField);
     field.offset = offset;
@@ -89,16 +79,23 @@ inline SSBOFieldBinding makeMaterialVectorField(std::string shaderField, size_t 
     field.source = source;
     field.materialProperty = std::move(materialProperty);
     switch (source) {
-        case SSBOValueSource::MaterialVector2: field.type = ShaderDataType::Vector2; break;
-        case SSBOValueSource::MaterialVector3: field.type = ShaderDataType::Vector3; break;
-        case SSBOValueSource::MaterialVector4: field.type = ShaderDataType::Vector4; break;
-        default: field.type = ShaderDataType::Vector4; break;
+        case SSBOValueSource::MaterialVector2:
+            field.type = ShaderDataType::Vector2;
+            break;
+        case SSBOValueSource::MaterialVector3:
+            field.type = ShaderDataType::Vector3;
+            break;
+        case SSBOValueSource::MaterialVector4:
+            field.type = ShaderDataType::Vector4;
+            break;
+        default:
+            field.type = ShaderDataType::Vector4;
+            break;
     }
     return field;
 }
 
-inline SSBOFieldBinding makePackedVector4Field(std::string shaderField, size_t offset,
-                                               std::array<SSBOComponentSource, 4> components) {
+inline SSBOFieldBinding makePackedVector4Field(std::string shaderField, size_t offset, std::array<SSBOComponentSource, 4> components) {
     SSBOFieldBinding field;
     field.shaderField = std::move(shaderField);
     field.offset = offset;
@@ -134,18 +131,16 @@ inline SSBOComponentSource constantFloat(float value) {
 
 // 通用字段写入：将绑定字段写入 destination 的 field.offset 处（纯 CPU，可测试）。
 // 使用 Material 类型安全接口，缺失/类型不匹配时按默认值回退，不抛异常。
-bool writeSSBOField(const SSBOFieldBinding& field, void* destination,
-                    const RenderBatch& batch, size_t index);
+bool writeSSBOField(const SSBOFieldBinding& field, void* destination, const RenderBatch& batch, size_t index);
 
 // 填充单个实例：先写入全部 fields，再调用 layout.filler（custom packer）。
 // 需要 SSBOLayout 完整定义，实现在 SSBOFieldBinding.cpp。
 struct SSBOLayout;
-bool fillSSBOInstance(const SSBOLayout& layout, void* destination,
-                      const RenderBatch& batch, size_t index);
+
+bool fillSSBOInstance(const SSBOLayout& layout, void* destination, const RenderBatch& batch, size_t index);
 
 // 布局校验辅助（P3 复用）
 size_t shaderDataTypeSize(ShaderDataType type);
+}  // namespace morrow
 
-} // namespace morrow
-
-#endif //SSBOFIELDBINDING_H
+#endif  // SSBOFIELDBINDING_H

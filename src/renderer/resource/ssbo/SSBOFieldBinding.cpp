@@ -6,22 +6,19 @@
 
 #include <cstring>
 
-#include "ShaderStorageBuffer.h"
 #include "Material.h"
+#include "ShaderStorageBuffer.h"
 #include "base/Transform.h"
 
 namespace morrow {
-
 namespace {
-
 float evalComponent(const SSBOComponentSource& component, const RenderBatch& batch, size_t index) {
     switch (component.source) {
         case SSBOValueSource::MaterialFloat:
             return batch.materials[index]->getFloatOr(component.materialProperty, 0.0f);
         case SSBOValueSource::MaterialVectorComponent: {
             float value = 0.0f;
-            batch.materials[index]->tryGetVectorComponent(
-                component.materialProperty, component.sourceComponent, value);
+            batch.materials[index]->tryGetVectorComponent(component.materialProperty, component.sourceComponent, value);
             return value;
         }
         case SSBOValueSource::ConstantFloat:
@@ -29,8 +26,7 @@ float evalComponent(const SSBOComponentSource& component, const RenderBatch& bat
             return component.constant;
     }
 }
-
-} // namespace
+}  // namespace
 
 size_t shaderDataTypeSize(ShaderDataType type) {
     switch (type) {
@@ -51,8 +47,7 @@ size_t shaderDataTypeSize(ShaderDataType type) {
     return 0;
 }
 
-bool writeSSBOField(const SSBOFieldBinding& field, void* destination,
-                    const RenderBatch& batch, size_t index) {
+bool writeSSBOField(const SSBOFieldBinding& field, void* destination, const RenderBatch& batch, size_t index) {
     auto* dest = static_cast<uint8_t*>(destination) + field.offset;
     switch (field.kind) {
         case SSBOFieldKind::WorldMatrix: {
@@ -61,8 +56,7 @@ bool writeSSBOField(const SSBOFieldBinding& field, void* destination,
             return true;
         }
         case SSBOFieldKind::MaterialVector: {
-            const Vector4 value = batch.materials[index]->getVector4Or(
-                field.materialProperty, Vector4::ZERO);
+            const Vector4 value = batch.materials[index]->getVector4Or(field.materialProperty, Vector4::ZERO);
             std::memcpy(dest, value.elements, shaderDataTypeSize(field.type));
             return true;
         }
@@ -80,8 +74,7 @@ bool writeSSBOField(const SSBOFieldBinding& field, void* destination,
     }
 }
 
-bool fillSSBOInstance(const SSBOLayout& layout, void* destination,
-                      const RenderBatch& batch, size_t index) {
+bool fillSSBOInstance(const SSBOLayout& layout, void* destination, const RenderBatch& batch, size_t index) {
     bool ok = true;
     for (const auto& field : layout.fields) {
         ok = writeSSBOField(field, destination, batch, index) && ok;
@@ -91,5 +84,4 @@ bool fillSSBOInstance(const SSBOLayout& layout, void* destination,
     }
     return ok;
 }
-
-} // namespace morrow
+}  // namespace morrow

@@ -10,10 +10,10 @@ ImageSSBOLayout::ImageSSBOLayout() {
     m_layout = makeLayout<DefaultBatchData2Attr>("image_normal");
     m_layout.fields = {
         makeWorldMatrixField("model", offsetof(DefaultBatchData2Attr, model)),
-        makePackedVector4Field("displaySize", offsetof(DefaultBatchData2Attr, attr1),
+        makePackedVector4Field("displaySize", defaultBatchAttributeOffset<DefaultBatchData2Attr>(0),
                                {materialVectorComponent("displaySize", 0), materialVectorComponent("displaySize", 1),
                                 materialVectorComponent("displaySize", 2), constantFloat(0.0f)}),
-        makePackedVector4Field("imageAttr", offsetof(DefaultBatchData2Attr, attr2),
+        makePackedVector4Field("imageAttr", defaultBatchAttributeOffset<DefaultBatchData2Attr>(1),
                                {materialFloat("rounding"), materialFloat("alpha"), constantFloat(0.0f), constantFloat(0.0f)})};
 }
 
