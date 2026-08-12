@@ -3,14 +3,14 @@
 //
 
 // Standard headers must come before windows.h (pulled in by tiny_gltf.h on MinGW).
-#include <thread>
-#include <cstring>
-
-#include "tinygltf/tiny_gltf.h"
-
 #include "GLTFLoader.h"
+
+#include <cstring>
+#include <thread>
+
 #include "DriverEnums.h"
 #include "Log.h"
+#include "tinygltf/tiny_gltf.h"
 
 namespace morrow {
 
@@ -19,8 +19,7 @@ namespace morrow {
 // ---------------------------------------------------------------------------
 static std::shared_ptr<GLTFScene> parse(const std::string& path, std::string& outError);
 static VBODataSharedPtr packPrimitive(const tinygltf::Model& model, const tinygltf::Primitive& prim);
-static GLTFMaterial     parseMaterial(const tinygltf::Model& model, const tinygltf::Material& mat);
-static TextureData      parseTexture (const tinygltf::Model& model, int texIndex);
+static GLTFMaterial parseMaterial(const tinygltf::Model& model, const tinygltf::Material& mat);
 static SamplerMinFilter toMinFilter(int filter);
 static SamplerMagFilter toMagFilter(int filter);
 
@@ -46,8 +45,8 @@ std::shared_ptr<GLTFScene> GLTFLoader::loadSync(const std::string& path, std::st
 
 static std::shared_ptr<GLTFScene> parse(const std::string& path, std::string& outError) {
     tinygltf::TinyGLTF loader;
-    tinygltf::Model    model;
-    std::string        warn;
+    tinygltf::Model model;
+    std::string warn;
 
     bool ok = false;
     // Detect binary vs. ASCII by extension
@@ -66,6 +65,41 @@ static std::shared_ptr<GLTFScene> parse(const std::string& path, std::string& ou
 
     auto scene = std::make_shared<GLTFScene>();
 
+    scene->images.reserve(model.images.size());
+    for (auto& image : model.images) {
+        GLTFImage result;
+        result.width = image.width;
+        result.height = image.height;
+        result.bytes = static_cast<int32_t>(image.image.size());
+        switch (image.component) {
+            case 1:
+                result.format = PixelDataFormat::R;
+                break;
+            case 2:
+                result.format = PixelDataFormat::RG;
+                break;
+            case 3:
+                result.format = PixelDataFormat::RGB;
+                break;
+            default:
+                result.format = PixelDataFormat::RGBA;
+                break;
+        }
+        result.pixels = std::make_shared<std::vector<unsigned char>>(std::move(image.image));
+        scene->images.push_back(std::move(result));
+    }
+
+    scene->textures.reserve(model.textures.size());
+    for (const auto& texture : model.textures) {
+        GLTFTexture result;
+        result.imageIndex = texture.source;
+        if (texture.sampler >= 0 && texture.sampler < int(model.samplers.size())) {
+            result.minFilterType = toMinFilter(model.samplers[texture.sampler].minFilter);
+            result.magFilterType = toMagFilter(model.samplers[texture.sampler].magFilter);
+        }
+        scene->textures.push_back(std::move(result));
+    }
+
     // --- Materials ---
     scene->materials.reserve(model.materials.size());
     for (const auto& mat : model.materials) {
@@ -79,7 +113,7 @@ static std::shared_ptr<GLTFScene> parse(const std::string& path, std::string& ou
         mesh.name = gMesh.name;
         for (const auto& prim : gMesh.primitives) {
             GLTFPrimitive p;
-            p.vboData      = packPrimitive(model, prim);
+            p.vboData = packPrimitive(model, prim);
             p.materialIndex = prim.material;
             mesh.primitives.push_back(std::move(p));
         }
@@ -90,9 +124,9 @@ static std::shared_ptr<GLTFScene> parse(const std::string& path, std::string& ou
     scene->nodes.reserve(model.nodes.size());
     for (const auto& gNode : model.nodes) {
         GLTFNode node;
-        node.name      = gNode.name;
+        node.name = gNode.name;
         node.meshIndex = gNode.mesh;
-        node.children  = std::vector<int>(gNode.children.begin(), gNode.children.end());
+        node.children = std::vector<int>(gNode.children.begin(), gNode.children.end());
 
         if (!gNode.matrix.empty()) {
             // Column-major 4x4 double → float Matrix4
@@ -103,24 +137,15 @@ static std::shared_ptr<GLTFScene> parse(const std::string& path, std::string& ou
             Matrix4 T, R, S;
 
             if (!gNode.translation.empty()) {
-                T.makeTranslation(
-                    float(gNode.translation[0]),
-                    float(gNode.translation[1]),
-                    float(gNode.translation[2]));
+                T.makeTranslation(float(gNode.translation[0]), float(gNode.translation[1]), float(gNode.translation[2]));
             }
             if (!gNode.rotation.empty()) {
                 // GLTF quaternion: [x, y, z, w]
-                Quaternion q(float(gNode.rotation[0]),
-                             float(gNode.rotation[1]),
-                             float(gNode.rotation[2]),
-                             float(gNode.rotation[3]));
+                Quaternion q(float(gNode.rotation[0]), float(gNode.rotation[1]), float(gNode.rotation[2]), float(gNode.rotation[3]));
                 R.makeRotationFromQuaternion(q);
             }
             if (!gNode.scale.empty()) {
-                S.makeScale(
-                    float(gNode.scale[0]),
-                    float(gNode.scale[1]),
-                    float(gNode.scale[2]));
+                S.makeScale(float(gNode.scale[0]), float(gNode.scale[1]), float(gNode.scale[2]));
             }
             node.localTransform = T * R * S;
         }
@@ -144,29 +169,29 @@ static std::shared_ptr<GLTFScene> parse(const std::string& path, std::string& ou
         for (const auto& gSamp : gAnim.samplers) {
             GLTFAnimationSampler samp;
             // Determine interpolation
-            if      (gSamp.interpolation == "STEP")        samp.interpolation = GLTFInterpolation::Step;
-            else if (gSamp.interpolation == "CUBICSPLINE") samp.interpolation = GLTFInterpolation::CubicSpline;
-            else                                            samp.interpolation = GLTFInterpolation::Linear;
+            if (gSamp.interpolation == "STEP")
+                samp.interpolation = GLTFInterpolation::Step;
+            else if (gSamp.interpolation == "CUBICSPLINE")
+                samp.interpolation = GLTFInterpolation::CubicSpline;
+            else
+                samp.interpolation = GLTFInterpolation::Linear;
 
             // Input (times)
             {
                 const auto& acc = model.accessors[gSamp.input];
-                const auto& bv  = model.bufferViews[acc.bufferView];
+                const auto& bv = model.bufferViews[acc.bufferView];
                 const auto& buf = model.buffers[bv.buffer];
-                auto ptr = reinterpret_cast<const float*>(
-                    buf.data.data() + bv.byteOffset + acc.byteOffset);
+                auto ptr = reinterpret_cast<const float*>(buf.data.data() + bv.byteOffset + acc.byteOffset);
                 samp.input.assign(ptr, ptr + acc.count);
             }
             // Output (values)
             {
                 const auto& acc = model.accessors[gSamp.output];
-                const auto& bv  = model.bufferViews[acc.bufferView];
+                const auto& bv = model.bufferViews[acc.bufferView];
                 const auto& buf = model.buffers[bv.buffer];
-                auto ptr = reinterpret_cast<const float*>(
-                    buf.data.data() + bv.byteOffset + acc.byteOffset);
+                auto ptr = reinterpret_cast<const float*>(buf.data.data() + bv.byteOffset + acc.byteOffset);
                 // component count per keyframe
-                int components = (acc.type == TINYGLTF_TYPE_VEC3) ? 3 :
-                                 (acc.type == TINYGLTF_TYPE_VEC4) ? 4 : 1;
+                int components = (acc.type == TINYGLTF_TYPE_VEC3) ? 3 : (acc.type == TINYGLTF_TYPE_VEC4) ? 4 : 1;
                 samp.output.assign(ptr, ptr + acc.count * components);
             }
             anim.samplers.push_back(std::move(samp));
@@ -176,21 +201,21 @@ static std::shared_ptr<GLTFScene> parse(const std::string& path, std::string& ou
         for (const auto& gChan : gAnim.channels) {
             GLTFAnimationChannel chan;
             chan.samplerIndex = gChan.sampler;
-            chan.nodeIndex    = gChan.target_node;
-            if      (gChan.target_path == "translation") chan.path = GLTFAnimationPath::Translation;
-            else if (gChan.target_path == "rotation")    chan.path = GLTFAnimationPath::Rotation;
-            else if (gChan.target_path == "scale")       chan.path = GLTFAnimationPath::Scale;
-            else                                          chan.path = GLTFAnimationPath::Weights;
+            chan.nodeIndex = gChan.target_node;
+            if (gChan.target_path == "translation")
+                chan.path = GLTFAnimationPath::Translation;
+            else if (gChan.target_path == "rotation")
+                chan.path = GLTFAnimationPath::Rotation;
+            else if (gChan.target_path == "scale")
+                chan.path = GLTFAnimationPath::Scale;
+            else
+                chan.path = GLTFAnimationPath::Weights;
             anim.channels.push_back(chan);
         }
         scene->animations.push_back(std::move(anim));
     }
 
-    LOG_I("GLTFLoader: loaded '{}' – {} nodes, {} meshes, {} materials, {} animations",
-          path,
-          scene->nodes.size(),
-          scene->meshes.size(),
-          scene->materials.size(),
+    LOG_I("GLTFLoader: loaded '{}' – {} nodes, {} meshes, {} materials, {} animations", path, scene->nodes.size(), scene->meshes.size(), scene->materials.size(),
           scene->animations.size());
 
     return scene;
@@ -203,12 +228,10 @@ static std::shared_ptr<GLTFScene> parse(const std::string& path, std::string& ou
 // Helper: read typed buffer data into a float vector.
 static std::vector<float> readAccessorFloat(const tinygltf::Model& model, int accIdx) {
     const auto& acc = model.accessors[accIdx];
-    const auto& bv  = model.bufferViews[acc.bufferView];
+    const auto& bv = model.bufferViews[acc.bufferView];
     const auto& buf = model.buffers[bv.buffer];
 
-    int components = (acc.type == TINYGLTF_TYPE_VEC2) ? 2 :
-                     (acc.type == TINYGLTF_TYPE_VEC3) ? 3 :
-                     (acc.type == TINYGLTF_TYPE_VEC4) ? 4 : 1;
+    int components = (acc.type == TINYGLTF_TYPE_VEC2) ? 2 : (acc.type == TINYGLTF_TYPE_VEC3) ? 3 : (acc.type == TINYGLTF_TYPE_VEC4) ? 4 : 1;
     std::vector<float> result(acc.count * components);
 
     const uint8_t* src = buf.data.data() + bv.byteOffset + acc.byteOffset;
@@ -224,7 +247,7 @@ static std::vector<float> readAccessorFloat(const tinygltf::Model& model, int ac
 
 static std::vector<uint32_t> readAccessorIndices(const tinygltf::Model& model, int accIdx) {
     const auto& acc = model.accessors[accIdx];
-    const auto& bv  = model.bufferViews[acc.bufferView];
+    const auto& bv = model.bufferViews[acc.bufferView];
     const auto& buf = model.buffers[bv.buffer];
     const uint8_t* src = buf.data.data() + bv.byteOffset + acc.byteOffset;
 
@@ -244,8 +267,7 @@ static std::vector<uint32_t> readAccessorIndices(const tinygltf::Model& model, i
     return result;
 }
 
-static VBODataSharedPtr packPrimitive(const tinygltf::Model& model,
-                                       const tinygltf::Primitive& prim) {
+static VBODataSharedPtr packPrimitive(const tinygltf::Model& model, const tinygltf::Primitive& prim) {
     auto vboData = std::make_shared<VBOData>();
 
     // Positions (mandatory)
@@ -256,35 +278,48 @@ static VBODataSharedPtr packPrimitive(const tinygltf::Model& model,
     }
 
     std::vector<float> normals, tangents, uvs;
-    bool hasNormals = prim.attributes.count("NORMAL")     > 0;
-    bool hasTangents = prim.attributes.count("TANGENT")   > 0;
-    bool hasUVs     = prim.attributes.count("TEXCOORD_0") > 0;
+    bool hasNormals = prim.attributes.count("NORMAL") > 0;
+    bool hasTangents = prim.attributes.count("TANGENT") > 0;
+    bool hasUVs = prim.attributes.count("TEXCOORD_0") > 0;
 
-    if (hasNormals) normals = readAccessorFloat(model, prim.attributes.at("NORMAL"));
-    if (hasTangents) tangents = readAccessorFloat(model, prim.attributes.at("TANGENT"));
-    if (hasUVs)     uvs     = readAccessorFloat(model, prim.attributes.at("TEXCOORD_0"));
+    if (hasNormals)
+        normals = readAccessorFloat(model, prim.attributes.at("NORMAL"));
+    if (hasTangents)
+        tangents = readAccessorFloat(model, prim.attributes.at("TANGENT"));
+    if (hasUVs)
+        uvs = readAccessorFloat(model, prim.attributes.at("TEXCOORD_0"));
 
     // Indices
     if (prim.indices >= 0) {
-        vboData->indices  = readAccessorIndices(model, prim.indices);
+        vboData->indices = readAccessorIndices(model, prim.indices);
         vboData->indexCount = uint32_t(vboData->indices.size());
     }
 
     // Draw mode
     switch (prim.mode) {
-        case TINYGLTF_MODE_POINTS:         vboData->drawMode = PrimitiveType::POINTS;         break;
-        case TINYGLTF_MODE_LINE:           vboData->drawMode = PrimitiveType::LINES;           break;
-        case TINYGLTF_MODE_LINE_STRIP:     vboData->drawMode = PrimitiveType::LINE_STRIP;     break;
-        case TINYGLTF_MODE_TRIANGLE_STRIP: vboData->drawMode = PrimitiveType::TRIANGLE_STRIP; break;
-        default:                           vboData->drawMode = PrimitiveType::TRIANGLES;       break;
+        case TINYGLTF_MODE_POINTS:
+            vboData->drawMode = PrimitiveType::POINTS;
+            break;
+        case TINYGLTF_MODE_LINE:
+            vboData->drawMode = PrimitiveType::LINES;
+            break;
+        case TINYGLTF_MODE_LINE_STRIP:
+            vboData->drawMode = PrimitiveType::LINE_STRIP;
+            break;
+        case TINYGLTF_MODE_TRIANGLE_STRIP:
+            vboData->drawMode = PrimitiveType::TRIANGLE_STRIP;
+            break;
+        default:
+            vboData->drawMode = PrimitiveType::TRIANGLES;
+            break;
     }
 
     // Build interleaved-style block buffer: pos | normal | tangent | uv
-    size_t posSize    = positions.size() * sizeof(float);
-    size_t normalSize = normals.size()   * sizeof(float);
+    size_t posSize = positions.size() * sizeof(float);
+    size_t normalSize = normals.size() * sizeof(float);
     size_t tangentSize = tangents.size() * sizeof(float);
-    size_t uvSize     = uvs.size()       * sizeof(float);
-    size_t totalSize  = posSize + normalSize + tangentSize + uvSize;
+    size_t uvSize = uvs.size() * sizeof(float);
+    size_t totalSize = posSize + normalSize + tangentSize + uvSize;
 
     vboData->vertexData.resize(totalSize);
     size_t offset = 0;
@@ -315,84 +350,42 @@ static VBODataSharedPtr packPrimitive(const tinygltf::Model& model,
 // Material parsing
 // ---------------------------------------------------------------------------
 
-static GLTFMaterial parseMaterial(const tinygltf::Model&    model,
-                                   const tinygltf::Material& mat) {
+static GLTFMaterial parseMaterial(const tinygltf::Model& model, const tinygltf::Material& mat) {
     GLTFMaterial result;
     result.doubleSided = mat.doubleSided;
-    result.alphaBlend  = (mat.alphaMode == "BLEND");
-    result.alphaMask   = (mat.alphaMode == "MASK");
+    result.alphaBlend = (mat.alphaMode == "BLEND");
+    result.alphaMask = (mat.alphaMode == "MASK");
     result.alphaCutoff = float(mat.alphaCutoff);
 
     const auto& pbr = mat.pbrMetallicRoughness;
-    result.baseColorFactor = Vector4(
-        float(pbr.baseColorFactor[0]),
-        float(pbr.baseColorFactor[1]),
-        float(pbr.baseColorFactor[2]),
-        float(pbr.baseColorFactor[3]));
-    result.metallicFactor  = float(pbr.metallicFactor);
+    result.baseColorFactor = Vector4(float(pbr.baseColorFactor[0]), float(pbr.baseColorFactor[1]), float(pbr.baseColorFactor[2]), float(pbr.baseColorFactor[3]));
+    result.metallicFactor = float(pbr.metallicFactor);
     result.roughnessFactor = float(pbr.roughnessFactor);
-    result.emissiveFactor = Vector3(
-        float(mat.emissiveFactor[0]),
-        float(mat.emissiveFactor[1]),
-        float(mat.emissiveFactor[2]));
+    result.emissiveFactor = Vector3(float(mat.emissiveFactor[0]), float(mat.emissiveFactor[1]), float(mat.emissiveFactor[2]));
     result.normalScale = float(mat.normalTexture.scale);
     result.occlusionStrength = float(mat.occlusionTexture.strength);
 
     if (pbr.baseColorTexture.index >= 0) {
         result.baseColorTexIndex = pbr.baseColorTexture.index;
-        result.baseColorTexture  = parseTexture(model, pbr.baseColorTexture.index);
     }
 
     if (pbr.metallicRoughnessTexture.index >= 0) {
         result.metallicRoughnessTexIndex = pbr.metallicRoughnessTexture.index;
-        result.metallicRoughnessTexture = parseTexture(model, pbr.metallicRoughnessTexture.index);
     }
 
     if (mat.normalTexture.index >= 0) {
         result.normalTexIndex = mat.normalTexture.index;
-        result.normalTexture = parseTexture(model, mat.normalTexture.index);
     }
 
     if (mat.occlusionTexture.index >= 0) {
         result.occlusionTexIndex = mat.occlusionTexture.index;
-        result.occlusionTexture = parseTexture(model, mat.occlusionTexture.index);
     }
 
     if (mat.emissiveTexture.index >= 0) {
         result.emissiveTexIndex = mat.emissiveTexture.index;
-        result.emissiveTexture = parseTexture(model, mat.emissiveTexture.index);
     }
 
     return result;
-}
-
-static TextureData parseTexture(const tinygltf::Model& model, int texIndex) {
-    TextureData td;
-    if (texIndex < 0 || texIndex >= int(model.textures.size())) return td;
-
-    const auto& gTex   = model.textures[texIndex];
-    if (gTex.source < 0 || gTex.source >= int(model.images.size())) return td;
-
-    const auto& img = model.images[gTex.source];
-    td.width   = img.width;
-    td.height  = img.height;
-    switch (img.component) {
-        case 1: td.format = PixelDataFormat::R; break;
-        case 2: td.format = PixelDataFormat::RG; break;
-        case 3: td.format = PixelDataFormat::RGB; break;
-        default: td.format = PixelDataFormat::RGBA; break;
-    }
-    td.bytes   = int32_t(img.image.size());
-
-    if (gTex.sampler >= 0 && gTex.sampler < int(model.samplers.size())) {
-        const auto& sampler = model.samplers[gTex.sampler];
-        td.minFilterType = toMinFilter(sampler.minFilter);
-        td.magFilterType = toMagFilter(sampler.magFilter);
-    }
-
-    td.pixels = const_cast<unsigned char*>(img.image.data());
-
-    return td;
 }
 
 static SamplerMinFilter toMinFilter(int filter) {
@@ -425,5 +418,4 @@ static SamplerMagFilter toMagFilter(int filter) {
     }
 }
 
-} // namespace morrow
-
+}  // namespace morrow

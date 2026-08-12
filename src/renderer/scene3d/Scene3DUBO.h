@@ -4,10 +4,10 @@
 #include <algorithm>
 #include <cstdint>
 
+#include "GLTFTypes.h"
 #include "Matrix4.h"
 #include "PerspectiveCamera.h"
 #include "Scene3DPassContext.h"
-#include "GLTFTypes.h"
 
 namespace morrow {
 constexpr int kScene3DMaxIBLMips = 8;
@@ -33,10 +33,10 @@ struct alignas(16) Scene3DDrawUBO {
 struct alignas(16) Scene3DMaterialUBO {
     float baseColorFactor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     float emissiveFactor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    float materialParams[4] = {1.0f, 1.0f, 1.0f, 1.0f}; // metallic, roughness, normalScale, occlusionStrength
+    float materialParams[4] = {1.0f, 1.0f, 1.0f, 1.0f};  // metallic, roughness, normalScale, occlusionStrength
     float alphaParams[4] = {0.5f, 0.0f, 0.0f, 0.0f};
-    int32_t materialFlags0[4] = {0, 0, 0, 0}; // alphaMask, doubleSided, hasBaseColor, hasMR
-    int32_t materialFlags1[4] = {0, 0, 0, 0}; // hasNormal, hasOcclusion, hasEmissive, reserved
+    int32_t materialFlags0[4] = {0, 0, 0, 0};  // alphaMask, doubleSided, hasBaseColor, hasMR
+    int32_t materialFlags1[4] = {0, 0, 0, 0};  // hasNormal, hasOcclusion, hasEmissive, reserved
 };
 
 inline Scene3DFrameUBO buildScene3DFrameUBO(const Scene3DPassContext& passContext) {
@@ -64,9 +64,7 @@ inline Scene3DFrameUBO buildScene3DFrameUBO(const Scene3DPassContext& passContex
     ubo.iblParams[0] = ibl.rgbmRange;
     ubo.iblParams[1] = ibl.intensity;
     ubo.frameFlags[0] = ibl.isValid() ? 1 : 0;
-    ubo.frameFlags[1] = ibl.isValid()
-        ? int32_t(std::min<size_t>(ibl.specularMipWidths.size(), kScene3DMaxIBLMips))
-        : 0;
+    ubo.frameFlags[1] = ibl.isValid() ? int32_t(std::min<size_t>(ibl.specularMipWidths.size(), kScene3DMaxIBLMips)) : 0;
     for (int32_t i = 0; i < ubo.frameFlags[1]; ++i) {
         ubo.specularMipInfo[i][0] = ibl.specularMipWidths[static_cast<size_t>(i)];
         ubo.specularMipInfo[i][1] = ibl.specularMipHeights[static_cast<size_t>(i)];
@@ -95,14 +93,13 @@ inline Scene3DMaterialUBO buildScene3DMaterialUBO(const GLTFMaterial* material) 
     ubo.alphaParams[0] = material->alphaCutoff;
     ubo.materialFlags0[0] = material->alphaMask ? 1 : 0;
     ubo.materialFlags0[1] = material->doubleSided ? 1 : 0;
-    ubo.materialFlags0[2] = material->baseColorTexture.pixels ? 1 : 0;
-    ubo.materialFlags0[3] = material->metallicRoughnessTexture.pixels ? 1 : 0;
-    ubo.materialFlags1[0] = material->normalTexture.pixels ? 1 : 0;
-    ubo.materialFlags1[1] = material->occlusionTexture.pixels ? 1 : 0;
-    ubo.materialFlags1[2] = material->emissiveTexture.pixels ? 1 : 0;
+    ubo.materialFlags0[2] = material->baseColorTexIndex >= 0 ? 1 : 0;
+    ubo.materialFlags0[3] = material->metallicRoughnessTexIndex >= 0 ? 1 : 0;
+    ubo.materialFlags1[0] = material->normalTexIndex >= 0 ? 1 : 0;
+    ubo.materialFlags1[1] = material->occlusionTexIndex >= 0 ? 1 : 0;
+    ubo.materialFlags1[2] = material->emissiveTexIndex >= 0 ? 1 : 0;
     return ubo;
 }
-} // namespace morrow
+}  // namespace morrow
 
-#endif // MORROW_GUI_SCENE3D_UBO_H
-
+#endif  // MORROW_GUI_SCENE3D_UBO_H

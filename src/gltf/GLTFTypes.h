@@ -5,15 +5,16 @@
 #ifndef MORROW_GUI_GLTFTYPES_H
 #define MORROW_GUI_GLTFTYPES_H
 
+#include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
-#include <functional>
 
 #include "GpuTypes.h"
 #include "Matrix4.h"
+#include "Quaternion.h"
 #include "Vector3.h"
 #include "Vector4.h"
-#include "Quaternion.h"
 
 namespace morrow {
 using namespace Math;
@@ -23,31 +24,40 @@ using namespace Math;
 // ---------------------------------------------------------------------------
 
 struct GLTFPrimitive {
-    VBODataSharedPtr vboData;   // 顶点/法线/UV/索引，复用现有 VBOData
+    VBODataSharedPtr vboData;  // 顶点/法线/UV/索引，复用现有 VBOData
     int materialIndex = -1;
 };
 
 struct GLTFMaterial {
-    Vector4 baseColorFactor  = {1.0f, 1.0f, 1.0f, 1.0f};
-    Vector3 emissiveFactor   = {0.0f, 0.0f, 0.0f};
-    float   metallicFactor   = 1.0f;
-    float   roughnessFactor  = 1.0f;
-    float   normalScale      = 1.0f;
-    float   occlusionStrength = 1.0f;
-    float   alphaCutoff      = 0.5f;
-    TextureData baseColorTexture;
-    TextureData metallicRoughnessTexture;
-    TextureData normalTexture;
-    TextureData occlusionTexture;
-    TextureData emissiveTexture;
-    int     baseColorTexIndex = -1; // source image index in GLTFScene::images
-    int     metallicRoughnessTexIndex = -1;
-    int     normalTexIndex = -1;
-    int     occlusionTexIndex = -1;
-    int     emissiveTexIndex = -1;
-    bool    doubleSided = false;
-    bool    alphaMask   = false;
-    bool    alphaBlend  = false;
+    Vector4 baseColorFactor = {1.0f, 1.0f, 1.0f, 1.0f};
+    Vector3 emissiveFactor = {0.0f, 0.0f, 0.0f};
+    float metallicFactor = 1.0f;
+    float roughnessFactor = 1.0f;
+    float normalScale = 1.0f;
+    float occlusionStrength = 1.0f;
+    float alphaCutoff = 0.5f;
+    int baseColorTexIndex = -1;  // source image index in GLTFScene::images
+    int metallicRoughnessTexIndex = -1;
+    int normalTexIndex = -1;
+    int occlusionTexIndex = -1;
+    int emissiveTexIndex = -1;
+    bool doubleSided = false;
+    bool alphaMask = false;
+    bool alphaBlend = false;
+};
+
+struct GLTFImage {
+    int32_t width = 0;
+    int32_t height = 0;
+    int32_t bytes = 0;
+    PixelDataFormat format = PixelDataFormat::RGBA;
+    std::shared_ptr<std::vector<unsigned char>> pixels;
+};
+
+struct GLTFTexture {
+    int32_t imageIndex = -1;
+    SamplerMinFilter minFilterType = SamplerMinFilter::LINEAR;
+    SamplerMagFilter magFilterType = SamplerMagFilter::LINEAR;
 };
 
 struct GLTFMesh {
@@ -57,7 +67,7 @@ struct GLTFMesh {
 
 struct GLTFNode {
     std::string name;
-    Matrix4 localTransform;         // T×R×S 已合并
+    Matrix4 localTransform;  // T×R×S 已合并
     int meshIndex = -1;
     std::vector<int> children;
 };
@@ -67,17 +77,17 @@ struct GLTFNode {
 // ---------------------------------------------------------------------------
 
 enum class GLTFAnimationPath { Translation, Rotation, Scale, Weights };
-enum class GLTFInterpolation  { Linear, Step, CubicSpline };
+enum class GLTFInterpolation { Linear, Step, CubicSpline };
 
 struct GLTFAnimationSampler {
-    std::vector<float>    input;    // keyframe times (seconds)
-    std::vector<float>    output;   // packed output values
+    std::vector<float> input;   // keyframe times (seconds)
+    std::vector<float> output;  // packed output values
     GLTFInterpolation interpolation = GLTFInterpolation::Linear;
 };
 
 struct GLTFAnimationChannel {
     int samplerIndex = -1;
-    int nodeIndex    = -1;
+    int nodeIndex = -1;
     GLTFAnimationPath path = GLTFAnimationPath::Translation;
 };
 
@@ -92,17 +102,18 @@ struct GLTFAnimation {
 // ---------------------------------------------------------------------------
 
 struct GLTFScene {
-    std::vector<GLTFNode>      nodes;
-    std::vector<GLTFMesh>      meshes;
-    std::vector<GLTFMaterial>  materials;
+    std::vector<GLTFImage> images;
+    std::vector<GLTFTexture> textures;
+    std::vector<GLTFNode> nodes;
+    std::vector<GLTFMesh> meshes;
+    std::vector<GLTFMaterial> materials;
     std::vector<GLTFAnimation> animations;
-    std::vector<int>           rootNodes;  // indices into nodes[]
+    std::vector<int> rootNodes;  // indices into nodes[]
 };
 
 // Async load callback: invoked on the worker thread after background parse.
 using GLTFLoadCallback = std::function<void(std::shared_ptr<GLTFScene>, const std::string& error)>;
 
-} // namespace morrow
+}  // namespace morrow
 
-#endif //MORROW_GUI_GLTFTYPES_H
-
+#endif  // MORROW_GUI_GLTFTYPES_H

@@ -23,6 +23,7 @@ struct TextureInfo {
 
     std::string imageUrl;
     std::shared_ptr<unsigned char> textureDataSharedPtr;
+    std::shared_ptr<std::vector<unsigned char>> textureDataBuffer;
     void* textureDataRawPtr = nullptr;
     basisu::vector<uint8_t> basisData;
 
@@ -51,6 +52,9 @@ public:
     Texture& setImageUrl(const std::string& imageUrl);
 
     Texture& setTextureData(std::shared_ptr<unsigned char> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0,
+                            bool compressedTexture = false);
+
+    Texture& setTextureData(std::shared_ptr<std::vector<unsigned char>> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA,
                             bool compressedTexture = false);
 
     Texture& setTextureData(void* textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0,

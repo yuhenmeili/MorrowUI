@@ -7,7 +7,9 @@
 
 #include <memory>
 #include <string>
+
 #include "GLTFTypes.h"
+#include "Texture.h"
 
 namespace morrow {
 class SceneNode;
@@ -20,8 +22,8 @@ public:
     static bool computeBounds(const std::shared_ptr<GLTFScene>& scene, Vector3& outMin, Vector3& outMax);
 
 private:
-    static std::shared_ptr<SceneNode> buildNode(const GLTFScene& scene, int nodeIndex, const std::string& shaderName);
+    static std::shared_ptr<SceneNode> buildNode(const GLTFScene& scene, const std::vector<TextureSharedPtr>& textures, int nodeIndex, const std::string& shaderName);
 };
-} // namespace morrow
+}  // namespace morrow
 
-#endif //MORROW_GUI_GLTFSCENEBUILDER_H
+#endif  // MORROW_GUI_GLTFSCENEBUILDER_H

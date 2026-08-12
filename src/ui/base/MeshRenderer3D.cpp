@@ -27,22 +27,6 @@ std::shared_ptr<UBOData> makeUBOData(const T& payload) {
     return uboData;
 }
 
-TextureSharedPtr createTextureFromGLTFData(const TextureData& textureData) {
-    if (!textureData.pixels || textureData.width <= 0 || textureData.height <= 0) {
-        return nullptr;
-    }
-
-    auto texture = Texture::create(textureData.imageType);
-    const size_t byteCount = textureData.bytes > 0
-                                 ? static_cast<size_t>(textureData.bytes)
-                                 : static_cast<size_t>(textureData.width) * static_cast<size_t>(textureData.height) * 4u;
-    auto pixels = std::shared_ptr<unsigned char>(new unsigned char[byteCount], std::default_delete<unsigned char[]>());
-    std::memcpy(pixels.get(), textureData.pixels, byteCount);
-    texture->setTextureData(std::move(pixels), textureData.width, textureData.height, textureData.format, textureData.bytes, textureData.compressedTexture);
-    texture->setMinFilterType(textureData.minFilterType);
-    texture->setMagFilterType(textureData.magFilterType);
-    return texture;
-}
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -64,7 +48,8 @@ struct MeshRenderer3D::Impl {
 
 // ---------------------------------------------------------------------------
 
-void MeshRenderer3D::setFromGLTFMesh(const GLTFMesh& mesh, const std::vector<GLTFMaterial>& materials, const std::string& shaderName) {
+void MeshRenderer3D::setFromGLTFMesh(const GLTFMesh& mesh, const std::vector<GLTFMaterial>& materials, const std::vector<TextureSharedPtr>& textures,
+                                     const std::string& shaderName) {
     m_impl = std::make_unique<Impl>();
     ++m_revision;
 
@@ -89,21 +74,16 @@ void MeshRenderer3D::setFromGLTFMesh(const GLTFMesh& mesh, const std::vector<GLT
             pd.material->setDepthWriteEnabled(!gm.alphaBlend);
             pd.material->setScene3DMaterialUBO(buildScene3DMaterialUBO(&gm));
 
-            if (auto tex = createTextureFromGLTFData(gm.baseColorTexture)) {
-                pd.material->setTexture("baseColorTexture", tex);
-            }
-            if (auto tex = createTextureFromGLTFData(gm.metallicRoughnessTexture)) {
-                pd.material->setTexture("metallicRoughnessTexture", tex);
-            }
-            if (auto tex = createTextureFromGLTFData(gm.normalTexture)) {
-                pd.material->setTexture("normalTexture", tex);
-            }
-            if (auto tex = createTextureFromGLTFData(gm.occlusionTexture)) {
-                pd.material->setTexture("occlusionTexture", tex);
-            }
-            if (auto tex = createTextureFromGLTFData(gm.emissiveTexture)) {
-                pd.material->setTexture("emissiveTexture", tex);
-            }
+            auto setTexture = [&](const char* uniformName, int textureIndex) {
+                if (textureIndex >= 0 && textureIndex < static_cast<int>(textures.size()) && textures[textureIndex]) {
+                    pd.material->setTexture(uniformName, textures[textureIndex]);
+                }
+            };
+            setTexture("baseColorTexture", gm.baseColorTexIndex);
+            setTexture("metallicRoughnessTexture", gm.metallicRoughnessTexIndex);
+            setTexture("normalTexture", gm.normalTexIndex);
+            setTexture("occlusionTexture", gm.occlusionTexIndex);
+            setTexture("emissiveTexture", gm.emissiveTexIndex);
         }
 
         m_impl->prims.push_back(std::move(pd));

@@ -4,10 +4,11 @@
 
 #include "GLTFSceneBuilder.h"
 
-#include "base/SceneNode.h"
-#include "base/MeshRenderer3D.h"
-
 #include <functional>
+
+#include "Texture.h"
+#include "base/MeshRenderer3D.h"
+#include "base/SceneNode.h"
 
 namespace morrow {
 namespace {
@@ -24,10 +25,12 @@ void expandBounds(Vector3& outMin, Vector3& outMax, const Vector3& point, bool& 
 }
 
 void accumulatePrimitiveBounds(const GLTFPrimitive& primitive, const Matrix4& worldMatrix, Vector3& outMin, Vector3& outMax, bool& hasBounds) {
-    if (!primitive.vboData || primitive.vboData->vertexCount == 0) return;
+    if (!primitive.vboData || primitive.vboData->vertexCount == 0)
+        return;
 
     const void* positionData = primitive.vboData->getAttributeData(VertexAttributeType::Position);
-    if (!positionData) return;
+    if (!positionData)
+        return;
 
     const auto* positions = static_cast<const float*>(positionData);
     for (uint32_t i = 0; i < primitive.vboData->vertexCount; ++i) {
@@ -36,25 +39,46 @@ void accumulatePrimitiveBounds(const GLTFPrimitive& primitive, const Matrix4& wo
         expandBounds(outMin, outMax, point, hasBounds);
     }
 }
-} // namespace
+}  // namespace
 
 std::shared_ptr<SceneNode> GLTFSceneBuilder::build(const std::shared_ptr<GLTFScene>& scene, const std::string& shaderName) {
-    if (!scene) return nullptr;
+    if (!scene)
+        return nullptr;
+
+    std::vector<TextureSharedPtr> textures(scene->textures.size());
+    for (size_t i = 0; i < scene->textures.size(); ++i) {
+        const auto& textureInfo = scene->textures[i];
+        if (textureInfo.imageIndex < 0 || textureInfo.imageIndex >= static_cast<int>(scene->images.size())) {
+            continue;
+        }
+        const auto& image = scene->images[textureInfo.imageIndex];
+        if (!image.pixels || image.width <= 0 || image.height <= 0) {
+            continue;
+        }
+
+        auto texture = Texture::create(ImageType::IMAGE);
+        texture->setTextureData(image.pixels, image.width, image.height, image.format, false);
+        texture->setMinFilterType(textureInfo.minFilterType);
+        texture->setMagFilterType(textureInfo.magFilterType);
+        textures[i] = std::move(texture);
+    }
 
     // Create an invisible root SceneNode that groups all top-level nodes.
     auto root = std::make_shared<SceneNode>();
     root->setWidgetName("GLTFSceneRoot");
 
     for (int rootIdx : scene->rootNodes) {
-        auto child = buildNode(*scene, rootIdx, shaderName);
-        if (child) root->addSceneChild(child);
+        auto child = buildNode(*scene, textures, rootIdx, shaderName);
+        if (child)
+            root->addSceneChild(child);
     }
 
     // If no rootNodes list, treat all nodes as roots (degenerate case)
     if (scene->rootNodes.empty()) {
         for (int i = 0; i < int(scene->nodes.size()); ++i) {
-            auto child = buildNode(*scene, i, shaderName);
-            if (child) root->addSceneChild(child);
+            auto child = buildNode(*scene, textures, i, shaderName);
+            if (child)
+                root->addSceneChild(child);
         }
     }
 
@@ -62,12 +86,14 @@ std::shared_ptr<SceneNode> GLTFSceneBuilder::build(const std::shared_ptr<GLTFSce
 }
 
 bool GLTFSceneBuilder::computeBounds(const std::shared_ptr<GLTFScene>& scene, Vector3& outMin, Vector3& outMax) {
-    if (!scene) return false;
+    if (!scene)
+        return false;
 
     bool hasBounds = false;
     std::function<void(int, const Matrix4&)> visitNode;
     visitNode = [&](int nodeIndex, const Matrix4& parentWorld) {
-        if (nodeIndex < 0 || nodeIndex >= int(scene->nodes.size())) return;
+        if (nodeIndex < 0 || nodeIndex >= int(scene->nodes.size()))
+            return;
 
         const GLTFNode& node = scene->nodes[nodeIndex];
         Matrix4 worldMatrix = parentWorld * node.localTransform;
@@ -99,8 +125,9 @@ bool GLTFSceneBuilder::computeBounds(const std::shared_ptr<GLTFScene>& scene, Ve
     return hasBounds;
 }
 
-std::shared_ptr<SceneNode> GLTFSceneBuilder::buildNode(const GLTFScene& scene, int nodeIndex, const std::string& shaderName) {
-    if (nodeIndex < 0 || nodeIndex >= int(scene.nodes.size())) return nullptr;
+std::shared_ptr<SceneNode> GLTFSceneBuilder::buildNode(const GLTFScene& scene, const std::vector<TextureSharedPtr>& textures, int nodeIndex, const std::string& shaderName) {
+    if (nodeIndex < 0 || nodeIndex >= int(scene.nodes.size()))
+        return nullptr;
 
     const GLTFNode& node = scene.nodes[nodeIndex];
 
@@ -113,15 +140,16 @@ std::shared_ptr<SceneNode> GLTFSceneBuilder::buildNode(const GLTFScene& scene, i
     // MeshRenderer3D component – only if this node owns a mesh
     if (node.meshIndex >= 0 && node.meshIndex < int(scene.meshes.size())) {
         auto renderer = sceneNode->addComponent<MeshRenderer3D>();
-        renderer->setFromGLTFMesh(scene.meshes[node.meshIndex], scene.materials, shaderName);
+        renderer->setFromGLTFMesh(scene.meshes[node.meshIndex], scene.materials, textures, shaderName);
     }
 
     // Recurse into children
     for (int childIdx : node.children) {
-        auto childWidget = buildNode(scene, childIdx, shaderName);
-        if (childWidget) sceneNode->addSceneChild(childWidget);
+        auto childWidget = buildNode(scene, textures, childIdx, shaderName);
+        if (childWidget)
+            sceneNode->addSceneChild(childWidget);
     }
 
     return sceneNode;
 }
-} // namespace morrow
+}  // namespace morrow

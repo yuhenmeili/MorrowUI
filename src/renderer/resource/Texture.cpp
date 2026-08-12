@@ -53,6 +53,7 @@ Texture& Texture::setImageUrl(const std::string& imageUrl) {
 Texture& Texture::setTextureData(std::shared_ptr<unsigned char> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes,
                                  bool compressedTexture) {
     m_textureInfo->textureDataSharedPtr = textureData;
+    m_textureInfo->textureDataBuffer.reset();
     m_textureInfo->textureDataRawPtr = nullptr;
     m_textureInfo->gpuUseCompleteCallback = {};
     m_textureInfo->imageWidth = imageWidth;
@@ -66,8 +67,26 @@ Texture& Texture::setTextureData(std::shared_ptr<unsigned char> textureData, int
     return *this;
 }
 
+Texture& Texture::setTextureData(std::shared_ptr<std::vector<unsigned char>> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, bool compressedTexture) {
+    m_textureInfo->textureDataSharedPtr.reset();
+    m_textureInfo->textureDataBuffer = std::move(textureData);
+    m_textureInfo->textureDataRawPtr = m_textureInfo->textureDataBuffer ? m_textureInfo->textureDataBuffer->data() : nullptr;
+    m_textureInfo->imageWidth = imageWidth;
+    m_textureInfo->imageHeight = imageHeight;
+    m_textureInfo->format = format;
+    m_textureInfo->bytes = m_textureInfo->textureDataBuffer ? static_cast<int32_t>(m_textureInfo->textureDataBuffer->size()) : 0;
+    m_textureInfo->compressedTexture = compressedTexture;
+    m_textureInfo->imageType = ImageType::IMAGE;
+    m_textureInfo->gpuUseCompleteCallback = {};
+    m_textureInfo->textureNeedUpLoad = true;
+    ++m_revision;
+    REQUESTRENDER;
+    return *this;
+}
+
 Texture& Texture::setTextureData(void* textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes, bool compressedTexture) {
     m_textureInfo->textureDataSharedPtr.reset();
+    m_textureInfo->textureDataBuffer.reset();
     m_textureInfo->textureDataRawPtr = textureData;
     m_textureInfo->gpuUseCompleteCallback = {};
     m_textureInfo->imageWidth = imageWidth;
@@ -217,8 +236,19 @@ bool Texture::deployTexture() {
     m_textureData.minFilterType = m_textureInfo->minFilterType;
     m_textureData.magFilterType = m_textureInfo->magFilterType;
     m_textureData.imageType = m_textureInfo->imageType;
+    m_textureData.cpuPixelOwner =
+        m_textureInfo->textureDataBuffer ? std::static_pointer_cast<void>(m_textureInfo->textureDataBuffer) : std::static_pointer_cast<void>(m_textureInfo->textureDataSharedPtr);
     m_textureData.gpuUseCompleteCallback = std::move(m_textureInfo->gpuUseCompleteCallback);
     RENDERINGTHREAD->updateTexture2D(m_textureHandle, m_textureData);
+
+    // updateTexture2D copies the TextureData into the command payload (or
+    // consumes it immediately in single-threaded mode). The Texture object
+    // therefore need not retain the CPU upload buffer after submission.
+    m_textureInfo->textureDataSharedPtr.reset();
+    m_textureInfo->textureDataBuffer.reset();
+    m_textureInfo->textureDataRawPtr = nullptr;
+    m_textureData.pixels = nullptr;
+    m_textureData.cpuPixelOwner.reset();
     return true;
 }
 

@@ -5,13 +5,14 @@
 #ifndef MORROW_GUI_MESHRENDERER3D_H
 #define MORROW_GUI_MESHRENDERER3D_H
 
-#include <vector>
-#include <string>
-#include <memory>
 #include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "Component.h"
-#include "Material.h"
 #include "GLTFTypes.h"
+#include "Material.h"
 
 namespace morrow {
 class RenderDeviceProxyBase;
@@ -23,7 +24,8 @@ public:
 
     ~MeshRenderer3D() override;
 
-    void setFromGLTFMesh(const GLTFMesh& mesh, const std::vector<GLTFMaterial>& materials, const std::string& shaderName = "gltf_pbr");
+    void setFromGLTFMesh(const GLTFMesh& mesh, const std::vector<GLTFMaterial>& materials, const std::vector<TextureSharedPtr>& textures,
+                         const std::string& shaderName = "gltf_pbr");
 
     void update(FrameStateSharedPtr frameState) override;
 
@@ -34,6 +36,6 @@ private:
     std::unique_ptr<Impl> m_impl;
     uint64_t m_revision = 1;
 };
-} // namespace morrow
+}  // namespace morrow
 
-#endif //MORROW_GUI_MESHRENDERER3D_H
+#endif  // MORROW_GUI_MESHRENDERER3D_H

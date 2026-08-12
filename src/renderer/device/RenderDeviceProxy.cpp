@@ -441,7 +441,7 @@ void RenderDeviceProxy::updateTexture2D(HwTexture2D texture, const TextureData& 
     auto* pl = CMD_BUF.pushNT<UpdateTexture2DPayload>(Cmd_UpdateTexture2D);
     pl->texture = texture;
     pl->data = data;
-    if (data.imageType != ImageType::OES && data.pixels && data.bytes > 0) {
+    if (data.imageType != ImageType::OES && data.pixels && data.bytes > 0 && !data.cpuPixelOwner) {
         auto buf = m_pixelDataRecyclePool->acquire();
         buf->assign(static_cast<const uint8_t*>(data.pixels), static_cast<const uint8_t*>(data.pixels) + data.bytes);
         pl->data.pixels = buf->data();
@@ -863,11 +863,8 @@ void RenderDeviceProxy::submitCurrentBufferAndAdvance() {
 
 void RenderDeviceProxy::endFrame() {
     if (!m_threaded) {
-        m_pendingFrames.push({m_realDevice->insertFence(),
-            std::move(m_currentFrameRecyclables),
-            std::move(m_currentFrameUBORecyclables),
-            std::move(m_currentFrameSSBORecyclables),
-            std::move(m_currentFrameOESRecycle)});
+        m_pendingFrames.push({m_realDevice->insertFence(), std::move(m_currentFrameRecyclables), std::move(m_currentFrameUBORecyclables), std::move(m_currentFrameSSBORecyclables),
+                              std::move(m_currentFrameOESRecycle)});
         tryRecycle();
         return;
     }
@@ -974,11 +971,7 @@ void RenderDeviceProxy::runCommand() {
 
         // Insert fence and book-keep recyclables collected during executeFrame.
         m_pendingFrames.push(
-            {m_realDevice->insertFence(),
-                std::move(m_frameRecyclables),
-                std::move(m_frameUBORecyclables),
-                std::move(m_frameSSBORecyclables),
-                std::move(m_frameOESRecycle)});
+            {m_realDevice->insertFence(), std::move(m_frameRecyclables), std::move(m_frameUBORecyclables), std::move(m_frameSSBORecyclables), std::move(m_frameOESRecycle)});
         tryRecycle();
 
         // Advance read cursor and release a ring slot to the main thread.

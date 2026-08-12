@@ -110,6 +110,14 @@ struct TextureData {
     SamplerMagFilter magFilterType = SamplerMagFilter::LINEAR;
     void* pixels = nullptr;
 
+    // Keeps CPU-side image data alive while a parsed GLTF scene is handed
+    // from the loader thread to the render/main thread. Ordinary IMAGE
+    // uploads are still copied by RenderDeviceProxy when needed; this is
+    // Keeps ordinary CPU texture data alive until the upload command has
+    // executed. This is intentionally separate from the OES GPU-fence
+    // callback below.
+    std::shared_ptr<void> cpuPixelOwner;
+
     // -----------------------------------------------------------------------
     // OES 外部 buffer 的 GPU 使用完成回调。
     //
