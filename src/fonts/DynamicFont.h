@@ -49,19 +49,17 @@ public:
 
     ~DynamicFont();
 
-    // 从文件加载字体
-    // Maps the font's EM square to fontSize pixels, matching conventional
-    // CSS and typography font-size semantics.
-    bool LoadFromFile(const std::string& filename, float fontSize);
+    // 从文件加载字体资源。字号在 GetGlyph/GetMetrics 时按需指定。
+    bool LoadFromFile(const std::string& filename);
 
     // 从内存加载字体
-    bool LoadFromMemory(const unsigned char* data, size_t size, float fontSize);
+    bool LoadFromMemory(const unsigned char* data, size_t size);
 
     // 获取字符字形信息（如果不存在则动态生成）
-    const FontGlyph* GetGlyph(int32_t codepoint);
+    const FontGlyph* GetGlyph(int32_t codepoint, float fontSize);
 
     // 获取字体度量
-    const FontMetrics& GetMetrics() const;
+    const FontMetrics& GetMetrics(float fontSize);
 
     // 获取字体纹理图集
     std::shared_ptr<FontTexture> GetTextureAtlas() const;
@@ -70,7 +68,7 @@ public:
     uint64_t GetTextureAtlasVersion() const;
 
     // 计算文本宽度
-    float CalculateTextWidth(const std::wstring& text);
+    float CalculateTextWidth(const std::wstring& text, float fontSize);
 
     // 设置抗锯齿质量 (0-3, 0=无抗锯齿, 3=高质量)
     void SetAntialiasingQuality(int32_t quality);
@@ -87,15 +85,26 @@ public:
     void FlushPendingUploads();
 
     /// 确保字符串所需字形已生成并一次性提交纹理更新；渲染前调用可实现「整串提交一次」
-    void EnsureStringGlyphs(const std::wstring& text);
+    void EnsureStringGlyphs(const std::wstring& text, float fontSize);
 
 private:
+    struct GlyphCache {
+        float fontSize = 16.0f;
+        float scale = 1.0f;
+        FontMetrics metrics;
+        std::unordered_map<int32_t, FontGlyph> glyphs;
+    };
+
+    static int32_t NormalizeFontSize(float fontSize);
+
+    GlyphCache& GetGlyphCache(float fontSize);
+
     bool InitializeFont();
-    // 初始化字体度量
-    void InitializeMetrics();
+    // 初始化指定字号的字体度量
+    void InitializeMetrics(GlyphCache& cache);
 
     // 生成字符到纹理图集
-    bool GenerateGlyphToAtlas(int32_t codepoint);
+    bool GenerateGlyphToAtlas(int32_t codepoint, GlyphCache& cache);
 
     // 扩展纹理图集
     bool ExpandTextureAtlas();
@@ -117,21 +126,17 @@ private:
     DebugObjectHandle m_debugObject{DebugObjectCategory::Font, "DynamicFont"};
     stbtt_fontinfo m_fontInfo;
     std::vector<unsigned char> m_fontData;
-    float m_fontSize = 16.0f;
-    float m_scale = 1.0f;
-
     // 纹理图集管理
     std::shared_ptr<FontTexture> m_textureAtlas;
     uint64_t m_textureAtlasVersion = 0;
-    int32_t m_atlasWidth = 512;
-    int32_t m_atlasHeight = 512;
+    int32_t m_atlasWidth = 1024;
+    int32_t m_atlasHeight = 1024;
     int32_t m_currentX = 1; // 留出1像素边界
     int32_t m_currentY = 1;
     int32_t m_currentRowHeight = 0;
 
     // 字符缓存
-    std::unordered_map<int32_t, FontGlyph> m_glyphCache;
-    FontMetrics m_metrics;
+    std::unordered_map<int32_t, GlyphCache> m_glyphCaches;
 
     // 渲染设置
     int32_t m_aaQuality = 1; // 抗锯齿质量

@@ -19,6 +19,8 @@ public:
     // 文本相关方法
     void setText(const std::wstring& text, const std::string& fontName);
 
+    void setTextFontSize(float fontSize);
+
     void setTextColor(const Vector4& color);
 
     void setTextColor(float r, float g, float b, float a);

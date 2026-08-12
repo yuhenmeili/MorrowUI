@@ -15,7 +15,6 @@ namespace morrow
 struct FontInfo {
     std::string name;
     std::string path;
-    float fontSize = 32.0f;
 };
 
 class FontManager
@@ -38,7 +37,8 @@ public:
     int32_t getTextWidthNoWrap(const TextTextureInfoSharedPtr& textInfo);
 
 private:
-    std::unordered_map<std::string, DynamicFontSharedPtr> m_fontsConfig;
+    // 字体集：每个 DynamicFont 对应一个字体文件并共享一张多字号字形图集。
+    std::unordered_map<std::string, DynamicFontSharedPtr> m_fontFamilies;
     Language m_language = Language::CHINESE;
 };
 

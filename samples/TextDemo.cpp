@@ -21,8 +21,7 @@ int main() {
 
     FontInfo fontInfo = {
         .name = "debug_morrow_20",
-        .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
-        .fontSize = 35.0f
+        .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"
     };
     engine->addFonts({fontInfo});
 
@@ -30,6 +29,7 @@ int main() {
 
     auto button1 = MRButton::create();
     button1->setText(L"Button1", fontName);
+    button1->setTextFontSize(20.0f);
     auto transform = button1->getComponent<Transform>();
     transform->setPosition(100.0f, 100.0f, 0.0f);
     transform->setSize(100.0f, 100.0f);
@@ -41,6 +41,7 @@ int main() {
     textTransform->setPosition(Vector3(880.0f, 220.0f, 0.0f));
     textTransform->setSize(Vector3(700.0f, 240.0f, 0.0f));
     textRenderer->setText(text, fontName);
+    textRenderer->setFontSize(35.0f);
     textRenderer->setFontColor(1.0f, 0.0f, 0.0f, 1.0f);
     window->addChild(textRenderer);
 

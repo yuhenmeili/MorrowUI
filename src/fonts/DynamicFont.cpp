@@ -13,7 +13,7 @@ DynamicFont::DynamicFont() {
 DynamicFont::~DynamicFont() {
 }
 
-bool DynamicFont::LoadFromFile(const std::string& filename, float fontSize) {
+bool DynamicFont::LoadFromFile(const std::string& filename) {
     m_debugObject.setName(filename);
     FILE* file = fopen(filename.c_str(), "rb");
     if (!file) {
@@ -28,30 +28,44 @@ bool DynamicFont::LoadFromFile(const std::string& filename, float fontSize) {
     fread(m_fontData.data(), 1, size, file);
     fclose(file);
 
-    m_fontSize = fontSize;
     return InitializeFont();
 }
 
-bool DynamicFont::LoadFromMemory(const unsigned char* data, size_t size, float fontSize) {
+bool DynamicFont::LoadFromMemory(const unsigned char* data, size_t size) {
     m_fontData.assign(data, data + size);
-    m_fontSize = fontSize;
     return InitializeFont();
 }
 
-const FontGlyph* DynamicFont::GetGlyph(int32_t codepoint) {
-    auto it = m_glyphCache.find(codepoint);
-    if (it != m_glyphCache.end()) {
+int32_t DynamicFont::NormalizeFontSize(float fontSize) {
+    return std::max(1, static_cast<int32_t>(std::lround(fontSize)));
+}
+
+DynamicFont::GlyphCache& DynamicFont::GetGlyphCache(float fontSize) {
+    const int32_t normalizedSize = NormalizeFontSize(fontSize);
+    auto [it, inserted] = m_glyphCaches.try_emplace(normalizedSize);
+    if (inserted) {
+        it->second.fontSize = static_cast<float>(normalizedSize);
+        it->second.scale = stbtt_ScaleForMappingEmToPixels(&m_fontInfo, it->second.fontSize);
+        InitializeMetrics(it->second);
+    }
+    return it->second;
+}
+
+const FontGlyph* DynamicFont::GetGlyph(int32_t codepoint, float fontSize) {
+    auto& cache = GetGlyphCache(fontSize);
+    auto it = cache.glyphs.find(codepoint);
+    if (it != cache.glyphs.end()) {
         return &it->second;
     }
     // 生成新的字形
-    if (GenerateGlyphToAtlas(codepoint)) {
-        return &m_glyphCache[codepoint];
+    if (GenerateGlyphToAtlas(codepoint, cache)) {
+        return &cache.glyphs[codepoint];
     }
     return nullptr;
 }
 
-const FontMetrics& DynamicFont::GetMetrics() const {
-    return m_metrics;
+const FontMetrics& DynamicFont::GetMetrics(float fontSize) {
+    return GetGlyphCache(fontSize).metrics;
 }
 
 std::shared_ptr<FontTexture> DynamicFont::GetTextureAtlas() const {
@@ -62,10 +76,10 @@ uint64_t DynamicFont::GetTextureAtlasVersion() const {
     return m_textureAtlasVersion;
 }
 
-float DynamicFont::CalculateTextWidth(const std::wstring& text) {
+float DynamicFont::CalculateTextWidth(const std::wstring& text, float fontSize) {
     float width = 0.0f;
     for (wchar_t c : text) {
-        const FontGlyph* glyph = GetGlyph(static_cast<int32_t>(c));
+        const FontGlyph* glyph = GetGlyph(static_cast<int32_t>(c), fontSize);
         if (glyph) {
             width += glyph->advance + m_charSpacing;
         }
@@ -94,48 +108,36 @@ bool DynamicFont::InitializeFont() {
         LOG_E("stbtt_InitFont fail");
         return false;
     }
-    // 计算缩放比例
-    // Match conventional font-size semantics by mapping the font's EM square
-    // to the requested pixel size.
-    m_scale = stbtt_ScaleForMappingEmToPixels(&m_fontInfo, m_fontSize);
-    // 初始化字体度量
-    InitializeMetrics();
-    // 预生成常用 ASCII 字形，整批生成后一次性上传
-    const std::wstring commonChars = L"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?/\\\"'`~ ";
-    for (const wchar_t c : commonChars) {
-        GetGlyph(c);
-    }
-    FlushPendingUploads();
     return true;
 }
 
-void DynamicFont::InitializeMetrics() {
+void DynamicFont::InitializeMetrics(GlyphCache& cache) {
     int ascent, descent, lineGap;
     stbtt_GetFontVMetrics(&m_fontInfo, &ascent, &descent, &lineGap);
 
-    m_metrics.ascent = ascent * m_scale;
-    m_metrics.descent = descent * m_scale;
-    m_metrics.lineGap = lineGap * m_scale;
-    m_metrics.lineHeight = (ascent - descent + lineGap) * m_scale;
+    cache.metrics.ascent = ascent * cache.scale;
+    cache.metrics.descent = descent * cache.scale;
+    cache.metrics.lineGap = lineGap * cache.scale;
+    cache.metrics.lineHeight = (ascent - descent + lineGap) * cache.scale;
 }
 
-bool DynamicFont::GenerateGlyphToAtlas(int32_t codepoint) {
+bool DynamicFont::GenerateGlyphToAtlas(int32_t codepoint, GlyphCache& cache) {
     FontGlyph glyph;
     glyph.codepoint = codepoint;
     int glyphIndex = stbtt_FindGlyphIndex(&m_fontInfo, codepoint);
     // 获取字形度量
     int advance, lsb, x0, y0, x1, y1;
     stbtt_GetGlyphHMetrics(&m_fontInfo, glyphIndex, &advance, &lsb);
-    stbtt_GetGlyphBitmapBox(&m_fontInfo, glyphIndex, m_scale, m_scale, &x0, &y0, &x1, &y1);
-    glyph.advance = advance * m_scale;
-    glyph.bearingX = lsb * m_scale;
+    stbtt_GetGlyphBitmapBox(&m_fontInfo, glyphIndex, cache.scale, cache.scale, &x0, &y0, &x1, &y1);
+    glyph.advance = advance * cache.scale;
+    glyph.bearingX = lsb * cache.scale;
     glyph.bearingY = y0;
     glyph.width = x1 - x0;
     glyph.height = y1 - y0;
     if (glyph.width <= 0 || glyph.height <= 0) {
         // 空格等不可见字符
         glyph.generated = true;
-        m_glyphCache[codepoint] = glyph;
+        cache.glyphs[codepoint] = glyph;
         return true;
     }
     // 检查纹理图集是否有足够空间
@@ -160,12 +162,12 @@ bool DynamicFont::GenerateGlyphToAtlas(int32_t codepoint) {
     if (m_aaQuality > 0) {
         stbtt_MakeGlyphBitmap(&m_fontInfo, bitmap.data(),
                               bitmapWidth, bitmapHeight,
-                              bitmapWidth, m_scale, m_scale, glyphIndex);
+                              bitmapWidth, cache.scale, cache.scale, glyphIndex);
     } else {
         // 无抗锯齿模式
         stbtt_MakeGlyphBitmapSubpixel(&m_fontInfo, bitmap.data(),
                                       bitmapWidth, bitmapHeight,
-                                      bitmapWidth, m_scale, m_scale, 0, 0, glyphIndex);
+                                      bitmapWidth, cache.scale, cache.scale, 0, 0, glyphIndex);
     }
     // 延迟上传：加入待提交列表，由 FlushPendingUploads / EnsureStringGlyphs 整批提交
     m_pendingUploads.push_back({ m_currentX, m_currentY, bitmapWidth, bitmapHeight, bitmap });
@@ -175,7 +177,7 @@ bool DynamicFont::GenerateGlyphToAtlas(int32_t codepoint) {
     glyph.texCoordWidth = static_cast<float>(bitmapWidth) / m_atlasWidth;
     glyph.texCoordHeight = static_cast<float>(bitmapHeight) / m_atlasHeight;
     glyph.generated = true;
-    m_glyphCache[codepoint] = glyph;
+    cache.glyphs[codepoint] = glyph;
     // 更新当前位置
     m_currentX += glyph.width + ATLAS_PADDING;
     return true;
@@ -209,20 +211,21 @@ bool DynamicFont::CreateTextureAtlas(int32_t width, int32_t height) {
     // 旧图集的待上传区域不能提交到新图集。
     m_pendingUploads.clear();
 
-    // 先复制 key，避免 GenerateGlyphToAtlas 更新 unordered_map 时
-    // 直接遍历 m_glyphCache。
-    std::vector<int32_t> cachedCodepoints;
-    cachedCodepoints.reserve(m_glyphCache.size());
-    for (auto& pair : m_glyphCache) {
-        cachedCodepoints.push_back(pair.first);
-        pair.second.generated = false;
-    }
+    // 按字号重建全部字形。不同字号共享同一张 atlas，但分别拥有度量和字形缓存。
+    for (auto& [size, cache] : m_glyphCaches) {
+        std::vector<int32_t> cachedCodepoints;
+        cachedCodepoints.reserve(cache.glyphs.size());
+        for (auto& pair : cache.glyphs) {
+            cachedCodepoints.push_back(pair.first);
+            pair.second.generated = false;
+        }
 
-    for (const int32_t codepoint : cachedCodepoints) {
-        if (!GenerateGlyphToAtlas(codepoint)) {
-            LOG_E("failed to rebuild glyph {} after expanding font atlas to {}x{}",
-                  codepoint, width, height);
-            return false;
+        for (const int32_t codepoint : cachedCodepoints) {
+            if (!GenerateGlyphToAtlas(codepoint, cache)) {
+                LOG_E("failed to rebuild glyph {} at {}px after expanding font atlas to {}x{}",
+                      codepoint, size, width, height);
+                return false;
+            }
         }
     }
 
@@ -247,9 +250,9 @@ void DynamicFont::FlushPendingUploads() {
     m_pendingUploads.clear();
 }
 
-void DynamicFont::EnsureStringGlyphs(const std::wstring& text) {
+void DynamicFont::EnsureStringGlyphs(const std::wstring& text, float fontSize) {
     for (wchar_t c : text) {
-        GetGlyph(static_cast<int32_t>(c));
+        GetGlyph(static_cast<int32_t>(c), fontSize);
     }
     FlushPendingUploads();
 }

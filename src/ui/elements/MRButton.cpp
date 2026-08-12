@@ -52,6 +52,12 @@ void MRButton::setText(const std::wstring& text, const std::string& fontName) {
     }
 }
 
+void MRButton::setTextFontSize(float fontSize) {
+    if (m_label) {
+        m_label->setFontSize(fontSize);
+    }
+}
+
 void MRButton::setTextColor(const Vector4& color) {
     m_currentTextColor = color;
     if (m_label) {

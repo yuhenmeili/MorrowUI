@@ -10,8 +10,7 @@ namespace morrow
 void FontManager::initialize() {
     FontInfo fontInfo = {
         .name = "MorrowSansCN1.1-Regular.otf",
-        .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
-        .fontSize = 32.0f
+        .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"
     };
     addFonts({fontInfo});
 }
@@ -20,18 +19,18 @@ void FontManager::addFonts(const std::vector<FontInfo>& fontsConfig)
 {
     for (const auto& info : fontsConfig) {
         if (!info.path.empty()) {
-            if (m_fontsConfig.find(info.name) != m_fontsConfig.end()) {
+            if (m_fontFamilies.find(info.name) != m_fontFamilies.end()) {
                 LOG_W("font {} already exists, skip loading", info.name);
                 continue;
             }
             DynamicFontSharedPtr dynamicFont = std::make_shared<DynamicFont>();
-            if (!dynamicFont->LoadFromFile(info.path, info.fontSize)) {
+            if (!dynamicFont->LoadFromFile(info.path)) {
                 LOG_E("load font {} error", info.path);
                 continue;
             }
             dynamicFont->SetAntialiasingQuality(2);
             dynamicFont->SetCharacterSpacing(0.5f);
-            m_fontsConfig[info.name] = std::move(dynamicFont);
+            m_fontFamilies[info.name] = std::move(dynamicFont);
         } else {
             LOG_I("fontUrl is empty");
         }
@@ -40,17 +39,17 @@ void FontManager::addFonts(const std::vector<FontInfo>& fontsConfig)
 
 DynamicFontSharedPtr FontManager::getFont(const std::string& fontName) {
     if (!fontName.empty()) {
-        auto it = m_fontsConfig.find(fontName);
-        if (it != m_fontsConfig.end()) {
+        auto it = m_fontFamilies.find(fontName);
+        if (it != m_fontFamilies.end()) {
             return it->second;
         }
     }
 
-    if (m_fontsConfig.empty()) {
+    if (m_fontFamilies.empty()) {
         return nullptr;
     }
 
-    return m_fontsConfig.begin()->second;
+    return m_fontFamilies.begin()->second;
 }
 
 // std::shared_ptr<unsigned char> FontManager::getTextBitmap(const TextTextureInfoSharedPtr& textInfo, int32_t textWidth, int32_t textHeight)

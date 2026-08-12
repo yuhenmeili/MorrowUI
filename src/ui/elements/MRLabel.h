@@ -24,6 +24,10 @@ public:
 
     void setText(const std::wstring& text, const std::string& fontName = "default");
 
+    void setFontSize(float fontSize);
+
+    float getFontSize() const;
+
     void setFontColor(float r, float g, float b, float a);
 
     void setFontColor(const Vector4& color);
@@ -58,6 +62,7 @@ private:
     uint64_t m_fontAtlasVersion = 0;
     std::wstring m_text;
     std::string m_fontName;
+    float m_fontSize = 32.0f;
     std::vector<TextLine> m_lines;
     // 布局相关
     float m_textWidth = 0.0f;

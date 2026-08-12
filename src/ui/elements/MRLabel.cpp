@@ -4,6 +4,8 @@
 
 #include "MRLabel.h"
 
+#include <algorithm>
+
 #include "FontManager.h"
 #include "GlobalObject.h"
 #include "ssbo/ShaderStorageBuffer.h"
@@ -30,6 +32,20 @@ void MRLabel::setText(const std::wstring& text, const std::string& fontName) {
         m_isTextLayoutDirty = true;
         requestRender("setText");
     }
+}
+
+void MRLabel::setFontSize(float fontSize) {
+    fontSize = std::max(1.0f, fontSize);
+    if (m_fontSize != fontSize) {
+        m_fontSize = fontSize;
+        m_isTextLayoutDirty = true;
+        m_isAlignDirty = true;
+        requestRender("setFontSize");
+    }
+}
+
+float MRLabel::getFontSize() const {
+    return m_fontSize;
 }
 
 void MRLabel::setFontColor(float r, float g, float b, float a) {
@@ -126,7 +142,7 @@ void MRLabel::processTextLayout() {
         m_textHeight = 0.0f;
         return;
     }
-    const auto& metrics = m_font->GetMetrics();
+    const auto& metrics = m_font->GetMetrics(m_fontSize);
     auto transform = getComponent<Transform>();
     Vector3 containerSize = transform->getSize(); // 默认大尺寸
 
@@ -138,14 +154,14 @@ void MRLabel::processTextLayout() {
     float spaceAdvance = 0.0f;
 
     // 获取空格字符的advance
-    const FontGlyph* spaceGlyph = m_font->GetGlyph(L' ');
+    const FontGlyph* spaceGlyph = m_font->GetGlyph(L' ', m_fontSize);
     if (spaceGlyph) {
         spaceAdvance = spaceGlyph->advance + m_characterSpacing;
     }
 
     for (size_t i = 0; i < m_text.length(); ++i) {
         wchar_t c = m_text[i];
-        const FontGlyph* glyph = m_font->GetGlyph(c);
+        const FontGlyph* glyph = m_font->GetGlyph(c, m_fontSize);
 
         if (!glyph || !glyph->generated) {
             // 对于不可渲染字符，使用空格宽度
@@ -209,7 +225,7 @@ void MRLabel::applyAlignment() {
     if (!transform || m_lines.empty()) return;
     Vector3 size = transform->getSize();
 
-    const auto& metrics = m_font->GetMetrics();
+    const auto& metrics = m_font->GetMetrics(m_fontSize);
     float lineHeight = metrics.lineHeight * m_lineSpacing;
 
     // 垂直对齐：第一行在容器内的 y 起始位置
@@ -266,7 +282,7 @@ void MRLabel::createTextMesh() {
     std::vector<Vector2> uvs;
     std::vector<int16_t> indices;
 
-    const auto& metrics = m_font->GetMetrics();
+    const auto& metrics = m_font->GetMetrics(m_fontSize);
 
     // 为每一行生成网格
     for (const auto& line : m_lines) {
@@ -276,7 +292,7 @@ void MRLabel::createTextMesh() {
         for (wchar_t c : line.characters) {
             if (c == L'\n') continue; // 跳过换行符
 
-            const FontGlyph* glyph = m_font->GetGlyph(c);
+            const FontGlyph* glyph = m_font->GetGlyph(c, m_fontSize);
             if (!glyph || !glyph->generated) continue;
 
             // 渲染字符四边形
