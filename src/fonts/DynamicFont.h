@@ -50,10 +50,12 @@ public:
     ~DynamicFont();
 
     // 从文件加载字体
-    bool LoadFromFile(const std::string& filename, float pixelHeight);
+    // Maps the font's EM square to fontSize pixels, matching conventional
+    // CSS and typography font-size semantics.
+    bool LoadFromFile(const std::string& filename, float fontSize);
 
     // 从内存加载字体
-    bool LoadFromMemory(const unsigned char* data, size_t size, float pixelHeight);
+    bool LoadFromMemory(const unsigned char* data, size_t size, float fontSize);
 
     // 获取字符字形信息（如果不存在则动态生成）
     const FontGlyph* GetGlyph(int32_t codepoint);
@@ -115,7 +117,7 @@ private:
     DebugObjectHandle m_debugObject{DebugObjectCategory::Font, "DynamicFont"};
     stbtt_fontinfo m_fontInfo;
     std::vector<unsigned char> m_fontData;
-    float m_pixelHeight = 16.0f;
+    float m_fontSize = 16.0f;
     float m_scale = 1.0f;
 
     // 纹理图集管理

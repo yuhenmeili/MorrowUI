@@ -13,7 +13,7 @@ DynamicFont::DynamicFont() {
 DynamicFont::~DynamicFont() {
 }
 
-bool DynamicFont::LoadFromFile(const std::string& filename, float pixelHeight) {
+bool DynamicFont::LoadFromFile(const std::string& filename, float fontSize) {
     m_debugObject.setName(filename);
     FILE* file = fopen(filename.c_str(), "rb");
     if (!file) {
@@ -28,13 +28,13 @@ bool DynamicFont::LoadFromFile(const std::string& filename, float pixelHeight) {
     fread(m_fontData.data(), 1, size, file);
     fclose(file);
 
-    m_pixelHeight = pixelHeight;
+    m_fontSize = fontSize;
     return InitializeFont();
 }
 
-bool DynamicFont::LoadFromMemory(const unsigned char* data, size_t size, float pixelHeight) {
+bool DynamicFont::LoadFromMemory(const unsigned char* data, size_t size, float fontSize) {
     m_fontData.assign(data, data + size);
-    m_pixelHeight = pixelHeight;
+    m_fontSize = fontSize;
     return InitializeFont();
 }
 
@@ -95,7 +95,9 @@ bool DynamicFont::InitializeFont() {
         return false;
     }
     // 计算缩放比例
-    m_scale = stbtt_ScaleForPixelHeight(&m_fontInfo, m_pixelHeight);
+    // Match conventional font-size semantics by mapping the font's EM square
+    // to the requested pixel size.
+    m_scale = stbtt_ScaleForMappingEmToPixels(&m_fontInfo, m_fontSize);
     // 初始化字体度量
     InitializeMetrics();
     // 预生成常用 ASCII 字形，整批生成后一次性上传
