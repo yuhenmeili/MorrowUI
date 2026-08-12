@@ -26,6 +26,7 @@
 #include "base/UIWidget.h"
 #include "Texture.h"
 
+#include <functional>
 #include <memory>
 
 namespace morrow {
@@ -62,7 +63,7 @@ public:
 #ifdef OPENGL_EGL
     /// 从 EGLImage 更新纹理（QNX 零拷贝路径）
     /// @param eglImage  EGLImageKHR 句柄
-    void updateFromEGLImage(void* eglImage);
+    void updateFromEGLImage(void* eglImage, std::function<void()> gpuUseCompleteCallback = {});
 #endif
 
 protected:

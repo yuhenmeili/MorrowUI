@@ -390,10 +390,7 @@ static TextureData parseTexture(const tinygltf::Model& model, int texIndex) {
         td.magFilterType = toMagFilter(sampler.magFilter);
     }
 
-    // Zero-copy: keep image bytes alive via shared_ptr<void>
-    auto pixelsBuf = std::make_shared<std::vector<unsigned char>>(img.image);
-    td.pixels     = pixelsBuf->data();
-    td.pixelOwner = pixelsBuf;  // atomic ref-count, safe across threads
+    td.pixels = const_cast<unsigned char*>(img.image.data());
 
     return td;
 }

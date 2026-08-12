@@ -394,7 +394,6 @@ bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData
 #ifdef OPENGL_GLFW
     // do nothing
 #else
-    auto textureImp = dynamic_cast<GlTexture2D*>(texture);
     GLenum textureTarget = textureImp->textureTarget;
 
     QnxPlatformSharedPtr qnxPlatform = std::static_pointer_cast<QNXPlatform>(m_platform);
@@ -449,7 +448,8 @@ bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData
 
     auto buff_addr = (unsigned char*)(data.pixels);
 
-    if (textureImp->m_eglImageMap.find(data.pixels) == textureImp->m_eglImageMap.end()) {
+    auto imageIt = textureImp->m_eglImageMap.find(data.pixels);
+    if (imageIt == textureImp->m_eglImageMap.end()) {
         attribs[7] = (EGLint)(((uint64_t)(buff_addr)) & 0xFFFFFFFF);
         attribs[9] = (EGLint)(((uint64_t)(buff_addr)) >> 32);
 
@@ -465,7 +465,7 @@ bool GLRenderDevice::upLoadOESTexture(GlTexture2D* textureImp, const TextureData
 
         textureImp->m_eglImageMap.insert(std::make_pair(data.pixels, textureImp->m_pixel));
     } else {
-        textureImp->m_pixel = textureImp->m_eglImageMap.find(data.pixels)->second;
+        textureImp->m_pixel = imageIt->second;
     }
 
     if (textureImp->m_pixel != nullptr) {

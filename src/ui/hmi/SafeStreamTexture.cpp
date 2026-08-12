@@ -8,14 +8,15 @@
 
 #include "SafeStreamTexture.h"
 
+#include <cstring>
+#include <utility>
+
+#include "GlobalObject.h"
+#include "Material.h"
+#include "RenderDeviceProxyBase.h"
 #include "base/Mesh.h"
 #include "base/MeshFilter.h"
-#include "Material.h"
-#include "GlobalObject.h"
-#include "RenderDeviceProxyBase.h"
 #include "utils/Log.h"
-
-#include <cstring>
 
 namespace morrow {
 using namespace Math;
@@ -95,8 +96,7 @@ SafeStreamTextureSharedPtr SafeStreamTexture::create(int width, int height) {
     return SafeStreamTextureSharedPtr(new SafeStreamTexture(width, height));
 }
 
-SafeStreamTexture::SafeStreamTexture(int width, int height)
-    : m_width(width), m_height(height) {
+SafeStreamTexture::SafeStreamTexture(int width, int height) : m_width(width), m_height(height) {
     setWidgetType("SafeStreamTexture");
 
     // 预分配 GPU 纹理
@@ -110,11 +110,7 @@ SafeStreamTexture::SafeStreamTexture(int width, int height)
 // 着色器初始化
 // -------------------------------------------------------------------------
 void SafeStreamTexture::initShader() {
-    m_material->setShaderFromMemory(
-        "safe_stream_texture",
-        std::string(kStreamTextureVert),
-        std::string(kStreamTextureFrag)
-    );
+    m_material->setShaderFromMemory("safe_stream_texture", std::string(kStreamTextureVert), std::string(kStreamTextureFrag));
     m_material->setBlendEnabled(false);
     m_material->setFloat("u_alpha", 1.0f);
     m_material->setTexture("u_texture", m_streamTexture);
@@ -130,9 +126,12 @@ void SafeStreamTexture::initTexture() {
     m_streamTexture = Texture::create(ImageType::IMAGE);
 #endif
 
-    // 预分配纹理存储（初始化为黑色）
+    // OES 纹理只创建 GPU 纹理对象；首次有效视频帧通过
+    // setOESTextureData() 提交外部 buffer 和 GPU 完成回调。
+#ifndef OPENGL_EGL
     std::vector<unsigned char> initData(m_width * m_height * 4, 0);
-    m_streamTexture->setTextureData(initData.data(), m_width, m_height, PixelDataFormat::RGBA, 4, false); // autoDeploy = false，手动控制 GPU 上传时机
+    m_streamTexture->setTextureData(initData.data(), m_width, m_height, PixelDataFormat::RGBA, 4, false);
+#endif
     m_streamTexture->setMinFilterType(SamplerMinFilter::LINEAR);
     m_streamTexture->setMagFilterType(SamplerMagFilter::LINEAR);
 }
@@ -140,8 +139,19 @@ void SafeStreamTexture::initTexture() {
 // -------------------------------------------------------------------------
 // 帧数据更新（RGBA 像素替换）
 // -------------------------------------------------------------------------
+#ifdef OPENGL_EGL
+void SafeStreamTexture::updateFromEGLImage(void* eglImage, std::function<void()> gpuUseCompleteCallback) {
+    if (!eglImage || !m_streamTexture)
+        return;
+
+    m_streamTexture->setOESTextureData(eglImage, m_width, m_height, PixelDataFormat::RGBA, 0, std::move(gpuUseCompleteCallback));
+    requestRender("SafeStreamTexture::updateFromEGLImage");
+}
+#endif
+
 void SafeStreamTexture::updateFrame(const unsigned char* rgbaData) {
-    if (!rgbaData || !m_streamTexture) return;
+    if (!rgbaData || !m_streamTexture)
+        return;
 
     // 重新设置纹理数据（内部调用 glTexImage2D / glTexSubImage2D）
     m_streamTexture->setTextureData(const_cast<unsigned char*>(rgbaData), m_width, m_height, PixelDataFormat::RGBA, 4, false);
@@ -149,4 +159,4 @@ void SafeStreamTexture::updateFrame(const unsigned char* rgbaData) {
     // 触发渲染刷新
     requestRender("SafeStreamTexture::updateFrame");
 }
-} // namespace morrow
+}  // namespace morrow

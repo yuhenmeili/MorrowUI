@@ -2,9 +2,9 @@
 // Created by lance on 24-8-13.
 //
 #include "Engine.h"
+#include "GlobalTools.h"
 #include "base/Transform.h"
 #include "elements/MRImage.h"
-#include "GlobalTools.h"
 
 using namespace morrow;
 
@@ -23,7 +23,7 @@ int main() {
     bool loadData = global_tools::loadPmemData(pmem_hdl, "assets/textures/d_p.rgb");
     auto texture = Texture::create(ImageType::OES);
     if (loadData) {
-        texture->setTextureData(pmem_hdl, TEST_BUFFER_WIDTH, TEST_BUFFER_HEIGHT, PixelDataFormat::RGB, 0);
+        texture->setOESTextureData(pmem_hdl, TEST_BUFFER_WIDTH, TEST_BUFFER_HEIGHT, PixelDataFormat::RGB, 0);
     }
 
     auto image = MRImage::create();

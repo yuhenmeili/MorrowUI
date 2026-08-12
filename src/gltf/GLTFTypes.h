@@ -35,7 +35,7 @@ struct GLTFMaterial {
     float   normalScale      = 1.0f;
     float   occlusionStrength = 1.0f;
     float   alphaCutoff      = 0.5f;
-    TextureData baseColorTexture;   // pixelOwner 零拷贝方案
+    TextureData baseColorTexture;
     TextureData metallicRoughnessTexture;
     TextureData normalTexture;
     TextureData occlusionTexture;

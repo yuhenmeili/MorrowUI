@@ -16,7 +16,7 @@ namespace morrow {
  *
  *  Phase A (background thread): tinygltf parse → GLTFScene (pure CPU data).
  *         VBOData are packed here; texture pixel bytes are kept alive via
- *         shared_ptr<void> pixelOwner (zero-copy path).
+ *         ordinary CPU texture data copied by RenderDeviceProxy in threaded mode.
  *
  *  Phase B (main/callback thread): caller hands the GLTFScene to
  *         GLTFSceneBuilder which uploads GPU resources via the proxy.

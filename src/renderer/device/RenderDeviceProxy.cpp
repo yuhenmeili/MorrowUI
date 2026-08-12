@@ -301,7 +301,11 @@ RenderDeviceProxy::RenderDeviceProxy(PlatformSharedPtr platform, bool returnResI
         m_freeSlotsSem.signal();
 }
 
-RenderDeviceProxy::~RenderDeviceProxy() = default;
+RenderDeviceProxy::~RenderDeviceProxy() {
+    stopRenderThread();
+    tryRecycleAll();
+    releaseUnsubmittedOESCallbacks();
+}
 
 // ---------------------------------------------------------------------------
 // Context / window management
@@ -430,28 +434,24 @@ bool RenderDeviceProxy::isTextureFormatSupported(PixelDataFormat textureFormat) 
 void RenderDeviceProxy::updateTexture2D(HwTexture2D texture, const TextureData& data) {
     if (!m_threaded) {
         m_realDevice->updateTexture2D(texture, data);
-        if (data.releaseCallback)
-            data.releaseCallback();
+        if (data.imageType == ImageType::OES && data.gpuUseCompleteCallback)
+            m_currentFrameOESRecycle.callbacks.push_back(data.gpuUseCompleteCallback);
         return;
     }
     auto* pl = CMD_BUF.pushNT<UpdateTexture2DPayload>(Cmd_UpdateTexture2D);
     pl->texture = texture;
     pl->data = data;
-    if (!data.pixelOwner && data.pixels && data.bytes > 0 && data.imageType != ImageType::OES) {
+    if (data.imageType != ImageType::OES && data.pixels && data.bytes > 0) {
         auto buf = m_pixelDataRecyclePool->acquire();
         buf->assign(static_cast<const uint8_t*>(data.pixels), static_cast<const uint8_t*>(data.pixels) + data.bytes);
         pl->data.pixels = buf->data();
         pl->pixelStorage = std::move(buf);
     }
-    // 若 data.releaseCallback 非空，一并入队，渲染线程 GL 完成后回调。
-    // 零拷贝路径：data.pixelOwner 持有内存，pl->data.pixels 已指向正确位置，无需额外操作。
 }
 
 void RenderDeviceProxy::updateSubTexture2D(HwTexture2D texture, const TextureData& data, int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) {
     if (!m_threaded) {
         m_realDevice->updateSubTexture2D(texture, data, x, y, width, height, sourceData);
-        if (data.releaseCallback)
-            data.releaseCallback();
         return;
     }
     auto* pl = CMD_BUF.pushNT<UpdateSubTexture2DPayload>(Cmd_UpdateSubTexture2D);
@@ -491,7 +491,8 @@ void RenderDeviceProxy::setViewPort(int32_t x, int32_t y, int32_t width, int32_t
     pl->v = Vector4(float(x), float(y), float(width), float(height));
 }
 
-void RenderDeviceProxy::dumpFrameBuffer(int32_t x, int32_t y, int32_t displayWidth, int32_t displayHeight, int32_t rectX, int32_t rectY, int32_t rectWidth, int32_t rectHeight, int32_t comp) {
+void RenderDeviceProxy::dumpFrameBuffer(int32_t x, int32_t y, int32_t displayWidth, int32_t displayHeight, int32_t rectX, int32_t rectY, int32_t rectWidth, int32_t rectHeight,
+                                        int32_t comp) {
     if (!m_threaded) {
         m_realDevice->dumpFrameBuffer(x, y, displayWidth, displayHeight, rectX, rectY, rectWidth, rectHeight, comp);
         return;
@@ -862,7 +863,11 @@ void RenderDeviceProxy::submitCurrentBufferAndAdvance() {
 
 void RenderDeviceProxy::endFrame() {
     if (!m_threaded) {
-        m_pendingFrames.push({m_realDevice->insertFence(), std::move(m_currentFrameRecyclables), std::move(m_currentFrameUBORecyclables), std::move(m_currentFrameSSBORecyclables)});
+        m_pendingFrames.push({m_realDevice->insertFence(),
+            std::move(m_currentFrameRecyclables),
+            std::move(m_currentFrameUBORecyclables),
+            std::move(m_currentFrameSSBORecyclables),
+            std::move(m_currentFrameOESRecycle)});
         tryRecycle();
         return;
     }
@@ -882,11 +887,66 @@ void RenderDeviceProxy::tryRecycle() {
                 m_uboRecyclePool->release(std::move(frame.uboRecyclables));
             if (m_ssboRecyclePool && !frame.ssboRecyclables.empty())
                 m_ssboRecyclePool->release(std::move(frame.ssboRecyclables));
+            for (auto& callback : frame.oesFrameRecycle.callbacks) {
+                if (callback)
+                    callback();
+            }
             m_realDevice->deleteFence(frame.fence);
             m_pendingFrames.pop();
         } else {
             break;
         }
+    }
+}
+
+void RenderDeviceProxy::tryRecycleAll() {
+    while (!m_pendingFrames.empty()) {
+        PendingFrame& frame = m_pendingFrames.front();
+        if (frame.fence)
+            m_realDevice->waitFence(frame.fence, UINT64_MAX);
+
+        if (m_vboRecyclePool && !frame.vboRecyclables.empty())
+            m_vboRecyclePool->release(std::move(frame.vboRecyclables));
+        if (m_uboRecyclePool && !frame.uboRecyclables.empty())
+            m_uboRecyclePool->release(std::move(frame.uboRecyclables));
+        if (m_ssboRecyclePool && !frame.ssboRecyclables.empty())
+            m_ssboRecyclePool->release(std::move(frame.ssboRecyclables));
+        for (auto& callback : frame.oesFrameRecycle.callbacks) {
+            if (callback)
+                callback();
+        }
+        if (frame.fence)
+            m_realDevice->deleteFence(frame.fence);
+        m_pendingFrames.pop();
+    }
+}
+
+void RenderDeviceProxy::releaseUnsubmittedOESCallbacks() {
+    for (auto& callback : m_currentFrameOESRecycle.callbacks) {
+        if (callback)
+            callback();
+    }
+    m_currentFrameOESRecycle.callbacks.clear();
+
+    CommandBuffer& buf = CMD_BUF;
+    uint8_t* ptr = buf.mutable_data();
+    const uint8_t* end = ptr + buf.size();
+
+    while (ptr < end) {
+        auto* header = reinterpret_cast<CommandBuffer::CmdHeader*>(ptr);
+        void* payload = ptr + sizeof(CommandBuffer::CmdHeader);
+        if (header->type == Cmd_EndFrame)
+            break;
+
+        if (header->type == Cmd_UpdateTexture2D) {
+            auto* update = static_cast<UpdateTexture2DPayload*>(payload);
+            if (update->data.imageType == ImageType::OES && update->data.gpuUseCompleteCallback) {
+                auto callback = std::move(update->data.gpuUseCompleteCallback);
+                callback();
+            }
+        }
+
+        ptr += sizeof(CommandBuffer::CmdHeader) + CommandBuffer::align8(header->payloadSize);
     }
 }
 
@@ -913,7 +973,12 @@ void RenderDeviceProxy::runCommand() {
         m_framePixelRecyclables.clear();
 
         // Insert fence and book-keep recyclables collected during executeFrame.
-        m_pendingFrames.push({m_realDevice->insertFence(), std::move(m_frameRecyclables), std::move(m_frameUBORecyclables), std::move(m_frameSSBORecyclables)});
+        m_pendingFrames.push(
+            {m_realDevice->insertFence(),
+                std::move(m_frameRecyclables),
+                std::move(m_frameUBORecyclables),
+                std::move(m_frameSSBORecyclables),
+                std::move(m_frameOESRecycle)});
         tryRecycle();
 
         // Advance read cursor and release a ring slot to the main thread.
@@ -938,6 +1003,7 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
     m_frameUBORecyclables.clear();
     m_frameSSBORecyclables.clear();
     m_framePixelRecyclables.clear();
+    m_frameOESRecycle.callbacks.clear();
 
     uint8_t* ptr = buf.mutable_data();
     const uint8_t* end = ptr + buf.size();
@@ -1008,8 +1074,8 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
                 auto* pl = static_cast<UpdateTexture2DPayload*>(p);
                 if (pl->texture.isValid()) {
                     m_realDevice->updateTexture2D(pl->texture, pl->data);
-                    if (pl->data.releaseCallback)
-                        pl->data.releaseCallback();
+                    if (pl->data.imageType == ImageType::OES && pl->data.gpuUseCompleteCallback)
+                        m_frameOESRecycle.callbacks.push_back(std::move(pl->data.gpuUseCompleteCallback));
                     if (pl->pixelStorage)
                         m_framePixelRecyclables.push_back(std::move(pl->pixelStorage));
                 }
@@ -1019,8 +1085,6 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
                 auto* pl = static_cast<UpdateSubTexture2DPayload*>(p);
                 if (pl->texture.isValid() && pl->pixelStorage) {
                     m_realDevice->updateSubTexture2D(pl->texture, pl->data, pl->x, pl->y, pl->width, pl->height, pl->pixelStorage->data());
-                    if (pl->data.releaseCallback)
-                        pl->data.releaseCallback();
                     m_framePixelRecyclables.push_back(std::move(pl->pixelStorage));
                 }
                 break;

@@ -17,6 +17,8 @@
 
 #include <cmath>
 #include <cstring>
+#include <array>
+#include <atomic>
 
 using namespace morrow;
 using namespace morrow::Math;
@@ -29,7 +31,7 @@ static constexpr int kStreamW = 640;
 static constexpr int kStreamH = 480;
 static unsigned char kFrameBuffer[kStreamW * kStreamH * 4];
 
-static void generateTestPattern(int frameCount) {
+static void generateTestPattern(int frameCount, unsigned char* frameBuffer = kFrameBuffer) {
     const int barW = kStreamW / 7;  // 7 色彩条
 
     for (int y = 0; y < kStreamH; ++y) {
@@ -40,21 +42,21 @@ static void generateTestPattern(int frameCount) {
             // 7 色彩条：白、黄、青、绿、品、红、蓝
             switch (bar) {
                 case 0: // 白
-                    kFrameBuffer[idx+0]=235; kFrameBuffer[idx+1]=235; kFrameBuffer[idx+2]=235; break;
+                    frameBuffer[idx+0]=235; frameBuffer[idx+1]=235; frameBuffer[idx+2]=235; break;
                 case 1: // 黄
-                    kFrameBuffer[idx+0]=235; kFrameBuffer[idx+1]=235; kFrameBuffer[idx+2]=0;   break;
+                    frameBuffer[idx+0]=235; frameBuffer[idx+1]=235; frameBuffer[idx+2]=0;   break;
                 case 2: // 青
-                    kFrameBuffer[idx+0]=0;   kFrameBuffer[idx+1]=235; kFrameBuffer[idx+2]=235; break;
+                    frameBuffer[idx+0]=0;   frameBuffer[idx+1]=235; frameBuffer[idx+2]=235; break;
                 case 3: // 绿
-                    kFrameBuffer[idx+0]=0;   kFrameBuffer[idx+1]=235; kFrameBuffer[idx+2]=0;   break;
+                    frameBuffer[idx+0]=0;   frameBuffer[idx+1]=235; frameBuffer[idx+2]=0;   break;
                 case 4: // 品
-                    kFrameBuffer[idx+0]=235; kFrameBuffer[idx+1]=0;   kFrameBuffer[idx+2]=235; break;
+                    frameBuffer[idx+0]=235; frameBuffer[idx+1]=0;   frameBuffer[idx+2]=235; break;
                 case 5: // 红
-                    kFrameBuffer[idx+0]=235; kFrameBuffer[idx+1]=0;   kFrameBuffer[idx+2]=0;   break;
+                    frameBuffer[idx+0]=235; frameBuffer[idx+1]=0;   frameBuffer[idx+2]=0;   break;
                 default: // 蓝
-                    kFrameBuffer[idx+0]=0;   kFrameBuffer[idx+1]=0;   kFrameBuffer[idx+2]=235; break;
+                    frameBuffer[idx+0]=0;   frameBuffer[idx+1]=0;   frameBuffer[idx+2]=235; break;
             }
-            kFrameBuffer[idx + 3] = 255; // alpha
+            frameBuffer[idx + 3] = 255; // alpha
         }
     }
 
@@ -62,9 +64,9 @@ static void generateTestPattern(int frameCount) {
     int scanY = (frameCount * 3) % kStreamH;
     for (int x = 0; x < kStreamW; ++x) {
         int idx = (scanY * kStreamW + x) * 4;
-        kFrameBuffer[idx + 0] = 0;
-        kFrameBuffer[idx + 1] = 255;
-        kFrameBuffer[idx + 2] = 0;
+        frameBuffer[idx + 0] = 0;
+        frameBuffer[idx + 1] = 255;
+        frameBuffer[idx + 2] = 0;
     }
 
     // 倒车轨迹线（黄色虚线，模拟方向盘转角）
@@ -79,9 +81,9 @@ static void generateTestPattern(int frameCount) {
         if (x < 0 || x >= kStreamW) continue;
 
         int idx = (y * kStreamW + x) * 4;
-        kFrameBuffer[idx + 0] = 255;
-        kFrameBuffer[idx + 1] = 255;
-        kFrameBuffer[idx + 2] = 0;
+        frameBuffer[idx + 0] = 255;
+        frameBuffer[idx + 1] = 255;
+        frameBuffer[idx + 2] = 0;
 
         // 虚线效果
         if (t % 12 < 6) {
@@ -90,9 +92,9 @@ static void generateTestPattern(int frameCount) {
                 int nx = x + dx;
                 if (nx >= 0 && nx < kStreamW) {
                     int nidx = (y * kStreamW + nx) * 4;
-                    kFrameBuffer[nidx + 0] = 255;
-                    kFrameBuffer[nidx + 1] = 255;
-                    kFrameBuffer[nidx + 2] = 0;
+                    frameBuffer[nidx + 0] = 255;
+                    frameBuffer[nidx + 1] = 255;
+                    frameBuffer[nidx + 2] = 0;
                 }
             }
         }
@@ -110,7 +112,7 @@ static void generateTestPattern(int frameCount) {
                 int py = 10 + dy;
                 if (px < kStreamW && py < kStreamH) {
                     int idx = (py * kStreamW + px) * 4;
-                    kFrameBuffer[idx+0] = kFrameBuffer[idx+1] = kFrameBuffer[idx+2] = 255;
+                    frameBuffer[idx+0] = frameBuffer[idx+1] = frameBuffer[idx+2] = 255;
                 }
             }
         }
@@ -154,8 +156,42 @@ int main() {
     int frameCount = 0;
 
     engine->preRender().add([&]() {
+#ifdef OPENGL_EGL
+        // OES/EGLImage directly references the submitted buffer. Keep three
+        // buffers in rotation and only reuse one after the GPU fence callback.
+        static std::array<std::array<unsigned char, kStreamW * kStreamH * 4>, 3> buffers;
+        static std::array<std::atomic_bool, 3> available = {
+            std::atomic_bool{true},
+            std::atomic_bool{true},
+            std::atomic_bool{true},
+        };
+        static size_t nextBuffer = 0;
+
+        size_t bufferIndex = buffers.size();
+        for (size_t i = 0; i < buffers.size(); ++i) {
+            const size_t candidate = (nextBuffer + i) % buffers.size();
+            bool expected = true;
+            if (available[candidate].compare_exchange_strong(expected, false)) {
+                bufferIndex = candidate;
+                break;
+            }
+        }
+
+        if (bufferIndex == buffers.size()) {
+            LOG_W("SafeStreamTexture demo: all OES buffers are busy");
+            return;
+        }
+
+        nextBuffer = (bufferIndex + 1) % buffers.size();
+        auto* buffer = buffers[bufferIndex].data();
+        generateTestPattern(frameCount, buffer);
+        streamTex->updateFromEGLImage(buffer, [bufferIndex]() {
+            available[bufferIndex].store(true);
+        });
+#else
         generateTestPattern(frameCount);
         streamTex->updateFrame(kFrameBuffer);
+#endif
         frameCount++;
     });
 

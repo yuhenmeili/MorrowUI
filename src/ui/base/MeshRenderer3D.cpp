@@ -33,8 +33,12 @@ TextureSharedPtr createTextureFromGLTFData(const TextureData& textureData) {
     }
 
     auto texture = Texture::create(textureData.imageType);
-    texture->setTextureData(std::shared_ptr<unsigned char>(static_cast<unsigned char*>(textureData.pixels), [owner = textureData.pixelOwner](unsigned char*) mutable { owner.reset(); }),
-                            textureData.width, textureData.height, textureData.format, textureData.bytes, textureData.compressedTexture);
+    const size_t byteCount = textureData.bytes > 0
+                                 ? static_cast<size_t>(textureData.bytes)
+                                 : static_cast<size_t>(textureData.width) * static_cast<size_t>(textureData.height) * 4u;
+    auto pixels = std::shared_ptr<unsigned char>(new unsigned char[byteCount], std::default_delete<unsigned char[]>());
+    std::memcpy(pixels.get(), textureData.pixels, byteCount);
+    texture->setTextureData(std::move(pixels), textureData.width, textureData.height, textureData.format, textureData.bytes, textureData.compressedTexture);
     texture->setMinFilterType(textureData.minFilterType);
     texture->setMagFilterType(textureData.magFilterType);
     return texture;

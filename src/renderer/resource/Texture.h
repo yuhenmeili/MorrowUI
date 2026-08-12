@@ -6,6 +6,7 @@
 #define MORROW_TEXTURE_H
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -33,6 +34,7 @@ struct TextureInfo {
     SamplerMinFilter minFilterType = SamplerMinFilter::LINEAR;
     SamplerMagFilter magFilterType = SamplerMagFilter::LINEAR;
     ImageType imageType = ImageType::IMAGE;
+    std::function<void()> gpuUseCompleteCallback;
 
     bool textureNeedUpLoad = true;
 };
@@ -51,7 +53,11 @@ public:
     Texture& setTextureData(std::shared_ptr<unsigned char> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0,
                             bool compressedTexture = false);
 
-    Texture& setTextureData(void* textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0, bool compressedTexture = false);
+    Texture& setTextureData(void* textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0,
+                            bool compressedTexture = false);
+
+    Texture& setOESTextureData(void* textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0,
+                               std::function<void()> gpuUseCompleteCallback = {});
 
     Texture& setTextureName(std::string textureName);
 

@@ -50,8 +50,11 @@ Texture& Texture::setImageUrl(const std::string& imageUrl) {
     return *this;
 }
 
-Texture& Texture::setTextureData(std::shared_ptr<unsigned char> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes, bool compressedTexture) {
+Texture& Texture::setTextureData(std::shared_ptr<unsigned char> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes,
+                                 bool compressedTexture) {
     m_textureInfo->textureDataSharedPtr = textureData;
+    m_textureInfo->textureDataRawPtr = nullptr;
+    m_textureInfo->gpuUseCompleteCallback = {};
     m_textureInfo->imageWidth = imageWidth;
     m_textureInfo->imageHeight = imageHeight;
     m_textureInfo->format = format;
@@ -64,12 +67,31 @@ Texture& Texture::setTextureData(std::shared_ptr<unsigned char> textureData, int
 }
 
 Texture& Texture::setTextureData(void* textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes, bool compressedTexture) {
+    m_textureInfo->textureDataSharedPtr.reset();
     m_textureInfo->textureDataRawPtr = textureData;
+    m_textureInfo->gpuUseCompleteCallback = {};
     m_textureInfo->imageWidth = imageWidth;
     m_textureInfo->imageHeight = imageHeight;
     m_textureInfo->format = format;
     m_textureInfo->bytes = bytes;
     m_textureInfo->compressedTexture = compressedTexture;
+    m_textureInfo->textureNeedUpLoad = true;
+    ++m_revision;
+    REQUESTRENDER;
+    return *this;
+}
+
+Texture& Texture::setOESTextureData(void* textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes,
+                                    std::function<void()> gpuUseCompleteCallback) {
+    m_textureInfo->textureDataSharedPtr.reset();
+    m_textureInfo->textureDataRawPtr = textureData;
+    m_textureInfo->imageWidth = imageWidth;
+    m_textureInfo->imageHeight = imageHeight;
+    m_textureInfo->format = format;
+    m_textureInfo->bytes = bytes;
+    m_textureInfo->compressedTexture = false;
+    m_textureInfo->imageType = ImageType::OES;
+    m_textureInfo->gpuUseCompleteCallback = std::move(gpuUseCompleteCallback);
     m_textureInfo->textureNeedUpLoad = true;
     ++m_revision;
     REQUESTRENDER;
@@ -195,11 +217,7 @@ bool Texture::deployTexture() {
     m_textureData.minFilterType = m_textureInfo->minFilterType;
     m_textureData.magFilterType = m_textureInfo->magFilterType;
     m_textureData.imageType = m_textureInfo->imageType;
-    // 若持有 shared_ptr 所有权，多线程路径直接共享引用，无需 memcpy 全部像素。
-    // textureDataSharedPtr 可为 nullptr（原始指针路径），此时退化到池复用拷贝。
-    m_textureData.pixelOwner = m_textureInfo->textureDataSharedPtr;
-    // TODO 由外部传入
-    //  m_textureData.releaseCallback = nullptr;
+    m_textureData.gpuUseCompleteCallback = std::move(m_textureInfo->gpuUseCompleteCallback);
     RENDERINGTHREAD->updateTexture2D(m_textureHandle, m_textureData);
     return true;
 }

@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <queue>
+#include <functional>
 #include <vector>
 
 #include "CommandBuffer.h"
@@ -155,6 +156,7 @@ public:
 
     /// 在持有 GL 上下文的线程调用：等待已完成的 fence 并将对应 VBOData 回收到池。多线程时在渲染线程 runCommand 内调用，单线程时在 endFrame 后由 Engine 调用。
     void tryRecycle();
+    void tryRecycleAll();
 
     void runCommand() override;
 
@@ -171,18 +173,22 @@ private:
     void submitCurrentBufferAndAdvance();
 
     void executeFrame(CommandBuffer& buf);
+    void releaseUnsubmittedOESCallbacks();
 
     struct PendingFrame {
         void* fence = nullptr;
         std::vector<VBODataSharedPtr> vboRecyclables;
         std::vector<std::shared_ptr<UBOData>> uboRecyclables;
         std::vector<std::shared_ptr<SSBOData>> ssboRecyclables;
+        struct OESFrameRecycle {
+            std::vector<std::function<void()>> callbacks;
+        } oesFrameRecycle;
     };
 
     std::unique_ptr<VBODataRecyclePool> m_vboRecyclePool;
     std::unique_ptr<UBODataRecyclePool> m_uboRecyclePool;
     std::unique_ptr<SSBODataRecyclePool> m_ssboRecyclePool;
-    // 像素缓冲池：executeFrame 结束后立即归还（无需等 fence）
+    // 普通纹理像素缓冲池：executeFrame 结束后立即归还（无需等 fence）
     std::unique_ptr<PixelDataRecyclePool> m_pixelDataRecyclePool;
     std::queue<PendingFrame> m_pendingFrames;
 
@@ -190,13 +196,15 @@ private:
     std::vector<VBODataSharedPtr> m_frameRecyclables;
     std::vector<std::shared_ptr<UBOData>> m_frameUBORecyclables;
     std::vector<std::shared_ptr<SSBOData>> m_frameSSBORecyclables;
-    // 像素缓冲：glTexImage2D 同步消耗，executeFrame 后立即回池，不进 PendingFrame
+    // 普通纹理像素缓冲：glTexImage2D/glTexSubImage2D 同步消耗，executeFrame 后立即回池
     std::vector<std::shared_ptr<std::vector<uint8_t>>> m_framePixelRecyclables;
+    PendingFrame::OESFrameRecycle m_frameOESRecycle;
 
     // Single-threaded-mode recyclable lists (populated in updateVBO/UBO/SSBO)
     std::vector<VBODataSharedPtr> m_currentFrameRecyclables;
     std::vector<std::shared_ptr<UBOData>> m_currentFrameUBORecyclables;
     std::vector<std::shared_ptr<SSBOData>> m_currentFrameSSBORecyclables;
+    PendingFrame::OESFrameRecycle m_currentFrameOESRecycle;
 
     // Ring buffer slots – one CommandBuffer per slot (pre-allocated, fixed size)
     CommandBuffer m_commandBuffers[kRingSize];

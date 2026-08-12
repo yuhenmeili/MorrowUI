@@ -71,6 +71,8 @@ public:
     void run(bool multithread);
 
 protected:
+    void stopRenderThread();
+
     /** Override in derived class for double-buffered command queue (e.g. wait frame then drain). */
     virtual void runCommand();
 

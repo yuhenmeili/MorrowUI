@@ -24,7 +24,9 @@ public:
     bool beginFrame(FrameStateSharedPtr frameState) override;
 
     void beginRenderPass(FrameStateSharedPtr frameState) override;
+
     void updateWidgets(FrameStateSharedPtr frameState) override;
+
     void commitRenderPass(FrameStateSharedPtr frameState) override;
 
     void endFrame() override;

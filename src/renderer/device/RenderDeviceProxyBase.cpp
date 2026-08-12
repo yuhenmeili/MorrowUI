@@ -16,11 +16,16 @@ RenderDeviceProxyBase::RenderDeviceProxyBase(PlatformSharedPtr platform, bool re
 }
 
 RenderDeviceProxyBase::~RenderDeviceProxyBase() {
+    stopRenderThread();
+}
+
+void RenderDeviceProxyBase::stopRenderThread() {
+    if (!m_thread)
+        return;
     m_quit = true;
     signalThreadToExit();
-    if (m_thread) {
-        m_thread->join();
-    }
+    m_thread->join();
+    m_thread.reset();
 }
 
 bool RenderDeviceProxyBase::isCreateResInBlockMode() const {
