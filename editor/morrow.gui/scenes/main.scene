@@ -1,9 +1,15 @@
 [morrow_scene format=1]
 
+[external_resource id="button_texture" asset_id="asset_box_wood" type="Texture"]
+
+[sub_resource type="Style" id="button_style"]
+property corner_radius = 8.0
+property background_color = Color(0.18, 0.42, 0.78, 1.0)
+
 [node id="node_0001" type="SceneNode" name="Main"]
 
 [node id="node_0002" type="MRButton" parent="node_0001" name="StartButton"]
 property text = "MorrowEditor Scene"
 property position = Vector3(80.0, 80.0, 0.0)
 property size = Vector2(280.0, 64.0)
-property background_color = Color(0.18, 0.42, 0.78, 1.0)
+property style = sub_resource("button_style")

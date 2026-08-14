@@ -3,7 +3,7 @@
 property name = "MorrowUI Editor Test Project"
 property default_scene = "scenes/main.scene"
 property source_root = "src"
-property asset_root = "../../assets"
+property asset_root = "assets"
 property build_root = "../../build"
 property preview_target = "MorrowEditor"
 property platform = "windows"

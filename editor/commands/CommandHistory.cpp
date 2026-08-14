@@ -38,6 +38,19 @@ bool SetNodePropertyCommand::undo(SceneDocument& document, std::string& error) {
     return document.removeNodeProperty(m_nodeId, m_property, error);
 }
 
+bool SetNodePropertyCommand::canMergeWith(const SceneCommand& other) const {
+    const auto* candidate = dynamic_cast<const SetNodePropertyCommand*>(&other);
+    return candidate && candidate->m_nodeId == m_nodeId &&
+           candidate->m_property == m_property;
+}
+
+bool SetNodePropertyCommand::mergeFrom(const SceneCommand& other) {
+    const auto* candidate = dynamic_cast<const SetNodePropertyCommand*>(&other);
+    if (!candidate || !canMergeWith(other)) return false;
+    m_value = candidate->m_value;
+    return true;
+}
+
 ReparentNodeCommand::ReparentNodeCommand(std::string nodeId, std::string parentId) : m_nodeId(std::move(nodeId)), m_parentId(std::move(parentId)) {
 }
 
@@ -62,6 +75,66 @@ bool ReparentNodeCommand::undo(SceneDocument& document, std::string& error) {
     return document.reparentNode(m_nodeId, m_previousParentId, error);
 }
 
+AddNodeCommand::AddNodeCommand(SceneNodeRecord node)
+    : m_node(std::move(node)) {}
+
+bool AddNodeCommand::execute(SceneDocument& document, std::string& error) {
+    return document.addNode(m_node, error);
+}
+
+bool AddNodeCommand::undo(SceneDocument& document, std::string& error) {
+    std::vector<SceneNodeRecord> removed;
+    return document.removeNodeSubtree(m_node.id, removed, error);
+}
+
+DeleteNodeCommand::DeleteNodeCommand(std::string nodeId)
+    : m_nodeId(std::move(nodeId)) {}
+
+bool DeleteNodeCommand::execute(SceneDocument& document, std::string& error) {
+    if (!m_captured) {
+        if (!document.removeNodeSubtree(m_nodeId, m_removed, error)) return false;
+        m_captured = true;
+        return true;
+    }
+    std::vector<SceneNodeRecord> ignored;
+    return document.removeNodeSubtree(m_nodeId, ignored, error);
+}
+
+bool DeleteNodeCommand::undo(SceneDocument& document, std::string& error) {
+    for (const auto& node : m_removed) {
+        if (!document.addNode(node, error)) return false;
+    }
+    return true;
+}
+
+DuplicateNodeCommand::DuplicateNodeCommand(std::string sourceId,
+                                           std::string duplicateId)
+    : m_sourceId(std::move(sourceId)),
+      m_duplicateId(std::move(duplicateId)) {}
+
+bool DuplicateNodeCommand::execute(SceneDocument& document, std::string& error) {
+    if (m_duplicates.empty()) {
+        const auto source = document.findNode(m_sourceId);
+        if (!source) {
+            error = "node '" + m_sourceId + "' was not found";
+            return false;
+        }
+        SceneNodeRecord copy = *source;
+        copy.id = m_duplicateId;
+        copy.name += " Copy";
+        m_duplicates.push_back(std::move(copy));
+    }
+    for (const auto& node : m_duplicates) {
+        if (!document.addNode(node, error)) return false;
+    }
+    return true;
+}
+
+bool DuplicateNodeCommand::undo(SceneDocument& document, std::string& error) {
+    std::vector<SceneNodeRecord> removed;
+    return document.removeNodeSubtree(m_duplicateId, removed, error);
+}
+
 bool CommandHistory::execute(std::unique_ptr<SceneCommand> command, SceneDocument& document, std::string& error) {
     if (!command) {
         error = "command cannot be null";
@@ -69,6 +142,23 @@ bool CommandHistory::execute(std::unique_ptr<SceneCommand> command, SceneDocumen
     }
     if (!command->execute(document, error)) {
         return false;
+    }
+    m_undoStack.push_back(std::move(command));
+    m_redoStack.clear();
+    return true;
+}
+
+bool CommandHistory::executeOrMerge(std::unique_ptr<SceneCommand> command,
+                                    SceneDocument& document,
+                                    std::string& error) {
+    if (!command) {
+        error = "command cannot be null";
+        return false;
+    }
+    if (!command->execute(document, error)) return false;
+    if (!m_undoStack.empty() &&
+        m_undoStack.back()->canMergeWith(*command)) {
+        return m_undoStack.back()->mergeFrom(*command);
     }
     m_undoStack.push_back(std::move(command));
     m_redoStack.clear();

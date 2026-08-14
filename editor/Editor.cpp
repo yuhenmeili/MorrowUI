@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -6,8 +7,10 @@
 
 #include "Engine.h"
 #include "FontManager.h"
+#include "assets/AssetDatabase.h"
 #include "base/Transform.h"
 #include "elements/MRButton.h"
+#include "scene/EditorSession.h"
 #include "scene/SceneDocument.h"
 #include "scene/SceneInstantiator.h"
 
@@ -22,24 +25,20 @@ struct EditorOptions {
 };
 
 void printUsage(const char* executable) {
-    std::cout
-        << "Usage: " << executable << " [--project <MorrowUI.morrow>]"
-        << " [--scene <path/to/main.scene>]\n";
+    std::cout << "Usage: " << executable << " [--project <MorrowUI.morrow>]"
+              << " [--scene <path/to/main.scene>]\n";
 }
 
 std::filesystem::path findDefaultProjectPath(const char* executable) {
     std::error_code error;
-    const auto currentProject =
-        std::filesystem::current_path(error) / "MorrowUI.morrow";
+    const auto currentProject = std::filesystem::current_path(error) / "MorrowUI.morrow";
     if (!error && std::filesystem::exists(currentProject)) {
         return currentProject;
     }
 
     auto executablePath = std::filesystem::absolute(executable, error);
     if (!error) {
-        for (auto directory = executablePath.parent_path();
-             !directory.empty();
-             directory = directory.parent_path()) {
+        for (auto directory = executablePath.parent_path(); !directory.empty(); directory = directory.parent_path()) {
             const auto projectPath = directory / "MorrowUI.morrow";
             if (std::filesystem::exists(projectPath)) {
                 return projectPath;
@@ -103,24 +102,38 @@ bool validateEditorInputs(const EditorOptions& options) {
         std::cerr << "Project file does not exist: " << options.projectPath << "\n";
         valid = false;
     } else if (options.projectPath.extension() != ".morrow") {
-        std::cerr << "Project file must use the .morrow extension: "
-                  << options.projectPath << "\n";
+        std::cerr << "Project file must use the .morrow extension: " << options.projectPath << "\n";
         valid = false;
     }
 
-    if (std::filesystem::exists(options.scenePath) &&
-        options.scenePath.extension() != ".scene") {
-        std::cerr << "Scene file must use the .scene extension: "
-                  << options.scenePath << "\n";
+    if (std::filesystem::exists(options.scenePath) && options.scenePath.extension() != ".scene") {
+        std::cerr << "Scene file must use the .scene extension: " << options.scenePath << "\n";
         valid = false;
     }
     return valid;
 }
 
+std::filesystem::path readProjectAssetRoot(const std::filesystem::path& projectPath) {
+    std::ifstream input(projectPath);
+    std::string line;
+    while (std::getline(input, line)) {
+        const std::string prefix = "property asset_root = ";
+        const auto position = line.find(prefix);
+        if (position == std::string::npos)
+            continue;
+        auto value = line.substr(position + prefix.size());
+        if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
+            value = value.substr(1, value.size() - 2);
+        }
+        return std::filesystem::path(value);
+    }
+    return "assets";
+}
+
 class EditorApplication {
 public:
-    explicit EditorApplication(EditorOptions options)
-        : m_options(std::move(options)) {}
+    explicit EditorApplication(EditorOptions options) : m_options(std::move(options)) {
+    }
 
     int run() {
         std::cout << "MorrowEditor\n"
@@ -144,24 +157,34 @@ public:
         auto window = engine->getWindow();
         window->setClearColor(0.12f, 0.14f, 0.17f, 1.0f);
 
-        FontInfo fontInfo = {
-            .name = "default",
-            .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"
-        };
+        FontInfo fontInfo = {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
         engine->addFonts({fontInfo});
 
         if (std::filesystem::exists(m_options.scenePath)) {
-            editor::SceneDocument document;
+            editor::EditorSession session(m_options.scenePath);
             std::string error;
-            if (!editor::SceneDocument::loadFromFile(m_options.scenePath, document, error)) {
+            if (!session.load(error)) {
                 std::cerr << "Failed to load scene: " << error << "\n";
                 return 3;
             }
-            if (!editor::SceneInstantiator::instantiate(document, window, error)) {
+            editor::AssetDatabase assets;
+            const auto assetRoot = readProjectAssetRoot(m_options.projectPath);
+            if (!assets.scan(m_options.projectPath.parent_path(), assetRoot, error)) {
+                std::cerr << "Asset scan failed: " << error << "\n";
+            } else {
+                std::cout << "  assets: " << assets.assets().size() << "\n";
+            }
+            if (!editor::SceneInstantiator::instantiate(session.document(), window, &assets, error)) {
                 std::cerr << "Failed to instantiate scene: " << error << "\n";
                 return 3;
             }
-            std::cout << "  scene nodes: " << document.nodes().size() << "\n";
+            std::cout << "  scene nodes: " << session.document().nodes().size() << "\n";
+            std::cout << "  scene tree items: " << session.model().buildSceneTree().size() << "\n";
+            if (!session.document().nodes().empty()) {
+                std::string selectionError;
+                session.selectNode(session.document().nodes().front().id, false, selectionError);
+                std::cout << "  inspector properties: " << session.model().inspectSelected().size() << "\n";
+            }
         } else {
             auto button = MRButton::create();
             button->setText(L"MorrowEditor Bootstrap", "default");
@@ -179,7 +202,7 @@ public:
 private:
     EditorOptions m_options;
 };
-} // namespace
+}  // namespace
 
 int main(int argc, char** argv) {
     EditorOptions options;

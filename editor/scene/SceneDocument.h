@@ -10,6 +10,7 @@ namespace morrow::editor {
 
 struct SceneResourceRecord {
     std::string id;
+    std::string assetId;
     std::string type;
     std::string path;
 };
@@ -40,11 +41,21 @@ public:
 
     const SceneNodeRecord* findNode(const std::string& id) const;
 
+    const SceneResourceRecord* findExternalResource(const std::string& id) const;
+
+    const SceneSubResourceRecord* findSubResource(const std::string& id) const;
+
     bool setNodeProperty(const std::string& nodeId, const std::string& property, std::string value, std::string& error);
 
     bool removeNodeProperty(const std::string& nodeId, const std::string& property, std::string& error);
 
     bool reparentNode(const std::string& nodeId, const std::string& parentId, std::string& error);
+
+    bool addNode(SceneNodeRecord node, std::string& error);
+
+    bool removeNodeSubtree(const std::string& nodeId,
+                           std::vector<SceneNodeRecord>& removed,
+                           std::string& error);
 
     const std::vector<SceneResourceRecord>& externalResources() const;
 

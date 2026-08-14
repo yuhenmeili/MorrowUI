@@ -459,7 +459,15 @@ editor/morrow.gui/
   scenes/main.scene
 ```
 
-这是一个独立的测试项目目录。它引用仓库根目录的 `assets/`，不会把测试场景文件混入引擎源码目录。
+这是一个独立的测试项目目录。测试工程使用自己的 `assets/` 和 `.import` 文件，不读取或写入仓库根目录的 `assets/`。根目录 `assets/` 只属于引擎仓库资源。
+
+```text
+editor/morrow.gui/assets/
+  models/box/wood.png
+  models/box/wood.png.import
+```
+
+Editor 的资源扫描根目录必须从 `MorrowUI.morrow` 的 `asset_root` 属性读取。禁止为了测试工程资源而在仓库根 `assets/` 下生成 `.import`、派生资源或其他 Editor 状态文件。当前实现已经按此规则扫描，不再硬编码仓库根 `assets/`。
 
 ### 9.2 BuildService
 
@@ -766,7 +774,7 @@ Continuous update requested
 - [x] 预览窗口由场景文档实例化按钮；
 - [ ] 当前命令行环境下完整 `MorrowEditor.exe` 链接仍需使用与仓库 `libglfw3.a` ABI 匹配的 MinGW 工具链。
 
-### Phase 1：场景编辑最小闭环（进行中）
+### Phase 1：场景编辑最小闭环（核心服务已完成，UI 面板待接入）
 
 已完成：
 
@@ -774,9 +782,14 @@ Continuous update requested
 - 场景格式 Lexer/Parser 和基础 AST；
 - `external_resource` 声明读取；
 - `sub_resource` 声明和属性读取；
+- `.import` sidecar 扫描；
+- Asset ID、源路径、导入器、导入选项和平台 artifact 解析；
+- Asset ID 到源资源路径解析；
 - 节点稳定 ID、类型、名称和父子关系读取；
 - 基础属性读取：`visible`、`display_layer`、`position`、`size`、`text`、`font_size`、`background_color`；
 - `SceneNode`、`MRButton`、`MRImage`、`MRLabel` 的基础实例化；
+- 纹理 Asset ID 到 `Texture::setImageUrl()` 的运行时加载路径；
+- `Style` 子资源到 `MRButton` 圆角和背景色的应用；
 - `MorrowEditor` 从 `editor/morrow.gui/scenes/main.scene` 创建预览对象；
 - 解析错误包含场景文件行号和具体原因；
 - 场景文档稳定序列化和保存；
@@ -785,20 +798,24 @@ Continuous update requested
 - `CommandHistory` 的 execute/undo/redo；
 - `SetNodePropertyCommand`；
 - `ReparentNodeCommand`；
+- `AddNodeCommand`、`DeleteNodeCommand`、`DuplicateNodeCommand`；
+- 连续属性命令的合并；
+- `EditorSession` 统一 Scene Tree、Inspector、Gizmo、命令和保存入口；
+- `EditorInputRouter` 支持 Ctrl+S、Ctrl+Z、Ctrl+Shift+Z 和 Ctrl+Y；
+- 2D 矩形命中选择；
+- 2D Transform position/size Gizmo 数据入口；
+- Scene Tree 数据模型和 Inspector 属性模型；
 - 文档层与运行时实例化层拆分，纯文档测试不依赖 OpenGL/GLFW；
-- `SceneDocumentTests` 覆盖加载、资源声明、属性修改、重父级、撤销/重做、保存和重载。
+- `SceneDocumentTests` 覆盖加载、资源声明、Asset ID、Scene Tree、Inspector、2D 选择、Gizmo、增删复制、命令合并、Ctrl+S、保存和重载。
 
-尚未完成：
+核心服务已完成，但以下仍属于 UI/平台接入工作：
 
-- 外部资源实际导入、Asset ID 解析和资源加载；
-- 子资源应用到 Material/Style 等运行时对象；
-- Scene Tree；
-- Inspector；
-- Add/Delete/Duplicate 命令；
-- Scene Tree 和 Inspector 对命令系统的实际调用；
-- 连续属性编辑的命令合并；
-- Ctrl+S；
-- 2D 视口选择和 Gizmo。
+- 将 Scene Tree 数据模型绘制成 Editor 停靠面板；
+- 将 Inspector 属性模型绘制成可编辑控件；
+- 将 `EditorInputRouter` 绑定到 Windows 窗口真实键盘事件；
+- 将 2D 命中和 Gizmo 操作绑定到视口鼠标拖拽；
+- 修改文档后自动重建 RuntimeInstance，而不是只在 Preview 启动时实例化一次；
+- 将 AssetDatabase 的导入器执行和派生 artifact 生成接入 Build/Import 队列。
 
 验收：
 

@@ -1,6 +1,10 @@
 add_library(morrow_editor_document STATIC
     scene/SceneDocument.cpp
+    scene/SceneEditorModel.cpp
+    scene/EditorSession.cpp
     commands/CommandHistory.cpp
+    assets/AssetDatabase.cpp
+    EditorInputRouter.cpp
 )
 
 target_include_directories(morrow_editor_document PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

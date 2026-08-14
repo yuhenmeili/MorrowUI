@@ -9,10 +9,14 @@ class Widget;
 
 namespace editor {
 class SceneDocument;
+class AssetDatabase;
 
 class SceneInstantiator {
 public:
-    static bool instantiate(const SceneDocument& document, const std::shared_ptr<Widget>& stage, std::string& error);
+    static bool instantiate(const SceneDocument& document,
+                            const std::shared_ptr<Widget>& stage,
+                            const AssetDatabase* assets,
+                            std::string& error);
 };
 
 }  // namespace editor

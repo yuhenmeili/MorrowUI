@@ -1,10 +1,12 @@
 #include "SceneInstantiator.h"
 
+#include <cstring>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
 
 #include "SceneDocument.h"
+#include "assets/AssetDatabase.h"
 #include "Vector3.h"
 #include "Vector4.h"
 #include "base/SceneNode.h"
@@ -77,7 +79,12 @@ std::shared_ptr<morrow::Widget> createNode(const morrow::editor::SceneNodeRecord
     return nullptr;
 }
 
-bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::shared_ptr<morrow::Widget>& widget, const std::string& key, const std::string& value,
+bool applyProperty(const morrow::editor::SceneNodeRecord& record,
+                   const std::shared_ptr<morrow::Widget>& widget,
+                   const std::string& key,
+                   const std::string& value,
+                   const morrow::editor::SceneDocument& document,
+                   const morrow::editor::AssetDatabase* assets,
                    std::string& error) {
     if (key == "visible") {
         bool visible = true;
@@ -143,6 +150,68 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
             button->setBackgroundColor(Vector4(components[0], components[1], components[2], components[3]));
             return true;
         }
+        if (key == "background_texture") {
+            constexpr const char* prefix = "resource(\"";
+            if (value.compare(0, std::strlen(prefix), prefix) != 0 ||
+                value.size() <= std::strlen(prefix) + 2 ||
+                value.back() != ')') {
+                error = "property 'background_texture' must reference resource(\"id\")";
+                return false;
+            }
+            const auto localId = value.substr(
+                std::strlen(prefix), value.size() - std::strlen(prefix) - 2);
+            const auto resource = document.findExternalResource(localId);
+            if (!resource) {
+                error = "external resource '" + localId + "' was not found";
+                return false;
+            }
+            if (!assets || resource->assetId.empty()) {
+                error = "external resource '" + localId +
+                        "' has no resolvable asset_id";
+                return false;
+            }
+            const auto asset = assets->findById(resource->assetId);
+            if (!asset || asset->type != "Texture") {
+                error = "texture asset '" + resource->assetId + "' was not found";
+                return false;
+            }
+            auto texture = morrow::Texture::create();
+            texture->setImageUrl(assets->resolveSourcePath(asset->assetId).string());
+            button->setBackgroundImage(texture);
+            return true;
+        }
+        if (key == "style") {
+            constexpr const char* prefix = "sub_resource(\"";
+            if (value.compare(0, std::strlen(prefix), prefix) != 0 ||
+                value.size() <= std::strlen(prefix) + 2 ||
+                value.back() != ')') {
+                error = "property 'style' must reference sub_resource(\"id\")";
+                return false;
+            }
+            const auto styleId = value.substr(
+                std::strlen(prefix), value.size() - std::strlen(prefix) - 2);
+            const auto style = document.findSubResource(styleId);
+            if (!style) {
+                error = "sub_resource '" + styleId + "' was not found";
+                return false;
+            }
+            for (const auto& [styleKey, styleValue] : style->properties) {
+                if (styleKey == "corner_radius") {
+                    button->setCornerRadius(std::stof(styleValue));
+                } else if (styleKey == "background_color") {
+                    std::vector<float> components;
+                    if (!parseVector(styleValue, "Color", components) ||
+                        components.size() != 4) {
+                        error = "style background_color must be Color(r, g, b, a)";
+                        return false;
+                    }
+                    button->setBackgroundColor(Vector4(
+                        components[0], components[1],
+                        components[2], components[3]));
+                }
+            }
+            return true;
+        }
     }
 
     if (auto label = std::dynamic_pointer_cast<morrow::MRLabel>(widget)) {
@@ -169,7 +238,10 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
 
 namespace morrow::editor {
 
-bool SceneInstantiator::instantiate(const SceneDocument& document, const std::shared_ptr<Widget>& stage, std::string& error) {
+bool SceneInstantiator::instantiate(const SceneDocument& document,
+                                    const std::shared_ptr<Widget>& stage,
+                                    const AssetDatabase* assets,
+                                    std::string& error) {
     if (!stage) {
         error = "cannot instantiate scene without a stage widget";
         return false;
@@ -185,7 +257,8 @@ bool SceneInstantiator::instantiate(const SceneDocument& document, const std::sh
         }
         instance->setWidgetName(record.name);
         for (const auto& [key, value] : record.properties) {
-            if (!applyProperty(record, instance, key, value, error)) {
+            if (!applyProperty(record, instance, key, value,
+                               document, assets, error)) {
                 error = "line " + std::to_string(record.line) + ": " + error;
                 return false;
             }

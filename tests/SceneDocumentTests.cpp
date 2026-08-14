@@ -4,7 +4,10 @@
 #include <memory>
 #include <string>
 
+#include "EditorInputRouter.h"
+#include "assets/AssetDatabase.h"
 #include "commands/CommandHistory.h"
+#include "scene/EditorSession.h"
 #include "scene/SceneDocument.h"
 
 namespace {
@@ -128,6 +131,118 @@ int main() {
                  "saved property value")) {
         return 1;
     }
+
+    const auto assetRoot = temporaryDirectory / "assets";
+    fs::create_directories(assetRoot / "textures", filesystemError);
+    const auto assetPath = assetRoot / "textures" / "button.png";
+    std::ofstream(assetPath).put('\0');
+    {
+        std::ofstream import(assetPath.string() + ".import");
+        import << "[import]\n"
+               << "format = 1\n"
+               << "asset_id = \"asset_test_texture\"\n"
+               << "importer = \"morrow.texture\"\n"
+               << "source_hash = \"test\"\n"
+               << "importer_version = 1\n\n"
+               << "[options]\n"
+               << "srgb = true\n\n"
+               << "[platform.windows]\n"
+               << "artifact = \".morrow/imported/asset_test_texture/texture.bin\"\n";
+    }
+    morrow::editor::AssetDatabase assets;
+    if (!require(assets.scan(temporaryDirectory, "assets", error),
+                 "asset scan: " + error)) {
+        return 1;
+    }
+    if (!require(assets.findById("asset_test_texture") != nullptr,
+                 "asset id lookup")) {
+        return 1;
+    }
+    if (!require(assets.findById("asset_test_texture")->type == "Texture",
+                 "asset type detection")) {
+        return 1;
+    }
+
+    const auto sessionScene = temporaryDirectory / "session.scene";
+    {
+        std::ofstream output(sessionScene);
+        output << "[morrow_scene format=1]\n\n"
+               << "[node id=\"root\" type=\"SceneNode\" name=\"Root\"]\n\n"
+               << "[node id=\"button\" type=\"MRButton\" parent=\"root\" "
+                  "name=\"Button\"]\n"
+               << "property text = \"Button\"\n"
+               << "property position = Vector3(10.0, 20.0, 0.0)\n"
+               << "property size = Vector2(100.0, 40.0)\n";
+    }
+    morrow::editor::EditorSession session(sessionScene);
+    if (!require(session.load(error), "session load: " + error)) return 1;
+    if (!require(session.model().buildSceneTree().size() == 2,
+                 "scene tree item count")) {
+        return 1;
+    }
+    if (!require(session.selectNode("button", false, error),
+                 "scene tree selection: " + error)) {
+        return 1;
+    }
+    if (!require(session.model().inspectSelected().size() == 3,
+                 "inspector property count")) {
+        return 1;
+    }
+    if (!require(session.selectAt(20.0f, 30.0f, error),
+                 "2D viewport selection: " + error)) {
+        return 1;
+    }
+    if (!require(session.moveGizmo("button", 30.0f, 40.0f, 0.0f,
+                                   true, error),
+                 "gizmo move: " + error)) {
+        return 1;
+    }
+    if (!require(session.moveGizmo("button", 40.0f, 50.0f, 0.0f,
+                                   true, error),
+                 "gizmo move merge: " + error)) {
+        return 1;
+    }
+    if (!require(session.undo(error), "merged gizmo undo: " + error)) {
+        return 1;
+    }
+    if (!require(session.document().findNode("button")->properties.at("position") ==
+                     "Vector3(10.0, 20.0, 0.0)",
+                 "merged gizmo restores original position")) {
+        return 1;
+    }
+    if (!require(session.duplicateNode("button", "button_copy", error),
+                 "duplicate node: " + error)) {
+        return 1;
+    }
+    if (!require(session.document().findNode("button_copy") != nullptr,
+                 "duplicate exists")) {
+        return 1;
+    }
+    if (!require(session.deleteNode("button_copy", error),
+                 "delete node: " + error)) {
+        return 1;
+    }
+    if (!require(session.document().findNode("button_copy") == nullptr,
+                 "deleted node absent")) {
+        return 1;
+    }
+    if (!require(session.addNode({
+                     "button_added", "MRButton", "root", "Added", {},
+                     0
+                 }, error),
+                 "add node: " + error)) {
+        return 1;
+    }
+    if (!require(session.reparentNode("button_added", "", error),
+                 "reparent node: " + error)) {
+        return 1;
+    }
+    morrow::editor::EditorInputRouter input(session);
+    if (!require(input.handleShortcut(true, false, 's', error),
+                 "Ctrl+S: " + error)) {
+        return 1;
+    }
+    if (!require(!session.isDirty(), "Ctrl+S clears dirty state")) return 1;
 
     fs::remove_all(temporaryDirectory, filesystemError);
     std::cout << "SceneDocumentTests passed\n";
