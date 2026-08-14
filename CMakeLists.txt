@@ -50,6 +50,7 @@ endif()
 
 
 add_subdirectory(src)
+add_subdirectory(editor)
 
 file(GLOB DEMO_LIST ${CMAKE_CURRENT_SOURCE_DIR}/samples/*.cpp)
 

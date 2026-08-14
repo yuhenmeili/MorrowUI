@@ -1,0 +1,10 @@
+[morrow_project format=1]
+
+property name = "MorrowUI Editor Test Project"
+property default_scene = "scenes/main.scene"
+property source_root = "src"
+property asset_root = "../../assets"
+property build_root = "../../build"
+property preview_target = "MorrowEditor"
+property platform = "windows"
+property engine_version = "0.1"
