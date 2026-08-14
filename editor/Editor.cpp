@@ -8,6 +8,7 @@
 #include "FontManager.h"
 #include "base/Transform.h"
 #include "elements/MRButton.h"
+#include "scene/SceneDocument.h"
 
 using namespace morrow;
 
@@ -148,15 +149,28 @@ public:
         };
         engine->addFonts({fontInfo});
 
-        // Phase 0 uses a bootstrap object until SceneDocument is implemented.
-        auto button = MRButton::create();
-        button->setText(L"MorrowEditor Preview", "default");
+        if (std::filesystem::exists(m_options.scenePath)) {
+            editor::SceneDocument document;
+            std::string error;
+            if (!editor::SceneDocument::loadFromFile(m_options.scenePath, document, error)) {
+                std::cerr << "Failed to load scene: " << error << "\n";
+                return 3;
+            }
+            if (!document.instantiate(window, error)) {
+                std::cerr << "Failed to instantiate scene: " << error << "\n";
+                return 3;
+            }
+            std::cout << "  scene nodes: " << document.nodes().size() << "\n";
+        } else {
+            auto button = MRButton::create();
+            button->setText(L"MorrowEditor Bootstrap", "default");
 
-        auto transform = button->getComponent<Transform>();
-        transform->setPosition(80.0f, 80.0f, 0.0f);
-        transform->setSize(280.0f, 64.0f);
+            auto transform = button->getComponent<Transform>();
+            transform->setPosition(80.0f, 80.0f, 0.0f);
+            transform->setSize(280.0f, 64.0f);
 
-        window->addChild(button);
+            window->addChild(button);
+        }
         engine->render();
         return 0;
     }

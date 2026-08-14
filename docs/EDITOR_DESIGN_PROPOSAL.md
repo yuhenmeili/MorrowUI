@@ -764,19 +764,30 @@ Continuous update requested
 - [ ] 可以从 CMake 完整构建并启动 Editor（当前机器的 MinGW 缺少 `as.exe`，MSVC 构建环境缺少标准库 include 路径）；
 - [ ] 预览窗口由场景文档实例化按钮（属于 Phase 1）。
 
-### Phase 1：场景编辑最小闭环
+### Phase 1：场景编辑最小闭环（进行中）
 
-  - `SceneDocument` 文本格式读写；
-  - 场景格式 Lexer/Parser 和 AST；
-  - 外部资源、子资源和节点引用；
-- 稳定节点 ID；
-- `SceneNode`、`Transform`、`MRButton`、`MRImage`、`MRLabel` 注册；
+已完成的第一步：
+
+- `SceneDocument` 文本格式读写；
+- 场景格式 Lexer/Parser 和基础 AST；
+- `external_resource` 声明读取；
+- `sub_resource` 声明和属性读取；
+- 节点稳定 ID、类型、名称和父子关系读取；
+- 基础属性读取：`visible`、`display_layer`、`position`、`size`、`text`、`font_size`、`background_color`；
+- `SceneNode`、`MRButton`、`MRImage`、`MRLabel` 的基础实例化；
+- `MorrowEditor` 从 `editor/morrow.gui/scenes/main.scene` 创建预览对象；
+- 解析错误包含场景文件行号和具体原因。
+
+尚未完成：
+
+- 外部资源实际导入、Asset ID 解析和资源加载；
+- 子资源应用到 Material/Style 等运行时对象；
 - Scene Tree；
 - Inspector；
 - Add/Delete/Duplicate/Reparent；
 - 命令系统和撤销/重做；
 - Ctrl+S；
-- 2D 视口。
+- 2D 视口选择和 Gizmo。
 
 验收：
 

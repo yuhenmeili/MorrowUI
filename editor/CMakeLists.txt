@@ -1,5 +1,6 @@
 add_executable(MorrowEditor
     Editor.cpp
+    scene/SceneDocument.cpp
 )
 
 target_link_libraries(MorrowEditor PRIVATE morrow)
