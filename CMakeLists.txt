@@ -26,9 +26,16 @@ endif()
 
 message(STATUS "Configuring morrow.gui for platform: ${MORROW_PLATFORM} (system='${CMAKE_SYSTEM_NAME}', processor='${CMAKE_SYSTEM_PROCESSOR}')")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -fpermissive -g -O0 -Wno-error")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -frtti -std=gnu++17 -D_GLIBCXX_USE_C99=1 -fpermissive")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fPIE")
+if(MSVC)
+    string(APPEND CMAKE_CXX_FLAGS " /GR /std:c++17")
+elseif(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    string(APPEND CMAKE_C_FLAGS " -g -O0 -Wno-error")
+    string(APPEND CMAKE_CXX_FLAGS " -std=c++17")
+else()
+    string(APPEND CMAKE_C_FLAGS " -fPIC -fpermissive -g -O0 -Wno-error")
+    string(APPEND CMAKE_CXX_FLAGS " -fPIC -frtti -std=gnu++17 -D_GLIBCXX_USE_C99=1 -fpermissive")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS " -fPIE")
+endif()
 
 if(MORROW_PLATFORM_IS_QNX)
     if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64le")
@@ -50,7 +57,9 @@ endif()
 
 
 add_subdirectory(src)
-add_subdirectory(editor)
+if(MORROW_PLATFORM_IS_WINDOWS)
+    add_subdirectory(editor)
+endif()
 
 file(GLOB DEMO_LIST ${CMAKE_CURRENT_SOURCE_DIR}/samples/*.cpp)
 

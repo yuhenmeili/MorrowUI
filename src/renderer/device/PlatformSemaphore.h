@@ -5,9 +5,9 @@
 #ifndef MORROW_RENDERER_PLATFORMSEMAPHORE_H_
 #define MORROW_RENDERER_PLATFORMSEMAPHORE_H_
 
-#include <semaphore.h>
-//#include <errno.h>
-
+#include <condition_variable>
+#include <cstdint>
+#include <mutex>
 
 namespace morrow
 {
@@ -25,27 +25,37 @@ protected:
     void signal();
 
 private:
-    sem_t m_Semaphore;
+    std::mutex m_mutex;
+    std::condition_variable m_condition;
+    uint32_t m_signalCount = 0;
 };
 
 inline void PlatformSemaphore::create()
 {
-    sem_init(&m_Semaphore, 0, 0);
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_signalCount = 0;
 }
 
 inline void PlatformSemaphore::destroy()
 {
-    sem_destroy(&m_Semaphore);
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_signalCount = 0;
 }
 
 inline void PlatformSemaphore::waitForSignal()
 {
-    sem_wait(&m_Semaphore);
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_condition.wait(lock, [this] { return m_signalCount > 0; });
+    --m_signalCount;
 }
 
 inline void PlatformSemaphore::signal()
 {
-    sem_post(&m_Semaphore);
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        ++m_signalCount;
+    }
+    m_condition.notify_one();
 }
 
 class Semaphore

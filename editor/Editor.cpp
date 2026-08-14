@@ -9,6 +9,7 @@
 #include "base/Transform.h"
 #include "elements/MRButton.h"
 #include "scene/SceneDocument.h"
+#include "scene/SceneInstantiator.h"
 
 using namespace morrow;
 
@@ -156,7 +157,7 @@ public:
                 std::cerr << "Failed to load scene: " << error << "\n";
                 return 3;
             }
-            if (!document.instantiate(window, error)) {
+            if (!editor::SceneInstantiator::instantiate(document, window, error)) {
                 std::cerr << "Failed to instantiate scene: " << error << "\n";
                 return 3;
             }

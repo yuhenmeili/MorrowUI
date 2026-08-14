@@ -6,9 +6,7 @@
 #define MORROW_UTILITY_H
 
 #include <string>
-#include <sys/types.h>
 #include <vector>
-#include <sys/time.h>
 #include <cmath>
 #include <cfloat>
 #include <cstdint>
@@ -22,6 +20,7 @@ namespace Math
 static const float EPS = 0.000001f;
 static constexpr double DEG2RAD = MR_PI / 180.0;
 static constexpr double RAD2DEG = 180.0 / MR_PI;
+static constexpr double LN2 = 0.69314718055994530942;
 
 std::string generate_uuid();
 
@@ -125,17 +124,17 @@ inline bool isPowerOfTwo(int32_t value)
 
 inline int32_t nearestPowerOfTwo(int32_t value)
 {
-    return (int32_t) std::pow(2, round(std::log(value) / M_LN2));
+    return (int32_t) std::pow(2, round(std::log(value) / LN2));
 }
 
 inline int32_t ceilPowerOfTwo(float value)
 {
-    return (int32_t) std::pow(2, std::ceil(std::log(value) / M_LN2));
+    return (int32_t) std::pow(2, std::ceil(std::log(value) / LN2));
 }
 
 inline int32_t floorPowerOfTwo(float value)
 {
-    return (int32_t) std::pow(2, std::floor(std::log(value) / M_LN2));
+    return (int32_t) std::pow(2, std::floor(std::log(value) / LN2));
 }
 
 inline int32_t nextPowerOfTwo(int32_t value)

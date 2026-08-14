@@ -3,14 +3,10 @@
 
 #include <filesystem>
 #include <map>
-#include <memory>
 #include <string>
 #include <vector>
 
-namespace morrow {
-class Widget;
-
-namespace editor {
+namespace morrow::editor {
 
 struct SceneResourceRecord {
     std::string id;
@@ -36,12 +32,19 @@ struct SceneNodeRecord {
 
 class SceneDocument {
 public:
-    static bool loadFromFile(const std::filesystem::path& path,
-                             SceneDocument& document,
-                             std::string& error);
+    static bool loadFromFile(const std::filesystem::path& path, SceneDocument& document, std::string& error);
 
-    bool instantiate(const std::shared_ptr<Widget>& stage,
-                     std::string& error) const;
+    bool saveToFile(const std::filesystem::path& path, std::string& error) const;
+
+    SceneNodeRecord* findNode(const std::string& id);
+
+    const SceneNodeRecord* findNode(const std::string& id) const;
+
+    bool setNodeProperty(const std::string& nodeId, const std::string& property, std::string value, std::string& error);
+
+    bool removeNodeProperty(const std::string& nodeId, const std::string& property, std::string& error);
+
+    bool reparentNode(const std::string& nodeId, const std::string& parentId, std::string& error);
 
     const std::vector<SceneResourceRecord>& externalResources() const;
 
@@ -55,7 +58,6 @@ private:
     std::vector<SceneNodeRecord> m_nodes;
 };
 
-} // namespace editor
-} // namespace morrow
+}  // namespace morrow::editor
 
-#endif // MORROW_EDITOR_SCENE_DOCUMENT_H
+#endif  // MORROW_EDITOR_SCENE_DOCUMENT_H

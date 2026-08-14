@@ -12,8 +12,6 @@
 #include "ShaderReflection.h"
 #include "TextureLoader.h"
 #include "ToolUtils.h"
-#include "sys/stat.h"
-#include "unistd.h"
 #include "utils/OpenglUtils.h"
 #ifdef OPENGL_EGL
 #include "egl/QNXPlatform.h"

@@ -66,7 +66,7 @@ C++ 适合当前项目的原因：
 - 类型安全、性能和调试工具链成熟；
 - 可以直接访问现有 Widget、Component、Material 和渲染接口；
 - 不需要为了 Editor 强行设计一套新的脚本 VM；
-- QNX 和 Windows 的部署逻辑可以继续由 CMake/toolchain 管理。
+- 引擎和目标应用的部署逻辑可以继续由 CMake/toolchain 管理，Editor 本身只构建和运行在 Windows。
 
 代价也很明确：
 
@@ -116,7 +116,7 @@ C++ 适合当前项目的原因：
 - 任意 C++ 类型的无配置自动反射；
 - 在 QNX 设备上直接提供完整桌面 Editor。
 
-桌面 Editor 可以先在 Windows 上运行，预览目标可以是 Windows；QNX 先通过交叉编译、部署和日志回传接入。
+Editor 明确只支持 Windows。QNX 仍然可以作为引擎和目标应用平台，但其交叉编译、部署和日志回传不属于 Editor 当前设计与验收范围。
 
 ## 5. 总体架构
 
@@ -736,7 +736,7 @@ Continuous update requested
 
 ## 13. 分阶段实施路线
 
-### Phase 0：整理入口和构建目标（已实现，待工具链验证）
+### Phase 0：整理入口和构建目标（已实现）
 
 目标：让 Editor 从硬编码 demo 变成正式 target，并建立项目/场景入口约定。场景解析和文档实例化不属于本阶段。
 
@@ -750,7 +750,8 @@ Continuous update requested
 - 增加测试工程文件 `editor/morrow.gui/MorrowUI.morrow`；
 - 增加最小场景文件 `editor/morrow.gui/scenes/main.scene`；
 - 默认按当前目录、可执行文件目录向上路径和内置测试工程路径查找 `MorrowUI.morrow`；
-- 场景文件存在时进行扩展名检查，当前仍使用内置 bootstrap preview；
+- 场景文件存在时进行扩展名检查，缺失时使用内置 bootstrap preview；
+- `MorrowEditor` target 只在 Windows 平台生成；
 - 保留现有 samples 和 tests 的 CMake 组织方式，不改动其入口。
 
 当前验收状态：
@@ -761,12 +762,13 @@ Continuous update requested
 - [x] 测试工程位于 `editor/morrow.gui/`；
 - [x] 从构建输出目录启动时可以通过默认测试工程路径定位项目；
 - [x] 场景缺失时给出明确提示并进入 bootstrap preview；
-- [ ] 可以从 CMake 完整构建并启动 Editor（当前机器的 MinGW 缺少 `as.exe`，MSVC 构建环境缺少标准库 include 路径）；
-- [ ] 预览窗口由场景文档实例化按钮（属于 Phase 1）。
+- [x] SceneDocument 和运行时实例化模块可在 Windows LLVM 环境编译；
+- [x] 预览窗口由场景文档实例化按钮；
+- [ ] 当前命令行环境下完整 `MorrowEditor.exe` 链接仍需使用与仓库 `libglfw3.a` ABI 匹配的 MinGW 工具链。
 
 ### Phase 1：场景编辑最小闭环（进行中）
 
-已完成的第一步：
+已完成：
 
 - `SceneDocument` 文本格式读写；
 - 场景格式 Lexer/Parser 和基础 AST；
@@ -776,7 +778,15 @@ Continuous update requested
 - 基础属性读取：`visible`、`display_layer`、`position`、`size`、`text`、`font_size`、`background_color`；
 - `SceneNode`、`MRButton`、`MRImage`、`MRLabel` 的基础实例化；
 - `MorrowEditor` 从 `editor/morrow.gui/scenes/main.scene` 创建预览对象；
-- 解析错误包含场景文件行号和具体原因。
+- 解析错误包含场景文件行号和具体原因；
+- 场景文档稳定序列化和保存；
+- `findNode`、属性修改、属性删除和重父级文档 API；
+- 重父级循环检测；
+- `CommandHistory` 的 execute/undo/redo；
+- `SetNodePropertyCommand`；
+- `ReparentNodeCommand`；
+- 文档层与运行时实例化层拆分，纯文档测试不依赖 OpenGL/GLFW；
+- `SceneDocumentTests` 覆盖加载、资源声明、属性修改、重父级、撤销/重做、保存和重载。
 
 尚未完成：
 
@@ -784,8 +794,9 @@ Continuous update requested
 - 子资源应用到 Material/Style 等运行时对象；
 - Scene Tree；
 - Inspector；
-- Add/Delete/Duplicate/Reparent；
-- 命令系统和撤销/重做；
+- Add/Delete/Duplicate 命令；
+- Scene Tree 和 Inspector 对命令系统的实际调用；
+- 连续属性编辑的命令合并；
 - Ctrl+S；
 - 2D 视口选择和 Gizmo。
 
@@ -823,7 +834,7 @@ Continuous update requested
 - 场景引用检查；
 - 布局保存；
 - 多场景和启动场景；
-- Windows 到 QNX 的部署/日志回传。
+- Windows 预览进程隔离和崩溃恢复。
 
 ### Phase 4：再评估高级能力
 
@@ -849,7 +860,7 @@ Continuous update requested
 | 动态对象混入场景 | 保存污染 | 来源标记，Runtime Only 默认不序列化 |
 | 资源绝对路径失效 | 跨机器不可用 | 项目相对路径、Asset ID 和 `.import` sidecar |
 | 导入设置和派生资源失配 | 运行时加载错误或重复导入 | 源哈希、导入器版本、平台 artifact 和导入状态 |
-| QNX 无桌面环境 | Editor 无法直接运行 | Editor 只在 Windows，QNX 作为 Preview/Deploy target |
+| 非 Windows 环境 | Editor 无法运行 | Editor target 只在 Windows 生成，其他平台只构建引擎和目标应用 |
 | 使用全局注册表过度 | 测试和生命周期复杂 | ObjectRegistry 主要用于诊断，文档状态由 SceneDocument 管理 |
 | 过早热重载 | ABI、线程、GPU 资源风险 | 延后到模块边界稳定并有真实需求后评估 |
 
@@ -899,7 +910,7 @@ Diagnostic message count
 建议先确认以下决策，再开始实现 Phase 0/1：
 
 1. 是否接受 `*.scene` 作为场景文件扩展名，工程入口固定使用 `MorrowUI.morrow`？
-2. Editor 第一版是否只支持 Windows，QNX 只作为编译和部署目标？
+2. Editor 只支持 Windows；其他平台不生成 `MorrowEditor` target。
 3. Editor UI 是否先使用 MorrowUI 自身控件？
 4. 第一版是否接受显式 C++ 类型注册，而不是自动反射？
 5. 场景文档是否允许保留未知 section、属性和资源引用，以支持未来版本和第三方扩展？

@@ -2,8 +2,9 @@
 // Created by lance on 2023/1/19.
 //
 
-#include <sstream>
+#include <chrono>
 #include <random>
+#include <sstream>
 #include "MathUtils.h"
 
 namespace morrow
@@ -51,18 +52,14 @@ float random_float(float min, float max)
 
 double getCurrentMonotonicTime()
 {
-    struct timespec current_timespec;
-    clock_gettime(CLOCK_MONOTONIC, &current_timespec);
-    double current_time = (double) (current_timespec.tv_sec)
-        + (current_timespec.tv_nsec / 1000000000.0);
-    return current_time;
+    const auto now = std::chrono::steady_clock::now().time_since_epoch();
+    return std::chrono::duration<double>(now).count();
 }
 
 long long getCurrentRealTime()
 {
-    struct timeval tv{};
-    gettimeofday(&tv, nullptr);
-    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    const auto now = std::chrono::system_clock::now().time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
 }
 }
 } // MORROWGUI
