@@ -808,14 +808,40 @@ Continuous update requested
 - 文档层与运行时实例化层拆分，纯文档测试不依赖 OpenGL/GLFW；
 - `SceneDocumentTests` 覆盖加载、资源声明、Asset ID、Scene Tree、Inspector、2D 选择、Gizmo、增删复制、命令合并、Ctrl+S、保存和重载。
 
-核心服务已完成，但以下仍属于 UI/平台接入工作：
+核心服务和 Editor Shell 已接入，整体布局参照 Godot 的工作台结构：
 
-- 将 Scene Tree 数据模型绘制成 Editor 停靠面板；
-- 将 Inspector 属性模型绘制成可编辑控件；
-- 将 `EditorInputRouter` 绑定到 Windows 窗口真实键盘事件；
-- 将 2D 命中和 Gizmo 操作绑定到视口鼠标拖拽；
-- 修改文档后自动重建 RuntimeInstance，而不是只在 Preview 启动时实例化一次；
-- 将 AssetDatabase 的导入器执行和派生 artifact 生成接入 Build/Import 队列。
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ Toolbar: Save / Undo / Redo / Project status                │
+├──────────────┬──────────────────────────────┬───────────────┤
+│ Scene Tree   │ 2D Viewport                  │ Inspector     │
+│              │ selection / gizmo            │ properties     │
+├──────────────┴──────────────────────────────┴───────────────┤
+│ Status / Import / Build output                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+已接入：
+
+- `EditorShell` 固定工作台布局；
+- Scene Tree 面板绘制和节点选择；
+- Inspector 属性列表绘制；
+- 保存、撤销、重做工具栏按钮；
+- Windows GLFW 键盘回调；
+- 现有 `InputEventsManager` 鼠标事件订阅；
+- 2D 矩形命中和鼠标拖动位置 Gizmo；
+- 文档命令成功后的 RuntimeInstance 清空和重建；
+- `ImportQueue`：按 AssetDatabase 生成 `.morrow/imported/<asset_id>/<platform>/` 派生 artifact；
+- `BuildQueue`：Configure/Build 任务接口。
+
+当前仍属于 UI/平台完善工作：
+
+- 将固定面板升级为可保存/可拖拽的真正 Dock 布局；
+- Inspector 从“点击回写当前值”升级为文本/数字/颜色等专用编辑控件；
+- 完善鼠标坐标缩放、视口平移、缩放、尺寸 Gizmo 和多选；
+- 将 BuildQueue 的 stdout/stderr、取消、进程状态和 Run 接入底部输出面板；
+- 将 ImportQueue 的增量哈希、导入器版本检查和失败重试接入资源面板；
+- 完整 `MorrowEditor.exe` 链接需要与仓库 GLFW 静态库匹配的 MinGW Windows 工具链。
 
 验收：
 

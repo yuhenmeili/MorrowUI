@@ -10,6 +10,7 @@
 #include "assets/AssetDatabase.h"
 #include "base/Transform.h"
 #include "elements/MRButton.h"
+#include "EditorShell.h"
 #include "scene/EditorSession.h"
 #include "scene/SceneDocument.h"
 #include "scene/SceneInstantiator.h"
@@ -150,8 +151,8 @@ public:
         engineOptions.multithread = false;
         engineOptions.enableRequestRender = false;
         engineOptions.windowInfo.name = "MorrowEditor Preview";
-        engineOptions.windowInfo.width = 1280;
-        engineOptions.windowInfo.height = 720;
+        engineOptions.windowInfo.width = 2560;
+        engineOptions.windowInfo.height = 1440;
 
         EngineSharedPtr engine = std::make_shared<morrow::Engine>(engineOptions);
         auto window = engine->getWindow();
@@ -161,29 +162,13 @@ public:
         engine->addFonts({fontInfo});
 
         if (std::filesystem::exists(m_options.scenePath)) {
-            editor::EditorSession session(m_options.scenePath);
             std::string error;
-            if (!session.load(error)) {
-                std::cerr << "Failed to load scene: " << error << "\n";
+            m_shell = std::make_shared<editor::EditorShell>(
+                window, engine, m_options.projectPath, m_options.scenePath,
+                readProjectAssetRoot(m_options.projectPath));
+            if (!m_shell->initialize(error)) {
+                std::cerr << "Failed to initialize editor shell: " << error << "\n";
                 return 3;
-            }
-            editor::AssetDatabase assets;
-            const auto assetRoot = readProjectAssetRoot(m_options.projectPath);
-            if (!assets.scan(m_options.projectPath.parent_path(), assetRoot, error)) {
-                std::cerr << "Asset scan failed: " << error << "\n";
-            } else {
-                std::cout << "  assets: " << assets.assets().size() << "\n";
-            }
-            if (!editor::SceneInstantiator::instantiate(session.document(), window, &assets, error)) {
-                std::cerr << "Failed to instantiate scene: " << error << "\n";
-                return 3;
-            }
-            std::cout << "  scene nodes: " << session.document().nodes().size() << "\n";
-            std::cout << "  scene tree items: " << session.model().buildSceneTree().size() << "\n";
-            if (!session.document().nodes().empty()) {
-                std::string selectionError;
-                session.selectNode(session.document().nodes().front().id, false, selectionError);
-                std::cout << "  inspector properties: " << session.model().inspectSelected().size() << "\n";
             }
         } else {
             auto button = MRButton::create();
@@ -201,6 +186,7 @@ public:
 
 private:
     EditorOptions m_options;
+    std::shared_ptr<editor::EditorShell> m_shell;
 };
 }  // namespace
 

@@ -4,13 +4,16 @@ add_library(morrow_editor_document STATIC
     scene/EditorSession.cpp
     commands/CommandHistory.cpp
     assets/AssetDatabase.cpp
+    assets/ImportQueue.cpp
     EditorInputRouter.cpp
+    build/BuildQueue.cpp
 )
 
 target_include_directories(morrow_editor_document PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(morrow_editor_runtime STATIC
     scene/SceneInstantiator.cpp
+    EditorShell.cpp
 )
 
 target_link_libraries(morrow_editor_runtime
