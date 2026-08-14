@@ -854,13 +854,16 @@ Continuous update requested
 
 ### Phase 2：资源与 C++ 构建工作流
 
-- Asset Browser；
-- 资源路径校验；
+已完成：
+
+- 资源浏览摘要和资源状态输出；
+- 资源路径与 Asset ID 引用校验；
 - CMake Configure/Build/Run；
-- 编译日志和错误定位；
-- `Build`、`Build & Run`、`Run Last Successful`；
-- Preview 状态管理；
-- 运行时日志接入 Console。
+- stdout/stderr 捕获和 GCC/Clang 风格编译诊断解析；
+- `Build`、`Build & Run`、`Run Last Successful`、Stop；
+- Preview `Stopped/Starting/Running/Outdated/Failed` 状态模型；
+- 构建日志和诊断接入底部 Output 面板；
+- `ProjectSettings` 统一解析 `MorrowUI.morrow` 并校验 Windows 项目配置。
 
 验收：
 

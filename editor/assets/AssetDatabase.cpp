@@ -217,4 +217,38 @@ std::filesystem::path AssetDatabase::resolveSourcePath(const std::string& assetI
     return asset ? m_projectRoot / asset->sourcePath : std::filesystem::path{};
 }
 
+bool AssetDatabase::validateSourcePath(const std::filesystem::path& sourcePath, std::string& error) const {
+    const auto normalized = sourcePath.lexically_normal();
+    if (normalized.is_absolute()) {
+        error = "asset path must stay inside the project: " + sourcePath.string();
+        return false;
+    }
+    const auto absolute = std::filesystem::weakly_canonical(m_projectRoot / normalized);
+    std::error_code relativeError;
+    const auto relativeToAssetRoot = std::filesystem::relative(absolute, m_assetRoot, relativeError);
+    if (relativeError || relativeToAssetRoot.empty() || relativeToAssetRoot == ".." ||
+        relativeToAssetRoot.string().rfind(".." + std::string(1, std::filesystem::path::preferred_separator), 0) == 0) {
+        error = "asset path is outside asset_root: " + sourcePath.string();
+        return false;
+    }
+    if (!std::filesystem::exists(absolute)) {
+        error = "asset source does not exist: " + sourcePath.string();
+        return false;
+    }
+    return true;
+}
+
+bool AssetDatabase::validateAssetReference(const std::string& assetId, std::string& error) const {
+    const auto asset = findById(assetId);
+    if (!asset) {
+        error = "unknown asset_id: " + assetId;
+        return false;
+    }
+    if (!asset->error.empty()) {
+        error = asset->error;
+        return false;
+    }
+    return true;
+}
+
 }  // namespace morrow::editor

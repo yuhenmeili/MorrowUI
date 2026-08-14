@@ -42,6 +42,10 @@ public:
 
     std::filesystem::path resolveSourcePath(const std::string& assetId) const;
 
+    bool validateSourcePath(const std::filesystem::path& sourcePath, std::string& error) const;
+
+    bool validateAssetReference(const std::string& assetId, std::string& error) const;
+
     static constexpr int currentImporterVersion() { return 1; }
 
 private:

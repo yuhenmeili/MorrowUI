@@ -13,6 +13,7 @@
 #include "assets/ImportQueue.h"
 #include "base/UIWidget.h"
 #include "build/BuildQueue.h"
+#include "ProjectSettings.h"
 #include "scene/EditorSession.h"
 #include "ui/DockLayout.h"
 #include "wgl/OpenglHeader.h"
@@ -26,6 +27,8 @@ class TouchEvent;
 }  // namespace morrow
 
 namespace morrow::editor {
+
+enum class PreviewState { Stopped, Starting, Running, Outdated, Failed };
 
 class EditorShell {
 public:
@@ -49,6 +52,10 @@ private:
     void refreshOutput();
     void runBuild(BuildTaskKind kind);
     void pollBuild();
+    void stopPreview();
+    void setPreviewState(PreviewState state);
+    void appendBuildResult(const BuildTaskResult& result);
+    void showAssetBrowser();
     void beginPropertyEdit(const std::string& property, const std::string& value);
     void commitPropertyEdit();
     void handleChar(unsigned int codepoint);
@@ -76,10 +83,16 @@ private:
     AssetDatabase m_assets;
     ImportQueue m_importQueue;
     BuildQueue m_buildQueue;
+    ProjectSettings m_project;
     DockLayout m_dockLayout;
     std::filesystem::path m_dockLayoutPath;
     std::vector<std::string> m_outputLines;
     std::future<BuildTaskResult> m_buildFuture;
+    BuildTaskKind m_pendingBuildKind = BuildTaskKind::Build;
+    std::filesystem::path m_lastSuccessfulExecutable;
+    PreviewState m_previewState = PreviewState::Stopped;
+    std::string m_stdoutRemainder;
+    std::string m_stderrRemainder;
     std::string m_inputObserver;
     std::string m_status;
     std::string m_selectedNodeId;

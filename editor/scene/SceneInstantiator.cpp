@@ -9,7 +9,6 @@
 #include "assets/AssetDatabase.h"
 #include "Vector3.h"
 #include "Vector4.h"
-#include "base/SceneNode.h"
 #include "base/Transform.h"
 #include "base/UIWidget.h"
 #include "elements/MRButton.h"
@@ -20,6 +19,13 @@ namespace {
 
 using morrow::Math::Vector3;
 using morrow::Math::Vector4;
+
+class SceneContainer2D final : public morrow::UIWidget {
+public:
+    SceneContainer2D() : UIWidget(false) {
+        setWidgetType("SceneNode");
+    }
+};
 
 std::string trim(const std::string& value) {
     const auto first = value.find_first_not_of(" \t\r\n");
@@ -64,7 +70,9 @@ std::wstring toWide(const std::string& value) {
 
 std::shared_ptr<morrow::Widget> createNode(const morrow::editor::SceneNodeRecord& record, std::string& error) {
     if (record.type == "SceneNode") {
-        return std::make_shared<morrow::SceneNode>();
+        // Phase 1 scenes are 2D editor documents. Use a non-rendering 2D
+        // container so UI descendants retain the normal Transform chain.
+        return std::make_shared<SceneContainer2D>();
     }
     if (record.type == "MRButton") {
         return morrow::MRButton::create();

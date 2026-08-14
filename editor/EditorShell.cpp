@@ -31,20 +31,6 @@ std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float
     return panel;
 }
 
-std::string readProjectProperty(const std::filesystem::path& projectPath, const std::string& name, const std::string& fallback) {
-    std::ifstream input(projectPath);
-    const std::string prefix = "property " + name + " = ";
-    std::string line;
-    while (std::getline(input, line)) {
-        if (line.rfind(prefix, 0) != 0)
-            continue;
-        auto value = line.substr(prefix.size());
-        if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
-            value = value.substr(1, value.size() - 2);
-        return value;
-    }
-    return fallback;
-}
 }  // namespace
 
 namespace morrow::editor {
@@ -76,6 +62,28 @@ void EditorShell::setStatus(const std::string& text) {
     refreshOutput();
 }
 
+void EditorShell::setPreviewState(PreviewState state) {
+    m_previewState = state;
+    const char* label = "Stopped";
+    switch (state) {
+        case PreviewState::Starting: label = "Starting"; break;
+        case PreviewState::Running: label = "Running"; break;
+        case PreviewState::Outdated: label = "Outdated"; break;
+        case PreviewState::Failed: label = "Failed"; break;
+        case PreviewState::Stopped: break;
+    }
+    setStatus(std::string("Preview: ") + label);
+}
+
+void EditorShell::stopPreview() {
+    if (m_buildFuture.valid() && m_buildFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+        m_buildQueue.cancel();
+        setStatus("Preview stop requested");
+    } else {
+        setPreviewState(PreviewState::Stopped);
+    }
+}
+
 void EditorShell::runImportQueue() {
     std::vector<ImportTaskResult> results;
     std::string error;
@@ -99,6 +107,8 @@ void EditorShell::runImportQueue() {
 void EditorShell::addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height) {
     auto label = std::make_shared<MRLabel>();
     label->setText(std::wstring(text.begin(), text.end()), "default");
+    label->setFontSize(16.0f);
+    label->setFontColor(1.0f, 1.0f, 1.0f, 1.0f);
     auto transform = label->getComponent<Transform>();
     transform->setPosition(x, y, 0.0f);
     transform->setSize(width, height);
@@ -109,6 +119,8 @@ std::shared_ptr<MRButton> EditorShell::addButton(const std::shared_ptr<UIWidget>
                                                  std::function<void()> callback) {
     auto button = MRButton::create();
     button->setText(text, "default");
+    button->setTextFontSize(16.0f);
+    button->setAutoWrap(false);
     button->setOnClickCallback(std::move(callback));
     auto transform = button->getComponent<Transform>();
     transform->setPosition(x, y, 0.0f);
@@ -172,12 +184,11 @@ void EditorShell::buildLayout() {
     });
     addButton(toolbar, L"Configure", 420.0f, 4.0f, 100.0f, 30.0f, [this] { runBuild(BuildTaskKind::Configure); });
     addButton(toolbar, L"Build", 526.0f, 4.0f, 80.0f, 30.0f, [this] { runBuild(BuildTaskKind::Build); });
-    addButton(toolbar, L"Run", 612.0f, 4.0f, 72.0f, 30.0f, [this] { runBuild(BuildTaskKind::Run); });
-    addButton(toolbar, L"Cancel", 690.0f, 4.0f, 82.0f, 30.0f, [this] {
-        m_buildQueue.cancel();
-        setStatus("Build cancellation requested");
-    });
-    addButton(toolbar, L"Import", 778.0f, 4.0f, 82.0f, 30.0f, [this] { runImportQueue(); });
+    addButton(toolbar, L"Build & Run", 612.0f, 4.0f, 112.0f, 30.0f, [this] { runBuild(BuildTaskKind::BuildAndRun); });
+    addButton(toolbar, L"Run Last", 730.0f, 4.0f, 92.0f, 30.0f, [this] { runBuild(BuildTaskKind::Run); });
+    addButton(toolbar, L"Stop", 828.0f, 4.0f, 72.0f, 30.0f, [this] { stopPreview(); });
+    addButton(toolbar, L"Import", 906.0f, 4.0f, 82.0f, 30.0f, [this] { runImportQueue(); });
+    addButton(toolbar, L"Assets", 994.0f, 4.0f, 82.0f, 30.0f, [this] { showAssetBrowser(); });
     addLabel(m_sceneTreePanel, "Scene", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_viewportPanel, "2D Viewport", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_inspectorPanel, "Inspector", 8.0f, 6.0f, 260.0f, 28.0f);
@@ -216,10 +227,10 @@ void EditorShell::refreshOutput() {
         return;
     m_statusPanel->m_children.clear();
     addLabel(m_statusPanel, "Output / Assets / Build", 8.0f, 2.0f, 360.0f, 22.0f);
-    float y = 24.0f;
+    float y = 26.0f;
     for (const auto& line : m_outputLines) {
-        addLabel(m_statusPanel, line, 8.0f, y, 1240.0f, 18.0f);
-        y += 18.0f;
+        addLabel(m_statusPanel, line, 8.0f, y, 1240.0f, 20.0f);
+        y += 21.0f;
     }
 }
 
@@ -228,30 +239,129 @@ void EditorShell::runBuild(BuildTaskKind kind) {
         setStatus("A build process is already running");
         return;
     }
-    const auto projectRoot = m_projectPath.parent_path();
-    const auto buildRoot = projectRoot / readProjectProperty(m_projectPath, "build_root", "build");
-    const auto target = readProjectProperty(m_projectPath, "preview_target", "MorrowEditor");
-    setStatus(kind == BuildTaskKind::Configure ? "Configure started" : (kind == BuildTaskKind::Build ? "Build started" : "Run started"));
+    const auto projectRoot = m_project.projectRoot();
+    const auto buildRoot = m_project.pathValue("build_root", "build");
+    const auto target = m_project.value("preview_target", "MorrowEditor");
+    const auto configuredExecutable = buildRoot / (target + ".exe");
+    if (m_lastSuccessfulExecutable.empty()) {
+        std::error_code searchError;
+        if (std::filesystem::exists(configuredExecutable))
+            m_lastSuccessfulExecutable = configuredExecutable;
+        else if (std::filesystem::exists(buildRoot)) {
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(buildRoot, searchError)) {
+                if (!searchError && entry.is_regular_file() && entry.path().filename() == target + ".exe") {
+                    m_lastSuccessfulExecutable = entry.path();
+                    break;
+                }
+            }
+        }
+    }
+    if (kind == BuildTaskKind::Run && !m_lastSuccessfulExecutable.empty() && std::filesystem::exists(m_lastSuccessfulExecutable))
+        setStatus("Run last successful started");
+    else if (kind == BuildTaskKind::Run)
+        setStatus("No successful preview executable; using configured target");
+    else
+        setStatus(kind == BuildTaskKind::Configure ? "Configure started" : (kind == BuildTaskKind::Build ? "Build started" : "Build & Run started"));
+    m_pendingBuildKind = kind;
+    if (kind == BuildTaskKind::Run || kind == BuildTaskKind::BuildAndRun)
+        setPreviewState(PreviewState::Starting);
     m_buildFuture = std::async(std::launch::async, [this, kind, projectRoot, buildRoot, target] {
         if (kind == BuildTaskKind::Configure)
             return m_buildQueue.configure(projectRoot, buildRoot);
         if (kind == BuildTaskKind::Build)
             return m_buildQueue.build(projectRoot, buildRoot, target);
-        auto executable = buildRoot / (target + ".exe");
+        if (kind == BuildTaskKind::BuildAndRun)
+            return m_buildQueue.buildAndRun(projectRoot, buildRoot, target);
+        auto executable = m_lastSuccessfulExecutable.empty() ? buildRoot / (target + ".exe") : m_lastSuccessfulExecutable;
         return m_buildQueue.runTarget(executable, executable.parent_path());
     });
 }
 
 void EditorShell::pollBuild() {
-    if (!m_buildFuture.valid() || m_buildFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+    for (const auto& chunk : m_buildQueue.drainOutput()) {
+        auto& remainder = chunk.stderrStream ? m_stderrRemainder : m_stdoutRemainder;
+        remainder += chunk.text;
+        size_t newline = 0;
+        while ((newline = remainder.find('\n')) != std::string::npos) {
+            auto line = remainder.substr(0, newline);
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            if (!line.empty())
+                m_outputLines.push_back(std::string(chunk.stderrStream ? "[stderr] " : "[stdout] ") + line);
+            remainder.erase(0, newline + 1);
+        }
+    }
+    while (m_outputLines.size() > 6)
+        m_outputLines.erase(m_outputLines.begin());
+    refreshOutput();
+
+    if (!m_buildFuture.valid())
+        return;
+    if (m_buildQueue.state() == BuildProcessState::Running &&
+        (m_pendingBuildKind == BuildTaskKind::Run || m_pendingBuildKind == BuildTaskKind::BuildAndRun) &&
+        m_previewState == PreviewState::Starting) {
+        m_previewState = PreviewState::Running;
+    }
+    if (m_buildFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
         return;
     const auto result = m_buildFuture.get();
-    std::istringstream output(result.output);
+    appendBuildResult(result);
+    if (result.success && (m_pendingBuildKind == BuildTaskKind::Build || m_pendingBuildKind == BuildTaskKind::BuildAndRun)) {
+        const auto buildRoot = m_project.pathValue("build_root", "build");
+        const auto target = m_project.value("preview_target", "MorrowEditor");
+        m_lastSuccessfulExecutable = buildRoot / (target + ".exe");
+        if (!std::filesystem::exists(m_lastSuccessfulExecutable)) {
+            std::error_code searchError;
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(buildRoot, searchError)) {
+                if (!searchError && entry.is_regular_file() && entry.path().filename() == target + ".exe") {
+                    m_lastSuccessfulExecutable = entry.path();
+                    break;
+                }
+            }
+        }
+        setPreviewState(m_pendingBuildKind == BuildTaskKind::BuildAndRun ? PreviewState::Stopped : PreviewState::Outdated);
+    } else if (m_pendingBuildKind == BuildTaskKind::Run || m_pendingBuildKind == BuildTaskKind::BuildAndRun) {
+        setPreviewState(result.cancelled ? PreviewState::Stopped : (result.success ? PreviewState::Stopped : PreviewState::Failed));
+    }
+    setStatus(result.cancelled ? "Process cancelled" : (result.success ? "Process succeeded, exit=" + std::to_string(result.exitCode) :
+                                                                 "Process failed, exit=" + std::to_string(result.exitCode)));
+}
+
+void EditorShell::appendBuildResult(const BuildTaskResult& result) {
+    std::istringstream stdoutStream(result.stdoutText);
     std::string line;
-    while (std::getline(output, line))
+    while (std::getline(stdoutStream, line))
         if (!line.empty())
-            setStatus(line);
-    setStatus(result.cancelled ? "Process cancelled" : (result.success ? "Process succeeded" : "Process failed, exit=" + std::to_string(result.exitCode)));
+            m_outputLines.push_back("[stdout] " + line);
+    std::istringstream stderrStream(result.stderrText);
+    while (std::getline(stderrStream, line))
+        if (!line.empty())
+            m_outputLines.push_back("[stderr] " + line);
+    for (const auto& diagnostic : result.diagnostics) {
+        m_outputLines.push_back(std::string(diagnostic.error ? "[error] " : "[warning] ") +
+                                diagnostic.file.string() + ":" + std::to_string(diagnostic.line) + ":" +
+                                std::to_string(diagnostic.column) + " " + diagnostic.message);
+    }
+    while (m_outputLines.size() > 6)
+        m_outputLines.erase(m_outputLines.begin());
+    refreshOutput();
+}
+
+void EditorShell::showAssetBrowser() {
+    setStatus("Assets: " + std::to_string(m_assets.assets().size()) + " scanned");
+    for (const auto& asset : m_assets.assets()) {
+        std::string line = "[asset] " + asset.sourcePath.string() + " (" + asset.type + ")";
+        if (!asset.error.empty())
+            line += " ERROR: " + asset.error;
+        else if (asset.needsImport)
+            line += " [import required]";
+        else
+            line += " [ready]";
+        m_outputLines.push_back(std::move(line));
+    }
+    while (m_outputLines.size() > 6)
+        m_outputLines.erase(m_outputLines.begin());
+    refreshOutput();
 }
 
 void EditorShell::refreshSceneTree() {
@@ -532,6 +642,8 @@ void EditorShell::charCallback(GLFWwindow* window, unsigned int codepoint) {
 }
 
 bool EditorShell::initialize(std::string& error) {
+    if (!m_project.load(m_projectPath, error))
+        return false;
     if (!m_session->load(error))
         return false;
     if (!m_assets.scan(m_projectPath.parent_path(), m_assetRoot, error)) {

@@ -7,6 +7,7 @@
 #include "EditorInputRouter.h"
 #include "assets/AssetDatabase.h"
 #include "assets/ImportQueue.h"
+#include "ProjectSettings.h"
 #include "ui/DockLayout.h"
 #include "commands/CommandHistory.h"
 #include "scene/EditorSession.h"
@@ -164,6 +165,37 @@ int main() {
                  "asset type detection")) {
         return 1;
     }
+    if (!require(assets.validateSourcePath("assets/textures/button.png", error),
+                 "valid asset path: " + error)) {
+        return 1;
+    }
+    if (!require(!assets.validateSourcePath("../outside.png", error),
+                 "reject asset path outside project")) {
+        return 1;
+    }
+    if (!require(assets.validateAssetReference("asset_test_texture", error),
+                 "valid asset reference: " + error)) {
+        return 1;
+    }
+    if (!require(!assets.validateAssetReference("missing_asset", error),
+                 "reject missing asset reference")) {
+        return 1;
+    }
+
+    const auto projectFile = temporaryDirectory / "MorrowUI.morrow";
+    {
+        std::ofstream project(projectFile);
+        project << "[morrow_project format=1]\n"
+                << "property name = \"Test\"\n"
+                << "property asset_root = \"assets\"\n"
+                << "property build_root = \"build\"\n"
+                << "property preview_target = \"Preview\"\n"
+                << "property platform = \"windows\"\n";
+    }
+    morrow::editor::ProjectSettings settings;
+    if (!require(settings.load(projectFile, error), "project settings load: " + error)) return 1;
+    if (!require(settings.value("preview_target") == "Preview", "project target")) return 1;
+    if (!require(settings.pathValue("build_root") == temporaryDirectory / "build", "project build path")) return 1;
     if (!require(assets.findById("asset_test_texture")->needsImport,
                  "changed source hash requires import")) {
         return 1;
