@@ -836,12 +836,14 @@ Continuous update requested
 
 当前仍属于 UI/平台完善工作：
 
-- 将固定面板升级为可保存/可拖拽的真正 Dock 布局；
-- Inspector 从“点击回写当前值”升级为文本/数字/颜色等专用编辑控件；
-- 完善鼠标坐标缩放、视口平移、缩放、尺寸 Gizmo 和多选；
-- 将 BuildQueue 的 stdout/stderr、取消、进程状态和 Run 接入底部输出面板；
-- 将 ImportQueue 的增量哈希、导入器版本检查和失败重试接入资源面板；
-- 完整 `MorrowEditor.exe` 链接需要与仓库 GLFW 静态库匹配的 MinGW Windows 工具链。
+已完成：
+
+- `DockLayout` 保存到项目 `.morrow/editor.layout`，支持面板拖拽后的坐标恢复；
+- Inspector 支持 bool 切换、数字步进、文本/向量/颜色文本编辑和多选混合值；
+- 视口使用面板局部坐标，支持滚轮缩放、中键平移、位置/尺寸 Gizmo 和 Ctrl 多选；
+- BuildQueue 捕获 stdout/stderr，支持 Configure/Build/Run、取消和进程状态，结果显示在底部输出面板；
+- ImportQueue 支持源文件增量哈希、导入器版本失效检查、跳过未变资源和失败重试；
+- 增加 `cmake/toolchains/MinGW-GLFW.cmake`，完整链接使用与仓库 `libs/GLFW/libglfw3.a` 匹配的 MinGW 工具链。
 
 验收：
 

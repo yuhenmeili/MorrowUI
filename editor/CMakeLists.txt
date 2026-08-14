@@ -6,6 +6,7 @@ add_library(morrow_editor_document STATIC
     assets/AssetDatabase.cpp
     assets/ImportQueue.cpp
     EditorInputRouter.cpp
+    ui/DockLayout.cpp
     build/BuildQueue.cpp
 )
 

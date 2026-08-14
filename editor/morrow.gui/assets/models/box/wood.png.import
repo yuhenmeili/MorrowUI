@@ -2,7 +2,7 @@
 format = 1
 asset_id = "asset_box_wood"
 importer = "morrow.texture"
-source_hash = "phase1-test"
+source_hash = "b55dbe12f002fd45"
 importer_version = 1
 
 [options]

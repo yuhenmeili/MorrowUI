@@ -28,7 +28,7 @@ public:
 
     bool selectNode(const std::string& nodeId, bool additive, std::string& error);
 
-    bool selectAt(float x, float y, std::string& error);
+    bool selectAt(float x, float y, std::string& error, bool additive = false);
 
     bool setProperty(const std::string& nodeId, const std::string& property, std::string value, bool continuous, std::string& error);
 
@@ -43,6 +43,8 @@ public:
     bool moveGizmo(const std::string& nodeId, float x, float y, float z, bool continuous, std::string& error);
 
     bool resizeGizmo(const std::string& nodeId, float width, float height, bool continuous, std::string& error);
+
+    bool moveSelection(float dx, float dy, bool continuous, std::string& error);
 
     bool undo(std::string& error);
 

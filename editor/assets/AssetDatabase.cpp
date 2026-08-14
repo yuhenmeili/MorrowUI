@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_set>
+#include <iomanip>
 
 namespace {
 
@@ -63,6 +64,23 @@ std::string extensionType(const std::filesystem::path& path) {
     return "Unknown";
 }
 
+std::string fileHash(const std::filesystem::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input.is_open())
+        return {};
+    uint64_t hash = 1469598103934665603ull;
+    char buffer[8192];
+    while (input.read(buffer, sizeof(buffer)) || input.gcount() > 0) {
+        for (std::streamsize i = 0; i < input.gcount(); ++i) {
+            hash ^= static_cast<unsigned char>(buffer[i]);
+            hash *= 1099511628211ull;
+        }
+    }
+    std::ostringstream output;
+    output << std::hex << std::setw(16) << std::setfill('0') << hash;
+    return output.str();
+}
+
 bool isImportable(const std::filesystem::path& path) {
     return extensionType(path) != "Unknown";
 }
@@ -114,6 +132,11 @@ bool AssetDatabase::scan(const std::filesystem::path& projectRoot, const std::fi
         } else if (!assetIds.insert(asset.assetId).second) {
             asset.error = "duplicate asset_id: " + asset.assetId;
             asset.imported = false;
+        }
+        if (asset.imported) {
+            const auto sourceHash = fileHash(entry.path());
+            asset.needsImport = sourceHash.empty() || sourceHash != asset.import.sourceHash ||
+                                asset.import.importerVersion != currentImporterVersion();
         }
         m_assets.push_back(std::move(asset));
     }

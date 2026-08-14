@@ -21,6 +21,7 @@ struct InspectorProperty {
     std::string value;
     std::string type;
     bool editable = true;
+    bool mixed = false;
 };
 
 struct SelectionState {
@@ -37,7 +38,11 @@ public:
 
     bool selectNode(const std::string& nodeId, bool additive, std::string& error);
 
+    void clearSelection();
+
     const SelectionState& selection() const;
+
+    bool selectedRect(float& x, float& y, float& width, float& height) const;
 
     std::vector<InspectorProperty> inspectSelected() const;
 

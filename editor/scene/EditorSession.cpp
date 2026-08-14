@@ -82,7 +82,7 @@ bool EditorSession::selectNode(const std::string& nodeId, bool additive, std::st
     return m_model.selectNode(nodeId, additive, error);
 }
 
-bool EditorSession::selectAt(float x, float y, std::string& error) {
+bool EditorSession::selectAt(float x, float y, std::string& error, bool additive) {
     const auto& nodes = m_document.nodes();
     for (auto iterator = nodes.rbegin(); iterator != nodes.rend(); ++iterator) {
         const auto position = iterator->properties.find("position");
@@ -97,11 +97,29 @@ bool EditorSession::selectAt(float x, float y, std::string& error) {
             continue;
         }
         if (x >= positionValues[0] && y >= positionValues[1] && x <= positionValues[0] + sizeValues[0] && y <= positionValues[1] + sizeValues[1]) {
-            return m_model.selectNode(iterator->id, false, error);
+            return m_model.selectNode(iterator->id, additive, error);
         }
     }
     error = "no selectable 2D node at the requested position";
     return false;
+}
+
+bool EditorSession::moveSelection(float dx, float dy, bool continuous, std::string& error) {
+    bool changed = false;
+    const auto selected = m_model.selection().nodeIds;
+    for (const auto& nodeId : selected) {
+        const auto node = m_document.findNode(nodeId);
+        if (!node)
+            continue;
+        const auto position = node->properties.find("position");
+        std::vector<float> values;
+        if (position == node->properties.end() || !parseVector(position->second, "Vector3", values) || values.size() != 3)
+            continue;
+        if (!moveGizmo(nodeId, values[0] + dx, values[1] + dy, values[2], continuous, error))
+            return false;
+        changed = true;
+    }
+    return changed;
 }
 
 bool EditorSession::setProperty(const std::string& nodeId, const std::string& property, std::string value, bool continuous, std::string& error) {

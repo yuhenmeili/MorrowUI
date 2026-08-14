@@ -1,6 +1,9 @@
 #include "EditorShell.h"
 
 #include <algorithm>
+#include <chrono>
+#include <fstream>
+#include <sstream>
 #include <utility>
 
 #include "Engine.h"
@@ -27,6 +30,21 @@ std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float
     transform->setSize(width, height);
     return panel;
 }
+
+std::string readProjectProperty(const std::filesystem::path& projectPath, const std::string& name, const std::string& fallback) {
+    std::ifstream input(projectPath);
+    const std::string prefix = "property " + name + " = ";
+    std::string line;
+    while (std::getline(input, line)) {
+        if (line.rfind(prefix, 0) != 0)
+            continue;
+        auto value = line.substr(prefix.size());
+        if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+            value = value.substr(1, value.size() - 2);
+        return value;
+    }
+    return fallback;
+}
 }  // namespace
 
 namespace morrow::editor {
@@ -34,10 +52,12 @@ namespace morrow::editor {
 EditorShell::EditorShell(const std::shared_ptr<Window>& window, const std::shared_ptr<Engine>& engine, std::filesystem::path projectPath, std::filesystem::path scenePath,
                          std::filesystem::path assetRoot) :
     m_window(window), m_engine(engine), m_projectPath(std::move(projectPath)), m_scenePath(std::move(scenePath)), m_assetRoot(std::move(assetRoot)),
-    m_session(std::make_shared<EditorSession>(m_scenePath)) {
+    m_session(std::make_shared<EditorSession>(m_scenePath)), m_dockLayoutPath(m_projectPath.parent_path() / ".morrow" / "editor.layout") {
 }
 
 EditorShell::~EditorShell() {
+    if (m_buildFuture.valid())
+        m_buildFuture.wait();
     if (!m_inputObserver.empty() && m_engine && m_engine->getFrameState() && m_engine->getFrameState()->inputEventsManager) {
         m_engine->getFrameState()->inputEventsManager->getInputEventsDispatcher().remove(m_inputObserver);
     }
@@ -50,20 +70,30 @@ EditorShell::~EditorShell() {
 
 void EditorShell::setStatus(const std::string& text) {
     m_status = text;
-    if (m_statusPanel) {
-        m_statusPanel->m_children.clear();
-        addLabel(m_statusPanel, text, 8.0f, 4.0f, 1200.0f, 24.0f);
-    }
+    m_outputLines.push_back(text);
+    if (m_outputLines.size() > 6)
+        m_outputLines.erase(m_outputLines.begin());
+    refreshOutput();
 }
 
 void EditorShell::runImportQueue() {
     std::vector<ImportTaskResult> results;
     std::string error;
-    if (!m_importQueue.importAll(m_assets, m_projectPath.parent_path(), "windows", results, error)) {
-        setStatus("Import failed: " + error);
-        return;
+    const bool success = m_importQueue.importAll(m_assets, m_projectPath.parent_path(), "windows", results, error);
+    size_t imported = 0;
+    size_t skipped = 0;
+    size_t failed = 0;
+    for (const auto& result : results) {
+        if (!result.success)
+            ++failed;
+        else if (result.skipped)
+            ++skipped;
+        else
+            ++imported;
     }
-    setStatus("Imported " + std::to_string(results.size()) + " assets");
+    setStatus("Assets: imported=" + std::to_string(imported) + " unchanged=" + std::to_string(skipped) + " failed=" + std::to_string(failed));
+    if (!success && !error.empty())
+        setStatus("Import failed: " + error);
 }
 
 void EditorShell::addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height) {
@@ -93,12 +123,17 @@ void EditorShell::buildLayout() {
     m_shellRoot->getTransform()->setPosition(0.0f, 0.0f, 100.0f);
     m_shellRoot->getTransform()->setSize(1280.0f, 720.0f);
 
+    m_dockLayout = DockLayout::defaultLayout(1280.0f, 720.0f);
+    std::string layoutError;
+    if (std::filesystem::exists(m_dockLayoutPath))
+        m_dockLayout.load(m_dockLayoutPath, layoutError);
+
     auto toolbar = makePanel(0.0f, 0.0f, 1280.0f, 40.0f);
-    m_sceneTreePanel = makePanel(0.0f, 40.0f, 240.0f, 620.0f);
-    m_viewportPanel = makePanel(240.0f, 40.0f, 740.0f, 620.0f);
-    m_inspectorPanel = makePanel(980.0f, 40.0f, 300.0f, 620.0f);
-    m_statusPanel = makePanel(0.0f, 660.0f, 1280.0f, 60.0f);
-    m_previewRoot = makePanel(0.0f, 0.0f, 740.0f, 620.0f);
+    m_sceneTreePanel = makePanel(0.0f, 40.0f, 240.0f, 570.0f);
+    m_viewportPanel = makePanel(240.0f, 40.0f, 740.0f, 570.0f);
+    m_inspectorPanel = makePanel(980.0f, 40.0f, 300.0f, 570.0f);
+    m_statusPanel = makePanel(0.0f, 610.0f, 1280.0f, 110.0f);
+    m_previewRoot = makePanel(0.0f, 32.0f, 740.0f, 538.0f);
     m_previewRoot->setWidgetName("PreviewRoot");
 
     m_shellRoot->addChild(toolbar);
@@ -135,10 +170,88 @@ void EditorShell::buildLayout() {
         }
         setStatus(error.empty() ? "Redo" : error);
     });
+    addButton(toolbar, L"Configure", 420.0f, 4.0f, 100.0f, 30.0f, [this] { runBuild(BuildTaskKind::Configure); });
+    addButton(toolbar, L"Build", 526.0f, 4.0f, 80.0f, 30.0f, [this] { runBuild(BuildTaskKind::Build); });
+    addButton(toolbar, L"Run", 612.0f, 4.0f, 72.0f, 30.0f, [this] { runBuild(BuildTaskKind::Run); });
+    addButton(toolbar, L"Cancel", 690.0f, 4.0f, 82.0f, 30.0f, [this] {
+        m_buildQueue.cancel();
+        setStatus("Build cancellation requested");
+    });
+    addButton(toolbar, L"Import", 778.0f, 4.0f, 82.0f, 30.0f, [this] { runImportQueue(); });
     addLabel(m_sceneTreePanel, "Scene", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_viewportPanel, "2D Viewport", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_inspectorPanel, "Inspector", 8.0f, 6.0f, 260.0f, 28.0f);
-    addLabel(m_statusPanel, "Ready", 8.0f, 4.0f, 1200.0f, 24.0f);
+    applyDockLayout();
+    refreshOutput();
+}
+
+void EditorShell::applyDockLayout() {
+    const auto apply = [](const std::shared_ptr<UIWidget>& widget, const DockPanelState* panel) {
+        if (!widget || !panel)
+            return;
+        widget->getTransform()->setPosition(panel->x, panel->y, 0.0f);
+        widget->getTransform()->setSize(panel->width, panel->height);
+    };
+    apply(m_sceneTreePanel, m_dockLayout.find("scene_tree"));
+    apply(m_viewportPanel, m_dockLayout.find("viewport"));
+    apply(m_inspectorPanel, m_dockLayout.find("inspector"));
+    apply(m_statusPanel, m_dockLayout.find("output"));
+    if (const auto* viewport = m_dockLayout.find("viewport")) {
+        m_viewportX = viewport->x;
+        m_viewportY = viewport->y;
+        m_viewportWidth = viewport->width;
+        m_viewportHeight = viewport->height;
+        m_previewRoot->getTransform()->setSize(viewport->width, std::max(1.0f, viewport->height - 32.0f));
+    }
+}
+
+void EditorShell::saveDockLayout() {
+    std::string error;
+    if (!m_dockLayout.save(m_dockLayoutPath, error))
+        setStatus(error);
+}
+
+void EditorShell::refreshOutput() {
+    if (!m_statusPanel)
+        return;
+    m_statusPanel->m_children.clear();
+    addLabel(m_statusPanel, "Output / Assets / Build", 8.0f, 2.0f, 360.0f, 22.0f);
+    float y = 24.0f;
+    for (const auto& line : m_outputLines) {
+        addLabel(m_statusPanel, line, 8.0f, y, 1240.0f, 18.0f);
+        y += 18.0f;
+    }
+}
+
+void EditorShell::runBuild(BuildTaskKind kind) {
+    if (m_buildFuture.valid() && m_buildFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+        setStatus("A build process is already running");
+        return;
+    }
+    const auto projectRoot = m_projectPath.parent_path();
+    const auto buildRoot = projectRoot / readProjectProperty(m_projectPath, "build_root", "build");
+    const auto target = readProjectProperty(m_projectPath, "preview_target", "MorrowEditor");
+    setStatus(kind == BuildTaskKind::Configure ? "Configure started" : (kind == BuildTaskKind::Build ? "Build started" : "Run started"));
+    m_buildFuture = std::async(std::launch::async, [this, kind, projectRoot, buildRoot, target] {
+        if (kind == BuildTaskKind::Configure)
+            return m_buildQueue.configure(projectRoot, buildRoot);
+        if (kind == BuildTaskKind::Build)
+            return m_buildQueue.build(projectRoot, buildRoot, target);
+        auto executable = buildRoot / (target + ".exe");
+        return m_buildQueue.runTarget(executable, executable.parent_path());
+    });
+}
+
+void EditorShell::pollBuild() {
+    if (!m_buildFuture.valid() || m_buildFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+        return;
+    const auto result = m_buildFuture.get();
+    std::istringstream output(result.output);
+    std::string line;
+    while (std::getline(output, line))
+        if (!line.empty())
+            setStatus(line);
+    setStatus(result.cancelled ? "Process cancelled" : (result.success ? "Process succeeded" : "Process failed, exit=" + std::to_string(result.exitCode)));
 }
 
 void EditorShell::refreshSceneTree() {
@@ -175,14 +288,73 @@ void EditorShell::refreshInspector() {
     for (const auto& property : m_session->model().inspectSelected()) {
         addLabel(m_inspectorPanel, property.name + " [" + property.type + "]", 8.0f, y, 280.0f, 22.0f);
         y += 24.0f;
-        addButton(m_inspectorPanel, std::wstring(property.value.begin(), property.value.end()), 8.0f, y, 280.0f, 30.0f, [this, property] {
-            std::string error;
-            m_session->setProperty(m_selectedNodeId, property.name, property.value, false, error);
-            setStatus(error.empty() ? "Property applied" : error);
-            rebuildRuntime();
-        });
+        if (property.type == "bool" && !property.mixed) {
+            addButton(m_inspectorPanel, property.value == "true" ? L"[x] true" : L"[ ] false", 8.0f, y, 280.0f, 30.0f, [this, property] {
+                m_editProperty = property.name;
+                m_editValue = property.value == "true" ? "false" : "true";
+                commitPropertyEdit();
+            });
+        } else if (property.type == "number" && !property.mixed) {
+            addButton(m_inspectorPanel, L"-", 8.0f, y, 36.0f, 30.0f, [this, property] {
+                try {
+                    m_editProperty = property.name;
+                    m_editValue = std::to_string(std::stof(property.value) - 1.0f);
+                    commitPropertyEdit();
+                } catch (...) { setStatus("Invalid numeric property"); }
+            });
+            addButton(m_inspectorPanel, std::wstring(property.value.begin(), property.value.end()), 48.0f, y, 196.0f, 30.0f,
+                      [this, property] { beginPropertyEdit(property.name, property.value); });
+            addButton(m_inspectorPanel, L"+", 248.0f, y, 40.0f, 30.0f, [this, property] {
+                try {
+                    m_editProperty = property.name;
+                    m_editValue = std::to_string(std::stof(property.value) + 1.0f);
+                    commitPropertyEdit();
+                } catch (...) { setStatus("Invalid numeric property"); }
+            });
+        } else {
+            std::wstring value(property.value.begin(), property.value.end());
+            if (property.type == "Color")
+                value = L"\u25a0 " + value;
+            addButton(m_inspectorPanel, value, 8.0f, y, 280.0f, 30.0f, [this, property] {
+                beginPropertyEdit(property.name, property.mixed ? std::string{} : property.value);
+            });
+        }
         y += 36.0f;
     }
+}
+
+void EditorShell::beginPropertyEdit(const std::string& property, const std::string& value) {
+    m_editProperty = property;
+    m_editValue = value;
+    setStatus("Editing " + property + ": type a value and press Enter");
+}
+
+void EditorShell::commitPropertyEdit() {
+    if (m_editProperty.empty())
+        return;
+    std::string error;
+    bool changed = false;
+    for (const auto& nodeId : m_session->model().selection().nodeIds) {
+        if (!m_session->setProperty(nodeId, m_editProperty, m_editValue, false, error))
+            break;
+        changed = true;
+    }
+    if (changed) {
+        rebuildRuntime();
+        refreshInspector();
+        setStatus("Applied " + m_editProperty + " = " + m_editValue);
+    } else if (!error.empty()) {
+        setStatus(error);
+    }
+    m_editProperty.clear();
+    m_editValue.clear();
+}
+
+void EditorShell::handleChar(unsigned int codepoint) {
+    if (m_editProperty.empty() || codepoint < 32 || codepoint > 126)
+        return;
+    m_editValue.push_back(static_cast<char>(codepoint));
+    setStatus("Editing " + m_editProperty + ": " + m_editValue);
 }
 
 void EditorShell::rebuildRuntime() {
@@ -196,61 +368,137 @@ void EditorShell::rebuildRuntime() {
 }
 
 void EditorShell::handleViewportPointer(const TouchEvent& event) {
-    const float x = event.positionX - m_viewportX;
-    const float y = event.positionY - m_viewportY;
-    if (x < 0.0f || y < 32.0f || x > m_viewportWidth || y > m_viewportHeight)
+    const float panelX = event.positionX - m_viewportX;
+    const float panelY = event.positionY - m_viewportY;
+    const float x = (panelX - m_viewPanX) / m_viewZoom;
+    const float y = (panelY - 32.0f - m_viewPanY) / m_viewZoom;
+    if (panelX < 0.0f || panelY < 32.0f || panelX > m_viewportWidth || panelY > m_viewportHeight)
         return;
+    if (event.eventType == TOUCH_EVENT_TYPE_WHEEL) {
+        const float oldZoom = m_viewZoom;
+        m_viewZoom = std::clamp(m_viewZoom * (event.wheelDeltaY > 0.0f ? 1.1f : 0.9f), 0.2f, 5.0f);
+        m_viewPanX = panelX - x * m_viewZoom;
+        m_viewPanY = panelY - 32.0f - y * m_viewZoom;
+        m_previewRoot->getTransform()->setPosition(m_viewPanX, 32.0f + m_viewPanY, 0.0f);
+        m_previewRoot->getTransform()->setScale(m_viewZoom, m_viewZoom, 1.0f);
+        setStatus("Viewport zoom " + std::to_string(m_viewZoom) + " (was " + std::to_string(oldZoom) + ")");
+        return;
+    }
+    if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_MIDDLE) {
+        m_panning = true;
+        m_lastPointerX = panelX;
+        m_lastPointerY = panelY;
+        return;
+    }
+    if (event.eventType == TOUCH_EVENT_TYPE_MOVE && m_panning) {
+        m_viewPanX += panelX - m_lastPointerX;
+        m_viewPanY += panelY - m_lastPointerY;
+        m_lastPointerX = panelX;
+        m_lastPointerY = panelY;
+        m_previewRoot->getTransform()->setPosition(m_viewPanX, 32.0f + m_viewPanY, 0.0f);
+        return;
+    }
     if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_LEFT) {
         std::string error;
-        if (m_session->selectAt(x, y - 32.0f, error)) {
-            m_selectedNodeId = m_session->model().selection().nodeIds.front();
-            m_dragging = true;
-            m_lastPointerX = x;
-            m_lastPointerY = y;
+        const bool additive = (event.modifiers & TOUCH_MODIFIER_CTRL) != 0;
+        if (m_session->selectAt(x, y, error, additive)) {
+            m_selectedNodeId = m_session->model().selection().nodeIds.back();
+            float nodeX = 0.0f;
+            float nodeY = 0.0f;
+            float nodeWidth = 0.0f;
+            float nodeHeight = 0.0f;
+            m_resizing = m_session->model().selectedRect(nodeX, nodeY, nodeWidth, nodeHeight) &&
+                         x >= nodeX + nodeWidth - 12.0f && y >= nodeY + nodeHeight - 12.0f;
+            m_dragging = !m_resizing;
+            m_lastPointerX = panelX;
+            m_lastPointerY = panelY;
             refreshInspector();
         }
-    } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && m_dragging && !m_selectedNodeId.empty()) {
-        const auto node = m_session->document().findNode(m_selectedNodeId);
-        if (!node)
+    } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && m_resizing && !m_selectedNodeId.empty()) {
+        float nodeX = 0.0f;
+        float nodeY = 0.0f;
+        float nodeWidth = 0.0f;
+        float nodeHeight = 0.0f;
+        if (!m_session->model().selectedRect(nodeX, nodeY, nodeWidth, nodeHeight))
             return;
-        const auto property = node->properties.find("position");
-        if (property == node->properties.end())
-            return;
-        float dx = x - m_lastPointerX;
-        float dy = y - m_lastPointerY;
+        const float dx = (panelX - m_lastPointerX) / m_viewZoom;
+        const float dy = (panelY - m_lastPointerY) / m_viewZoom;
         std::string error;
-        std::vector<float> values;
-        const auto body = property->second.substr(property->second.find('(') + 1, property->second.size() - property->second.find('(') - 2);
-        size_t start = 0;
-        while (start <= body.size()) {
-            auto separator = body.find(',', start);
-            try {
-                values.push_back(std::stof(body.substr(start, separator - start)));
-            } catch (...) {
-                return;
-            }
-            if (separator == std::string::npos)
-                break;
-            start = separator + 1;
-        }
-        if (values.size() == 3 && m_session->moveGizmo(m_selectedNodeId, values[0] + dx, values[1] + dy, values[2], true, error)) {
+        if (m_session->resizeGizmo(m_selectedNodeId, std::max(1.0f, nodeWidth + dx), std::max(1.0f, nodeHeight + dy), true, error)) {
             rebuildRuntime();
-            m_lastPointerX = x;
-            m_lastPointerY = y;
+            m_lastPointerX = panelX;
+            m_lastPointerY = panelY;
+        }
+    } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && m_dragging && !m_selectedNodeId.empty()) {
+        float dx = (panelX - m_lastPointerX) / m_viewZoom;
+        float dy = (panelY - m_lastPointerY) / m_viewZoom;
+        std::string error;
+        if (m_session->moveSelection(dx, dy, true, error)) {
+            rebuildRuntime();
+            m_lastPointerX = panelX;
+            m_lastPointerY = panelY;
         }
     } else if (event.eventType == TOUCH_EVENT_TYPE_RELEASE) {
         m_dragging = false;
+        m_resizing = false;
+        m_panning = false;
     }
 }
 
+bool EditorShell::handleDockPointer(const TouchEvent& event) {
+    if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_RIGHT) {
+        for (auto& panel : m_dockLayout.panels()) {
+            if (event.positionX >= panel.x && event.positionX <= panel.x + panel.width && event.positionY >= panel.y &&
+                event.positionY <= panel.y + 28.0f) {
+                m_draggedDockPanel = panel.id;
+                m_dockDragOffsetX = event.positionX - panel.x;
+                m_dockDragOffsetY = event.positionY - panel.y;
+                return true;
+            }
+        }
+    } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && !m_draggedDockPanel.empty()) {
+        if (auto* panel = m_dockLayout.find(m_draggedDockPanel)) {
+            panel->x = std::max(0.0f, event.positionX - m_dockDragOffsetX);
+            panel->y = std::max(40.0f, event.positionY - m_dockDragOffsetY);
+            applyDockLayout();
+        }
+        return true;
+    } else if (event.eventType == TOUCH_EVENT_TYPE_RELEASE && !m_draggedDockPanel.empty()) {
+        m_draggedDockPanel.clear();
+        saveDockLayout();
+        return true;
+    }
+    return false;
+}
+
 void EditorShell::handleInput(std::vector<TouchEvent>& events) {
-    for (const auto& event : events)
-        handleViewportPointer(event);
+    pollBuild();
+    for (const auto& event : events) {
+        if (!handleDockPointer(event))
+            handleViewportPointer(event);
+    }
 }
 
 void EditorShell::handleKey(int key, int action, int mods) {
     if (action != GLFW_PRESS && action != GLFW_REPEAT)
         return;
+    if (!m_editProperty.empty()) {
+        if (key == GLFW_KEY_ENTER) {
+            commitPropertyEdit();
+            return;
+        }
+        if (key == GLFW_KEY_ESCAPE) {
+            m_editProperty.clear();
+            m_editValue.clear();
+            setStatus("Property edit cancelled");
+            return;
+        }
+        if (key == GLFW_KEY_BACKSPACE && !m_editValue.empty()) {
+            m_editValue.pop_back();
+            setStatus("Editing " + m_editProperty + ": " + m_editValue);
+            return;
+        }
+    }
     char command = 0;
     if (key == GLFW_KEY_S)
         command = 's';
@@ -277,6 +525,12 @@ void EditorShell::keyCallback(GLFWwindow* window, int key, int, int action, int 
     }
 }
 
+void EditorShell::charCallback(GLFWwindow* window, unsigned int codepoint) {
+    const auto iterator = shells().find(window);
+    if (iterator != shells().end() && iterator->second)
+        iterator->second->handleChar(codepoint);
+}
+
 bool EditorShell::initialize(std::string& error) {
     if (!m_session->load(error))
         return false;
@@ -292,6 +546,7 @@ bool EditorShell::initialize(std::string& error) {
         if (glfwWindow) {
             shells()[glfwWindow] = this;
             glfwSetKeyCallback(glfwWindow, keyCallback);
+            glfwSetCharCallback(glfwWindow, charCallback);
         }
     }
     if (m_engine && m_engine->getFrameState() && m_engine->getFrameState()->inputEventsManager) {

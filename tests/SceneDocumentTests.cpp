@@ -6,6 +6,8 @@
 
 #include "EditorInputRouter.h"
 #include "assets/AssetDatabase.h"
+#include "assets/ImportQueue.h"
+#include "ui/DockLayout.h"
 #include "commands/CommandHistory.h"
 #include "scene/EditorSession.h"
 #include "scene/SceneDocument.h"
@@ -162,6 +164,39 @@ int main() {
                  "asset type detection")) {
         return 1;
     }
+    if (!require(assets.findById("asset_test_texture")->needsImport,
+                 "changed source hash requires import")) {
+        return 1;
+    }
+    morrow::editor::ImportQueue importQueue;
+    std::vector<morrow::editor::ImportTaskResult> importResults;
+    if (!require(importQueue.importAll(assets, temporaryDirectory, "windows", importResults, error),
+                 "incremental import: " + error)) {
+        return 1;
+    }
+    if (!require(importResults.size() == 1 && importResults[0].success && importResults[0].attempts == 1,
+                 "import result")) {
+        return 1;
+    }
+    morrow::editor::AssetDatabase rescannedAssets;
+    if (!require(rescannedAssets.scan(temporaryDirectory, "assets", error),
+                 "rescan imported asset: " + error)) {
+        return 1;
+    }
+    importResults.clear();
+    if (!require(importQueue.importAll(rescannedAssets, temporaryDirectory, "windows", importResults, error),
+                 "skip unchanged import: " + error)) {
+        return 1;
+    }
+    if (!require(importResults[0].skipped, "unchanged asset is skipped")) return 1;
+
+    auto dock = morrow::editor::DockLayout::defaultLayout(1280.0f, 720.0f);
+    const auto dockPath = temporaryDirectory / ".morrow" / "editor.layout";
+    if (!require(dock.save(dockPath, error), "save dock layout: " + error)) return 1;
+    morrow::editor::DockLayout loadedDock;
+    if (!require(loadedDock.load(dockPath, error), "load dock layout: " + error)) return 1;
+    if (!require(loadedDock.find("viewport") != nullptr && loadedDock.find("viewport")->width == 740.0f,
+                 "dock layout persistence")) return 1;
 
     const auto sessionScene = temporaryDirectory / "session.scene";
     {
@@ -184,8 +219,16 @@ int main() {
                  "scene tree selection: " + error)) {
         return 1;
     }
+    if (!require(session.selectNode("root", true, error),
+                 "multi selection: " + error)) {
+        return 1;
+    }
     if (!require(session.model().inspectSelected().size() == 3,
                  "inspector property count")) {
+        return 1;
+    }
+    if (!require(session.model().inspectSelected().front().mixed,
+                 "multi selection reports mixed property")) {
         return 1;
     }
     if (!require(session.selectAt(20.0f, 30.0f, error),

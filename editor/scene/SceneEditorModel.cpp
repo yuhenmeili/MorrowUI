@@ -5,6 +5,26 @@
 
 namespace morrow::editor {
 
+namespace {
+bool parseComponents(const std::string& value, const std::string& type, std::vector<float>& result) {
+    if (value.rfind(type + "(", 0) != 0 || value.back() != ')')
+        return false;
+    size_t start = type.size() + 1;
+    while (start < value.size() - 1) {
+        const auto separator = value.find(',', start);
+        try {
+            result.push_back(std::stof(value.substr(start, separator == std::string::npos ? value.size() - 1 - start : separator - start)));
+        } catch (...) {
+            return false;
+        }
+        if (separator == std::string::npos)
+            break;
+        start = separator + 1;
+    }
+    return true;
+}
+}  // namespace
+
 SceneEditorModel::SceneEditorModel(SceneDocument& document) : m_document(document) {
 }
 
@@ -38,8 +58,33 @@ bool SceneEditorModel::selectNode(const std::string& nodeId, bool additive, std:
     return true;
 }
 
+void SceneEditorModel::clearSelection() {
+    m_selection.nodeIds.clear();
+}
+
 const SelectionState& SceneEditorModel::selection() const {
     return m_selection;
+}
+
+bool SceneEditorModel::selectedRect(float& x, float& y, float& width, float& height) const {
+    if (m_selection.nodeIds.empty())
+        return false;
+    const auto node = m_document.findNode(m_selection.nodeIds.front());
+    if (!node)
+        return false;
+    std::vector<float> position;
+    std::vector<float> size;
+    const auto positionIt = node->properties.find("position");
+    const auto sizeIt = node->properties.find("size");
+    if (positionIt == node->properties.end() || sizeIt == node->properties.end() ||
+        !parseComponents(positionIt->second, "Vector3", position) || !parseComponents(sizeIt->second, "Vector2", size) ||
+        position.size() != 3 || size.size() != 2)
+        return false;
+    x = position[0];
+    y = position[1];
+    width = size[0];
+    height = size[1];
+    return true;
 }
 
 std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
@@ -63,7 +108,20 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
         else if (!value.empty() && (std::isdigit(static_cast<unsigned char>(value.front())) || value.front() == '-')) {
             type = "number";
         }
-        result.push_back({name, value, type, true});
+        bool mixed = false;
+        for (size_t selectionIndex = 1; selectionIndex < m_selection.nodeIds.size(); ++selectionIndex) {
+            const auto selected = m_document.findNode(m_selection.nodeIds[selectionIndex]);
+            if (!selected) {
+                mixed = true;
+                break;
+            }
+            const auto selectedProperty = selected->properties.find(name);
+            if (selectedProperty == selected->properties.end() || selectedProperty->second != value) {
+                mixed = true;
+                break;
+            }
+        }
+        result.push_back({name, mixed ? "<mixed>" : value, type, true, mixed});
     }
     return result;
 }

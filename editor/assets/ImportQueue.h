@@ -13,6 +13,8 @@ struct ImportTaskResult {
     std::string assetId;
     bool success = false;
     std::filesystem::path artifact;
+    bool skipped = false;
+    int attempts = 0;
     std::string error;
 };
 
@@ -22,6 +24,9 @@ public:
                    std::string& error) const;
 
     bool importOne(const AssetRecord& asset, const std::filesystem::path& projectRoot, const std::string& platform, ImportTaskResult& result, std::string& error) const;
+
+    bool retry(const AssetRecord& asset, const std::filesystem::path& projectRoot, const std::string& platform, ImportTaskResult& result, std::string& error,
+               int maxAttempts = 2) const;
 };
 
 }  // namespace morrow::editor

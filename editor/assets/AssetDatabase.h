@@ -26,6 +26,7 @@ struct AssetRecord {
     std::filesystem::path importPath;
     ImportMetadata import;
     bool imported = false;
+    bool needsImport = false;
     std::string error;
 };
 
@@ -40,6 +41,8 @@ public:
     const std::vector<AssetRecord>& assets() const;
 
     std::filesystem::path resolveSourcePath(const std::string& assetId) const;
+
+    static constexpr int currentImporterVersion() { return 1; }
 
 private:
     bool loadImportFile(const std::filesystem::path& importPath, ImportMetadata& metadata, std::string& error) const;
