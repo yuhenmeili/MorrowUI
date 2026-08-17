@@ -12,7 +12,8 @@ DefaultColorSSBOLayout::DefaultColorSSBOLayout() {
         makeWorldMatrixField("model", offsetof(DefaultBatchData2Attr, model)),
         makeMaterialVectorField("defaultColor", defaultBatchAttributeOffset<DefaultBatchData2Attr>(0), SSBOValueSource::MaterialVector4, "color"),
         makePackedVector4Field("defaultAttr", defaultBatchAttributeOffset<DefaultBatchData2Attr>(1),
-                               {materialFloat("alpha"), constantFloat(0.0f), constantFloat(0.0f), constantFloat(0.0f)})};
+                               {materialVectorComponent("displaySize", 0), materialVectorComponent("displaySize", 1),
+                                materialFloat("rounding"), materialFloat("alpha")})};
 }
 
 }  // namespace morrow
