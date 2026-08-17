@@ -26,6 +26,8 @@
 | `GLTFDemo` | GLTF/GLB 3D 模型加载与交互 | `MR3DSceneView`、`Scene3DAsyncLoader`、`OrbitController` | [GLTFDemo.md](./GLTFDemo.md) |
 | `IBLPrecomputeDemo` | IBL 贴图预计算工具示例 | `IBLPrecompute` | [IBLPrecomputeDemo.md](./IBLPrecomputeDemo.md) |
 | `ImageDemo` | 基础图片组件 | `MRImage`、`Texture` | [ImageDemo.md](./ImageDemo.md) |
+| `MRProgressBarDemo` | 进度条组件 | `MRProgressBar` | [MRProgressBarDemo.md](./MRProgressBarDemo.md) |
+| `MRSliderDemo` | 可拖拽滑杆组件 | `MRSlider`、`MRProgressBar` | [MRSliderDemo.md](./MRSliderDemo.md) |
 | `PMemoryDemo` | QNX 下 PMEM/OES 纹理接入 | `MRImage`、`Texture`、`global_tools::loadPmemData` | [PMemoryDemo.md](./PMemoryDemo.md) |
 | `ShadowDemo` | UI 阴影组件基础用法 | `Shadow`、`MRImage` | [ShadowDemo.md](./ShadowDemo.md) |
 | `TextDemo` | 字体加载与文本渲染 | `MRLabel`、`FontManager` | [TextDemo.md](./TextDemo.md) |
