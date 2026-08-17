@@ -152,6 +152,22 @@ void WGLInputProvider::poll(std::vector<TouchEvent>& outEvents) {
     emitButtonEvent(rightPressed, m_lastRightPressed, 1, TOUCH_MOUSE_BUTTON_RIGHT);
     emitButtonEvent(middlePressed, m_lastMiddlePressed, 2, TOUCH_MOUSE_BUTTON_MIDDLE);
 
+    // GLFW button polling only emits MOVE while a button is held. Emit a
+    // pointer-only move too so widgets can implement normal mouse hover.
+    if (moved && !leftPressed && !rightPressed && !middlePressed) {
+        TouchEvent moveEvent;
+        moveEvent.touchID = -1;
+        moveEvent.positionX = fx;
+        moveEvent.positionY = fy;
+        moveEvent.eventType = TOUCH_EVENT_TYPE_MOVE;
+        moveEvent.touchTime = now;
+        moveEvent.deviceType = TOUCH_DEVICE_TYPE_MOUSE;
+        moveEvent.button = TOUCH_MOUSE_BUTTON_NONE;
+        moveEvent.buttonsMask = buttonsMask;
+        moveEvent.modifiers = modifiers;
+        outEvents.push_back(moveEvent);
+    }
+
     if (m_accumulatedWheelX != 0.0 || m_accumulatedWheelY != 0.0) {
         TouchEvent wheelEvent;
         wheelEvent.touchID = -1;

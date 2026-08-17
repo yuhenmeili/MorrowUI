@@ -241,13 +241,12 @@ void OrbitController::resumeDragFromRemainingTouch() {
     m_lastPointer = remainingTouch.second;
 }
 
-bool OrbitController::isEventInsideView(const TouchEvent& event, const FrameStateSharedPtr& frameState) const {
-    if (!m_view || !frameState || !frameState->camera) {
+bool OrbitController::isEventInsideView(const TouchEvent& event, const FrameStateSharedPtr& /*frameState*/) const {
+    if (!m_view) {
         return false;
     }
 
-    const auto worldPoint = frameState->camera->screenToWorld(event.positionX, event.positionY);
-    return m_view->getScreenSpaceAABB().Contains(worldPoint.x, worldPoint.y);
+    return m_view->getScreenSpaceAABB().Contains(event.positionX, event.positionY);
 }
 
 void OrbitController::handleEvent(const TouchEvent& event, const FrameStateSharedPtr& frameState) {

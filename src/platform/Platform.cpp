@@ -9,7 +9,6 @@
 
 #include "FontManager.h"
 #include "GlobalObject.h"
-#include "OrthographicCamera.h"
 #include "RenderDeviceProxy.h"
 #include "Window.h"
 #include "ui/base/Widget.h"
@@ -57,7 +56,7 @@ std::shared_ptr<Widget> Platform::findTopmostInteractiveWidget(const std::shared
 }
 
 void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
-    if (!frameState || !frameState->inputEventsManager || !frameState->camera) {
+    if (!frameState || !frameState->inputEventsManager) {
         return;
     }
 
@@ -67,8 +66,7 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
         touchEvent.traversalTouchTargets.clear();
 
         std::shared_ptr<Widget> resolvedTarget;
-        const bool isCapturedEvent = touchEvent.eventType == TOUCH_EVENT_TYPE_MOVE ||
-            touchEvent.eventType == TOUCH_EVENT_TYPE_RELEASE;
+        const bool isCapturedEvent = touchEvent.eventType == TOUCH_EVENT_TYPE_MOVE || touchEvent.eventType == TOUCH_EVENT_TYPE_RELEASE;
         if (isCapturedEvent) {
             auto captureIt = m_pointerCaptureTargets.find(touchEvent.touchID);
             if (captureIt != m_pointerCaptureTargets.end()) {
@@ -80,13 +78,20 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
         }
 
         if (!resolvedTarget) {
-            const auto worldPoint = frameState->camera->screenToWorld(touchEvent.positionX, touchEvent.positionY);
             if (m_window) {
-                resolvedTarget = findTopmostInteractiveWidget(std::static_pointer_cast<Widget>(m_window), worldPoint.x, worldPoint.y);
+                resolvedTarget = findTopmostInteractiveWidget(std::static_pointer_cast<Widget>(m_window), touchEvent.positionX, touchEvent.positionY);
             }
         }
 
         touchEvent.target = resolvedTarget;
+
+        if (touchEvent.eventType == TOUCH_EVENT_TYPE_MOVE && touchEvent.touchID < 0) {
+            if (auto previousHover = m_hoverTarget.lock()) {
+                if (previousHover != resolvedTarget)
+                    touchEvent.traversalTouchTargets.push_back(previousHover);
+            }
+            m_hoverTarget = resolvedTarget;
+        }
 
         if (touchEvent.eventType == TOUCH_EVENT_TYPE_TOUCH) {
             if (resolvedTarget) {

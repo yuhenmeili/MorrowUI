@@ -74,6 +74,7 @@ protected:
     int32_t m_requestedSamples = 1;
     bool m_isSSBOSupport = false;
     std::unordered_map<int32_t, std::weak_ptr<Widget>> m_pointerCaptureTargets;
+    std::weak_ptr<Widget> m_hoverTarget;
 };
 
 using PlatformSharedPtr = std::shared_ptr<Platform>;

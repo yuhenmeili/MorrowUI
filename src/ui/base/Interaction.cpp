@@ -60,7 +60,10 @@ void Interaction::handleTouchEvent(TouchEvent& event) {
             break;
 
         case TOUCH_EVENT_TYPE_MOVE:
-            if (m_isPressed && event.touchID == m_activeTouchID) {
+            // MOVE is also used for mouse hover. Pressed-pointer capture is
+            // still preserved for drag gestures, but an unpressed move must
+            // reach the current hit target as well.
+            if (!m_isPressed || event.touchID == m_activeTouchID) {
                 dispatchEvent(TOUCH_EVENT_TYPE_MOVE, event);
             }
             break;

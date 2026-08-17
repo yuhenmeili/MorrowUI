@@ -19,6 +19,9 @@ void InputEventsManager::poll()
     if (m_inputProvider) {
         m_inputProvider->poll(m_inputEvents);
     }
+    if (!m_inputEvents.empty()) {
+        m_inputEventsDispatcher.notify(m_inputEvents);
+    }
 }
 
 Observable<std::vector<TouchEvent>&>& InputEventsManager::getInputEventsDispatcher()

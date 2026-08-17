@@ -1,5 +1,6 @@
 #include "DockLayout.h"
 
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 
@@ -7,13 +8,20 @@ namespace morrow::editor {
 
 DockLayout DockLayout::defaultLayout(float width, float height) {
     DockLayout layout;
+    constexpr float gap = 5.0f;
     const float toolbar = 40.0f;
-    const float output = 110.0f;
-    const float contentHeight = height - toolbar - output;
+    const float output = std::max(140.0f, height * 0.15f);
+    const float contentY = toolbar + gap;
+    const float contentHeight = std::max(1.0f, height - contentY - output - gap);
+    const float sceneWidth = std::max(280.0f, width * 0.16f);
+    const float inspectorWidth = std::max(320.0f, width * 0.18f);
+    const float viewportX = sceneWidth + gap;
+    const float viewportWidth = std::max(1.0f, width - sceneWidth - inspectorWidth - gap * 2.0f);
+    const float inspectorX = viewportX + viewportWidth + gap;
     layout.m_panels = {
-        {"scene_tree", 0.0f, toolbar, 240.0f, contentHeight, true, 0},
-        {"viewport", 240.0f, toolbar, width - 540.0f, contentHeight, true, 1},
-        {"inspector", width - 300.0f, toolbar, 300.0f, contentHeight, true, 2},
+        {"scene_tree", 0.0f, contentY, sceneWidth, contentHeight, true, 0},
+        {"viewport", viewportX, contentY, viewportWidth, contentHeight, true, 1},
+        {"inspector", inspectorX, contentY, inspectorWidth, contentHeight, true, 2},
         {"output", 0.0f, height - output, width, output, true, 3},
     };
     return layout;

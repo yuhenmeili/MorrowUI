@@ -9,8 +9,12 @@
 #include "Engine.h"
 #include "base/TouchEvent.h"
 #include "base/Transform.h"
+#include "base/MeshFilter.h"
+#include "base/MeshRenderer.h"
 #include "elements/MRButton.h"
 #include "elements/MRLabel.h"
+#include "base/Mesh.h"
+#include "renderer/resource/ssbo/layouts/ButtonSSBOLayout.h"
 #include "platform/Window.h"
 #include "scene/SceneInstantiator.h"
 #include "wgl/OpenglHeader.h"
@@ -21,14 +25,64 @@ std::unordered_map<GLFWwindow*, morrow::editor::EditorShell*>& shells() {
     return value;
 }
 
-std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float height) {
-    // Layout containers do not render themselves. Avoid empty Materials with
-    // no shader source being submitted to the renderer.
-    auto panel = std::make_shared<morrow::UIWidget>(false);
+std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float height,
+                                            const morrow::Math::Vector4& color = morrow::Math::Vector4(0.12f, 0.14f, 0.17f, 1.0f)) {
+    auto panel = morrow::MRButton::create();
+    panel->setInteractive(false);
+    panel->setBackgroundColor(color);
+    panel->setCornerRadius(0.0f);
     auto transform = panel->getTransform();
     transform->setPosition(x, y, 0.0f);
     transform->setSize(width, height);
     return panel;
+}
+
+class EditorGuideWidget final : public morrow::UIWidget {
+public:
+    explicit EditorGuideWidget(const morrow::Math::Vector4& color) : morrow::UIWidget(true) {
+        // Reuse the button shader because it already has a compatible SSBO
+        // layout in the renderer's batch path.
+        auto material = getComponent<morrow::MeshRenderer>()->getMaterial();
+        material->setShader("button");
+        material->setSSBOLayout(std::make_shared<morrow::ButtonSSBOLayout>());
+        material->setFloat("rounding", 0.0f);
+        material->setFloat("useTexture", 0.0f);
+        material->setVector("color", color);
+        material->setFloat("alpha", color.w);
+    }
+
+    void setColor(const morrow::Math::Vector4& color) {
+        auto material = getComponent<morrow::MeshRenderer>()->getMaterial();
+        material->setVector("color", color);
+        material->setFloat("alpha", color.w);
+    }
+
+    void setGeometry(std::vector<morrow::Math::Vector3> vertices, std::vector<int16_t> indices, float x, float y,
+                     float width = 0.0f, float height = 0.0f) {
+        auto mesh = getComponent<morrow::MeshFilter>()->getMesh();
+        mesh->setVertices(vertices);
+        mesh->setIndices(indices);
+        if (width > 0.0f && height > 0.0f)
+            getTransform()->setSize(width, height);
+        if (width > 0.0f && height > 0.0f)
+            getComponent<morrow::MeshRenderer>()->getMaterial()->setVector("displaySize", morrow::Math::Vector3(width, height, 0.0f));
+        getTransform()->setPosition(x, y, 0.0f);
+    }
+};
+
+void addQuad(std::vector<morrow::Math::Vector3>& vertices, std::vector<int16_t>& indices,
+             float left, float top, float right, float bottom) {
+    const auto start = static_cast<int16_t>(vertices.size());
+    vertices.emplace_back(left, top, 0.0f);
+    vertices.emplace_back(right, top, 0.0f);
+    vertices.emplace_back(right, bottom, 0.0f);
+    vertices.emplace_back(left, bottom, 0.0f);
+    indices.insert(indices.end(), {start, static_cast<int16_t>(start + 1), static_cast<int16_t>(start + 2),
+                                   static_cast<int16_t>(start + 2), static_cast<int16_t>(start + 3), start});
+}
+
+std::shared_ptr<EditorGuideWidget> makeGuide(const morrow::Math::Vector4& color) {
+    return std::make_shared<EditorGuideWidget>(color);
 }
 
 }  // namespace
@@ -121,6 +175,9 @@ std::shared_ptr<MRButton> EditorShell::addButton(const std::shared_ptr<UIWidget>
     button->setText(text, "default");
     button->setTextFontSize(16.0f);
     button->setAutoWrap(false);
+    button->setBackgroundColor(morrow::Math::Vector4(0.16f, 0.31f, 0.63f, 1.0f));
+    button->setHoverColor(morrow::Math::Vector4(0.30f, 0.55f, 0.95f, 1.0f));
+    button->setPressedColor(morrow::Math::Vector4(0.10f, 0.22f, 0.48f, 1.0f));
     button->setOnClickCallback(std::move(callback));
     auto transform = button->getComponent<Transform>();
     transform->setPosition(x, y, 0.0f);
@@ -133,22 +190,42 @@ void EditorShell::buildLayout() {
     m_shellRoot = std::make_shared<UIWidget>(false);
     m_shellRoot->setWidgetName("EditorShell");
     m_shellRoot->getTransform()->setPosition(0.0f, 0.0f, 100.0f);
-    m_shellRoot->getTransform()->setSize(1280.0f, 720.0f);
+    float windowWidth = 1280.0f;
+    float windowHeight = 720.0f;
+    if (m_window && m_window->getSurface()) {
+        int framebufferWidth = 0;
+        int framebufferHeight = 0;
+        glfwGetFramebufferSize(static_cast<GLFWwindow*>(m_window->getSurface()), &framebufferWidth, &framebufferHeight);
+        if (framebufferWidth > 0 && framebufferHeight > 0) {
+            windowWidth = static_cast<float>(framebufferWidth);
+            windowHeight = static_cast<float>(framebufferHeight);
+        }
+    }
+    m_shellRoot->getTransform()->setSize(windowWidth, windowHeight);
 
-    m_dockLayout = DockLayout::defaultLayout(1280.0f, 720.0f);
+    m_dockLayout = DockLayout::defaultLayout(windowWidth, windowHeight);
     std::string layoutError;
-    if (std::filesystem::exists(m_dockLayoutPath))
-        m_dockLayout.load(m_dockLayoutPath, layoutError);
+    if (std::filesystem::exists(m_dockLayoutPath) && m_dockLayout.load(m_dockLayoutPath, layoutError)) {
+        float savedRight = 0.0f;
+        float savedBottom = 0.0f;
+        for (const auto& panel : m_dockLayout.panels()) {
+            savedRight = std::max(savedRight, panel.x + panel.width);
+            savedBottom = std::max(savedBottom, panel.y + panel.height);
+        }
+        // Discard a stale layout saved for a much smaller editor window.
+        if (savedRight < windowWidth * 0.75f || savedBottom < windowHeight * 0.75f)
+            m_dockLayout = DockLayout::defaultLayout(windowWidth, windowHeight);
+    }
 
-    auto toolbar = makePanel(0.0f, 0.0f, 1280.0f, 40.0f);
-    m_sceneTreePanel = makePanel(0.0f, 40.0f, 240.0f, 570.0f);
-    m_viewportPanel = makePanel(240.0f, 40.0f, 740.0f, 570.0f);
-    m_inspectorPanel = makePanel(980.0f, 40.0f, 300.0f, 570.0f);
-    m_statusPanel = makePanel(0.0f, 610.0f, 1280.0f, 110.0f);
+    m_toolbarPanel = makePanel(0.0f, 0.0f, windowWidth, 40.0f);
+    m_sceneTreePanel = makePanel(0.0f, 40.0f, 240.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
+    m_viewportPanel = makePanel(240.0f, 40.0f, 740.0f, 570.0f, morrow::Math::Vector4(0.10f, 0.12f, 0.15f, 1.0f));
+    m_inspectorPanel = makePanel(980.0f, 40.0f, 300.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
+    m_statusPanel = makePanel(0.0f, 610.0f, 1280.0f, 110.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
     m_previewRoot = makePanel(0.0f, 32.0f, 740.0f, 538.0f);
     m_previewRoot->setWidgetName("PreviewRoot");
 
-    m_shellRoot->addChild(toolbar);
+    m_shellRoot->addChild(m_toolbarPanel);
     m_shellRoot->addChild(m_sceneTreePanel);
     m_shellRoot->addChild(m_viewportPanel);
     m_shellRoot->addChild(m_inspectorPanel);
@@ -156,15 +233,15 @@ void EditorShell::buildLayout() {
     m_viewportPanel->addChild(m_previewRoot);
     m_window->addChild(m_shellRoot);
 
-    addLabel(toolbar, "MorrowEditor", 8.0f, 5.0f, 150.0f, 28.0f);
-    addButton(toolbar, L"Save", 170.0f, 4.0f, 72.0f, 30.0f, [this] {
+    addLabel(m_toolbarPanel, "MorrowEditor", 8.0f, 5.0f, 150.0f, 28.0f);
+    addButton(m_toolbarPanel, L"Save", 170.0f, 4.0f, 72.0f, 30.0f, [this] {
         std::string error;
         if (m_session->save(error))
             setStatus("Saved");
         else
             setStatus(error);
     });
-    addButton(toolbar, L"Undo", 248.0f, 4.0f, 72.0f, 30.0f, [this] {
+    addButton(m_toolbarPanel, L"Undo", 248.0f, 4.0f, 72.0f, 30.0f, [this] {
         std::string error;
         if (m_session->undo(error)) {
             rebuildRuntime();
@@ -173,7 +250,7 @@ void EditorShell::buildLayout() {
         }
         setStatus(error.empty() ? "Undo" : error);
     });
-    addButton(toolbar, L"Redo", 326.0f, 4.0f, 72.0f, 30.0f, [this] {
+    addButton(m_toolbarPanel, L"Redo", 326.0f, 4.0f, 72.0f, 30.0f, [this] {
         std::string error;
         if (m_session->redo(error)) {
             rebuildRuntime();
@@ -182,13 +259,13 @@ void EditorShell::buildLayout() {
         }
         setStatus(error.empty() ? "Redo" : error);
     });
-    addButton(toolbar, L"Configure", 420.0f, 4.0f, 100.0f, 30.0f, [this] { runBuild(BuildTaskKind::Configure); });
-    addButton(toolbar, L"Build", 526.0f, 4.0f, 80.0f, 30.0f, [this] { runBuild(BuildTaskKind::Build); });
-    addButton(toolbar, L"Build & Run", 612.0f, 4.0f, 112.0f, 30.0f, [this] { runBuild(BuildTaskKind::BuildAndRun); });
-    addButton(toolbar, L"Run Last", 730.0f, 4.0f, 92.0f, 30.0f, [this] { runBuild(BuildTaskKind::Run); });
-    addButton(toolbar, L"Stop", 828.0f, 4.0f, 72.0f, 30.0f, [this] { stopPreview(); });
-    addButton(toolbar, L"Import", 906.0f, 4.0f, 82.0f, 30.0f, [this] { runImportQueue(); });
-    addButton(toolbar, L"Assets", 994.0f, 4.0f, 82.0f, 30.0f, [this] { showAssetBrowser(); });
+    addButton(m_toolbarPanel, L"Configure", 420.0f, 4.0f, 100.0f, 30.0f, [this] { runBuild(BuildTaskKind::Configure); });
+    addButton(m_toolbarPanel, L"Build", 526.0f, 4.0f, 80.0f, 30.0f, [this] { runBuild(BuildTaskKind::Build); });
+    addButton(m_toolbarPanel, L"Build & Run", 612.0f, 4.0f, 112.0f, 30.0f, [this] { runBuild(BuildTaskKind::BuildAndRun); });
+    addButton(m_toolbarPanel, L"Run Last", 730.0f, 4.0f, 92.0f, 30.0f, [this] { runBuild(BuildTaskKind::Run); });
+    addButton(m_toolbarPanel, L"Stop", 828.0f, 4.0f, 72.0f, 30.0f, [this] { stopPreview(); });
+    addButton(m_toolbarPanel, L"Import", 906.0f, 4.0f, 82.0f, 30.0f, [this] { runImportQueue(); });
+    addButton(m_toolbarPanel, L"Assets", 994.0f, 4.0f, 82.0f, 30.0f, [this] { showAssetBrowser(); });
     addLabel(m_sceneTreePanel, "Scene", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_viewportPanel, "2D Viewport", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_inspectorPanel, "Inspector", 8.0f, 6.0f, 260.0f, 28.0f);
@@ -213,6 +290,8 @@ void EditorShell::applyDockLayout() {
         m_viewportWidth = viewport->width;
         m_viewportHeight = viewport->height;
         m_previewRoot->getTransform()->setSize(viewport->width, std::max(1.0f, viewport->height - 32.0f));
+        if (m_previewCanvas || m_previewGrid)
+            refreshViewportGuides();
     }
 }
 
@@ -278,6 +357,7 @@ void EditorShell::runBuild(BuildTaskKind kind) {
 }
 
 void EditorShell::pollBuild() {
+    bool outputChanged = false;
     for (const auto& chunk : m_buildQueue.drainOutput()) {
         auto& remainder = chunk.stderrStream ? m_stderrRemainder : m_stdoutRemainder;
         remainder += chunk.text;
@@ -289,11 +369,15 @@ void EditorShell::pollBuild() {
             if (!line.empty())
                 m_outputLines.push_back(std::string(chunk.stderrStream ? "[stderr] " : "[stdout] ") + line);
             remainder.erase(0, newline + 1);
+            outputChanged = true;
         }
     }
-    while (m_outputLines.size() > 6)
+    while (m_outputLines.size() > 6) {
         m_outputLines.erase(m_outputLines.begin());
-    refreshOutput();
+        outputChanged = true;
+    }
+    if (outputChanged)
+        refreshOutput();
 
     if (!m_buildFuture.valid())
         return;
@@ -378,6 +462,7 @@ void EditorShell::refreshSceneTree() {
                                     std::string error;
                                     if (m_session->selectNode(id, false, error)) {
                                         m_selectedNodeId = id;
+                                        rebuildRuntime();
                                         refreshInspector();
                                         setStatus("Selected " + id);
                                     } else
@@ -471,9 +556,44 @@ void EditorShell::rebuildRuntime() {
     if (!m_previewRoot)
         return;
     m_previewRoot->m_children.clear();
+    refreshViewportGuides();
     std::string error;
     if (!SceneInstantiator::instantiate(m_session->document(), m_previewRoot, &m_assets, error)) {
         setStatus(error);
+    }
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    if (m_session->model().selectedRect(x, y, width, height)) {
+        auto frame = makeGuide(morrow::Math::Vector4(0.35f, 0.78f, 1.0f, 0.95f));
+        std::vector<morrow::Math::Vector3> vertices;
+        std::vector<int16_t> indices;
+        constexpr float thickness = 2.0f;
+        addQuad(vertices, indices, -width * 0.5f, -height * 0.5f, width * 0.5f, -height * 0.5f + thickness);
+        addQuad(vertices, indices, -width * 0.5f, height * 0.5f, width * 0.5f, height * 0.5f - thickness);
+        addQuad(vertices, indices, -width * 0.5f, height * 0.5f, -width * 0.5f + thickness, -height * 0.5f);
+        addQuad(vertices, indices, width * 0.5f - thickness, height * 0.5f, width * 0.5f, -height * 0.5f);
+        frame->setDisplayLayer(10);
+        frame->setGeometry(std::move(vertices), std::move(indices), x, y, width, height);
+        m_selectionFrame = frame;
+        m_previewRoot->addChild(frame);
+    } else {
+        m_selectionFrame.reset();
+    }
+}
+
+void EditorShell::refreshViewportGuides() {
+    if (!m_previewRoot)
+        return;
+
+    if (m_previewCanvas) {
+        m_previewRoot->removeChild(m_previewCanvas);
+        m_previewCanvas.reset();
+    }
+    if (m_previewGrid) {
+        m_previewRoot->removeChild(m_previewGrid);
+        m_previewGrid.reset();
     }
 }
 
@@ -522,6 +642,7 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
             m_dragging = !m_resizing;
             m_lastPointerX = panelX;
             m_lastPointerY = panelY;
+            rebuildRuntime();
             refreshInspector();
         }
     } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && m_resizing && !m_selectedNodeId.empty()) {

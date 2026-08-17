@@ -127,6 +127,7 @@ void BaseButton::updateButtonState(ButtonState newState) {
     if (m_currentState != newState) {
         m_currentState = newState;
         updateVisualState();
+        requestRender("button state");
     }
 }
 

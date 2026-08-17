@@ -41,6 +41,7 @@ public:
 private:
     void buildLayout();
     void rebuildRuntime();
+    void refreshViewportGuides();
     void refreshSceneTree();
     void refreshInspector();
     void handleInput(std::vector<TouchEvent>& events);
@@ -74,7 +75,11 @@ private:
     std::filesystem::path m_scenePath;
     std::filesystem::path m_assetRoot;
     std::shared_ptr<UIWidget> m_shellRoot;
+    std::shared_ptr<UIWidget> m_toolbarPanel;
     std::shared_ptr<UIWidget> m_previewRoot;
+    std::shared_ptr<UIWidget> m_previewCanvas;
+    std::shared_ptr<UIWidget> m_previewGrid;
+    std::shared_ptr<UIWidget> m_selectionFrame;
     std::shared_ptr<UIWidget> m_sceneTreePanel;
     std::shared_ptr<UIWidget> m_inspectorPanel;
     std::shared_ptr<UIWidget> m_viewportPanel;

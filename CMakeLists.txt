@@ -88,6 +88,10 @@ if(BUILD_TESTING)
     target_link_libraries(RequestRenderTests morrow)
     add_test(NAME RequestRenderTests COMMAND RequestRenderTests)
 
+    add_executable(InputInteractionTests tests/InputInteractionTests.cpp)
+    target_link_libraries(InputInteractionTests morrow)
+    add_test(NAME InputInteractionTests COMMAND InputInteractionTests)
+
     add_executable(Transform3DTests tests/Transform3DTests.cpp)
     target_link_libraries(Transform3DTests morrow)
     add_test(NAME Transform3DTests COMMAND Transform3DTests)

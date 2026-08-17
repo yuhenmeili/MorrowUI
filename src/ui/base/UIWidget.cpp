@@ -5,6 +5,10 @@
 #include "UIWidget.h"
 #include "base/Transform.h"
 
+#include <algorithm>
+#include <array>
+#include <limits>
+
 namespace morrow {
 UIWidget::UIWidget(bool createRenderComponents)
     : Widget() {
@@ -27,20 +31,53 @@ std::shared_ptr<Transform> UIWidget::getTransform() const {
 }
 
 Math::Rect UIWidget::getScreenSpaceAABB() const {
-    auto transform = getTransform();
-    if (!transform) return Math::Rect(0.0f, 0.0f, 0.0f, 0.0f);
+    const auto transform = getTransform();
+    if (!transform)
+        return Math::Rect(0.0f, 0.0f, 0.0f, 0.0f);
+
+    // TouchEvent positions use framebuffer pixels with a top-left origin and
+    // Y increasing downwards. UI world space is centered with Y increasing
+    // upwards, so derive the screen extent from the root transform and map
+    // every transformed corner into the input coordinate system here.
+    const Widget* root = this;
+    while (root->m_parent) {
+        root = root->m_parent.get();
+    }
+
+    Vector3 screenSize;
+    if (const auto rootTransform = root->getComponent<Transform>()) {
+        screenSize = rootTransform->getSize();
+    }
 
     const Matrix4& worldMatrix = transform->getWorldMatrix();
-    const Vector3 worldPos(worldMatrix.elements[12], worldMatrix.elements[13], worldMatrix.elements[14]);
     const Vector3 size = transform->getSize();
     const float halfW = size.x * 0.5f;
     const float halfH = size.y * 0.5f;
-    return Math::Rect(
-        worldPos.x - halfW,
-        worldPos.y - halfH,
-        worldPos.x + halfW,
-        worldPos.y + halfH
-    );
+    std::array<Vector3, 4> corners = {
+        Vector3(-halfW, -halfH, 0.0f),
+        Vector3(-halfW, halfH, 0.0f),
+        Vector3(halfW, -halfH, 0.0f),
+        Vector3(halfW, halfH, 0.0f),
+    };
+
+    float minX = std::numeric_limits<float>::max();
+    float minY = std::numeric_limits<float>::max();
+    float maxX = std::numeric_limits<float>::lowest();
+    float maxY = std::numeric_limits<float>::lowest();
+    const float halfScreenW = screenSize.x * 0.5f;
+    const float halfScreenH = screenSize.y * 0.5f;
+
+    for (auto& corner : corners) {
+        corner.apply(worldMatrix);
+        const float screenX = corner.x + halfScreenW;
+        const float screenY = halfScreenH - corner.y;
+        minX = std::min(minX, screenX);
+        minY = std::min(minY, screenY);
+        maxX = std::max(maxX, screenX);
+        maxY = std::max(maxY, screenY);
+    }
+
+    return Math::Rect(minX, minY, maxX, maxY);
 }
 
 void UIWidget::setAlpha(float alpha) {

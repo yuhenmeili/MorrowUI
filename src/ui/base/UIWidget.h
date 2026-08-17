@@ -21,6 +21,8 @@ public:
 
     std::shared_ptr<Transform> getTransform() const;
 
+    /// Framebuffer-pixel AABB matching TouchEvent::positionX/positionY:
+    /// top-left origin with X rightwards and Y downwards.
     Math::Rect getScreenSpaceAABB() const;
 
     void setAlpha(float alpha);
