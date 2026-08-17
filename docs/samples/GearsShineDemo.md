@@ -45,6 +45,5 @@ cmake --build "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw" --target 
 ## 适合继续扩展的方向
 
 - 暴露方向参数，做上行/下行/中心扩散三种版本。
-- 与 `GearsGrids` 组合，做基础底纹 + 动态高亮分层结构。
 - 支持外部进度输入，让高亮位置与真实数值联动。
 

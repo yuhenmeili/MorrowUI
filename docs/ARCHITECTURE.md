@@ -1137,9 +1137,8 @@ SceneNode 级局部 Dirty 更新。
 - 局部 3D `FrameState` 改为成员复用，不再逐帧 `make_shared<FrameState>`；
 - `OrbitCamera` 通过变化回调使 SceneView 失效，外部相机控制和 OrbitController
   均可准确触发重绘；
-- `Component::requiresContinuousUpdate()` 统一描述持续更新需求，GLTF animation、
-  `MR3DAutoRotate` 和 `MR3DCameraOrbitPosition` 活跃时保持连续 3D Pass，暂停、
-  禁用或速度为零后自动静止；
+- `Component::requiresContinuousUpdate()` 统一描述持续更新需求，GLTF animation
+  等持续更新组件活跃时保持连续 3D Pass，暂停、禁用或速度为零后自动静止；
 - `Scene3DRedrawTests.cpp` 覆盖相机失效回调、持续更新组件检测以及
   Texture revision 向 Material 渲染签名传播。
 

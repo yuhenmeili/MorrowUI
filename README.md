@@ -128,7 +128,6 @@ Sample programs are under `samples/`. Each demo has a corresponding preview vide
 | **ButtonDemo** — Interactive button | [YouTube](https://youtu.be/XGHhMJtFE9M) |
 | **FlowlightDemo** — Flowing light sweep effect | [YouTube](https://youtu.be/LMnJ4pSsuXI) |
 | **FrameAnimation** — Sprite-sheet frame animation | [YouTube](https://youtube.com/shorts/jNGcAjbaqbY) |
-| **GearsOpening3DDemo** — Gears opening (3D) | [YouTube](https://youtu.be/yW3BvkHzmzs) |
 | **GLTFDemo** — glTF 3D model rendering | [YouTube](https://youtu.be/iYuxrmHrVYU) |
 | **ImageDemo** — Image rendering | [YouTube](https://youtu.be/Zfcw5YjlUx4) |
 | **SafeDynamicVectorCanvasDemo** — Thread-safe dynamic vector canvas | [YouTube](https://youtu.be/CI3M9PRZUKg) |

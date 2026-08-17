@@ -19,15 +19,13 @@
 | `ButtonDemo` | 按钮与布局容器组合示例 | `MRButton`、`HBoxContainer`、`BaseButton` | [ButtonDemo.md](./ButtonDemo.md) |
 | `FlowlightDemo` | 流光扫过效果组件 | `MRFlowingLight`、`Transform` | [FlowlightDemo.md](./FlowlightDemo.md) |
 | `FrameAnimation` | 图集逐帧动画 | `MRFrameAnimation`、`TextureAtlas` | [FrameAnimation.md](./FrameAnimation.md) |
-| `GearsGridsDemo` | 齿轮格栅点阵效果 | `MRGearsGrids` | [GearsGridsDemo.md](./GearsGridsDemo.md) |
-| `GearsIrisDemo` | 光圈/栅格类动画效果 | `MRGearsIris` | [GearsIrisDemo.md](./GearsIrisDemo.md) |
-| `GearsOpening3DDemo` | 3D 感的齿轮开启动效 | `MRGearsOpening3D` | [GearsOpening3DDemo.md](./GearsOpening3DDemo.md) |
-| `GearsOpeningDemo` | 2D 齿轮开启与背景贴图 | `MRGearsOpening`、`Texture` | [GearsOpeningDemo.md](./GearsOpeningDemo.md) |
-| `GearsSelectDemo` | 选中态点阵/齿轮高亮组件 | `MRGearsSelect` | [GearsSelectDemo.md](./GearsSelectDemo.md) |
-| `GearsShineDemo` | 充能/扫光类齿轮点阵效果 | `MRGearsShine` | [GearsShineDemo.md](./GearsShineDemo.md) |
+| `GearsIrisDemo` | shader定制动效演示 | `MRGearsIris` | [GearsIrisDemo.md](./GearsIrisDemo.md) |
+| `GearsOpeningDemo` | shader定制动效演示 | `MRGearsOpening`、`Texture` | [GearsOpeningDemo.md](./GearsOpeningDemo.md) |
+| `GearsSelectDemo` | shader定制动效演示 | `MRGearsSelect` | [GearsSelectDemo.md](./GearsSelectDemo.md) |
+| `GearsShineDemo` | shader定制动效演示 | `MRGearsShine` | [GearsShineDemo.md](./GearsShineDemo.md) |
 | `GLTFDemo` | GLTF/GLB 3D 模型加载与交互 | `MR3DSceneView`、`Scene3DAsyncLoader`、`OrbitController` | [GLTFDemo.md](./GLTFDemo.md) |
 | `IBLPrecomputeDemo` | IBL 贴图预计算工具示例 | `IBLPrecompute` | [IBLPrecomputeDemo.md](./IBLPrecomputeDemo.md) |
-| `ImageDemo` | 基础图片组件和批量摆放 | `MRImage`、`Texture` | [ImageDemo.md](./ImageDemo.md) |
+| `ImageDemo` | 基础图片组件 | `MRImage`、`Texture` | [ImageDemo.md](./ImageDemo.md) |
 | `PMemoryDemo` | QNX 下 PMEM/OES 纹理接入 | `MRImage`、`Texture`、`global_tools::loadPmemData` | [PMemoryDemo.md](./PMemoryDemo.md) |
 | `ShadowDemo` | UI 阴影组件基础用法 | `Shadow`、`MRImage` | [ShadowDemo.md](./ShadowDemo.md) |
 | `TextDemo` | 字体加载与文本渲染 | `MRLabel`、`FontManager` | [TextDemo.md](./TextDemo.md) |

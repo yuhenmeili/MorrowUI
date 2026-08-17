@@ -5,7 +5,7 @@
 
 ## Demo 用途
 
-`GearsOpeningDemo` 是齿轮开启效果的 2D 版本。它在组件本身之外额外绑定了一张背景纹理 `gearBG.png`，因此比 `GearsOpening3DDemo` 更像一个完整的界面元素，而不只是程序化点阵效果。
+`GearsOpeningDemo` 是齿轮开启效果的 2D 版本。它在组件本身之外额外绑定了一张背景纹理 `gearBG.png`，因此更像一个完整的界面元素，而不只是程序化点阵效果。
 
 ## 运行方式
 
@@ -47,5 +47,4 @@ cmake --build "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw" --target 
 
 - 增加可配置背景纹理和方向控制。
 - 将开启动画与按钮点击或页面切换绑定。
-- 与 `GearsOpening3DDemo` 一起整理为 2D / 3D 对比文档。
 
