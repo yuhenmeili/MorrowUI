@@ -61,36 +61,50 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
     }
 
     auto& inputEvents = frameState->inputEventsManager->getInputEvents();
+    std::vector<TouchEvent> resolvedEvents;
+    resolvedEvents.reserve(inputEvents.size() * 3);
+
     for (auto& touchEvent : inputEvents) {
         touchEvent.target.reset();
-        touchEvent.traversalTouchTargets.clear();
-
         std::shared_ptr<Widget> resolvedTarget;
+        bool fromCapture = false;
         const bool isCapturedEvent = touchEvent.eventType == TOUCH_EVENT_TYPE_MOVE || touchEvent.eventType == TOUCH_EVENT_TYPE_RELEASE;
         if (isCapturedEvent) {
             auto captureIt = m_pointerCaptureTargets.find(touchEvent.touchID);
             if (captureIt != m_pointerCaptureTargets.end()) {
                 resolvedTarget = captureIt->second.lock();
+                fromCapture = (resolvedTarget != nullptr);
                 if (!resolvedTarget) {
                     m_pointerCaptureTargets.erase(captureIt);
                 }
             }
         }
-
         if (!resolvedTarget) {
-            if (m_window) {
-                resolvedTarget = findTopmostInteractiveWidget(std::static_pointer_cast<Widget>(m_window), touchEvent.positionX, touchEvent.positionY);
-            }
+            resolvedTarget = findTopmostInteractiveWidget(m_window, touchEvent.positionX, touchEvent.positionY);
         }
-
         touchEvent.target = resolvedTarget;
 
-        if (touchEvent.eventType == TOUCH_EVENT_TYPE_MOVE && touchEvent.touchID < 0) {
-            if (auto previousHover = m_hoverTarget.lock()) {
-                if (previousHover != resolvedTarget)
-                    touchEvent.traversalTouchTargets.push_back(previousHover);
+        if (touchEvent.eventType == TOUCH_EVENT_TYPE_MOVE && touchEvent.deviceType == TOUCH_DEVICE_TYPE_MOUSE) {
+            // Capture controls the MOVE target while dragging, whereas hover
+            // transitions follow the widget physically under the cursor. 未捕获时
+            // 二者在同一坐标下命中结果一致，直接复用 resolvedTarget，省一次全树遍历。
+            std::shared_ptr<Widget> hoverTarget = fromCapture ? findTopmostInteractiveWidget(m_window, touchEvent.positionX, touchEvent.positionY) : resolvedTarget;
+            auto previousHover = m_hoverTarget.lock();
+            if (previousHover != hoverTarget) {
+                if (previousHover) {
+                    TouchEvent leaveEvent = touchEvent;
+                    leaveEvent.eventType = TOUCH_EVENT_TYPE_POINTER_LEAVE;
+                    leaveEvent.target = previousHover;
+                    resolvedEvents.push_back(std::move(leaveEvent));
+                }
+                if (hoverTarget) {
+                    TouchEvent enterEvent = touchEvent;
+                    enterEvent.eventType = TOUCH_EVENT_TYPE_POINTER_ENTER;
+                    enterEvent.target = hoverTarget;
+                    resolvedEvents.push_back(std::move(enterEvent));
+                }
             }
-            m_hoverTarget = resolvedTarget;
+            m_hoverTarget = hoverTarget;
         }
 
         if (touchEvent.eventType == TOUCH_EVENT_TYPE_TOUCH) {
@@ -102,7 +116,12 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
         } else if (touchEvent.eventType == TOUCH_EVENT_TYPE_RELEASE) {
             m_pointerCaptureTargets.erase(touchEvent.touchID);
         }
+
+        resolvedEvents.push_back(std::move(touchEvent));
     }
+
+    inputEvents = std::move(resolvedEvents);
+    frameState->inputEventsManager->notifyInputEventsResolved();
 }
 
 void Platform::ensureRenderCapabilitiesInitialized() {
@@ -117,12 +136,6 @@ void Platform::dispatchEvents(const FrameStateSharedPtr& frameState) {
     for (auto& touchEvent : frameState->inputEventsManager->getInputEvents()) {
         if (touchEvent.target) {
             touchEvent.target->dispatchTouchEvent(touchEvent);
-            needRender = true;
-        }
-        if (!touchEvent.traversalTouchTargets.empty()) {
-            for (auto& widget : touchEvent.traversalTouchTargets) {
-                widget->dispatchTouchEvent(touchEvent);
-            }
             needRender = true;
         }
     }

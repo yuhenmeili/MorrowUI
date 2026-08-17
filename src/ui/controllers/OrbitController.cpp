@@ -61,7 +61,7 @@ void OrbitController::update(const FrameStateSharedPtr& frameState) {
     }
 
     for (const auto& event : frameState->inputEventsManager->getInputEvents()) {
-        if (event.target || !event.traversalTouchTargets.empty()) {
+        if (event.target) {
             continue;
         }
         handleEvent(event, frameState);

@@ -68,6 +68,14 @@ void Interaction::handleTouchEvent(TouchEvent& event) {
             }
             break;
 
+        case TOUCH_EVENT_TYPE_POINTER_ENTER:
+            dispatchEvent(TOUCH_EVENT_TYPE_POINTER_ENTER, event);
+            break;
+
+        case TOUCH_EVENT_TYPE_POINTER_LEAVE:
+            dispatchEvent(TOUCH_EVENT_TYPE_POINTER_LEAVE, event);
+            break;
+
         case TOUCH_EVENT_TYPE_RELEASE:
             if (m_isPressed && event.touchID == m_activeTouchID) {
                 m_isPressed = false;

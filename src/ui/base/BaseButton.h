@@ -62,7 +62,8 @@ protected:
     // Interaction（默认挂载）
     std::shared_ptr<Interaction> m_interaction;
     ListenerHandle m_touchHandle = 0;
-    ListenerHandle m_moveHandle = 0;
+    ListenerHandle m_pointerEnterHandle = 0;
+    ListenerHandle m_pointerLeaveHandle = 0;
     ListenerHandle m_releaseHandle = 0;
     ListenerHandle m_clickHandle = 0;
 

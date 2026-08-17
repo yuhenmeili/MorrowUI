@@ -26,7 +26,11 @@ public:
     /// 从当前 provider 拉取本帧事件到 getInputEvents()；若无 provider 则清空
     void poll();
 
-    Observable<std::vector<TouchEvent>&>& getInputEventsDispatcher();
+    /// Events after Platform has resolved targets and synthesized pointer
+    /// boundary transitions such as POINTER_ENTER and POINTER_LEAVE.
+    Observable<std::vector<TouchEvent>&>& getResolvedInputEventsDispatcher();
+
+    void notifyInputEventsResolved();
 
     int32_t GetRectTouchDownID(const Rect& bb);
 
@@ -44,7 +48,7 @@ public:
 
 private:
     IInputProviderSharedPtr m_inputProvider;
-    Observable<std::vector<TouchEvent>&> m_inputEventsDispatcher;
+    Observable<std::vector<TouchEvent>&> m_resolvedInputEventsDispatcher;
     std::vector<TouchEvent> m_lastFrameInputEvents;
     std::vector<TouchEvent> m_inputEvents;
 };

@@ -99,7 +99,7 @@ EditorShell::~EditorShell() {
     if (m_buildFuture.valid())
         m_buildFuture.wait();
     if (!m_inputObserver.empty() && m_engine && m_engine->getFrameState() && m_engine->getFrameState()->inputEventsManager) {
-        m_engine->getFrameState()->inputEventsManager->getInputEventsDispatcher().remove(m_inputObserver);
+        m_engine->getFrameState()->inputEventsManager->getResolvedInputEventsDispatcher().remove(m_inputObserver);
     }
     if (m_window) {
         auto* glfwWindow = static_cast<GLFWwindow*>(m_window->getSurface());
@@ -783,7 +783,8 @@ bool EditorShell::initialize(std::string& error) {
         }
     }
     if (m_engine && m_engine->getFrameState() && m_engine->getFrameState()->inputEventsManager) {
-        m_inputObserver = m_engine->getFrameState()->inputEventsManager->getInputEventsDispatcher().add([this](std::vector<TouchEvent>& events) { handleInput(events); });
+        m_inputObserver = m_engine->getFrameState()->inputEventsManager->getResolvedInputEventsDispatcher().add(
+            [this](std::vector<TouchEvent>& events) { handleInput(events); });
     }
     setStatus("Ready");
     return true;

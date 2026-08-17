@@ -22,14 +22,12 @@ BaseButton::BaseButton() {
     });
 
     // MOVE: 用于按压过程中的进入/离开（可选）
-    m_moveHandle = m_interaction->addEventListener(TOUCH_EVENT_TYPE_MOVE, [this](TouchEvent& event) {
-        if (!m_isEnabled || !m_isInteractive) return;
-        bool inside = m_interaction && m_interaction->containsPoint(event.positionX, event.positionY);
-        if (inside && !m_isHovered) {
-            onMouseEnter();
-        } else if (!inside && m_isHovered) {
-            onMouseLeave();
-        }
+    m_pointerEnterHandle = m_interaction->addEventListener(TOUCH_EVENT_TYPE_POINTER_ENTER, [this](TouchEvent& /*event*/) {
+        if (!m_isHovered) onMouseEnter();
+    });
+
+    m_pointerLeaveHandle = m_interaction->addEventListener(TOUCH_EVENT_TYPE_POINTER_LEAVE, [this](TouchEvent& /*event*/) {
+        if (m_isHovered) onMouseLeave();
     });
 
     // RELEASE: 只恢复状态，不触发 click

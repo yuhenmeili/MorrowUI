@@ -48,6 +48,8 @@ enum TouchEventType : int32_t
     TOUCH_EVENT_TYPE_TOUCH_AND_HOLD = 4,
     TOUCH_EVENT_TYPE_CLICK = 5,
     TOUCH_EVENT_TYPE_WHEEL = 6,
+    TOUCH_EVENT_TYPE_POINTER_ENTER = 7,
+    TOUCH_EVENT_TYPE_POINTER_LEAVE = 8,
 };
 
 struct TouchEvent
@@ -67,7 +69,6 @@ struct TouchEvent
 
     int32_t callbackTimes = 0;//回调触发次数， 长按回调用
     std::shared_ptr<Widget> target;
-    std::vector<std::shared_ptr<Widget>> traversalTouchTargets;
 
     TouchEvent& operator=(const TouchEvent& other) = default;
 };

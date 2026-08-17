@@ -19,14 +19,18 @@ void InputEventsManager::poll()
     if (m_inputProvider) {
         m_inputProvider->poll(m_inputEvents);
     }
-    if (!m_inputEvents.empty()) {
-        m_inputEventsDispatcher.notify(m_inputEvents);
-    }
 }
 
-Observable<std::vector<TouchEvent>&>& InputEventsManager::getInputEventsDispatcher()
+Observable<std::vector<TouchEvent>&>& InputEventsManager::getResolvedInputEventsDispatcher()
 {
-    return m_inputEventsDispatcher;
+    return m_resolvedInputEventsDispatcher;
+}
+
+void InputEventsManager::notifyInputEventsResolved()
+{
+    if (!m_inputEvents.empty()) {
+        m_resolvedInputEventsDispatcher.notify(m_inputEvents);
+    }
 }
 
 int32_t InputEventsManager::GetRectTouchDownID(const Rect& bb)
