@@ -64,7 +64,6 @@ void VertexArray::recordUploadedMeshes(HwGPUProgram program, const std::vector<s
 }
 
 void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, HwGPUProgram program, const std::vector<std::shared_ptr<MeshFilter>>& meshFilters) {
-    (void)frameState;
     if (!needsMeshUpload(program, meshFilters)) {
         return;
     }

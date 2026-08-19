@@ -66,16 +66,16 @@ MorrowUI 本质是 HMI/UI 引擎，因此本文**以 Control 为主**，Node2D �
 
 ### 5.3 可选级（2D 绘制/特效）
 
-| 组件 | 说明 |
-|---|---|
-| Line2D | 折线/描边，表盘刻度线、指针外圈 |
-| Path2D + PathFollow2D | 物体沿路径运动，指针沿弧线摆动 |
-| GPUParticles2D / CPUParticles2D | 粒子特效（发光、飘落、氛围） |
-| CanvasModulate | 全局色调 / 夜间模式一键变暗 |
-| ParallaxBackground / Parallax2D | 视差背景 |
-| Tooltip、Popup / PopupPanel / Window / Dialog | 弹窗、确认框、提示气泡 |
-| ItemList / Tree | 列表、树形菜单 |
-| VideoStreamPlayer | 视频播放（开机动画、倒车影像叠加） |
+| 状态 | 组件 | 说明 |
+|---|---|---|
+| 未完成 | Line2D | 折线/描边，表盘刻度线、指针外圈 |
+| 未完成 | Path2D + PathFollow2D | 物体沿路径运动，指针沿弧线摆动 |
+| 已完成 | GPUParticles2D / CPUParticles2D | 对应 `MRGPUParticles2D`、`MRCPUParticles2D`；支持发射区域、生命周期、速度、重力、尺寸、颜色渐变和加法混合 |
+| 已完成 | CanvasModulate | 对应 `MRCanvasModulate`；使用乘法混合实现全局色调、调制强度和夜间模式一键变暗 |
+| 未完成 | ParallaxBackground / Parallax2D | 视差背景 |
+| 未完成 | Tooltip、Popup / PopupPanel / Window / Dialog | 弹窗、确认框、提示气泡 |
+| 未完成 | ItemList / Tree | 列表、树形菜单 |
+| 未完成 | VideoStreamPlayer | 视频播放（开机动画、倒车影像叠加） |
 
 ### 5.4 基本可跳过（游戏向，UI 引擎一般不需要）
 

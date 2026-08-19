@@ -112,6 +112,10 @@ if(BUILD_TESTING)
     target_link_libraries(TextEditTests morrow)
     add_test(NAME TextEditTests COMMAND TextEditTests)
 
+    add_executable(ParticlesCanvasModulateTests tests/ParticlesCanvasModulateTests.cpp)
+    target_link_libraries(ParticlesCanvasModulateTests morrow)
+    add_test(NAME ParticlesCanvasModulateTests COMMAND ParticlesCanvasModulateTests)
+
     add_executable(Transform3DTests tests/Transform3DTests.cpp)
     target_link_libraries(Transform3DTests morrow)
     add_test(NAME Transform3DTests COMMAND Transform3DTests)
