@@ -4,9 +4,10 @@
 
 #ifndef BASEBUTTON_H
 #define BASEBUTTON_H
-#include "UIWidget.h"
-#include <functional>
 #include <cstdint>
+#include <functional>
+
+#include "UIWidget.h"
 
 namespace morrow {
 class Interaction;
@@ -50,6 +51,10 @@ protected:
 
     virtual void updateVisualState();
 
+    /// Called after a valid click and before the user click callback.
+    /// Stateful buttons can use this hook without replacing the callback.
+    virtual void onActivated();
+
     /// Interaction 事件桥接（RELEASE 只恢复状态；CLICK 才真正触发 onClick 回调）
     void onPointerRelease();
     void onPointerClick();
@@ -69,11 +74,11 @@ protected:
 
     // 状态管理
     ButtonState m_currentState = ButtonState::NORMAL;
-    bool m_isEnabled = true;//是否启用，控制外观变化
-    bool m_isInteractive = true;//是否响应鼠标事件
+    bool m_isEnabled = true;      // 是否启用，控制外观变化
+    bool m_isInteractive = true;  // 是否响应鼠标事件
     bool m_isHovered = false;
     bool m_isPressed = false;
 };
-} // morrow
+}  // namespace morrow
 
-#endif //BASEBUTTON_H
+#endif  // BASEBUTTON_H

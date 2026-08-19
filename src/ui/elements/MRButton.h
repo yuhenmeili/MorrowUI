@@ -4,10 +4,10 @@
 
 #ifndef MORROW_GUI_MRTEXTBUTTON_H
 #define MORROW_GUI_MRTEXTBUTTON_H
-#include "MRLabel.h"
 #include <memory>
 #include <string>
 
+#include "MRLabel.h"
 #include "Texture.h"
 #include "base/BaseButton.h"
 
@@ -61,11 +61,12 @@ public:
 
     void update(FrameStateSharedPtr frameState) override;
 
-private:
+protected:
     MRButton();
 
     void updateVisualState() override;
 
+private:
     void createBackgroundMesh();
 
     void createBorderMesh();
@@ -74,7 +75,7 @@ private:
 
     void applyCurrentColors();
 
-private:
+protected:
     std::shared_ptr<MRLabel> m_label;
 
     // 底图
@@ -82,11 +83,12 @@ private:
     bool m_hasBackgroundImage = false;
 
     // 颜色配置
-    Vector4 m_backgroundColorNormal = Vector4(0.2f, 0.4f, 0.8f, 1.0f); // 蓝色
-    Vector4 m_backgroundColorHover = Vector4(0.3f, 0.5f, 0.9f, 1.0f); // 亮蓝色;
-    Vector4 m_backgroundColorPressed = Vector4(0.1f, 0.3f, 0.7f, 1.0f); // 暗蓝色;
-    Vector4 m_backgroundColorDisabled = Vector4(0.5f, 0.5f, 0.5f, 0.5f); // 灰色半透明;
-    Vector4 m_borderColor = Vector4(0.1f, 0.1f, 0.1f, 1.0f);;
+    Vector4 m_backgroundColorNormal = Vector4(0.2f, 0.4f, 0.8f, 1.0f);    // 蓝色
+    Vector4 m_backgroundColorHover = Vector4(0.3f, 0.5f, 0.9f, 1.0f);     // 亮蓝色;
+    Vector4 m_backgroundColorPressed = Vector4(0.1f, 0.3f, 0.7f, 1.0f);   // 暗蓝色;
+    Vector4 m_backgroundColorDisabled = Vector4(0.5f, 0.5f, 0.5f, 0.5f);  // 灰色半透明;
+    Vector4 m_borderColor = Vector4(0.1f, 0.1f, 0.1f, 1.0f);
+    ;
 
     // 当前状态颜色
     Vector4 m_currentBackgroundColor = m_backgroundColorNormal;
@@ -109,5 +111,5 @@ private:
     bool m_isBackgroundDirty = true;
     bool m_isBorderDirty = true;
 };
-} // namespace morrow
-#endif //MORROW_GUI_MRTEXTBUTTON_H
+}  // namespace morrow
+#endif  // MORROW_GUI_MRTEXTBUTTON_H
