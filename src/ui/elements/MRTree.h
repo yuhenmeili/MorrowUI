@@ -1,0 +1,100 @@
+#ifndef MORROW_GUI_MRTREE_H
+#define MORROW_GUI_MRTREE_H
+
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "MRButton.h"
+#include "base/UIWidget.h"
+
+namespace morrow {
+
+/// 支持展开、折叠和单选的树形列表控件。
+class MRTree : public UIWidget {
+public:
+    struct Node {
+        int id = 0;
+        int parentId = -1;
+        std::wstring text;
+        bool expanded = true;
+        bool enabled = true;
+    };
+
+    using NodeSelectedCallback = std::function<void(int, const std::wstring&)>;
+    using NodeExpandedCallback = std::function<void(int, bool)>;
+
+    /// 创建树形控件。
+    static std::shared_ptr<MRTree> create();
+    /// 添加节点；parentId 为 -1 时添加根节点。
+    bool addNode(int id, const std::wstring& text, int parentId = -1, bool expanded = true, bool enabled = true);
+    /// 删除全部节点。
+    void clear();
+    /// 设置每个可见节点的行高。
+    void setRowHeight(float height);
+    /// 设置每一级树节点的缩进宽度。
+    void setIndentWidth(float width);
+    /// 设置垂直滚动偏移。
+    void setScrollOffset(float offset);
+    /// 展开或折叠指定节点。
+    bool setExpanded(int id, bool expanded);
+    /// 切换指定节点的展开状态。
+    bool toggleExpanded(int id);
+    /// 查询指定节点是否展开。
+    bool isExpanded(int id) const;
+    /// 选中指定节点。
+    bool selectNode(int id);
+    /// 获取当前选中节点 id；未选中时返回 -1。
+    int getSelectedId() const;
+    /// 设置节点选中回调。
+    void setOnNodeSelectedCallback(NodeSelectedCallback callback);
+    /// 设置节点展开状态变化回调。
+    void setOnNodeExpandedCallback(NodeExpandedCallback callback);
+    /// 获取只读树节点数据。
+    const std::vector<Node>& getNodes() const;
+    void update(FrameStateSharedPtr frameState) override;
+
+private:
+    struct VisibleNode {
+        size_t nodeIndex = 0;
+        int depth = 0;
+    };
+
+    MRTree();
+
+    int findNodeIndex(int id) const;
+
+    bool hasChildren(int id) const;
+
+    void rebuildVisibleNodes();
+
+    void appendVisibleChildren(int parentId, int depth);
+
+    void layoutRows();
+
+    void selectIndex(size_t nodeIndex, bool notify);
+
+    void attachWheel(const std::shared_ptr<Widget>& widget);
+
+    void configureRow(size_t rowIndex, const VisibleNode& visibleNode);
+
+    std::vector<Node> m_nodes;
+    std::vector<VisibleNode> m_visibleNodes;
+    std::vector<std::shared_ptr<MRButton>> m_rows;
+    NodeSelectedCallback m_onNodeSelected;
+    NodeExpandedCallback m_onNodeExpanded;
+    float m_rowHeight = 46.0f;
+    float m_indentWidth = 28.0f;
+    float m_scrollOffset = 0.0f;
+    float m_maxScrollOffset = 0.0f;
+    int m_selectedIndex = -1;
+    bool m_treeDirty = true;
+};
+
+using MRTreeSharedPtr = std::shared_ptr<MRTree>;
+using Tree = MRTree;
+
+}  // namespace morrow
+
+#endif  // MORROW_GUI_MRTREE_H

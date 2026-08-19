@@ -74,8 +74,8 @@ MorrowUI 本质是 HMI/UI 引擎，因此本文**以 Control 为主**，Node2D �
 | 已完成 | CanvasModulate | 对应 `MRCanvasModulate`；使用乘法混合实现全局色调、调制强度和夜间模式一键变暗 |
 | 已完成 | ParallaxBackground / Parallax2D | 对应 `MRParallaxBackground`、`MRParallax2D`；支持多层独立移动倍率和统一滚动偏移，见 `samples/ParallaxPopupDemo.cpp` |
 | 已完成 | Tooltip、Popup / PopupPanel / Window / Dialog | 对应 `MRTooltip`、`MRPopup`、`MRPopupPanel`、`MRWindow`、`MRDialog`；支持挂载、定位、显示/隐藏、标题、内容、关闭和确认/取消回调，见 `samples/ParallaxPopupDemo.cpp` |
-| 未完成 | ItemList / Tree | 列表、树形菜单 |
-| 未完成 | VideoStreamPlayer | 视频播放（开机动画、倒车影像叠加） |
+| 已完成 | ItemList / Tree | 对应 `MRItemList`、`MRTree`；支持列表单选、滚轮滚动、树节点层级、展开/折叠和选中回调，见 `samples/ItemListTreeDemo.cpp` |
+| 已完成 | VideoStreamPlayer | 对应 `MRVideoStreamPlayer`；支持 RGBA 帧提供器、播放/暂停/停止、循环、倍速、按帧/按秒跳转和状态回调，见 `samples/VideoStreamPlayerDemo.cpp` |
 
 ### 5.4 基本可跳过（游戏向，UI 引擎一般不需要）
 
