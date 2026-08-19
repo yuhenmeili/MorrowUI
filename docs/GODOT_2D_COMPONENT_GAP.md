@@ -72,8 +72,8 @@ MorrowUI 本质是 HMI/UI 引擎，因此本文**以 Control 为主**，Node2D �
 | 未完成 | Path2D + PathFollow2D | 物体沿路径运动，指针沿弧线摆动 |
 | 已完成 | GPUParticles2D / CPUParticles2D | 对应 `MRGPUParticles2D`、`MRCPUParticles2D`；支持发射区域、生命周期、速度、重力、尺寸、颜色渐变和加法混合 |
 | 已完成 | CanvasModulate | 对应 `MRCanvasModulate`；使用乘法混合实现全局色调、调制强度和夜间模式一键变暗 |
-| 未完成 | ParallaxBackground / Parallax2D | 视差背景 |
-| 未完成 | Tooltip、Popup / PopupPanel / Window / Dialog | 弹窗、确认框、提示气泡 |
+| 已完成 | ParallaxBackground / Parallax2D | 对应 `MRParallaxBackground`、`MRParallax2D`；支持多层独立移动倍率和统一滚动偏移，见 `samples/ParallaxPopupDemo.cpp` |
+| 已完成 | Tooltip、Popup / PopupPanel / Window / Dialog | 对应 `MRTooltip`、`MRPopup`、`MRPopupPanel`、`MRWindow`、`MRDialog`；支持挂载、定位、显示/隐藏、标题、内容、关闭和确认/取消回调，见 `samples/ParallaxPopupDemo.cpp` |
 | 未完成 | ItemList / Tree | 列表、树形菜单 |
 | 未完成 | VideoStreamPlayer | 视频播放（开机动画、倒车影像叠加） |
 
