@@ -57,12 +57,12 @@ MorrowUI 本质是 HMI/UI 引擎，因此本文**以 Control 为主**，Node2D �
 ### 5.2 建议级（完善交互会用到）
 
 | 状态 | 组件 | 说明 |
-|---|---|
+|---|---|---|
 | 已完成 | CheckBox / CheckButton、RadioButton、Toggle 按钮 | 开关、多选、单选，对应 `MRCheckBox`、`MRCheckButton`、`MRRadioButton`、`MRToggle` |
 | 已完成 | OptionButton / PopupMenu / MenuButton | 下拉选择、菜单，对应 `MROptionButton`、`MRPopupMenu`、`MRMenuButton` |
 | 已完成 | ScrollContainer + ScrollBar | 长列表滚动，对应 `MRScrollContainer`、`MRScrollBar`；支持滚轮、触摸拖动和滚动条拖拽 |
-| 未完成 | SpinBox | 数值步进（时钟、温度设定） |
-| 未完成 | HSeparator / VSeparator / Spacer | 分隔线、弹性占位 |
+| 已完成 | SpinBox | 数值步进（时钟、温度设定），对应 `MRSpinBox`；支持范围、步长、小数位、前后缀和变化回调 |
+| 已完成 | HSeparator / VSeparator / Spacer | 分隔线、弹性占位，对应 `MRHSeparator`、`MRVSeparator`、`MRSpacer`；HBox/VBox 支持按 flex 分配剩余空间 |
 
 ### 5.3 可选级（2D 绘制/特效）
 

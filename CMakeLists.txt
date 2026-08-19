@@ -104,6 +104,10 @@ if(BUILD_TESTING)
     target_link_libraries(ScrollControlsTests morrow)
     add_test(NAME ScrollControlsTests COMMAND ScrollControlsTests)
 
+    add_executable(SpinBoxLayoutElementsTests tests/SpinBoxLayoutElementsTests.cpp)
+    target_link_libraries(SpinBoxLayoutElementsTests morrow)
+    add_test(NAME SpinBoxLayoutElementsTests COMMAND SpinBoxLayoutElementsTests)
+
     add_executable(Transform3DTests tests/Transform3DTests.cpp)
     target_link_libraries(Transform3DTests morrow)
     add_test(NAME Transform3DTests COMMAND Transform3DTests)

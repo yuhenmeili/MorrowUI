@@ -26,9 +26,10 @@ public:
 
     void setRounding(float rounding);
 
-private:
+protected:
     MRColor();
 
+private:
     float m_rounding = 0.0f;
 };
 }  // namespace morrow
