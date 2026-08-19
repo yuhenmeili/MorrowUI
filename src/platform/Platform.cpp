@@ -11,9 +11,9 @@
 #include "GlobalObject.h"
 #include "RenderDeviceProxy.h"
 #include "Window.h"
-#include "ui/base/Widget.h"
 #include "ui/base/Interaction.h"
 #include "ui/base/TouchEvent.h"
+#include "ui/base/Widget.h"
 
 namespace morrow {
 void Platform::initialize(bool multithread) {
@@ -25,7 +25,8 @@ WindowSharedPtr Platform::getWindow() const {
 }
 
 void Platform::waitForEvents(double timeoutSeconds) {
-    if (timeoutSeconds <= 0.0) return;
+    if (timeoutSeconds <= 0.0)
+        return;
     std::this_thread::sleep_for(std::chrono::duration<double>(timeoutSeconds));
 }
 
@@ -68,8 +69,12 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
         touchEvent.target.reset();
         std::shared_ptr<Widget> resolvedTarget;
         bool fromCapture = false;
+        const bool isKeyboardEvent = touchEvent.eventType == TOUCH_EVENT_TYPE_CHARACTER || touchEvent.eventType == TOUCH_EVENT_TYPE_KEY_DOWN;
+        if (isKeyboardEvent) {
+            resolvedTarget = m_keyboardFocusTarget.lock();
+        }
         const bool isCapturedEvent = touchEvent.eventType == TOUCH_EVENT_TYPE_MOVE || touchEvent.eventType == TOUCH_EVENT_TYPE_RELEASE;
-        if (isCapturedEvent) {
+        if (!isKeyboardEvent && isCapturedEvent) {
             auto captureIt = m_pointerCaptureTargets.find(touchEvent.touchID);
             if (captureIt != m_pointerCaptureTargets.end()) {
                 resolvedTarget = captureIt->second.lock();
@@ -79,7 +84,7 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
                 }
             }
         }
-        if (!resolvedTarget) {
+        if (!isKeyboardEvent && !resolvedTarget) {
             resolvedTarget = findTopmostInteractiveWidget(m_window, touchEvent.positionX, touchEvent.positionY);
         }
         touchEvent.target = resolvedTarget;
@@ -108,6 +113,21 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
         }
 
         if (touchEvent.eventType == TOUCH_EVENT_TYPE_TOUCH) {
+            auto previousFocus = m_keyboardFocusTarget.lock();
+            std::shared_ptr<Widget> nextFocus;
+            if (resolvedTarget) {
+                auto interaction = resolvedTarget->getComponent<Interaction>();
+                if (interaction && interaction->isKeyboardFocusable()) {
+                    nextFocus = resolvedTarget;
+                }
+            }
+            if (previousFocus != nextFocus) {
+                if (previousFocus)
+                    previousFocus->onFocusChanged(false);
+                if (nextFocus)
+                    nextFocus->onFocusChanged(true);
+                m_keyboardFocusTarget = nextFocus;
+            }
             if (resolvedTarget) {
                 m_pointerCaptureTargets[touchEvent.touchID] = resolvedTarget;
             } else {
@@ -161,4 +181,4 @@ void Platform::lateUpdateWidgets(FrameStateSharedPtr frameState) {
         m_window->lateUpdateWidgets(frameState);
     }
 }
-} // morrow
+}  // namespace morrow

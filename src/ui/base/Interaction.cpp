@@ -75,6 +75,14 @@ void Interaction::handleTouchEvent(TouchEvent& event) {
             dispatchEvent(TOUCH_EVENT_TYPE_WHEEL, event);
             break;
 
+        case TOUCH_EVENT_TYPE_CHARACTER:
+            dispatchEvent(TOUCH_EVENT_TYPE_CHARACTER, event);
+            break;
+
+        case TOUCH_EVENT_TYPE_KEY_DOWN:
+            dispatchEvent(TOUCH_EVENT_TYPE_KEY_DOWN, event);
+            break;
+
         case TOUCH_EVENT_TYPE_POINTER_ENTER:
             dispatchEvent(TOUCH_EVENT_TYPE_POINTER_ENTER, event);
             break;
@@ -122,6 +130,10 @@ void Interaction::setLongPressEnabled(bool enabled) {
 
 void Interaction::setLongPressDelay(float seconds) {
     m_longPressDelay = seconds;
+}
+
+void Interaction::setKeyboardFocusable(bool focusable) {
+    m_keyboardFocusable = focusable;
 }
 
 void Interaction::checkLongPress(FrameStateSharedPtr /*frameState*/) {

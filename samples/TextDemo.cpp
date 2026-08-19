@@ -1,11 +1,13 @@
 #include "Engine.h"
-#include "elements/MRLabel.h"
-#include "base/Transform.h"
 #include "FontManager.h"
 #include "GlobalObject.h"
 #include "ToolUtils.h"
+#include "base/Transform.h"
 #include "elements/MRButton.h"
 #include "elements/MRImage.h"
+#include "elements/MRLabel.h"
+#include "elements/MRLineEdit.h"
+#include "elements/MRTextEdit.h"
 //
 // Created by 0060328 on 25-10-9.
 //
@@ -19,21 +21,48 @@ int main() {
     auto window = engine->getWindow();
     window->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-    FontInfo fontInfo = {
-        .name = "debug_morrow_20",
-        .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"
-    };
+    FontInfo fontInfo = {.name = "debug_morrow_20", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
     engine->addFonts({fontInfo});
 
     const std::string fontName = fontInfo.name;
 
-    auto button1 = MRButton::create();
-    button1->setText(L"Button1", fontName);
-    button1->setTextFontSize(20.0f);
-    auto transform = button1->getComponent<Transform>();
-    transform->setPosition(100.0f, 100.0f, 0.0f);
-    transform->setSize(100.0f, 100.0f);
-    window->addChild(button1);
+    auto inputTitle = std::make_shared<MRLabel>();
+    inputTitle->getComponent<Transform>()->setPosition(120.0f, 90.0f, 0.0f);
+    inputTitle->getComponent<Transform>()->setSize(620.0f, 48.0f);
+    inputTitle->setText(L"文本输入组件", fontName);
+    inputTitle->setFontSize(30.0f);
+    inputTitle->setFontColor(0.12f, 0.16f, 0.22f, 1.0f);
+    window->addChild(inputTitle);
+
+    auto multiLineEdit = MRTextEdit::create();
+    multiLineEdit->getComponent<Transform>()->setPosition(120.0f, 160.0f, 0.0f);
+    multiLineEdit->getComponent<Transform>()->setSize(620.0f, 260.0f);
+    multiLineEdit->setFontName(fontName);
+    multiLineEdit->setFontSize(24.0f);
+    multiLineEdit->setPlaceholder(L"输入多行备注，按 Enter 换行");
+    multiLineEdit->setOnTextChangedCallback([](const std::wstring& text) { LOG_I("multi-line text length = {}", text.size()); });
+    window->addChild(multiLineEdit);
+
+    auto userNameEdit = MRLineEdit::create();
+    userNameEdit->getComponent<Transform>()->setPosition(120.0f, 470.0f, 0.0f);
+    userNameEdit->getComponent<Transform>()->setSize(620.0f, 58.0f);
+    userNameEdit->setFontName(fontName);
+    userNameEdit->setFontSize(23.0f);
+    userNameEdit->setPlaceholder(L"用户名（单行，按 Enter 提交）");
+    userNameEdit->setMaxLength(24);
+    userNameEdit->setOnSubmitCallback([](const std::wstring& text) { LOG_I("user name submitted, length = {}", text.size()); });
+    window->addChild(userNameEdit);
+
+    auto passwordEdit = MRLineEdit::create();
+    passwordEdit->getComponent<Transform>()->setPosition(120.0f, 550.0f, 0.0f);
+    passwordEdit->getComponent<Transform>()->setSize(620.0f, 58.0f);
+    passwordEdit->setFontName(fontName);
+    passwordEdit->setFontSize(23.0f);
+    passwordEdit->setPlaceholder(L"密码输入");
+    passwordEdit->setPasswordMode(true);
+    passwordEdit->setMaxLength(32);
+    passwordEdit->setOnSubmitCallback([](const std::wstring& text) { LOG_I("password submitted, length = {}", text.size()); });
+    window->addChild(passwordEdit);
 
     const std::wstring text = L"Hello World 测试";
     auto textRenderer = std::make_shared<MRLabel>();
@@ -44,13 +73,6 @@ int main() {
     textRenderer->setFontSize(35.0f);
     textRenderer->setFontColor(1.0f, 0.0f, 0.0f, 1.0f);
     window->addChild(textRenderer);
-
-    int clickCount = 0;
-    button1->setOnClickCallback([&]() {
-        LOG_I("Button clicked!");
-        clickCount++;
-        textRenderer->setText(L"Clicked " + std::to_wstring(clickCount) + L"!", fontName);
-    });
 
     engine->render();
     return 0;

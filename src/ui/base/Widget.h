@@ -1,13 +1,14 @@
 #ifndef MORROW_WIDGET_H_
 #define MORROW_WIDGET_H_
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <vector>
-#include <atomic>
-#include "MathUtils.h"
-#include "FrameState.h"
+
 #include "ComponentManager.h"
+#include "FrameState.h"
+#include "MathUtils.h"
 #include "Rect.h"
 #include "debug/ObjectRegistry.h"
 
@@ -50,6 +51,8 @@ public:
 
     /// lateUpdate: 在所有 standard update 完成后调用（用于依赖其他组件已更新的逻辑）
     virtual void lateUpdate(FrameStateSharedPtr frameState);
+
+    virtual void onFocusChanged(bool focused);
 
     /// 将触摸事件派发到本 Widget 的 Interaction 组件（由事件系统调用）
     void dispatchTouchEvent(TouchEvent& event);
@@ -108,7 +111,7 @@ public:
 
     virtual void debugTexture();
 
- public:
+public:
     std::shared_ptr<Widget> m_parent;
     std::vector<std::shared_ptr<Widget>> m_children;
 
@@ -118,7 +121,7 @@ protected:
     std::string m_widgetName;
     std::string m_widgetType = "MRWidget";
     std::atomic_bool m_visible{true};
-    //显示层级[-10,10]， 动效默认为1
+    // 显示层级[-10,10]， 动效默认为1
     int32_t m_displayLayer = 0;
     // 组件管理系统
     std::unique_ptr<ComponentManager> m_componentManager;
@@ -127,6 +130,6 @@ private:
     DebugObjectHandle m_debugObject{DebugObjectCategory::Widget, "MRWidget"};
     std::string m_uniqueID = Math::generate_uuid();
 };
-}
+}  // namespace morrow
 
 #endif /* MORROW_WIDGET_H_ */

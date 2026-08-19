@@ -1,26 +1,23 @@
 #include "Widget.h"
-#include "utils/Log.h"
-#include "Rect.h"
+
 #include "GlobalObject.h"
 #include "Interaction.h"
+#include "Rect.h"
 #include "TouchEvent.h"
 #include "core/OrthographicCamera.h"
+#include "utils/Log.h"
 
-namespace morrow
-{
-bool sortChildren(const std::shared_ptr<Widget>& a, const std::shared_ptr<Widget>& b)
-{
+namespace morrow {
+bool sortChildren(const std::shared_ptr<Widget>& a, const std::shared_ptr<Widget>& b) {
     return (a->getDisplayLayer() < b->getDisplayLayer());
 }
 
-Widget::Widget()
-    : m_componentManager(std::make_unique<ComponentManager>()) {
+Widget::Widget() : m_componentManager(std::make_unique<ComponentManager>()) {
 }
 
 Widget::~Widget() = default;
 
-void Widget::setVisible(bool visible)
-{
+void Widget::setVisible(bool visible) {
     if (m_visible != visible) {
         m_visible = visible;
         requestRender("setVisible");
@@ -28,15 +25,15 @@ void Widget::setVisible(bool visible)
     }
 }
 
-bool Widget::getVisible() const
-{
-    if (!m_visible) return false;
-    if (m_parent) return m_parent->getVisible();
+bool Widget::getVisible() const {
+    if (!m_visible)
+        return false;
+    if (m_parent)
+        return m_parent->getVisible();
     return true;
 }
 
-void Widget::update(FrameStateSharedPtr frameState)
-{
+void Widget::update(FrameStateSharedPtr frameState) {
     m_componentManager->updateComponents(frameState);
     for (auto& child : m_children) {
         if (child->getVisible()) {
@@ -45,8 +42,7 @@ void Widget::update(FrameStateSharedPtr frameState)
     }
 }
 
-void Widget::lateUpdate(FrameStateSharedPtr frameState)
-{
+void Widget::lateUpdate(FrameStateSharedPtr frameState) {
     m_componentManager->lateUpdateComponents(frameState);
     for (auto& child : m_children) {
         if (child->getVisible()) {
@@ -55,19 +51,19 @@ void Widget::lateUpdate(FrameStateSharedPtr frameState)
     }
 }
 
-const std::string& Widget::getUuid() const
-{
+const std::string& Widget::getUuid() const {
     return m_uniqueID;
 }
 
-void Widget::setWidgetName(std::string widgetName)
-{
+void Widget::setWidgetName(std::string widgetName) {
     m_widgetName = std::move(widgetName);
     m_debugObject.setName(m_widgetName);
 }
 
-const std::string& Widget::getWidgetName() const
-{
+void Widget::onFocusChanged(bool /*focused*/) {
+}
+
+const std::string& Widget::getWidgetName() const {
     return m_widgetName;
 }
 
@@ -86,12 +82,12 @@ void Widget::refreshDebugObjectTree(DebugObjectId parentId) {
     m_debugObject.setParentId(parentId);
     const auto selfId = getDebugObjectId();
     for (const auto& child : m_children) {
-        if (child) child->refreshDebugObjectTree(selfId);
+        if (child)
+            child->refreshDebugObjectTree(selfId);
     }
 }
 
-void Widget::addChild(std::shared_ptr<Widget> widget)
-{
+void Widget::addChild(std::shared_ptr<Widget> widget) {
     widget->removeFromStage();
     widget->m_parent = shared_from_this();
     widget->m_debugObject.setParentId(getDebugObjectId());
@@ -100,8 +96,7 @@ void Widget::addChild(std::shared_ptr<Widget> widget)
     requestRender("addChild");
 }
 
-bool Widget::removeChild(std::shared_ptr<Widget> widget)
-{
+bool Widget::removeChild(std::shared_ptr<Widget> widget) {
     if (!m_children.empty()) {
         auto iter = std::find(m_children.begin(), m_children.end(), widget);
         if (iter != m_children.end()) {
@@ -115,13 +110,11 @@ bool Widget::removeChild(std::shared_ptr<Widget> widget)
     return false;
 }
 
-int32_t Widget::getDisplayLayer() const
-{
+int32_t Widget::getDisplayLayer() const {
     return m_displayLayer;
 }
 
-void Widget::setDisplayLayer(int32_t displayLayer)
-{
+void Widget::setDisplayLayer(int32_t displayLayer) {
     if (m_displayLayer != displayLayer) {
         m_displayLayer = Math::clamp(displayLayer, -10, 10);
         if (m_parent) {
@@ -132,43 +125,36 @@ void Widget::setDisplayLayer(int32_t displayLayer)
     }
 }
 
-std::string Widget::getIdentityInfo()
-{
+std::string Widget::getIdentityInfo() {
     return m_uniqueID + "_" + m_widgetType + "_" + m_widgetName;
 }
 
-
-void Widget::dispatchTouchEvent(TouchEvent& event)
-{
+void Widget::dispatchTouchEvent(TouchEvent& event) {
     auto interaction = getComponent<Interaction>();
-    if (interaction) interaction->handleTouchEvent(event);
+    if (interaction)
+        interaction->handleTouchEvent(event);
 }
 
-void Widget::removeFromStage()
-{
+void Widget::removeFromStage() {
     if (m_parent) {
         m_parent->removeChild(shared_from_this());
     }
 }
 
-void Widget::requestRender(std::string caller)
-{
+void Widget::requestRender(std::string caller) {
     REQUESTRENDER;
 }
 
-ComponentManager* Widget::getComponentManager() const { return m_componentManager.get(); }
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~debug~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void Widget::debug(const std::string& flag)
-{
-    LOG_I("{}, {}, visible: {}",
-          getIdentityInfo().c_str(),
-          flag.c_str(),
-          getVisible());
+ComponentManager* Widget::getComponentManager() const {
+    return m_componentManager.get();
 }
 
-void Widget::debugTraversal(const std::string& flag)
-{
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~debug~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void Widget::debug(const std::string& flag) {
+    LOG_I("{}, {}, visible: {}", getIdentityInfo().c_str(), flag.c_str(), getVisible());
+}
+
+void Widget::debugTraversal(const std::string& flag) {
     debug(flag);
     if (!m_children.empty()) {
         for (const auto& child : m_children) {
@@ -179,8 +165,7 @@ void Widget::debugTraversal(const std::string& flag)
     }
 }
 
-void Widget::debugTexture()
-{
+void Widget::debugTexture() {
     if (!m_children.empty()) {
         for (const auto& child : m_children) {
             if (child->getVisible()) {
@@ -190,4 +175,4 @@ void Widget::debugTexture()
     }
 }
 
-}
+}  // namespace morrow

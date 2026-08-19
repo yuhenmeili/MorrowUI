@@ -17,7 +17,7 @@ using WindowInfoSharedPtr = std::shared_ptr<WindowInfo>;
 class Window;
 using WindowSharedPtr = std::shared_ptr<Window>;
 
-class Platform : public std::enable_shared_from_this<Platform>{
+class Platform : public std::enable_shared_from_this<Platform> {
 public:
     virtual ~Platform() = default;
 
@@ -61,7 +61,9 @@ public:
 
     [[nodiscard]] bool shouldClose() const;
 
-    [[nodiscard]] int32_t getRequestedSamples() const { return m_requestedSamples; }
+    [[nodiscard]] int32_t getRequestedSamples() const {
+        return m_requestedSamples;
+    }
 
 protected:
     std::shared_ptr<Widget> findTopmostInteractiveWidget(const std::shared_ptr<Widget>& root, float x, float y);
@@ -75,9 +77,10 @@ protected:
     bool m_isSSBOSupport = false;
     std::unordered_map<int32_t, std::weak_ptr<Widget>> m_pointerCaptureTargets;
     std::weak_ptr<Widget> m_hoverTarget;
+    std::weak_ptr<Widget> m_keyboardFocusTarget;
 };
 
 using PlatformSharedPtr = std::shared_ptr<Platform>;
-} // morrow
+}  // namespace morrow
 
-#endif //PLATFORM_H
+#endif  // PLATFORM_H

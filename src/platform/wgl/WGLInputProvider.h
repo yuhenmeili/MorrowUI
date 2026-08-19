@@ -24,6 +24,10 @@ public:
 private:
     static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
+    static void character_callback(GLFWwindow* window, unsigned int codepoint);
+
+    static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
     GLFWwindow* m_window = nullptr;
     bool m_lastLeftPressed = false;
     bool m_lastRightPressed = false;
@@ -32,8 +36,9 @@ private:
     double m_lastY = 0.0;
     double m_accumulatedWheelX = 0.0;
     double m_accumulatedWheelY = 0.0;
+    std::vector<TouchEvent> m_pendingKeyboardEvents;
 };
 
-} // namespace morrow
+}  // namespace morrow
 
-#endif // MORROW_WGL_INPUT_PROVIDER_H
+#endif  // MORROW_WGL_INPUT_PROVIDER_H

@@ -23,7 +23,7 @@ MorrowUI 本质是 HMI/UI 引擎，因此本文**以 Control 为主**，Node2D �
 2. **进度条**（`ProgressBar`）—— 音量、亮度、加载；
 3. **九宫格缩放**（`NinePatchRect`）—— UI 皮肤任意拉伸不变形；
 4. **滑杆**（`Slider`/`Range`）—— 音量、座椅、空调调节；
-5. **单行输入**（`LineEdit`）—— 目前只有多行 `MRTextEdit`。
+5. **单行输入**（`LineEdit`）—— 已由 `MRLineEdit` 补齐，支持 placeholder、密码模式和回车提交。
 
 ## 4. 现有组件对照
 
@@ -52,7 +52,7 @@ MorrowUI 本质是 HMI/UI 引擎，因此本文**以 Control 为主**，Node2D �
 | 已完成 | 进度条 | 线性进度（音量、亮度、加载），对应 `MRProgressBar` |
 | 未完成 | NinePatchRect（9-slice） | 圆角/描边面板任意拉伸不变形，UI 皮肤切图刚需；当前只能用 `rounding` 硬算圆角 |
 | 已完成 | Slider / HSlider / VSlider | 滑杆（Range 基类），音量、座椅、空调调节，对应 `MRSlider` |
-| 未完成 | LineEdit（单行输入） | 带 placeholder/密码模式/单行回车的输入框；目前只有多行 `MRTextEdit` |
+| 已完成 | LineEdit（单行输入） | 对应 `MRLineEdit`，支持 placeholder、密码模式、最大长度和单行回车提交；`MRTextEdit` 已完善多行文本输入、换行、光标移动和删除编辑 |
 
 ### 5.2 建议级（完善交互会用到）
 
@@ -96,6 +96,6 @@ Godot 4.x **没有**名为 `ProgressRing` 的独立节点（本文初稿曾误�
 2. NinePatchRect —— 9 个顶点 + 中间区域拉伸；
 3. 进度条 —— 复用矩形填充 + 分段着色；
 4. Slider —— 进度条 + 拖拽交互；
-5. LineEdit —— 复用 `MRTextEdit` 的文本渲染，限制单行。
+5. LineEdit —— 已由 `MRLineEdit` 复用文本编辑核心实现，限制单行并提供 placeholder、密码模式和回车提交。
 
 其中环形进度与 NinePatchRect 对车机场景价值最高，实现成本也最低。

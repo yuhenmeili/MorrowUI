@@ -10,6 +10,7 @@
 #include "ui/base/TouchEvent.h"
 #include "ui/base/Transform.h"
 #include "ui/base/UIWidget.h"
+#include "ui/elements/MRLineEdit.h"
 
 using namespace morrow;
 
@@ -41,19 +42,28 @@ public:
 
 class TestPlatform final : public Platform {
 public:
-    TestPlatform() : m_inputManager(std::make_shared<InputEventsManager>()) {}
+    TestPlatform() : m_inputManager(std::make_shared<InputEventsManager>()) {
+    }
 
     bool beginFrame(FrameStateSharedPtr frameState) override {
         resolveInputTargets(frameState);
         return true;
     }
-    void beginRenderPass(FrameStateSharedPtr) override {}
-    void commitRenderPass(FrameStateSharedPtr) override {}
-    void endFrame() override {}
-    void terminate() override {}
-    InputEventsManagerSharedPtr getInputManager() override { return m_inputManager; }
+    void beginRenderPass(FrameStateSharedPtr) override {
+    }
+    void commitRenderPass(FrameStateSharedPtr) override {
+    }
+    void endFrame() override {
+    }
+    void terminate() override {
+    }
+    InputEventsManagerSharedPtr getInputManager() override {
+        return m_inputManager;
+    }
 
-    void setWindow(const WindowSharedPtr& window) { m_window = window; }
+    void setWindow(const WindowSharedPtr& window) {
+        m_window = window;
+    }
 
 private:
     InputEventsManagerSharedPtr m_inputManager;
@@ -69,11 +79,8 @@ void testScreenSpaceAABBUsesTouchCoordinates() {
     root->addChild(child);
 
     const auto bounds = child->getScreenSpaceAABB();
-    expect(bounds.Min.x == 10.0f && bounds.Min.y == 20.0f &&
-               bounds.Max.x == 110.0f && bounds.Max.y == 60.0f,
-           "screen-space AABB should use top-left framebuffer coordinates");
-    expect(bounds.Contains(60.0f, 40.0f),
-           "TouchEvent coordinates should be directly usable for AABB hit testing");
+    expect(bounds.Min.x == 10.0f && bounds.Min.y == 20.0f && bounds.Max.x == 110.0f && bounds.Max.y == 60.0f, "screen-space AABB should use top-left framebuffer coordinates");
+    expect(bounds.Contains(60.0f, 40.0f), "TouchEvent coordinates should be directly usable for AABB hit testing");
 }
 
 void testPointerBoundaryEvents() {
@@ -95,10 +102,7 @@ void testPointerBoundaryEvents() {
     auto frameState = std::make_shared<FrameState>();
     frameState->inputEventsManager = platform->getInputManager();
     size_t observedResolvedEventCount = 0;
-    frameState->inputEventsManager->getResolvedInputEventsDispatcher().add(
-        [&](std::vector<TouchEvent>& events) {
-            observedResolvedEventCount = events.size();
-        });
+    frameState->inputEventsManager->getResolvedInputEventsDispatcher().add([&](std::vector<TouchEvent>& events) { observedResolvedEventCount = events.size(); });
 
     TouchEvent move;
     move.touchID = -1;
@@ -110,13 +114,10 @@ void testPointerBoundaryEvents() {
     platform->beginFrame(frameState);
 
     auto& firstEvents = frameState->inputEventsManager->getInputEvents();
-    expect(firstEvents.size() == 2 &&
-               firstEvents[0].eventType == TOUCH_EVENT_TYPE_POINTER_ENTER &&
-               firstEvents[0].target == first &&
+    expect(firstEvents.size() == 2 && firstEvents[0].eventType == TOUCH_EVENT_TYPE_POINTER_ENTER && firstEvents[0].target == first &&
                firstEvents[1].eventType == TOUCH_EVENT_TYPE_MOVE,
            "first hover should emit POINTER_ENTER before MOVE");
-    expect(observedResolvedEventCount == 2,
-           "resolved input observers should receive synthesized pointer events");
+    expect(observedResolvedEventCount == 2, "resolved input observers should receive synthesized pointer events");
 
     firstEvents.clear();
     move.positionX = 170.0f;
@@ -124,15 +125,10 @@ void testPointerBoundaryEvents() {
     platform->beginFrame(frameState);
 
     auto& transitionEvents = frameState->inputEventsManager->getInputEvents();
-    expect(transitionEvents.size() == 3 &&
-               transitionEvents[0].eventType == TOUCH_EVENT_TYPE_POINTER_LEAVE &&
-               transitionEvents[0].target == first &&
-               transitionEvents[1].eventType == TOUCH_EVENT_TYPE_POINTER_ENTER &&
-               transitionEvents[1].target == second &&
-               transitionEvents[2].eventType == TOUCH_EVENT_TYPE_MOVE,
+    expect(transitionEvents.size() == 3 && transitionEvents[0].eventType == TOUCH_EVENT_TYPE_POINTER_LEAVE && transitionEvents[0].target == first &&
+               transitionEvents[1].eventType == TOUCH_EVENT_TYPE_POINTER_ENTER && transitionEvents[1].target == second && transitionEvents[2].eventType == TOUCH_EVENT_TYPE_MOVE,
            "hover target change should emit LEAVE, ENTER, then MOVE");
-    expect(observedResolvedEventCount == 3,
-           "resolved input observers should receive the full hover transition");
+    expect(observedResolvedEventCount == 3, "resolved input observers should receive the full hover transition");
 }
 
 void testButtonHoverUsesPointerEvents() {
@@ -152,17 +148,53 @@ void testButtonHoverUsesPointerEvents() {
     enter.target = button;
     button->dispatchTouchEvent(enter);
 
-    expect(button->state() == ButtonState::HOVER,
-           "button should enter hover using TouchEvent coordinates directly");
+    expect(button->state() == ButtonState::HOVER, "button should enter hover using TouchEvent coordinates directly");
 
     TouchEvent leave = enter;
     leave.eventType = TOUCH_EVENT_TYPE_POINTER_LEAVE;
     button->dispatchTouchEvent(leave);
 
-    expect(button->state() == ButtonState::NORMAL,
-           "button should leave hover when the pointer exits its screen-space AABB");
-    expect(button->visualUpdateCount == 2,
-           "hover enter and leave should each update the visual state");
+    expect(button->state() == ButtonState::NORMAL, "button should leave hover when the pointer exits its screen-space AABB");
+    expect(button->visualUpdateCount == 2, "hover enter and leave should each update the visual state");
+}
+
+void testKeyboardFocusRoutesCharactersToLineEdit() {
+    auto platform = std::make_shared<TestPlatform>();
+    auto window = std::make_shared<Window>();
+    window->getTransform()->setSize(640.0f, 360.0f);
+
+    auto lineEdit = MRLineEdit::create();
+    lineEdit->getTransform()->setPosition(20.0f, 20.0f, 0.0f);
+    lineEdit->getTransform()->setSize(240.0f, 44.0f);
+    window->addChild(lineEdit);
+    platform->setWindow(window);
+
+    auto frameState = std::make_shared<FrameState>();
+    frameState->inputEventsManager = platform->getInputManager();
+
+    TouchEvent touch;
+    touch.touchID = 0;
+    touch.positionX = 80.0f;
+    touch.positionY = 40.0f;
+    touch.eventType = TOUCH_EVENT_TYPE_TOUCH;
+    touch.deviceType = TOUCH_DEVICE_TYPE_MOUSE;
+    frameState->inputEventsManager->getInputEvents().push_back(touch);
+    platform->beginFrame(frameState);
+    platform->dispatchEvents(frameState);
+
+    expect(lineEdit->hasFocus(), "clicking a keyboard-focusable line edit should focus it");
+
+    auto& events = frameState->inputEventsManager->getInputEvents();
+    events.clear();
+    TouchEvent character;
+    character.eventType = TOUCH_EVENT_TYPE_CHARACTER;
+    character.deviceType = TOUCH_DEVICE_TYPE_KEYBOARD;
+    character.unicodeCodepoint = static_cast<uint32_t>(L'A');
+    events.push_back(character);
+    platform->beginFrame(frameState);
+    platform->dispatchEvents(frameState);
+
+    expect(lineEdit->getText() == L"A", "keyboard characters should route to the focused line edit");
 }
 
 }  // namespace
@@ -171,6 +203,7 @@ int main() {
     testScreenSpaceAABBUsesTouchCoordinates();
     testPointerBoundaryEvents();
     testButtonHoverUsesPointerEvents();
+    testKeyboardFocusRoutesCharactersToLineEdit();
 
     if (g_failures != 0) {
         std::cerr << g_failures << " input interaction test(s) failed\n";

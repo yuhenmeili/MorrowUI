@@ -22,7 +22,9 @@ public:
     // 是否启用交互（默认 true）
     void setInteractionEnabled(bool enabled);
 
-    bool isInteractionEnabled() const { return m_enabled; }
+    bool isInteractionEnabled() const {
+        return m_enabled;
+    }
 
     // 自定义命中测试区域（默认使用 Widget 的包围盒）
     virtual Rect getHitTestRect() const;
@@ -35,7 +37,13 @@ public:
 
     void setLongPressEnabled(bool enabled);
 
-    void setLongPressDelay(float seconds); // 默认 0.5f
+    void setLongPressDelay(float seconds);  // 默认 0.5f
+
+    void setKeyboardFocusable(bool focusable);
+
+    bool isKeyboardFocusable() const {
+        return m_keyboardFocusable;
+    }
 
     // ------------------ 内部更新（由引擎每帧调用） ------------------
     void update(FrameStateSharedPtr frameState) override;
@@ -53,7 +61,8 @@ private:
     bool m_enabled = true;
     bool m_clickEnabled = true;
     bool m_longPressEnabled = false;
-    float m_longPressDelay = 0.5f; // 秒
+    bool m_keyboardFocusable = false;
+    float m_longPressDelay = 0.5f;  // 秒
 
     // 状态跟踪
     bool m_isPressed = false;
@@ -65,6 +74,6 @@ private:
     // 长按计时器（避免重复触发）
     bool m_longPressEventTriggered = false;
 };
-} // namespace morrow
+}  // namespace morrow
 
-#endif //MORROW_GUI_INTERACTIONCOMPONENT_H
+#endif  // MORROW_GUI_INTERACTIONCOMPONENT_H

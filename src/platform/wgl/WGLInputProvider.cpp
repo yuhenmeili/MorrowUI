@@ -49,7 +49,7 @@ uint32_t makeButtonsMask(bool leftPressed, bool rightPressed, bool middlePressed
 int32_t pressedButtonCount(bool leftPressed, bool rightPressed, bool middlePressed) {
     return (leftPressed ? 1 : 0) + (rightPressed ? 1 : 0) + (middlePressed ? 1 : 0);
 }
-} // namespace
+}  // namespace
 
 WGLInputProvider::~WGLInputProvider() {
     if (m_window) {
@@ -68,6 +68,8 @@ void WGLInputProvider::setWindow(void* window) {
     if (m_window) {
         getProviderRegistry()[m_window] = this;
         glfwSetScrollCallback(m_window, WGLInputProvider::scroll_callback);
+        glfwSetCharCallback(m_window, WGLInputProvider::character_callback);
+        glfwSetKeyCallback(m_window, WGLInputProvider::key_callback);
         double cursorX = 0.0;
         double cursorY = 0.0;
         glfwGetCursorPos(m_window, &cursorX, &cursorY);
@@ -88,7 +90,8 @@ void WGLInputProvider::setWindow(void* window) {
 
 void WGLInputProvider::poll(std::vector<TouchEvent>& outEvents) {
     outEvents.clear();
-    if (!m_window) return;
+    if (!m_window)
+        return;
 
     const bool leftPressed = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS);
     const bool rightPressed = (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
@@ -115,10 +118,7 @@ void WGLInputProvider::poll(std::vector<TouchEvent>& outEvents) {
     const bool moved = (fx != m_lastX || fy != m_lastY);
     const double now = Math::getCurrentMonotonicTime();
 
-    auto emitButtonEvent = [&](bool pressed,
-                               bool wasPressed,
-                               int32_t touchID,
-                               TouchMouseButton button) {
+    auto emitButtonEvent = [&](bool pressed, bool wasPressed, int32_t touchID, TouchMouseButton button) {
         TouchEventType eventType = TOUCH_EVENT_TYPE_NONE;
         if (pressed) {
             if (!wasPressed) {
@@ -187,6 +187,13 @@ void WGLInputProvider::poll(std::vector<TouchEvent>& outEvents) {
         m_accumulatedWheelY = 0.0;
     }
 
+    for (auto& keyboardEvent : m_pendingKeyboardEvents) {
+        keyboardEvent.positionX = fx;
+        keyboardEvent.positionY = fy;
+        outEvents.push_back(std::move(keyboardEvent));
+    }
+    m_pendingKeyboardEvents.clear();
+
     m_lastLeftPressed = leftPressed;
     m_lastRightPressed = rightPressed;
     m_lastMiddlePressed = middlePressed;
@@ -204,4 +211,72 @@ void WGLInputProvider::scroll_callback(GLFWwindow* window, double xoffset, doubl
     it->second->m_accumulatedWheelY += yoffset;
 }
 
-} // namespace morrow
+void WGLInputProvider::character_callback(GLFWwindow* window, unsigned int codepoint) {
+    auto it = getProviderRegistry().find(window);
+    if (it == getProviderRegistry().end() || !it->second)
+        return;
+
+    TouchEvent event;
+    event.eventType = TOUCH_EVENT_TYPE_CHARACTER;
+    event.deviceType = TOUCH_DEVICE_TYPE_KEYBOARD;
+    event.touchTime = Math::getCurrentMonotonicTime();
+    event.modifiers = queryModifierFlags(window);
+    event.unicodeCodepoint = codepoint;
+    it->second->m_pendingKeyboardEvents.push_back(event);
+}
+
+void WGLInputProvider::key_callback(GLFWwindow* window, int key, int /*scancode*/, int action, int mods) {
+    if (action != GLFW_PRESS && action != GLFW_REPEAT)
+        return;
+    auto it = getProviderRegistry().find(window);
+    if (it == getProviderRegistry().end() || !it->second)
+        return;
+
+    TouchKeyCode mappedKey = TOUCH_KEY_UNKNOWN;
+    switch (key) {
+        case GLFW_KEY_BACKSPACE:
+            mappedKey = TOUCH_KEY_BACKSPACE;
+            break;
+        case GLFW_KEY_DELETE:
+            mappedKey = TOUCH_KEY_DELETE;
+            break;
+        case GLFW_KEY_ENTER:
+        case GLFW_KEY_KP_ENTER:
+            mappedKey = TOUCH_KEY_ENTER;
+            break;
+        case GLFW_KEY_LEFT:
+            mappedKey = TOUCH_KEY_LEFT;
+            break;
+        case GLFW_KEY_RIGHT:
+            mappedKey = TOUCH_KEY_RIGHT;
+            break;
+        case GLFW_KEY_HOME:
+            mappedKey = TOUCH_KEY_HOME;
+            break;
+        case GLFW_KEY_END:
+            mappedKey = TOUCH_KEY_END;
+            break;
+        case GLFW_KEY_TAB:
+            mappedKey = TOUCH_KEY_TAB;
+            break;
+        default:
+            break;
+    }
+    if (mappedKey == TOUCH_KEY_UNKNOWN)
+        return;
+
+    TouchEvent event;
+    event.eventType = TOUCH_EVENT_TYPE_KEY_DOWN;
+    event.deviceType = TOUCH_DEVICE_TYPE_KEYBOARD;
+    event.touchTime = Math::getCurrentMonotonicTime();
+    event.keyCode = mappedKey;
+    if ((mods & GLFW_MOD_SHIFT) != 0)
+        event.modifiers |= TOUCH_MODIFIER_SHIFT;
+    if ((mods & GLFW_MOD_CONTROL) != 0)
+        event.modifiers |= TOUCH_MODIFIER_CTRL;
+    if ((mods & GLFW_MOD_ALT) != 0)
+        event.modifiers |= TOUCH_MODIFIER_ALT;
+    it->second->m_pendingKeyboardEvents.push_back(event);
+}
+
+}  // namespace morrow
