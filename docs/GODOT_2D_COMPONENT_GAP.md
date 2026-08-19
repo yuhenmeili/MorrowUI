@@ -28,7 +28,7 @@ MorrowUI 本质是 HMI/UI 引擎，因此本文**以 Control 为主**，Node2D �
 ## 4. 现有组件对照
 
 | MorrowUI | Godot 对应 |
-|---|---|
+|---|---|---|
 | MRLabel | Label |
 | MRRichTextLabel | RichTextLabel |
 | MRTextEdit | TextEdit（多行） |
@@ -42,25 +42,27 @@ MorrowUI 本质是 HMI/UI 引擎，因此本文**以 Control 为主**，Node2D �
 
 ## 5. 缺失清单
 
+表中“已完成”表示组件代码、sample 和基础行为测试已经落地；“未完成”表示仍处于缺口状态。
+
 ### 5.1 刚需级（车机 UI 基本都会用到）
 
-| 组件 | 说明 |
-|---|---|
-| 环形/径向进度 | 仪表盘、电量圈、车速环。Godot 无独立 `ProgressRing` 节点，见第 6 节 |
-| 进度条 | 线性进度（音量、亮度、加载） |
-| NinePatchRect（9-slice） | 圆角/描边面板任意拉伸不变形，UI 皮肤切图刚需；当前只能用 `rounding` 硬算圆角 |
-| Slider / HSlider / VSlider | 滑杆（Range 基类），音量、座椅、空调调节 |
-| LineEdit（单行输入） | 带 placeholder/密码模式/单行回车的输入框；目前只有多行 `MRTextEdit` |
+| 状态 | 组件 | 说明 |
+|---|---|---|
+| 未完成 | 环形/径向进度 | 仪表盘、电量圈、车速环。Godot 无独立 `ProgressRing` 节点，见第 6 节 |
+| 已完成 | 进度条 | 线性进度（音量、亮度、加载），对应 `MRProgressBar` |
+| 未完成 | NinePatchRect（9-slice） | 圆角/描边面板任意拉伸不变形，UI 皮肤切图刚需；当前只能用 `rounding` 硬算圆角 |
+| 已完成 | Slider / HSlider / VSlider | 滑杆（Range 基类），音量、座椅、空调调节，对应 `MRSlider` |
+| 未完成 | LineEdit（单行输入） | 带 placeholder/密码模式/单行回车的输入框；目前只有多行 `MRTextEdit` |
 
 ### 5.2 建议级（完善交互会用到）
 
-| 组件 | 说明 |
+| 状态 | 组件 | 说明 |
 |---|---|
-| CheckBox / CheckButton、RadioButton、Toggle 按钮 | 开关、多选、单选；`MRButton` 目前无 toggle 状态 |
-| OptionButton / PopupMenu / MenuButton | 下拉选择、菜单 |
-| ScrollContainer + ScrollBar | 长列表滚动；布局容器里无 scroll |
-| SpinBox | 数值步进（时钟、温度设定） |
-| HSeparator / VSeparator / Spacer | 分隔线、弹性占位 |
+| 已完成 | CheckBox / CheckButton、RadioButton、Toggle 按钮 | 开关、多选、单选，对应 `MRCheckBox`、`MRCheckButton`、`MRRadioButton`、`MRToggle` |
+| 已完成 | OptionButton / PopupMenu / MenuButton | 下拉选择、菜单，对应 `MROptionButton`、`MRPopupMenu`、`MRMenuButton` |
+| 未完成 | ScrollContainer + ScrollBar | 长列表滚动；布局容器里无 scroll |
+| 未完成 | SpinBox | 数值步进（时钟、温度设定） |
+| 未完成 | HSeparator / VSeparator / Spacer | 分隔线、弹性占位 |
 
 ### 5.3 可选级（2D 绘制/特效）
 
