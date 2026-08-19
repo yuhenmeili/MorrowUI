@@ -10,7 +10,8 @@
 
 namespace morrow {
 void Interaction::setInteractionEnabled(bool enabled) {
-    if (m_enabled == enabled) return;
+    if (m_enabled == enabled)
+        return;
     m_enabled = enabled;
     if (!enabled) {
         reset();
@@ -33,7 +34,8 @@ bool Interaction::containsPoint(float x, float y) const {
 
 void Interaction::update(FrameStateSharedPtr frameState) {
     if (!m_enabled || !getGameObject() || !getGameObject()->getVisible()) {
-        if (m_isPressed) reset();
+        if (m_isPressed)
+            reset();
         return;
     }
     checkLongPress(frameState);
@@ -41,7 +43,8 @@ void Interaction::update(FrameStateSharedPtr frameState) {
 
 // 更推荐的事件入口（由输入系统调用）
 void Interaction::handleTouchEvent(TouchEvent& event) {
-    if (!m_enabled) return;
+    if (!m_enabled)
+        return;
 
     switch (event.eventType) {
         case TOUCH_EVENT_TYPE_TOUCH:
@@ -66,6 +69,10 @@ void Interaction::handleTouchEvent(TouchEvent& event) {
             if (!m_isPressed || event.touchID == m_activeTouchID) {
                 dispatchEvent(TOUCH_EVENT_TYPE_MOVE, event);
             }
+            break;
+
+        case TOUCH_EVENT_TYPE_WHEEL:
+            dispatchEvent(TOUCH_EVENT_TYPE_WHEEL, event);
             break;
 
         case TOUCH_EVENT_TYPE_POINTER_ENTER:
@@ -118,7 +125,8 @@ void Interaction::setLongPressDelay(float seconds) {
 }
 
 void Interaction::checkLongPress(FrameStateSharedPtr /*frameState*/) {
-    if (!m_longPressEnabled || !m_isPressed || m_longPressEventTriggered) return;
+    if (!m_longPressEnabled || !m_isPressed || m_longPressEventTriggered)
+        return;
     double now = Math::getCurrentMonotonicTime();
     if (now - m_pressStartTime >= static_cast<double>(m_longPressDelay)) {
         m_longPressEventTriggered = true;
@@ -128,8 +136,9 @@ void Interaction::checkLongPress(FrameStateSharedPtr /*frameState*/) {
         holdEvent.positionY = m_pressPosition.y;
         holdEvent.eventType = TOUCH_EVENT_TYPE_TOUCH_AND_HOLD;
         holdEvent.touchTime = now;
-        if (getGameObject()) holdEvent.target = getGameObject()->shared_from_this();
+        if (getGameObject())
+            holdEvent.target = getGameObject()->shared_from_this();
         dispatchEvent(TOUCH_EVENT_TYPE_TOUCH_AND_HOLD, holdEvent);
     }
 }
-} // namespace morrow
+}  // namespace morrow

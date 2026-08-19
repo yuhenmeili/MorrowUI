@@ -100,6 +100,10 @@ if(BUILD_TESTING)
     target_link_libraries(MenuControlsTests morrow)
     add_test(NAME MenuControlsTests COMMAND MenuControlsTests)
 
+    add_executable(ScrollControlsTests tests/ScrollControlsTests.cpp)
+    target_link_libraries(ScrollControlsTests morrow)
+    add_test(NAME ScrollControlsTests COMMAND ScrollControlsTests)
+
     add_executable(Transform3DTests tests/Transform3DTests.cpp)
     target_link_libraries(Transform3DTests morrow)
     add_test(NAME Transform3DTests COMMAND Transform3DTests)
