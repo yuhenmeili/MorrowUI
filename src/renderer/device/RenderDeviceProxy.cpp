@@ -23,6 +23,7 @@
 #include "RenderDeviceProxy.h"
 
 #include <cstring>
+#include <future>
 
 #include "Log.h"
 #include "PixelFormat.h"
@@ -193,13 +194,13 @@ struct CreateSSBOPayload {
 };
 
 struct CheckSSBOSupportPayload {
-    bool* result = nullptr;
+    std::promise<bool> result;
 };
 
 struct ReflectSSBOBlockPayload {
     HwGPUProgram program{0};
     std::string blockName;
-    SSBOReflectedLayout* result = nullptr;
+    std::promise<SSBOReflectedLayout> result;
 };
 
 // --- Non-trivial (have std::string / std::vector / std::shared_ptr members) ---
@@ -513,24 +514,22 @@ bool RenderDeviceProxy::checkSSBOSupport() {
     if (!m_threaded)
         return m_realDevice->checkSSBOSupport();
 
-    bool result = false;
-    auto* pl = CMD_BUF.push<CheckSSBOSupportPayload>(Cmd_CheckSSBOSupport);
-    pl->result = &result;
+    auto* pl = CMD_BUF.pushNT<CheckSSBOSupportPayload>(Cmd_CheckSSBOSupport);
+    auto result = pl->result.get_future();
     submitCurrentBufferAndAdvance();
-    return result;
+    return result.get();
 }
 
 SSBOReflectedLayout RenderDeviceProxy::reflectSSBOBlock(HwGPUProgram program, const std::string& blockName) {
     if (!m_threaded)
         return m_realDevice->reflectSSBOBlock(program, blockName);
 
-    SSBOReflectedLayout result;
     auto* pl = CMD_BUF.pushNT<ReflectSSBOBlockPayload>(Cmd_ReflectSSBOBlock);
     pl->program = program;
     pl->blockName = blockName;
-    pl->result = &result;
+    auto result = pl->result.get_future();
     submitCurrentBufferAndAdvance();
-    return result;
+    return result.get();
 }
 
 // ---------------------------------------------------------------------------
@@ -1213,16 +1212,12 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             }
             case Cmd_CheckSSBOSupport: {
                 auto* pl = static_cast<CheckSSBOSupportPayload*>(p);
-                if (pl->result) {
-                    *pl->result = m_realDevice->checkSSBOSupport();
-                }
+                pl->result.set_value(m_realDevice->checkSSBOSupport());
                 break;
             }
             case Cmd_ReflectSSBOBlock: {
                 auto* pl = static_cast<ReflectSSBOBlockPayload*>(p);
-                if (pl->result) {
-                    *pl->result = m_realDevice->reflectSSBOBlock(pl->program, pl->blockName);
-                }
+                pl->result.set_value(m_realDevice->reflectSSBOBlock(pl->program, pl->blockName));
                 break;
             }
             case Cmd_DebugDriver:

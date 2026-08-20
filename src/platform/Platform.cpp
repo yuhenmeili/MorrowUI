@@ -147,6 +147,7 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
 void Platform::ensureRenderCapabilitiesInitialized() {
     RENDERINGTHREAD->debugDriver();
     m_isSSBOSupport = RENDERINGTHREAD->checkSSBOSupport();
+    LOG_I("SSBO support: {}", m_isSSBOSupport ? "enabled" : "disabled");
     GlobalObject::getInstance().getFontManager()->initialize();
 }
 
