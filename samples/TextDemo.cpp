@@ -1,10 +1,7 @@
 #include "Engine.h"
 #include "FontManager.h"
-#include "GlobalObject.h"
-#include "ToolUtils.h"
 #include "base/Transform.h"
-#include "elements/MRButton.h"
-#include "elements/MRImage.h"
+#include "elements/MRColor.h"
 #include "elements/MRLabel.h"
 #include "elements/MRLineEdit.h"
 #include "elements/MRRichTextLabel.h"
@@ -13,6 +10,52 @@
 // Created by 0060328 on 25-10-9.
 //
 using namespace morrow;
+
+namespace {
+
+std::shared_ptr<MRLabel> createLabel(
+    const std::wstring& text,
+    const std::string& fontName,
+    float x,
+    float y,
+    float width,
+    float height,
+    float fontSize,
+    HorizontalAlignment horizontal = HorizontalAlignment::LEFT,
+    VerticalAlignment vertical = VerticalAlignment::CENTER) {
+    auto label = std::make_shared<MRLabel>();
+    label->setText(text, fontName);
+    label->setFontSize(fontSize);
+    label->setFontColor(0.12f, 0.16f, 0.22f, 1.0f);
+    label->setAlign(horizontal, vertical);
+    label->getComponent<Transform>()->setPosition(x, y, 0.0f);
+    label->getComponent<Transform>()->setSize(width, height);
+    return label;
+}
+
+void addAlignmentSample(
+    const WindowSharedPtr& window,
+    const std::string& fontName,
+    const std::wstring& text,
+    float x,
+    float y,
+    HorizontalAlignment horizontal,
+    VerticalAlignment vertical) {
+    constexpr float width = 280.0f;
+    constexpr float height = 105.0f;
+
+    auto background = MRColor::create();
+    background->setColor(0.92f, 0.95f, 0.98f, 1.0f);
+    background->setRounding(8.0f);
+    background->getComponent<Transform>()->setPosition(x, y, -0.1f);
+    background->getComponent<Transform>()->setSize(width, height);
+    window->addChild(background);
+
+    auto label = createLabel(text, fontName, x, y, width, height, 20.0f, horizontal, vertical);
+    window->addChild(label);
+}
+
+}  // namespace
 
 int main() {
     EngineOptions engineOptions;
@@ -27,13 +70,7 @@ int main() {
 
     const std::string fontName = fontInfo.name;
 
-    auto inputTitle = std::make_shared<MRLabel>();
-    inputTitle->getComponent<Transform>()->setPosition(120.0f, 90.0f, 0.0f);
-    inputTitle->getComponent<Transform>()->setSize(620.0f, 48.0f);
-    inputTitle->setText(L"文本输入组件", fontName);
-    inputTitle->setFontSize(30.0f);
-    inputTitle->setFontColor(0.12f, 0.16f, 0.22f, 1.0f);
-    window->addChild(inputTitle);
+    window->addChild(createLabel(L"文本输入组件", fontName, 120.0f, 90.0f, 620.0f, 48.0f, 30.0f));
 
     auto multiLineEdit = MRTextEdit::create();
     multiLineEdit->getComponent<Transform>()->setPosition(120.0f, 160.0f, 0.0f);
@@ -65,18 +102,37 @@ int main() {
     passwordEdit->setOnSubmitCallback([](const std::wstring& text) { LOG_I("password submitted, length = {}", text.size()); });
     window->addChild(passwordEdit);
 
-    const std::wstring text = L"Hello World 测试";
-    auto textRenderer = std::make_shared<MRLabel>();
-    auto textTransform = textRenderer->getComponent<Transform>();
-    textTransform->setPosition(Vector3(880.0f, 220.0f, 0.0f));
-    textTransform->setSize(Vector3(700.0f, 240.0f, 0.0f));
-    textRenderer->setText(text, fontName);
-    textRenderer->setFontSize(35.0f);
-    textRenderer->setFontColor(1.0f, 0.0f, 0.0f, 1.0f);
-    window->addChild(textRenderer);
+    window->addChild(createLabel(L"MRLabel 对齐与排版", fontName, 820.0f, 52.0f, 900.0f, 48.0f, 30.0f));
+    window->addChild(createLabel(
+        L"同一固定区域内展示水平和垂直对齐组合",
+        fontName,
+        820.0f,
+        92.0f,
+        900.0f,
+        34.0f,
+        18.0f));
+
+    addAlignmentSample(
+        window, fontName, L"左上 LEFT / TOP", 820.0f, 135.0f,
+        HorizontalAlignment::LEFT, VerticalAlignment::TOP);
+    addAlignmentSample(
+        window, fontName, L"居上 CENTER / TOP", 1120.0f, 135.0f,
+        HorizontalAlignment::CENTER, VerticalAlignment::TOP);
+    addAlignmentSample(
+        window, fontName, L"右上 RIGHT / TOP", 1420.0f, 135.0f,
+        HorizontalAlignment::RIGHT, VerticalAlignment::TOP);
+    addAlignmentSample(
+        window, fontName, L"左下 LEFT / BOTTOM", 820.0f, 260.0f,
+        HorizontalAlignment::LEFT, VerticalAlignment::BOTTOM);
+    addAlignmentSample(
+        window, fontName, L"完全居中", 1120.0f, 260.0f,
+        HorizontalAlignment::CENTER, VerticalAlignment::CENTER);
+    addAlignmentSample(
+        window, fontName, L"右下 RIGHT / BOTTOM", 1420.0f, 260.0f,
+        HorizontalAlignment::RIGHT, VerticalAlignment::BOTTOM);
 
     auto richText = MRRichTextLabel::create();
-    richText->getComponent<Transform>()->setPosition(820.0f, 520.0f, 0.0f);
+    richText->getComponent<Transform>()->setPosition(820.0f, 455.0f, 0.0f);
     richText->getComponent<Transform>()->setSize(900.0f, 300.0f);
     richText->setFontSize(30.0f);
     richText->setFontColor(0.12f, 0.16f, 0.22f, 1.0f);
@@ -91,6 +147,7 @@ int main() {
         fontName);
     window->addChild(richText);
 
+    LOG_I("TextDemo started: text input, rich text and label alignment");
     engine->render();
     return 0;
 }

@@ -2,15 +2,18 @@
 // Created by lance on 2023/2/7.
 //
 
-#include "Engine.h"
-#include "elements/MRImage.h"
-#include "Texture.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+
 #include "BasisTextureLoader.h"
+#include "Engine.h"
+#include "Texture.h"
+#include "base/Shadow.h"
 #include "base/Transform.h"
+#include "elements/MRColor.h"
+#include "elements/MRImage.h"
 
 using namespace morrow;
 using namespace morrow::Math;
@@ -68,6 +71,33 @@ int main(int argc, char** argv)
 
         window->addChild(im1);
     }
+
+    //shadow
+    auto mr_color = MRColor::create();
+    mr_color->setColor(Vector4(1.0f, 0.0f, 0.0f, 1.0f));
+    auto transform = mr_color->getComponent<Transform>();
+    transform->setPosition(300, 600, 0);
+    transform->setSize(100, 100);
+    // 添加阴影组件
+    auto shadow = mr_color->addComponent<Shadow>();
+    shadow->setShadowOffset(Vector2(5.0f, 5.0f));
+    shadow->setShadowColor(Vector4(0.0f, 0.0f, 0.0f, 0.5f));
+
+    window->addChild(mr_color);
+
+    //shadow
+    auto mr_image = MRImage::create();
+    mr_image->setTexture(textAtlas);
+
+    auto image_transform = mr_image->getComponent<Transform>();
+    image_transform->setPosition(600, 600, 0);
+    image_transform->setSize(100, 100);
+    // 添加阴影组件
+    auto image_shadow = mr_image->addComponent<Shadow>();
+    image_shadow->setShadowOffset(Vector2(5.0f, 5.0f));
+    image_shadow->setShadowColor(Vector4(0.0f, 0.0f, 0.0f, 0.5f));
+
+    window->addChild(mr_image);
 
     LOG_I("start render");
     engine->render();
