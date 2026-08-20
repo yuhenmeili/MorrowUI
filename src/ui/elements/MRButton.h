@@ -110,7 +110,6 @@ protected:
     Vector4 m_backgroundColorPressed = Vector4(0.1f, 0.3f, 0.7f, 1.0f);   // 暗蓝色;
     Vector4 m_backgroundColorDisabled = Vector4(0.5f, 0.5f, 0.5f, 0.5f);  // 灰色半透明;
     Vector4 m_borderColor = Vector4(0.1f, 0.1f, 0.1f, 1.0f);
-    ;
 
     // 当前状态颜色
     Vector4 m_currentBackgroundColor = m_backgroundColorNormal;

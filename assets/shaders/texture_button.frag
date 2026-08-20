@@ -1,29 +1,27 @@
-#version 460
-precision mediump float;
-precision mediump int;
-
-layout (location = 0) in vec3 v_position;
+layout (location = 0) flat in int v_batchID;
 layout (location = 1) in vec2 v_texCoord;
+
+#ifdef ENABLE_SSBO
+struct InstanceData {
+    mat4 model;
+    vec4 defaultAttr;         // alpha, 0, 0, 0
+};
+layout (std430, binding = 0) buffer InstanceBuffer {
+    InstanceData instances[];
+};
+#else
+uniform float u_alpha;
+#endif
+
+uniform sampler2D u_texture;
 
 layout (location = 0) out vec4 fragColor;
 
-//uniform vec3 u_displaySize;
-//uniform float u_rounding;
-uniform float u_alpha;
-uniform sampler2D u_texture;
-
-void main()
-{
-    // 判断是否启用圆角功能
-//    if (u_rounding > 0.0) {
-//        vec3 center = vec3(u_displaySize.x / 2.0 - u_rounding, u_displaySize.y / 2.0 - u_rounding, v_position.z);
-//        vec3 current = vec3(abs(v_position));
-//        float distanceSq = dot(current - center, current - center);
-//        float roundingSq = u_rounding * u_rounding;
-//        if (current.x > center.x && current.y > center.y && distanceSq > roundingSq) {
-//            discard;
-//        }
-//    }
-    fragColor = vec4(texture(u_texture, v_texCoord));
+void main() {
+    fragColor = texture(u_texture, v_texCoord);
+#ifdef ENABLE_SSBO
+    fragColor.a *= instances[v_batchID].defaultAttr.x;
+#else
     fragColor.a *= u_alpha;
+#endif
 }

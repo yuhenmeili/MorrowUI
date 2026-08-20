@@ -4,8 +4,10 @@
 
 #include "Engine.h"
 #include "FontManager.h"
+#include "Texture.h"
 #include "base/Transform.h"
 #include "elements/MRButton.h"
+#include "elements/MRTextureButton.h"
 #include "layout/CenterContainer.h"
 #include "layout/HBoxContainer.h"
 
@@ -17,7 +19,7 @@ int main()
     auto engine = std::make_shared<Engine>();
 
     auto window = engine->getWindow();
-    window->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    window->setClearColor(0.22f, 0.23f, 0.31f, 1.0f);
 
     FontInfo fontInfo = {
         .name = "default",
@@ -43,12 +45,32 @@ int main()
     transform2->setSize(200.0f, 200.0f);
     // window->addChild(button2);
 
+    auto textureButton = MRTextureButton::create();
+    auto normalTexture = Texture::create();
+    normalTexture->setImageUrl("assets/textures/tailgate_off.png");
+    auto hoverTexture = Texture::create();
+    hoverTexture->setImageUrl("assets/textures/tailgate_on.png");
+    auto pressedTexture = Texture::create();
+    pressedTexture->setImageUrl("assets/textures/tailgate_on.png");
+    auto disabledTexture = Texture::create();
+    disabledTexture->setImageUrl("assets/textures/tailgate_disable.png");
+    textureButton->setNormalTexture(normalTexture);
+    textureButton->setHoverTexture(hoverTexture);
+    textureButton->setPressedTexture(pressedTexture);
+    textureButton->setFocusedTexture(hoverTexture);
+    textureButton->setDisabledTexture(disabledTexture);
+    textureButton->setOnClickCallback([]() {
+        LOG_I("MRTextureButton clicked");
+    });
+    textureButton->getComponent<Transform>()->setSize(200.0f, 200.0f);
+
     auto vbox = std::make_shared<HBoxContainer>();
     vbox->getComponent<Transform>()->setPosition(100, 100, 0);
-    vbox->getComponent<Transform>()->setSize(200, 400);  // 容器尺寸，可选
-    vbox->setSpacing(8);
+    vbox->getComponent<Transform>()->setSize(640, 200);  // 容器尺寸，可选
+    vbox->setSpacing(20);
     vbox->addChild(button1);  // 先加在上
     vbox->addChild(button2);  // 后加在下
+    vbox->addChild(textureButton);
 
     // auto center = std::make_shared<CenterContainer>();
     // center->getComponent<Transform>()->setSize(200, 200);  // 必须设容器尺寸

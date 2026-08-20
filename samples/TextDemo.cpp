@@ -7,6 +7,7 @@
 #include "elements/MRImage.h"
 #include "elements/MRLabel.h"
 #include "elements/MRLineEdit.h"
+#include "elements/MRRichTextLabel.h"
 #include "elements/MRTextEdit.h"
 //
 // Created by 0060328 on 25-10-9.
@@ -73,6 +74,22 @@ int main() {
     textRenderer->setFontSize(35.0f);
     textRenderer->setFontColor(1.0f, 0.0f, 0.0f, 1.0f);
     window->addChild(textRenderer);
+
+    auto richText = MRRichTextLabel::create();
+    richText->getComponent<Transform>()->setPosition(820.0f, 520.0f, 0.0f);
+    richText->getComponent<Transform>()->setSize(900.0f, 300.0f);
+    richText->setFontSize(30.0f);
+    richText->setFontColor(0.12f, 0.16f, 0.22f, 1.0f);
+    richText->setAutoWrap(true);
+    richText->setLineSpacing(1.15f);
+    richText->setText(
+        L"[font_size=38][color=#1570EF]MRRichTextLabel[/color][/font_size][br]"
+        L"支持普通文本、[color=#E5484D]混合颜色[/color]和"
+        L"[font_size=42][color=#16A36A]不同字号[/color][/font_size]。[br]"
+        L"标签可以[color=#7C3AED]嵌套 [font_size=36]组合[/font_size][/color]，"
+        L"并根据组件宽度自动换行。",
+        fontName);
+    window->addChild(richText);
 
     engine->render();
     return 0;

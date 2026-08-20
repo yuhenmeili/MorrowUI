@@ -349,7 +349,7 @@ void GLRenderDevice::updateSubTexture2D(HwTexture2D texture, const TextureData& 
 
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
-        LOG_E("glTexSubImage2D failed for texture update, imageType={}, format={}, formatEnum=0x{:x}, region=({}, {}, {}, {}), glError=0x{:x}",
+        LOG_E("glTexSubImage2D failed for texture update, imageType={}, format={}, formatEnum={}, region=({}, {}, {}, {}), glError={}",
               static_cast<int32_t>(data.imageType), static_cast<int32_t>(data.format), static_cast<uint32_t>(format), x, y, width, height, static_cast<uint32_t>(error));
     }
 }
@@ -381,7 +381,7 @@ bool GLRenderDevice::upLoadTexture(GlTexture2D* textureImp, const TextureData& d
 
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
-        LOG_E("glTexImage2D failed, imageType={}, format={}, internalFormat=0x{:x}, formatEnum=0x{:x}, size={}x{}, glError=0x{:x}", static_cast<int32_t>(data.imageType),
+        LOG_E("glTexImage2D failed, imageType={}, format={}, internalFormat={}, formatEnum={}, size={}x{}, glError={}", static_cast<int32_t>(data.imageType),
               static_cast<int32_t>(data.format), static_cast<uint32_t>(internalFormat), static_cast<uint32_t>(format), data.width, data.height, static_cast<uint32_t>(error));
     }
     //    free(data.pixels);

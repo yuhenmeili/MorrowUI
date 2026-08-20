@@ -112,6 +112,10 @@ if(BUILD_TESTING)
     target_link_libraries(TextEditTests morrow)
     add_test(NAME TextEditTests COMMAND TextEditTests)
 
+    add_executable(RichTextLabelTests tests/RichTextLabelTests.cpp)
+    target_link_libraries(RichTextLabelTests morrow)
+    add_test(NAME RichTextLabelTests COMMAND RichTextLabelTests)
+
     add_executable(ParticlesCanvasModulateTests tests/ParticlesCanvasModulateTests.cpp)
     target_link_libraries(ParticlesCanvasModulateTests morrow)
     add_test(NAME ParticlesCanvasModulateTests COMMAND ParticlesCanvasModulateTests)
