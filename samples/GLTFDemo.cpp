@@ -1,9 +1,9 @@
+#include "../src/ui/helpers/Scene3DAsyncLoader.h"
 #include "Engine.h"
 #include "Window.h"
+#include "base/Transform.h"
 #include "elements/MR3DSceneView.h"
 #include "elements/MRButton.h"
-#include "../src/ui/helpers/Scene3DAsyncLoader.h"
-#include "base/Transform.h"
 
 using namespace morrow;
 
@@ -44,17 +44,13 @@ int main(int argc, char** argv) {
     loadOptions.sceneOptions.debugLabel = modelPath;
     loadOptions.sceneOptions.cameraFit.enabled = true;
     loadOptions.sceneOptions.cameraFit.paddingScale = 1.25f;
-    loadOptions.sceneOptions.onError = [modelPath](const std::string& error) {
-        LOG_E("Failed to load GLTF '{}': {}", modelPath, error);
-    };
-    loadOptions.onSceneBuilt = [modelPath, iblDirectory](const std::shared_ptr<GLTFScene>& gltfScene,
-                                                         const std::shared_ptr<SceneNode>& sceneRoot) {
+    loadOptions.sceneOptions.onError = [modelPath](const std::string& error) { LOG_E("Failed to load GLTF '{}': {}", modelPath, error); };
+    loadOptions.onSceneBuilt = [modelPath, iblDirectory](const std::shared_ptr<GLTFScene>& gltfScene, const std::shared_ptr<SceneNode>& sceneRoot) {
         if (!gltfScene || !sceneRoot) {
             return;
         }
 
-        LOG_I("GLTF loaded successfully ({} nodes, {} meshes, {} animations)",
-              gltfScene->nodes.size(), gltfScene->meshes.size(), gltfScene->animations.size());
+        LOG_I("GLTF loaded successfully ({} nodes, {} meshes, {} animations)", gltfScene->nodes.size(), gltfScene->meshes.size(), gltfScene->animations.size());
 
         LOG_I("GLTF loaded: {}  nodes={}  meshes={}  anims={}", modelPath, gltfScene->nodes.size(), gltfScene->meshes.size(), gltfScene->animations.size());
         LOG_I("Using IBL directory: {}", iblDirectory);
@@ -64,7 +60,6 @@ int main(int argc, char** argv) {
 
     window->addChild(scene3DView);
 
-
     auto button = MRButton::create();
     button->setText(L"Button", "default");
     auto transform = button->getComponent<Transform>();
@@ -72,10 +67,7 @@ int main(int argc, char** argv) {
     transform->setSize(100.0f, 100.0f);
     window->addChild(button);
 
-    button->setOnClickCallback([]() {
-        LOG_I("Button clicked!");
-    });
-
+    button->setOnClickCallback([]() { LOG_I("Button clicked!"); });
 
     // auto radius = 10.0f; // 相机到原点的距离
     // auto height = 3.0f; // Y 坐标（高度）

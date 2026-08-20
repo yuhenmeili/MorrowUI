@@ -1,3 +1,7 @@
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+
 #include "Engine.h"
 #include "FontManager.h"
 #include "base/Transform.h"
@@ -5,10 +9,6 @@
 #include "elements/MRColor.h"
 #include "elements/MRLabel.h"
 #include "elements/MRVideoStreamPlayer.h"
-
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
 
 using namespace morrow;
 
@@ -19,8 +19,7 @@ constexpr int kVideoHeight = 360;
 constexpr float kFramesPerSecond = 30.0f;
 constexpr uint64_t kTotalFrames = 300;
 
-std::shared_ptr<MRLabel> createLabel(
-    const std::wstring& text, float x, float y, float width, float height, float fontSize) {
+std::shared_ptr<MRLabel> createLabel(const std::wstring& text, float x, float y, float width, float height, float fontSize) {
     auto label = std::make_shared<MRLabel>();
     label->setText(text, "default");
     label->setFontSize(fontSize);
@@ -95,9 +94,7 @@ int main() {
     engine->addFonts({FontInfo{.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"}});
 
     window->addChild(createLabel(L"MRVideoStreamPlayer 视频播放", 100.0f, 42.0f, 1000.0f, 54.0f, 34.0f));
-    window->addChild(createLabel(
-        L"演示使用内存 RGBA 帧源；实际项目可接入软件解码器或平台硬解码输出。",
-        100.0f, 96.0f, 1400.0f, 40.0f, 20.0f));
+    window->addChild(createLabel(L"演示使用内存 RGBA 帧源；实际项目可接入软件解码器或平台硬解码输出。", 100.0f, 96.0f, 1400.0f, 40.0f, 20.0f));
 
     auto videoBackground = MRColor::create();
     videoBackground->setColor(0.01f, 0.02f, 0.04f, 1.0f);
@@ -106,8 +103,7 @@ int main() {
     videoBackground->getComponent<Transform>()->setSize(1280.0f, 720.0f);
     window->addChild(videoBackground);
 
-    auto player = MRVideoStreamPlayer::create(
-        kVideoWidth, kVideoHeight, kFramesPerSecond, kTotalFrames);
+    auto player = MRVideoStreamPlayer::create(kVideoWidth, kVideoHeight, kFramesPerSecond, kTotalFrames);
     player->getComponent<Transform>()->setPosition(100.0f, 170.0f, 0.0f);
     player->getComponent<Transform>()->setSize(1280.0f, 720.0f);
     player->setFrameProvider(generateFrame);
@@ -134,10 +130,7 @@ int main() {
     });
     player->setOnFrameChangedCallback([player, timeLabel](uint64_t frame) {
         wchar_t text[96];
-        std::swprintf(
-            text, 96, L"时间：%.2f / %.2f 秒（帧 %llu）",
-            player->getCurrentTime(), player->getDuration(),
-            static_cast<unsigned long long>(frame));
+        std::swprintf(text, 96, L"时间：%.2f / %.2f 秒（帧 %llu）", player->getCurrentTime(), player->getDuration(), static_cast<unsigned long long>(frame));
         timeLabel->setText(text, "default");
     });
 

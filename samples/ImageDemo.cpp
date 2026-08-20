@@ -19,8 +19,7 @@ using namespace morrow;
 using namespace morrow::Math;
 using namespace basist;
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     uint32_t maxFrames = 0;
     bool reportJson = false;
     bool enableRequestRender = false;
@@ -33,11 +32,9 @@ int main(int argc, char** argv)
             enableRequestRender = true;
         } else if (std::strcmp(argv[index], "--frames") == 0 && index + 1 < argc) {
             maxFrames = static_cast<uint32_t>(std::strtoul(argv[++index], nullptr, 10));
-        } else if (std::strcmp(argv[index], "--object-snapshot") == 0 &&
-                   index + 1 < argc) {
+        } else if (std::strcmp(argv[index], "--object-snapshot") == 0 && index + 1 < argc) {
             objectSnapshotPath = argv[++index];
-        } else if (std::strcmp(argv[index], "--object-snapshot-command") == 0 &&
-                   index + 1 < argc) {
+        } else if (std::strcmp(argv[index], "--object-snapshot-command") == 0 && index + 1 < argc) {
             objectSnapshotCommandPath = argv[++index];
         }
     }
@@ -72,7 +69,7 @@ int main(int argc, char** argv)
         window->addChild(im1);
     }
 
-    //shadow
+    // shadow
     auto mr_color = MRColor::create();
     mr_color->setColor(Vector4(1.0f, 0.0f, 0.0f, 1.0f));
     auto transform = mr_color->getComponent<Transform>();
@@ -85,7 +82,7 @@ int main(int argc, char** argv)
 
     window->addChild(mr_color);
 
-    //shadow
+    // shadow
     auto mr_image = MRImage::create();
     mr_image->setTexture(textAtlas);
 
@@ -114,14 +111,9 @@ int main(int argc, char** argv)
                   << "\"drawCalls\":" << frameState->drawCallCount << ","
                   << "\"cacheHits\":" << stats.cacheHitCount << ","
                   << "\"cacheMisses\":" << stats.cacheMissCount << ","
-                  << "\"ssboSupported\":" << (frameState->isSSBOSupport ? "true" : "false")
-                  << "}" << std::endl;
+                  << "\"ssboSupported\":" << (frameState->isSSBOSupport ? "true" : "false") << "}" << std::endl;
 
-        if (frameState->isSSBOSupport &&
-            (stats.renderItemCount != 12 ||
-             stats.batchCount != 2 ||
-             stats.ssboBatchCount != 2 ||
-             frameState->drawCallCount != 2)) {
+        if (frameState->isSSBOSupport && (stats.renderItemCount != 12 || stats.batchCount != 2 || stats.ssboBatchCount != 2 || frameState->drawCallCount != 2)) {
             std::cerr << "ImageDemo batch acceptance failed" << std::endl;
             return 2;
         }

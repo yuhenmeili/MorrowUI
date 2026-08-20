@@ -13,16 +13,8 @@ using namespace morrow;
 
 namespace {
 
-std::shared_ptr<MRLabel> createLabel(
-    const std::wstring& text,
-    const std::string& fontName,
-    float x,
-    float y,
-    float width,
-    float height,
-    float fontSize,
-    HorizontalAlignment horizontal = HorizontalAlignment::LEFT,
-    VerticalAlignment vertical = VerticalAlignment::CENTER) {
+std::shared_ptr<MRLabel> createLabel(const std::wstring& text, const std::string& fontName, float x, float y, float width, float height, float fontSize,
+                                     HorizontalAlignment horizontal = HorizontalAlignment::LEFT, VerticalAlignment vertical = VerticalAlignment::CENTER) {
     auto label = std::make_shared<MRLabel>();
     label->setText(text, fontName);
     label->setFontSize(fontSize);
@@ -33,14 +25,8 @@ std::shared_ptr<MRLabel> createLabel(
     return label;
 }
 
-void addAlignmentSample(
-    const WindowSharedPtr& window,
-    const std::string& fontName,
-    const std::wstring& text,
-    float x,
-    float y,
-    HorizontalAlignment horizontal,
-    VerticalAlignment vertical) {
+void addAlignmentSample(const WindowSharedPtr& window, const std::string& fontName, const std::wstring& text, float x, float y, HorizontalAlignment horizontal,
+                        VerticalAlignment vertical) {
     constexpr float width = 280.0f;
     constexpr float height = 105.0f;
 
@@ -103,33 +89,14 @@ int main() {
     window->addChild(passwordEdit);
 
     window->addChild(createLabel(L"MRLabel 对齐与排版", fontName, 820.0f, 52.0f, 900.0f, 48.0f, 30.0f));
-    window->addChild(createLabel(
-        L"同一固定区域内展示水平和垂直对齐组合",
-        fontName,
-        820.0f,
-        92.0f,
-        900.0f,
-        34.0f,
-        18.0f));
+    window->addChild(createLabel(L"同一固定区域内展示水平和垂直对齐组合", fontName, 820.0f, 92.0f, 900.0f, 34.0f, 18.0f));
 
-    addAlignmentSample(
-        window, fontName, L"左上 LEFT / TOP", 820.0f, 135.0f,
-        HorizontalAlignment::LEFT, VerticalAlignment::TOP);
-    addAlignmentSample(
-        window, fontName, L"居上 CENTER / TOP", 1120.0f, 135.0f,
-        HorizontalAlignment::CENTER, VerticalAlignment::TOP);
-    addAlignmentSample(
-        window, fontName, L"右上 RIGHT / TOP", 1420.0f, 135.0f,
-        HorizontalAlignment::RIGHT, VerticalAlignment::TOP);
-    addAlignmentSample(
-        window, fontName, L"左下 LEFT / BOTTOM", 820.0f, 260.0f,
-        HorizontalAlignment::LEFT, VerticalAlignment::BOTTOM);
-    addAlignmentSample(
-        window, fontName, L"完全居中", 1120.0f, 260.0f,
-        HorizontalAlignment::CENTER, VerticalAlignment::CENTER);
-    addAlignmentSample(
-        window, fontName, L"右下 RIGHT / BOTTOM", 1420.0f, 260.0f,
-        HorizontalAlignment::RIGHT, VerticalAlignment::BOTTOM);
+    addAlignmentSample(window, fontName, L"左上 LEFT / TOP", 820.0f, 135.0f, HorizontalAlignment::LEFT, VerticalAlignment::TOP);
+    addAlignmentSample(window, fontName, L"居上 CENTER / TOP", 1120.0f, 135.0f, HorizontalAlignment::CENTER, VerticalAlignment::TOP);
+    addAlignmentSample(window, fontName, L"右上 RIGHT / TOP", 1420.0f, 135.0f, HorizontalAlignment::RIGHT, VerticalAlignment::TOP);
+    addAlignmentSample(window, fontName, L"左下 LEFT / BOTTOM", 820.0f, 260.0f, HorizontalAlignment::LEFT, VerticalAlignment::BOTTOM);
+    addAlignmentSample(window, fontName, L"完全居中", 1120.0f, 260.0f, HorizontalAlignment::CENTER, VerticalAlignment::CENTER);
+    addAlignmentSample(window, fontName, L"右下 RIGHT / BOTTOM", 1420.0f, 260.0f, HorizontalAlignment::RIGHT, VerticalAlignment::BOTTOM);
 
     auto richText = MRRichTextLabel::create();
     richText->getComponent<Transform>()->setPosition(820.0f, 455.0f, 0.0f);

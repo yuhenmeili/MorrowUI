@@ -12,13 +12,13 @@
 //   ./build/SafeDynamicVectorCanvasDemo.exe
 //
 
-#include "Engine.h"
-#include "hmi/SafeDynamicVectorCanvas.h"
-#include "base/Transform.h"
-
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+
+#include "Engine.h"
+#include "base/Transform.h"
+#include "hmi/SafeDynamicVectorCanvas.h"
 
 using namespace morrow;
 using namespace morrow::Math;
@@ -61,13 +61,13 @@ int main() {
         const float sc = std::min(winW / 1280.0f, winH / 720.0f);  // 等比缩放
 
         // ===== 1. 车道线（白色虚线）=====
-        const float laneLeftX   = -200.0f * sc;
-        const float laneRightX  =  200.0f * sc;
-        const float laneTop     =  350.0f * sc;
-        const float laneBottom  = -350.0f * sc;
-        const float dashLen     =   60.0f * sc;
-        const float gapLen      =   30.0f * sc;
-        const float dashOffset  = std::fmod(frameCount * 4.0f, dashLen + gapLen); // 滚动效果
+        const float laneLeftX = -200.0f * sc;
+        const float laneRightX = 200.0f * sc;
+        const float laneTop = 350.0f * sc;
+        const float laneBottom = -350.0f * sc;
+        const float dashLen = 60.0f * sc;
+        const float gapLen = 30.0f * sc;
+        const float dashOffset = std::fmod(frameCount * 4.0f, dashLen + gapLen);  // 滚动效果
 
         auto drawDashedLine = [&](float x) {
             for (float y = laneBottom + dashOffset; y < laneTop; y += dashLen + gapLen) {
@@ -83,37 +83,28 @@ int main() {
 
         // ===== 2. 道路边缘实线 =====
         canvas->drawLine(-350.0f * sc, laneBottom, -350.0f * sc, laneTop, 0.5f, 0.5f, 0.5f, 1.0f);
-        canvas->drawLine( 350.0f * sc, laneBottom,  350.0f * sc, laneTop, 0.5f, 0.5f, 0.5f, 1.0f);
+        canvas->drawLine(350.0f * sc, laneBottom, 350.0f * sc, laneTop, 0.5f, 0.5f, 0.5f, 1.0f);
 
         // ===== 3. 动态障碍物检测框（模拟前方车辆）=====
         float obstacleBaseY = (50.0f + std::sin(frameCount * 0.02f) * 20.0f) * sc;
-        float obstacleX     = (-30.0f + std::sin(frameCount * 0.03f) * 80.0f) * sc;
+        float obstacleX = (-30.0f + std::sin(frameCount * 0.03f) * 80.0f) * sc;
 
         // 主障碍物（红色，模拟前车）
-        canvas->drawRect((obstacleX - 50.0f * sc), (obstacleBaseY - 40.0f * sc),
-                         100.0f * sc, 80.0f * sc,
-                         1.0f, 0.2f, 0.2f, 0.9f);
+        canvas->drawRect((obstacleX - 50.0f * sc), (obstacleBaseY - 40.0f * sc), 100.0f * sc, 80.0f * sc, 1.0f, 0.2f, 0.2f, 0.9f);
 
         // 侧方障碍物（橙色，模拟并排车辆）
-        canvas->drawRect((obstacleX + 180.0f * sc), (obstacleBaseY + 20.0f * sc),
-                         90.0f * sc, 70.0f * sc,
-                         1.0f, 0.5f, 0.1f, 0.8f);
+        canvas->drawRect((obstacleX + 180.0f * sc), (obstacleBaseY + 20.0f * sc), 90.0f * sc, 70.0f * sc, 1.0f, 0.5f, 0.1f, 0.8f);
 
         // 远处小型障碍物（黄色，模拟行人/自行车）
         float farObstacleX = (-200.0f + std::cos(frameCount * 0.04f) * 150.0f) * sc;
-        canvas->drawRect(farObstacleX - 15.0f * sc, 250.0f * sc, 30.0f * sc, 60.0f * sc,
-                         1.0f, 0.9f, 0.1f, 0.85f);
-        canvas->drawRect(farObstacleX + 120.0f * sc, 230.0f * sc, 25.0f * sc, 50.0f * sc,
-                         1.0f, 0.9f, 0.1f, 0.85f);
+        canvas->drawRect(farObstacleX - 15.0f * sc, 250.0f * sc, 30.0f * sc, 60.0f * sc, 1.0f, 0.9f, 0.1f, 0.85f);
+        canvas->drawRect(farObstacleX + 120.0f * sc, 230.0f * sc, 25.0f * sc, 50.0f * sc, 1.0f, 0.9f, 0.1f, 0.85f);
 
         // 障碍物距离连线（雷达探测示意）
         float radarOriginX = 0.0f;
         float radarOriginY = -300.0f * sc;
-        canvas->drawLine(radarOriginX, radarOriginY,
-                         obstacleX, obstacleBaseY, 0.2f, 1.0f, 0.2f, 0.3f);
-        canvas->drawLine(radarOriginX, radarOriginY,
-                         obstacleX + 180.0f * sc, obstacleBaseY + 20.0f * sc,
-                         0.2f, 1.0f, 0.2f, 0.3f);
+        canvas->drawLine(radarOriginX, radarOriginY, obstacleX, obstacleBaseY, 0.2f, 1.0f, 0.2f, 0.3f);
+        canvas->drawLine(radarOriginX, radarOriginY, obstacleX + 180.0f * sc, obstacleBaseY + 20.0f * sc, 0.2f, 1.0f, 0.2f, 0.3f);
 
         // ===== 4. 倒车轨迹曲线（绿色）=====
         const int trajSegments = 40;
@@ -141,22 +132,17 @@ int main() {
             float a1 = -1.57f + (3.14159265f * static_cast<float>(i) / arcSegs);
             float a2 = -1.57f + (3.14159265f * static_cast<float>(i + 1) / arcSegs);
             float alpha = (i < static_cast<int>(speedAngle / 360.0f * arcSegs)) ? 1.0f : 0.3f;
-            canvas->drawLine(
-                std::cos(a1) * arcR, arcCY + std::sin(a1) * arcR,
-                std::cos(a2) * arcR, arcCY + std::sin(a2) * arcR,
-                0.3f, 1.0f, 0.8f, alpha
-            );
+            canvas->drawLine(std::cos(a1) * arcR, arcCY + std::sin(a1) * arcR, std::cos(a2) * arcR, arcCY + std::sin(a2) * arcR, 0.3f, 1.0f, 0.8f, alpha);
         }
 
         // ===== 6. 十字准星（画面中心）=====
         canvas->drawLine(-15.0f * sc, 0.0f, -5.0f * sc, 0.0f, 0.0f, 1.0f, 0.0f, 0.5f);
-        canvas->drawLine( 5.0f * sc, 0.0f,  15.0f * sc, 0.0f, 0.0f, 1.0f, 0.0f, 0.5f);
+        canvas->drawLine(5.0f * sc, 0.0f, 15.0f * sc, 0.0f, 0.0f, 1.0f, 0.0f, 0.5f);
         canvas->drawLine(0.0f, -15.0f * sc, 0.0f, -5.0f * sc, 0.0f, 1.0f, 0.0f, 0.5f);
-        canvas->drawLine(0.0f,  5.0f * sc, 0.0f,  15.0f * sc, 0.0f, 1.0f, 0.0f, 0.5f);
+        canvas->drawLine(0.0f, 5.0f * sc, 0.0f, 15.0f * sc, 0.0f, 1.0f, 0.0f, 0.5f);
 
         // ===== 7. 帧率文字区域边框（示意）=====
-        canvas->drawRect(-630.0f * sc, -340.0f * sc, 100.0f * sc, 24.0f * sc,
-                         0.4f, 0.4f, 0.6f, 0.5f);
+        canvas->drawRect(-630.0f * sc, -340.0f * sc, 100.0f * sc, 24.0f * sc, 0.4f, 0.4f, 0.6f, 0.5f);
 
         // ===== 提交 GPU =====
         canvas->commit();

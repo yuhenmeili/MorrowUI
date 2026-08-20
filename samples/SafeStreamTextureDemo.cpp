@@ -11,14 +11,14 @@
 //   ./build/SafeStreamTextureDemo.exe
 //
 
-#include "Engine.h"
-#include "hmi/SafeStreamTexture.h"
-#include "base/Transform.h"
-
-#include <cmath>
-#include <cstring>
 #include <array>
 #include <atomic>
+#include <cmath>
+#include <cstring>
+
+#include "Engine.h"
+#include "base/Transform.h"
+#include "hmi/SafeStreamTexture.h"
 
 using namespace morrow;
 using namespace morrow::Math;
@@ -41,22 +41,43 @@ static void generateTestPattern(int frameCount, unsigned char* frameBuffer = kFr
 
             // 7 色彩条：白、黄、青、绿、品、红、蓝
             switch (bar) {
-                case 0: // 白
-                    frameBuffer[idx+0]=235; frameBuffer[idx+1]=235; frameBuffer[idx+2]=235; break;
-                case 1: // 黄
-                    frameBuffer[idx+0]=235; frameBuffer[idx+1]=235; frameBuffer[idx+2]=0;   break;
-                case 2: // 青
-                    frameBuffer[idx+0]=0;   frameBuffer[idx+1]=235; frameBuffer[idx+2]=235; break;
-                case 3: // 绿
-                    frameBuffer[idx+0]=0;   frameBuffer[idx+1]=235; frameBuffer[idx+2]=0;   break;
-                case 4: // 品
-                    frameBuffer[idx+0]=235; frameBuffer[idx+1]=0;   frameBuffer[idx+2]=235; break;
-                case 5: // 红
-                    frameBuffer[idx+0]=235; frameBuffer[idx+1]=0;   frameBuffer[idx+2]=0;   break;
-                default: // 蓝
-                    frameBuffer[idx+0]=0;   frameBuffer[idx+1]=0;   frameBuffer[idx+2]=235; break;
+                case 0:  // 白
+                    frameBuffer[idx + 0] = 235;
+                    frameBuffer[idx + 1] = 235;
+                    frameBuffer[idx + 2] = 235;
+                    break;
+                case 1:  // 黄
+                    frameBuffer[idx + 0] = 235;
+                    frameBuffer[idx + 1] = 235;
+                    frameBuffer[idx + 2] = 0;
+                    break;
+                case 2:  // 青
+                    frameBuffer[idx + 0] = 0;
+                    frameBuffer[idx + 1] = 235;
+                    frameBuffer[idx + 2] = 235;
+                    break;
+                case 3:  // 绿
+                    frameBuffer[idx + 0] = 0;
+                    frameBuffer[idx + 1] = 235;
+                    frameBuffer[idx + 2] = 0;
+                    break;
+                case 4:  // 品
+                    frameBuffer[idx + 0] = 235;
+                    frameBuffer[idx + 1] = 0;
+                    frameBuffer[idx + 2] = 235;
+                    break;
+                case 5:  // 红
+                    frameBuffer[idx + 0] = 235;
+                    frameBuffer[idx + 1] = 0;
+                    frameBuffer[idx + 2] = 0;
+                    break;
+                default:  // 蓝
+                    frameBuffer[idx + 0] = 0;
+                    frameBuffer[idx + 1] = 0;
+                    frameBuffer[idx + 2] = 235;
+                    break;
             }
-            frameBuffer[idx + 3] = 255; // alpha
+            frameBuffer[idx + 3] = 255;  // alpha
         }
     }
 
@@ -76,9 +97,11 @@ static void generateTestPattern(int frameCount, unsigned char* frameBuffer = kFr
 
     for (int t = 0; t < 200; ++t) {
         int y = centerY - t;
-        if (y < 0 || y >= kStreamH) continue;
+        if (y < 0 || y >= kStreamH)
+            continue;
         int x = centerX + static_cast<int>(std::sin(t * 0.05f + angle) * t * 0.3f);
-        if (x < 0 || x >= kStreamW) continue;
+        if (x < 0 || x >= kStreamW)
+            continue;
 
         int idx = (y * kStreamW + x) * 4;
         frameBuffer[idx + 0] = 255;
@@ -112,7 +135,7 @@ static void generateTestPattern(int frameCount, unsigned char* frameBuffer = kFr
                 int py = 10 + dy;
                 if (px < kStreamW && py < kStreamH) {
                     int idx = (py * kStreamW + px) * 4;
-                    frameBuffer[idx+0] = frameBuffer[idx+1] = frameBuffer[idx+2] = 255;
+                    frameBuffer[idx + 0] = frameBuffer[idx + 1] = frameBuffer[idx + 2] = 255;
                 }
             }
         }
@@ -185,9 +208,7 @@ int main() {
         nextBuffer = (bufferIndex + 1) % buffers.size();
         auto* buffer = buffers[bufferIndex].data();
         generateTestPattern(frameCount, buffer);
-        streamTex->updateFromEGLImage(buffer, [bufferIndex]() {
-            available[bufferIndex].store(true);
-        });
+        streamTex->updateFromEGLImage(buffer, [bufferIndex]() { available[bufferIndex].store(true); });
 #else
         generateTestPattern(frameCount);
         streamTex->updateFrame(kFrameBuffer);

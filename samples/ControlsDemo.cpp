@@ -24,14 +24,8 @@ namespace {
 
 constexpr float kPanelTop = 140.0f;
 
-std::shared_ptr<MRLabel> createLabel(
-    const std::wstring& text,
-    float x,
-    float y,
-    float width,
-    float height,
-    float fontSize = 20.0f,
-    HorizontalAlignment horizontal = HorizontalAlignment::LEFT) {
+std::shared_ptr<MRLabel> createLabel(const std::wstring& text, float x, float y, float width, float height, float fontSize = 20.0f,
+                                     HorizontalAlignment horizontal = HorizontalAlignment::LEFT) {
     auto label = std::make_shared<MRLabel>();
     label->setText(text, "default");
     label->setFontSize(fontSize);
@@ -51,13 +45,7 @@ std::shared_ptr<MRColor> createPanel(float x, float y, float width, float height
     return panel;
 }
 
-void configureButton(
-    const std::shared_ptr<MRButton>& button,
-    const std::wstring& text,
-    float x,
-    float y,
-    float width,
-    float height = 48.0f) {
+void configureButton(const std::shared_ptr<MRButton>& button, const std::wstring& text, float x, float y, float width, float height = 48.0f) {
     button->setText(text, "default");
     button->setTextFontSize(19.0f);
     button->setTextColor(0.1f, 0.12f, 0.16f, 1.0f);
@@ -70,12 +58,7 @@ void configureButton(
 }
 
 template <typename T>
-void configureSelectionControl(
-    const std::shared_ptr<T>& button,
-    const std::wstring& text,
-    float x,
-    float y,
-    float width = 215.0f) {
+void configureSelectionControl(const std::shared_ptr<T>& button, const std::wstring& text, float x, float y, float width = 215.0f) {
     button->setText(text, "default");
     button->setTextFontSize(18.0f);
     button->setTextColor(0.1f, 0.12f, 0.16f, 1.0f);
@@ -90,12 +73,7 @@ void configureSelectionControl(
     button->template getComponent<Transform>()->setSize(width, 46.0f);
 }
 
-void configureMenuButton(
-    const std::shared_ptr<MRButton>& button,
-    const std::wstring& text,
-    float x,
-    float y,
-    float width) {
+void configureMenuButton(const std::shared_ptr<MRButton>& button, const std::wstring& text, float x, float y, float width) {
     configureButton(button, text, x, y, width);
     button->setTextFontSize(18.0f);
 }
@@ -117,12 +95,8 @@ int main() {
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
     }});
 
-    window->addChild(createLabel(
-        L"Controls Showcase：按钮、选择、菜单、数值输入与布局",
-        60.0f, 30.0f, 1700.0f, 54.0f, 34.0f));
-    window->addChild(createLabel(
-        L"统一展示常用交互控件及其回调、状态和容器组合方式。",
-        60.0f, 84.0f, 1700.0f, 36.0f, 20.0f));
+    window->addChild(createLabel(L"Controls Showcase：按钮、选择、菜单、数值输入与布局", 60.0f, 30.0f, 1700.0f, 54.0f, 34.0f));
+    window->addChild(createLabel(L"统一展示常用交互控件及其回调、状态和容器组合方式。", 60.0f, 84.0f, 1700.0f, 36.0f, 20.0f));
 
     // ---------------------------------------------------------------------
     // Button / TextureButton / HBoxContainer
@@ -166,10 +140,8 @@ int main() {
     textureButton->getComponent<Transform>()->setPosition(buttonPanelX + 110.0f, kPanelTop + 190.0f, 0.0f);
     textureButton->getComponent<Transform>()->setSize(200.0f, 200.0f);
     window->addChild(textureButton);
-    window->addChild(createLabel(
-        L"MRTextureButton\nNormal / Hover / Pressed / Disabled",
-        buttonPanelX + 30.0f, kPanelTop + 405.0f, buttonPanelW - 60.0f, 80.0f, 18.0f,
-        HorizontalAlignment::CENTER));
+    window->addChild(createLabel(L"MRTextureButton\nNormal / Hover / Pressed / Disabled", buttonPanelX + 30.0f, kPanelTop + 405.0f, buttonPanelW - 60.0f, 80.0f, 18.0f,
+                                 HorizontalAlignment::CENTER));
 
     // ---------------------------------------------------------------------
     // CheckBox / CheckButton / Toggle / RadioButton
@@ -206,7 +178,8 @@ int main() {
     configureSelectionControl(radioA, L"舒适模式", selectionRight, selectionY);
     radioA->setGroup(group);
     radioA->setOnCheckedChangedCallback([](bool checked) {
-        if (checked) LOG_I("Radio selection = comfort");
+        if (checked)
+            LOG_I("Radio selection = comfort");
     });
     window->addChild(radioA);
 
@@ -214,7 +187,8 @@ int main() {
     configureSelectionControl(radioB, L"运动模式", selectionRight, selectionY + 62.0f);
     radioB->setGroup(group);
     radioB->setOnCheckedChangedCallback([](bool checked) {
-        if (checked) LOG_I("Radio selection = sport");
+        if (checked)
+            LOG_I("Radio selection = sport");
     });
     window->addChild(radioB);
 
@@ -222,17 +196,15 @@ int main() {
     configureSelectionControl(radioC, L"节能模式", selectionRight, selectionY + 124.0f);
     radioC->setGroup(group);
     radioC->setOnCheckedChangedCallback([](bool checked) {
-        if (checked) LOG_I("Radio selection = eco");
+        if (checked)
+            LOG_I("Radio selection = eco");
     });
     window->addChild(radioC);
     group->select(radioA);
 
-    window->addChild(createLabel(
-        L"CheckBox 支持多选；CheckButton / Toggle 展示不同选中状态。",
-        selectionPanelX + 24.0f, kPanelTop + 300.0f, selectionPanelW - 48.0f, 30.0f, 17.0f));
-    window->addChild(createLabel(
-        L"RadioButton 通过 RadioGroup 实现互斥选择。",
-        selectionPanelX + 24.0f, kPanelTop + 336.0f, selectionPanelW - 48.0f, 30.0f, 17.0f));
+    window->addChild(
+        createLabel(L"CheckBox 支持多选；CheckButton / Toggle 展示不同选中状态。", selectionPanelX + 24.0f, kPanelTop + 300.0f, selectionPanelW - 48.0f, 30.0f, 17.0f));
+    window->addChild(createLabel(L"RadioButton 通过 RadioGroup 实现互斥选择。", selectionPanelX + 24.0f, kPanelTop + 336.0f, selectionPanelW - 48.0f, 30.0f, 17.0f));
 
     // ---------------------------------------------------------------------
     // OptionButton / MenuButton / PopupMenu
@@ -329,9 +301,7 @@ int main() {
     middleSeparator->getComponent<Transform>()->setSize(menuPanelW - 48.0f, 2.0f);
     window->addChild(middleSeparator);
 
-    window->addChild(createLabel(
-        L"Spacer 弹性占位：按钮自动分布到容器两端",
-        menuPanelX + 24.0f, spinTop + 278.0f, menuPanelW - 48.0f, 32.0f, 17.0f));
+    window->addChild(createLabel(L"Spacer 弹性占位：按钮自动分布到容器两端", menuPanelX + 24.0f, spinTop + 278.0f, menuPanelW - 48.0f, 32.0f, 17.0f));
     auto actionRow = std::make_shared<HBoxContainer>();
     actionRow->setSpacing(12.0f);
     actionRow->getComponent<Transform>()->setPosition(menuPanelX + 24.0f, spinTop + 326.0f, 0.0f);

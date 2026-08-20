@@ -12,13 +12,7 @@ using namespace morrow;
 
 namespace {
 
-std::shared_ptr<MRLabel> createLabel(
-    const std::wstring& text,
-    float x,
-    float y,
-    float width,
-    float height,
-    float fontSize = 20.0f) {
+std::shared_ptr<MRLabel> createLabel(const std::wstring& text, float x, float y, float width, float height, float fontSize = 20.0f) {
     auto label = std::make_shared<MRLabel>();
     label->setText(text, "default");
     label->setFontSize(fontSize);
@@ -44,10 +38,7 @@ std::shared_ptr<MRButton> createListItem(int index, float width, float y) {
     item->setTextFontSize(19.0f);
     item->setTextColor(0.1f, 0.13f, 0.18f, 1.0f);
     item->setTextAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
-    item->setBackgroundColor(
-        index % 2 == 0
-            ? Vector4(0.91f, 0.94f, 0.97f, 1.0f)
-            : Vector4(0.96f, 0.97f, 0.99f, 1.0f));
+    item->setBackgroundColor(index % 2 == 0 ? Vector4(0.91f, 0.94f, 0.97f, 1.0f) : Vector4(0.96f, 0.97f, 0.99f, 1.0f));
     item->setHoverColor(Vector4(0.78f, 0.87f, 0.94f, 1.0f));
     item->setPressedColor(Vector4(0.67f, 0.8f, 0.9f, 1.0f));
     item->setCornerRadius(6.0f);
@@ -68,12 +59,8 @@ int main() {
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
     }});
 
-    window->addChild(createLabel(
-        L"List Navigation Showcase：ItemList / Tree / ScrollContainer",
-        60.0f, 30.0f, 1800.0f, 54.0f, 34.0f));
-    window->addChild(createLabel(
-        L"列表选择、树形展开折叠和长列表滚动统一放在同一个导航场景中。",
-        60.0f, 84.0f, 1800.0f, 36.0f, 20.0f));
+    window->addChild(createLabel(L"List Navigation Showcase：ItemList / Tree / ScrollContainer", 60.0f, 30.0f, 1800.0f, 54.0f, 34.0f));
+    window->addChild(createLabel(L"列表选择、树形展开折叠和长列表滚动统一放在同一个导航场景中。", 60.0f, 84.0f, 1800.0f, 36.0f, 20.0f));
 
     constexpr float panelTop = 150.0f;
     constexpr float panelHeight = 760.0f;
@@ -92,13 +79,7 @@ int main() {
     // MRItemList
     // ---------------------------------------------------------------------
     window->addChild(createLabel(L"MRItemList", itemPanelX + 24.0f, panelTop + 22.0f, itemPanelW - 48.0f, 42.0f, 25.0f));
-    auto listStatus = createLabel(
-        L"当前选择：未选择",
-        itemPanelX + 24.0f,
-        panelTop + 680.0f,
-        itemPanelW - 48.0f,
-        42.0f,
-        18.0f);
+    auto listStatus = createLabel(L"当前选择：未选择", itemPanelX + 24.0f, panelTop + 680.0f, itemPanelW - 48.0f, 42.0f, 18.0f);
     window->addChild(listStatus);
 
     auto itemList = MRItemList::create();
@@ -115,24 +96,15 @@ int main() {
     itemList->addItem(L"氛围灯：冰川蓝", 301);
     itemList->addItem(L"氛围灯：日落橙", 302);
     itemList->addItem(L"氛围灯：森林绿", 303);
-    itemList->setOnItemSelectedCallback([listStatus](int id, const std::wstring& text) {
-        listStatus->setText(
-            L"当前选择：" + text + L"（ID " + std::to_wstring(id) + L"）",
-            "default");
-    });
+    itemList->setOnItemSelectedCallback(
+        [listStatus](int id, const std::wstring& text) { listStatus->setText(L"当前选择：" + text + L"（ID " + std::to_wstring(id) + L"）", "default"); });
     window->addChild(itemList);
 
     // ---------------------------------------------------------------------
     // MRTree
     // ---------------------------------------------------------------------
     window->addChild(createLabel(L"MRTree", treePanelX + 24.0f, panelTop + 22.0f, treePanelW - 48.0f, 42.0f, 25.0f));
-    auto treeStatus = createLabel(
-        L"当前节点：未选择",
-        treePanelX + 24.0f,
-        panelTop + 680.0f,
-        treePanelW - 48.0f,
-        42.0f,
-        18.0f);
+    auto treeStatus = createLabel(L"当前节点：未选择", treePanelX + 24.0f, panelTop + 680.0f, treePanelW - 48.0f, 42.0f, 18.0f);
     window->addChild(treeStatus);
 
     auto tree = MRTree::create();
@@ -157,14 +129,9 @@ int main() {
     tree->addNode(51, L"亮度", 50);
     tree->addNode(52, L"深色模式", 50);
     tree->addNode(60, L"开发者选项（不可用）", 3, true, false);
-    tree->setOnNodeSelectedCallback([treeStatus](int id, const std::wstring& text) {
-        treeStatus->setText(
-            L"当前节点：" + text + L"（ID " + std::to_wstring(id) + L"）",
-            "default");
-    });
-    tree->setOnNodeExpandedCallback([](int id, bool expanded) {
-        LOG_I("Tree node {} expanded = {}", id, expanded);
-    });
+    tree->setOnNodeSelectedCallback(
+        [treeStatus](int id, const std::wstring& text) { treeStatus->setText(L"当前节点：" + text + L"（ID " + std::to_wstring(id) + L"）", "default"); });
+    tree->setOnNodeExpandedCallback([](int id, bool expanded) { LOG_I("Tree node {} expanded = {}", id, expanded); });
     window->addChild(tree);
 
     // ---------------------------------------------------------------------
@@ -183,19 +150,10 @@ int main() {
     scroll->getVerticalScrollBar()->setTrackColor(Vector4(0.86f, 0.89f, 0.93f, 1.0f));
     scroll->getVerticalScrollBar()->setThumbColor(Vector4(0.24f, 0.52f, 0.7f, 1.0f));
     for (int index = 1; index <= 24; ++index) {
-        scroll->addScrollChild(createListItem(
-            index,
-            viewportW - 32.0f,
-            static_cast<float>(index - 1) * 56.0f));
+        scroll->addScrollChild(createListItem(index, viewportW - 32.0f, static_cast<float>(index - 1) * 56.0f));
     }
     window->addChild(scroll);
-    window->addChild(createLabel(
-        L"滚轮 / 拖动 / 右侧滚动条",
-        scrollPanelX + 24.0f,
-        panelTop + 680.0f,
-        scrollPanelW - 48.0f,
-        42.0f,
-        18.0f));
+    window->addChild(createLabel(L"滚轮 / 拖动 / 右侧滚动条", scrollPanelX + 24.0f, panelTop + 680.0f, scrollPanelW - 48.0f, 42.0f, 18.0f));
 
     LOG_I("ListNavigationDemo started");
     engine->render();

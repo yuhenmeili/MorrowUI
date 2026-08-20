@@ -1,3 +1,5 @@
+#include <array>
+
 #include "Engine.h"
 #include "FontManager.h"
 #include "base/Transform.h"
@@ -8,20 +10,12 @@
 #include "elements/MRParallaxBackground.h"
 #include "elements/MRPopup.h"
 
-#include <array>
-
 using namespace morrow;
 
 namespace {
 
-std::shared_ptr<MRLabel> createLabel(
-    const std::wstring& text,
-    float x,
-    float y,
-    float width,
-    float height,
-    float fontSize = 20.0f,
-    const Vector4& color = Vector4(0.9f, 0.94f, 1.0f, 1.0f)) {
+std::shared_ptr<MRLabel> createLabel(const std::wstring& text, float x, float y, float width, float height, float fontSize = 20.0f,
+                                     const Vector4& color = Vector4(0.9f, 0.94f, 1.0f, 1.0f)) {
     auto result = std::make_shared<MRLabel>();
     result->setText(text, "default");
     result->setFontSize(fontSize);
@@ -32,11 +26,7 @@ std::shared_ptr<MRLabel> createLabel(
     return result;
 }
 
-std::shared_ptr<MRButton> createButton(
-    const std::wstring& text,
-    float x,
-    float y,
-    float width = 250.0f) {
+std::shared_ptr<MRButton> createButton(const std::wstring& text, float x, float y, float width = 250.0f) {
     auto result = MRButton::create();
     result->setText(text, "default");
     result->setTextFontSize(19.0f);
@@ -50,11 +40,7 @@ std::shared_ptr<MRButton> createButton(
     return result;
 }
 
-MRParallax2DSharedPtr createParallaxLayer(
-    float scale,
-    const Vector4& color,
-    float y,
-    float height) {
+MRParallax2DSharedPtr createParallaxLayer(float scale, const Vector4& color, float y, float height) {
     auto result = MRParallax2D::create();
     result->setBasePosition(0.0f, y);
     auto fill = MRColor::create();
@@ -84,37 +70,13 @@ int main() {
     // ---------------------------------------------------------------------
     auto background = MRParallaxBackground::create();
     background->getComponent<Transform>()->setSize(1280.0f, 720.0f);
-    background->addLayer(
-        createParallaxLayer(
-            0.12f, Vector4(0.08f, 0.16f, 0.28f, 1.0f), 110.0f, 220.0f),
-        0.12f,
-        0.12f);
-    background->addLayer(
-        createParallaxLayer(
-            0.35f, Vector4(0.12f, 0.32f, 0.48f, 1.0f), 330.0f, 180.0f),
-        0.35f,
-        0.35f);
-    background->addLayer(
-        createParallaxLayer(
-            0.72f, Vector4(0.16f, 0.52f, 0.56f, 1.0f), 510.0f, 180.0f),
-        0.72f,
-        0.72f);
+    background->addLayer(createParallaxLayer(0.12f, Vector4(0.08f, 0.16f, 0.28f, 1.0f), 110.0f, 220.0f), 0.12f, 0.12f);
+    background->addLayer(createParallaxLayer(0.35f, Vector4(0.12f, 0.32f, 0.48f, 1.0f), 330.0f, 180.0f), 0.35f, 0.35f);
+    background->addLayer(createParallaxLayer(0.72f, Vector4(0.16f, 0.52f, 0.56f, 1.0f), 510.0f, 180.0f), 0.72f, 0.72f);
     window->addChild(background);
 
-    window->addChild(createLabel(
-        L"ParallaxBackground / Parallax2D",
-        50.0f,
-        42.0f,
-        700.0f,
-        46.0f,
-        30.0f));
-    window->addChild(createLabel(
-        L"不同背景层使用不同滚动倍率",
-        50.0f,
-        88.0f,
-        620.0f,
-        38.0f,
-        18.0f));
+    window->addChild(createLabel(L"ParallaxBackground / Parallax2D", 50.0f, 42.0f, 700.0f, 46.0f, 30.0f));
+    window->addChild(createLabel(L"不同背景层使用不同滚动倍率", 50.0f, 88.0f, 620.0f, 38.0f, 18.0f));
 
     auto scrollLeft = createButton(L"向左滚动", 50.0f, 610.0f);
     scrollLeft->setOnClickCallback([background]() {
@@ -133,20 +95,8 @@ int main() {
     // ---------------------------------------------------------------------
     // CanvasModulate
     // ---------------------------------------------------------------------
-    window->addChild(createLabel(
-        L"MRCanvasModulate",
-        1330.0f,
-        42.0f,
-        500.0f,
-        46.0f,
-        30.0f));
-    window->addChild(createLabel(
-        L"全局色调调制会同时影响背景、色块、文字和按钮",
-        1330.0f,
-        88.0f,
-        520.0f,
-        58.0f,
-        18.0f));
+    window->addChild(createLabel(L"MRCanvasModulate", 1330.0f, 42.0f, 500.0f, 46.0f, 30.0f));
+    window->addChild(createLabel(L"全局色调调制会同时影响背景、色块、文字和按钮", 1330.0f, 88.0f, 520.0f, 58.0f, 18.0f));
 
     const std::array<Vector4, 3> cardColors = {
         Vector4(1.0f, 0.62f, 0.24f, 1.0f),
@@ -167,9 +117,7 @@ int main() {
         card->getComponent<Transform>()->setPosition(x, y, 0.0f);
         card->getComponent<Transform>()->setSize(220.0f, 140.0f);
         window->addChild(card);
-        window->addChild(createLabel(
-            cardNames[index], x + 20.0f, y + 48.0f, 180.0f, 42.0f, 24.0f,
-            Vector4(0.08f, 0.12f, 0.18f, 1.0f)));
+        window->addChild(createLabel(cardNames[index], x + 20.0f, y + 48.0f, 180.0f, 42.0f, 24.0f, Vector4(0.08f, 0.12f, 0.18f, 1.0f)));
     }
 
     auto modulate = MRCanvasModulate::create();
@@ -203,9 +151,7 @@ int main() {
     dialog->setOnCanceledCallback([]() { LOG_I("Dialog canceled"); });
     dialog->attachTo(window);
     auto dialogButton = createButton(L"打开 Dialog", 860.0f, 610.0f);
-    dialogButton->setOnClickCallback([dialog]() {
-        dialog->popup(380.0f, 210.0f);
-    });
+    dialogButton->setOnClickCallback([dialog]() { dialog->popup(380.0f, 210.0f); });
     window->addChild(dialogButton);
 
     LOG_I("SceneEffectsDemo started");

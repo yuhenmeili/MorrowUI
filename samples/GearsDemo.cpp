@@ -12,13 +12,7 @@ using namespace morrow;
 
 namespace {
 
-std::shared_ptr<MRLabel> createLabel(
-    const std::wstring& text,
-    float x,
-    float y,
-    float width,
-    float height,
-    float fontSize = 22.0f) {
+std::shared_ptr<MRLabel> createLabel(const std::wstring& text, float x, float y, float width, float height, float fontSize = 22.0f) {
     auto label = std::make_shared<MRLabel>();
     label->setText(text, "default");
     label->setFontSize(fontSize);
@@ -41,9 +35,7 @@ int main() {
     }});
 
     window->addChild(createLabel(L"Gears Effects Showcase", 100.0f, 24.0f, 1720.0f, 54.0f, 34.0f));
-    window->addChild(createLabel(
-        L"MRGearsIris / MRGearsOpening / MRGearsShine / MRGearsSelect",
-        100.0f, 74.0f, 1720.0f, 40.0f, 20.0f));
+    window->addChild(createLabel(L"MRGearsIris / MRGearsOpening / MRGearsShine / MRGearsSelect", 100.0f, 74.0f, 1720.0f, 40.0f, 20.0f));
 
     window->addChild(createLabel(L"MRGearsIris", 110.0f, 125.0f, 300.0f, 42.0f));
     auto iris = MRGearsIris::create();
@@ -71,9 +63,7 @@ int main() {
     window->addChild(shine);
 
     window->addChild(createLabel(L"MRGearsSelect", 1320.0f, 125.0f, 360.0f, 42.0f));
-    window->addChild(createLabel(
-        L"呼吸亮度选中点",
-        1320.0f, 185.0f, 360.0f, 42.0f, 19.0f));
+    window->addChild(createLabel(L"呼吸亮度选中点", 1320.0f, 185.0f, 360.0f, 42.0f, 19.0f));
     auto select = MRGearsSelect::create();
     select->getComponent<Transform>()->setPosition(1495.0f, 430.0f, 0.0f);
     select->getComponent<Transform>()->setSize(10.0f, 10.0f);

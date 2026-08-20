@@ -11,15 +11,15 @@
 //   ./build/SafeStaticSpriteDemo.exe
 //
 
-#include "Engine.h"
-#include "hmi/SafeStaticSprite.h"
-#include "hmi/SafeStaticSpriteAtlas.h"
-#include "StaticAtlasManager.h"
-#include "base/Transform.h"
-
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+
+#include "Engine.h"
+#include "StaticAtlasManager.h"
+#include "base/Transform.h"
+#include "hmi/SafeStaticSprite.h"
+#include "hmi/SafeStaticSpriteAtlas.h"
 
 using namespace morrow;
 using namespace morrow::Math;
@@ -30,12 +30,11 @@ using namespace morrow::Math;
 // 图集规格：64×32 像素，RGBA8，共 8 KB
 // =========================================================================
 
-static constexpr int kAtlasWidth  = 64;
+static constexpr int kAtlasWidth = 64;
 static constexpr int kAtlasHeight = 32;
 
 // 编译期静态断言：确保图集数据大小正确
-static_assert(sizeof(kAtlasPixelData) == kAtlasWidth * kAtlasHeight * 4,
-              "Atlas pixel data size mismatch!");
+static_assert(sizeof(kAtlasPixelData) == kAtlasWidth * kAtlasHeight * 4, "Atlas pixel data size mismatch!");
 
 // =========================================================================
 // 硬编码精灵 UV 定义表
@@ -44,32 +43,32 @@ static_assert(sizeof(kAtlasPixelData) == kAtlasWidth * kAtlasHeight * 4,
 
 static const SafeSpriteDef kSpriteTable[] = {
     // ---- 数字时速表（0-9），每数字 6×8 像素 ----
-    { "speed_0",   0.00000f, 0.00000f, 0.09375f, 0.25000f,   0,  0,  6,  8 },
-    { "speed_1",   0.09375f, 0.00000f, 0.18750f, 0.25000f,   6,  0,  6,  8 },
-    { "speed_2",   0.18750f, 0.00000f, 0.28125f, 0.25000f,  12,  0,  6,  8 },
-    { "speed_3",   0.28125f, 0.00000f, 0.37500f, 0.25000f,  18,  0,  6,  8 },
-    { "speed_4",   0.37500f, 0.00000f, 0.46875f, 0.25000f,  24,  0,  6,  8 },
-    { "speed_5",   0.46875f, 0.00000f, 0.56250f, 0.25000f,  30,  0,  6,  8 },
-    { "speed_6",   0.56250f, 0.00000f, 0.65625f, 0.25000f,  36,  0,  6,  8 },
-    { "speed_7",   0.65625f, 0.00000f, 0.75000f, 0.25000f,  42,  0,  6,  8 },
-    { "speed_8",   0.75000f, 0.00000f, 0.84375f, 0.25000f,  48,  0,  6,  8 },
-    { "speed_9",   0.84375f, 0.00000f, 0.93750f, 0.25000f,  54,  0,  6,  8 },
+    {"speed_0", 0.00000f, 0.00000f, 0.09375f, 0.25000f, 0, 0, 6, 8},
+    {"speed_1", 0.09375f, 0.00000f, 0.18750f, 0.25000f, 6, 0, 6, 8},
+    {"speed_2", 0.18750f, 0.00000f, 0.28125f, 0.25000f, 12, 0, 6, 8},
+    {"speed_3", 0.28125f, 0.00000f, 0.37500f, 0.25000f, 18, 0, 6, 8},
+    {"speed_4", 0.37500f, 0.00000f, 0.46875f, 0.25000f, 24, 0, 6, 8},
+    {"speed_5", 0.46875f, 0.00000f, 0.56250f, 0.25000f, 30, 0, 6, 8},
+    {"speed_6", 0.56250f, 0.00000f, 0.65625f, 0.25000f, 36, 0, 6, 8},
+    {"speed_7", 0.65625f, 0.00000f, 0.75000f, 0.25000f, 42, 0, 6, 8},
+    {"speed_8", 0.75000f, 0.00000f, 0.84375f, 0.25000f, 48, 0, 6, 8},
+    {"speed_9", 0.84375f, 0.00000f, 0.93750f, 0.25000f, 54, 0, 6, 8},
 
     // ---- 档位显示（P/R/N/D），每档位 16×8 像素 ----
-    { "gear_P",    0.00000f, 0.25000f, 0.25000f, 0.50000f,   0,  8, 16,  8 },
-    { "gear_R",    0.25000f, 0.25000f, 0.50000f, 0.50000f,  16,  8, 16,  8 },
-    { "gear_N",    0.50000f, 0.25000f, 0.75000f, 0.50000f,  32,  8, 16,  8 },
-    { "gear_D",    0.75000f, 0.25000f, 1.00000f, 0.50000f,  48,  8, 16,  8 },
+    {"gear_P", 0.00000f, 0.25000f, 0.25000f, 0.50000f, 0, 8, 16, 8},
+    {"gear_R", 0.25000f, 0.25000f, 0.50000f, 0.50000f, 16, 8, 16, 8},
+    {"gear_N", 0.50000f, 0.25000f, 0.75000f, 0.50000f, 32, 8, 16, 8},
+    {"gear_D", 0.75000f, 0.25000f, 1.00000f, 0.50000f, 48, 8, 16, 8},
 
     // ---- 报警灯图标，每灯 8×8 像素 ----
-    { "warning_engine",      0.00000f, 0.50000f, 0.12500f, 0.75000f,   0, 16,  8,  8 },
-    { "warning_oil",         0.12500f, 0.50000f, 0.25000f, 0.75000f,   8, 16,  8,  8 },
-    { "warning_battery",     0.25000f, 0.50000f, 0.37500f, 0.75000f,  16, 16,  8,  8 },
-    { "warning_brake",       0.37500f, 0.50000f, 0.50000f, 0.75000f,  24, 16,  8,  8 },
-    { "warning_seatbelt",    0.50000f, 0.50000f, 0.62500f, 0.75000f,  32, 16,  8,  8 },
-    { "warning_abs",         0.62500f, 0.50000f, 0.75000f, 0.75000f,  40, 16,  8,  8 },
-    { "warning_airbag",      0.75000f, 0.50000f, 0.87500f, 0.75000f,  48, 16,  8,  8 },
-    { "warning_tire",        0.87500f, 0.50000f, 1.00000f, 0.75000f,  56, 16,  8,  8 },
+    {"warning_engine", 0.00000f, 0.50000f, 0.12500f, 0.75000f, 0, 16, 8, 8},
+    {"warning_oil", 0.12500f, 0.50000f, 0.25000f, 0.75000f, 8, 16, 8, 8},
+    {"warning_battery", 0.25000f, 0.50000f, 0.37500f, 0.75000f, 16, 16, 8, 8},
+    {"warning_brake", 0.37500f, 0.50000f, 0.50000f, 0.75000f, 24, 16, 8, 8},
+    {"warning_seatbelt", 0.50000f, 0.50000f, 0.62500f, 0.75000f, 32, 16, 8, 8},
+    {"warning_abs", 0.62500f, 0.50000f, 0.75000f, 0.75000f, 40, 16, 8, 8},
+    {"warning_airbag", 0.75000f, 0.50000f, 0.87500f, 0.75000f, 48, 16, 8, 8},
+    {"warning_tire", 0.87500f, 0.50000f, 1.00000f, 0.75000f, 56, 16, 8, 8},
 };
 
 static constexpr int kSpriteTableSize = sizeof(kSpriteTable) / sizeof(kSpriteTable[0]);
@@ -82,7 +81,7 @@ int main() {
     // 创建引擎（单线程模式，便于调试）
     // -----------------------------------------------------------------------
     EngineOptions options;
-    options.multithread = false;   // 单线程渲染，调试更方便
+    options.multithread = false;  // 单线程渲染，调试更方便
     options.windowInfo.name = "SafeStaticSprite Demo - HMI Safety Component";
 
     auto engine = std::make_shared<Engine>(options);
@@ -92,11 +91,7 @@ int main() {
     // -----------------------------------------------------------------------
     // 0. 向 StaticAtlasManager 注册图集数据（必须在创建任何 SafeStaticSprite 之前调用）
     // -----------------------------------------------------------------------
-    StaticAtlasManager::getInstance().registerAtlas(
-        "hmi_main",
-        kAtlasPixelData, kAtlasWidth, kAtlasHeight,
-        kSpriteTable, kSpriteTableSize
-    );
+    StaticAtlasManager::getInstance().registerAtlas("hmi_main", kAtlasPixelData, kAtlasWidth, kAtlasHeight, kSpriteTable, kSpriteTableSize);
 
     // -----------------------------------------------------------------------
     // 1. 数字时速表 — 3 位数字（百位、十位、个位）
@@ -125,10 +120,7 @@ int main() {
     // -----------------------------------------------------------------------
     // 3. 报警灯 — 8 个图标并排
     // -----------------------------------------------------------------------
-    const char* warningNames[] = {
-        "warning_engine", "warning_oil",   "warning_battery", "warning_brake",
-        "warning_seatbelt", "warning_abs", "warning_airbag",  "warning_tire"
-    };
+    const char* warningNames[] = {"warning_engine", "warning_oil", "warning_battery", "warning_brake", "warning_seatbelt", "warning_abs", "warning_airbag", "warning_tire"};
     constexpr int kWarningCount = sizeof(warningNames) / sizeof(warningNames[0]);
     SafeStaticSpriteSharedPtr warningSprites[kWarningCount];
 
@@ -153,21 +145,24 @@ int main() {
         // ---- 模拟时速变化（百位、十位、个位）----
         int speed = (frameCount / 10) % 1000;  // 0~999 循环
         int hundreds = speed / 100;
-        int tens     = (speed / 10) % 10;
-        int ones     = speed % 10;
+        int tens = (speed / 10) % 10;
+        int ones = speed % 10;
 
         // 仅在数值变化时才更新精灵（setSprite 内部也有变更检测，此处双重保险）
         if (hundreds != lastHundreds) {
             lastHundreds = hundreds;
-            if (speedDigits[0]) speedDigits[0]->setSprite("speed_" + std::to_string(hundreds));
+            if (speedDigits[0])
+                speedDigits[0]->setSprite("speed_" + std::to_string(hundreds));
         }
         if (tens != lastTens) {
             lastTens = tens;
-            if (speedDigits[1]) speedDigits[1]->setSprite("speed_" + std::to_string(tens));
+            if (speedDigits[1])
+                speedDigits[1]->setSprite("speed_" + std::to_string(tens));
         }
         if (ones != lastOnes) {
             lastOnes = ones;
-            if (speedDigits[2]) speedDigits[2]->setSprite("speed_" + std::to_string(ones));
+            if (speedDigits[2])
+                speedDigits[2]->setSprite("speed_" + std::to_string(ones));
         }
 
         // ---- 模拟档位切换（P→R→N→D 循环）----
@@ -175,7 +170,8 @@ int main() {
         int gearIndex = (frameCount / 30) % 4;
         if (gearIndex != lastGear) {
             lastGear = gearIndex;
-            if (gearSprite) gearSprite->setSprite(gears[gearIndex]);
+            if (gearSprite)
+                gearSprite->setSprite(gears[gearIndex]);
         }
 
         // ---- 模拟报警灯随机闪烁 ----

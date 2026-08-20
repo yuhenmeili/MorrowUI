@@ -1,3 +1,5 @@
+#include <cwchar>
+
 #include "Engine.h"
 #include "FontManager.h"
 #include "base/Transform.h"
@@ -6,19 +8,11 @@
 #include "elements/MRSlider.h"
 #include "ui/helpers/Tween.h"
 
-#include <cwchar>
-
 using namespace morrow;
 
 namespace {
 
-std::shared_ptr<MRLabel> createLabel(
-    const std::wstring& text,
-    float x,
-    float y,
-    float width,
-    float height,
-    float fontSize = 22.0f) {
+std::shared_ptr<MRLabel> createLabel(const std::wstring& text, float x, float y, float width, float height, float fontSize = 22.0f) {
     auto label = std::make_shared<MRLabel>();
     label->setText(text, "default");
     label->setFontSize(fontSize);
@@ -41,9 +35,7 @@ int main() {
     }});
 
     window->addChild(createLabel(L"Range Controls：Slider / ProgressBar", 100.0f, 42.0f, 1200.0f, 54.0f, 34.0f));
-    window->addChild(createLabel(
-        L"拖动 Slider 可联动 ProgressBar；下方进度条展示 Tween、反向和纵向填充。",
-        100.0f, 94.0f, 1500.0f, 40.0f, 20.0f));
+    window->addChild(createLabel(L"拖动 Slider 可联动 ProgressBar；下方进度条展示 Tween、反向和纵向填充。", 100.0f, 94.0f, 1500.0f, 40.0f, 20.0f));
 
     window->addChild(createLabel(L"水平 Slider 联动进度", 140.0f, 165.0f, 600.0f, 40.0f));
     auto linkedBar = MRProgressBar::create();
@@ -116,9 +108,9 @@ int main() {
     window->addChild(animatedBar);
 
     auto tween = Tween::create(0.0f, 1.0f, 2.0f);
-    tween->setEase(EaseType::Linear)
-        .onUpdate([animatedBar](float value) { animatedBar->setProgress(value); })
-        .onComplete([tween]() { tween->restart(); });
+    tween->setEase(EaseType::Linear).onUpdate([animatedBar](float value) {
+        animatedBar->setProgress(value);
+    }).onComplete([tween]() { tween->restart(); });
     tween->play();
     TweenManager::getInstance().addTween(tween);
 

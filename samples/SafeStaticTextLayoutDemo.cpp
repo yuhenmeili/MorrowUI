@@ -11,13 +11,13 @@
 //   ./build/SafeStaticTextLayoutDemo.exe
 //
 
-#include "Engine.h"
-#include "hmi/SafeStaticTextLayout.h"
-#include "StaticAtlasManager.h"
-#include "base/Transform.h"
-
 #include <cstring>
 #include <vector>
+
+#include "Engine.h"
+#include "StaticAtlasManager.h"
+#include "base/Transform.h"
+#include "hmi/SafeStaticTextLayout.h"
 
 using namespace morrow;
 using namespace morrow::Math;
@@ -30,9 +30,9 @@ using namespace morrow::Math;
 
 static constexpr int kFontAtlasW = 512;
 static constexpr int kFontAtlasH = 16;
-static constexpr int kCharW      = 8;
-static constexpr int kCharH      = 12;
-static constexpr int kCharPitch  = 10;  // 8px char + 2px gap
+static constexpr int kCharW = 8;
+static constexpr int kCharH = 12;
+static constexpr int kCharPitch = 10;  // 8px char + 2px gap
 
 static unsigned char kFontAtlasData[kFontAtlasW * kFontAtlasH * 4] = {};
 
@@ -53,10 +53,10 @@ static void initFontAtlas() {
                 bool marker = (y == 3 + (col % 7) && x >= 1 && x <= kCharW - 2);
 
                 if (border || marker) {
-                    kFontAtlasData[idx + 0] = 255; // R
-                    kFontAtlasData[idx + 1] = 255; // G
-                    kFontAtlasData[idx + 2] = 255; // B
-                    kFontAtlasData[idx + 3] = 255; // A
+                    kFontAtlasData[idx + 0] = 255;  // R
+                    kFontAtlasData[idx + 1] = 255;  // G
+                    kFontAtlasData[idx + 2] = 255;  // B
+                    kFontAtlasData[idx + 3] = 255;  // A
                 }
             }
         }
@@ -75,27 +75,21 @@ static void buildCharSpriteTable() {
     const float atlasH = static_cast<float>(kFontAtlasH);
 
     // 字符名 → 字符串字面量映射（.rodata 段，生命周期永久）
-    static const char* kCharNames[37] = {
-        "char_A","char_B","char_C","char_D","char_E","char_F","char_G",
-        "char_H","char_I","char_J","char_K","char_L","char_M","char_N",
-        "char_O","char_P","char_Q","char_R","char_S","char_T","char_U",
-        "char_V","char_W","char_X","char_Y","char_Z",
-        "char_0","char_1","char_2","char_3","char_4",
-        "char_5","char_6","char_7","char_8","char_9",
-        "char_SPACE"
-    };
+    static const char* kCharNames[37] = {"char_A", "char_B", "char_C", "char_D", "char_E", "char_F", "char_G", "char_H", "char_I", "char_J", "char_K",    "char_L", "char_M",
+                                         "char_N", "char_O", "char_P", "char_Q", "char_R", "char_S", "char_T", "char_U", "char_V", "char_W", "char_X",    "char_Y", "char_Z",
+                                         "char_0", "char_1", "char_2", "char_3", "char_4", "char_5", "char_6", "char_7", "char_8", "char_9", "char_SPACE"};
 
     for (int i = 0; i < 37; ++i) {
         int col = i;
         float ox = static_cast<float>(col * kCharPitch);
-        kCharSpriteTable[i].name        = kCharNames[i];   // 指向 .rodata
-        kCharSpriteTable[i].u           = ox / atlasW;
-        kCharSpriteTable[i].v           = 0.0f;
-        kCharSpriteTable[i].u2          = (ox + kCharW) / atlasW;
-        kCharSpriteTable[i].v2          = static_cast<float>(kCharH) / atlasH;
-        kCharSpriteTable[i].offsetX     = ox;
-        kCharSpriteTable[i].offsetY     = 0.0f;
-        kCharSpriteTable[i].spriteWidth  = static_cast<float>(kCharW);
+        kCharSpriteTable[i].name = kCharNames[i];  // 指向 .rodata
+        kCharSpriteTable[i].u = ox / atlasW;
+        kCharSpriteTable[i].v = 0.0f;
+        kCharSpriteTable[i].u2 = (ox + kCharW) / atlasW;
+        kCharSpriteTable[i].v2 = static_cast<float>(kCharH) / atlasH;
+        kCharSpriteTable[i].offsetX = ox;
+        kCharSpriteTable[i].offsetY = 0.0f;
+        kCharSpriteTable[i].spriteWidth = static_cast<float>(kCharW);
         kCharSpriteTable[i].spriteHeight = static_cast<float>(kCharH);
     }
 }
@@ -104,11 +98,15 @@ static void buildCharSpriteTable() {
 // 辅助：ASCII 字符 → sprite 名称（直接查表，无动态分配）
 // =========================================================================
 static const char* charToSpriteName(char c) {
-    if (c >= 'a' && c <= 'z') c = c - 'a' + 'A';
-    if (c >= 'A' && c <= 'Z') return kCharSpriteTable[c - 'A'].name;
-    if (c >= '0' && c <= '9') return kCharSpriteTable[26 + (c - '0')].name;
-    if (c == ' ')              return kCharSpriteTable[36].name;
-    return kCharSpriteTable[36].name; // fallback to space
+    if (c >= 'a' && c <= 'z')
+        c = c - 'a' + 'A';
+    if (c >= 'A' && c <= 'Z')
+        return kCharSpriteTable[c - 'A'].name;
+    if (c >= '0' && c <= '9')
+        return kCharSpriteTable[26 + (c - '0')].name;
+    if (c == ' ')
+        return kCharSpriteTable[36].name;
+    return kCharSpriteTable[36].name;  // fallback to space
 }
 
 static std::vector<const char*> textToSprites(const char* text) {
@@ -144,11 +142,7 @@ int main() {
     // -----------------------------------------------------------------------
     // 注册字体图集到 StaticAtlasManager
     // -----------------------------------------------------------------------
-    StaticAtlasManager::getInstance().registerAtlas(
-        "font_hmi",
-        kFontAtlasData, kFontAtlasW, kFontAtlasH,
-        kCharSpriteTable, 37
-    );
+    StaticAtlasManager::getInstance().registerAtlas("font_hmi", kFontAtlasData, kFontAtlasW, kFontAtlasH, kCharSpriteTable, 37);
 
     // -----------------------------------------------------------------------
     // 创建 3 行文本布局
@@ -188,16 +182,7 @@ int main() {
     // 逐帧更新 — 轮播告警词句
     // -----------------------------------------------------------------------
     const char* warningMessages[] = {
-        "CHECK ENGINE",
-        "BRAKE FAILURE",
-        "SEATBELT OFF",
-        "OIL PRESSURE",
-        "BATTERY LOW",
-        "TIRE WARNING",
-        "ABS FAULT",
-        "AIRBAG ERROR",
-        "ENGINE HOT",
-        "FUEL LOW",
+        "CHECK ENGINE", "BRAKE FAILURE", "SEATBELT OFF", "OIL PRESSURE", "BATTERY LOW", "TIRE WARNING", "ABS FAULT", "AIRBAG ERROR", "ENGINE HOT", "FUEL LOW",
     };
     constexpr int kMsgCount = sizeof(warningMessages) / sizeof(warningMessages[0]);
     int frameCount = 0;
