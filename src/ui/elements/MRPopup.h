@@ -43,6 +43,7 @@ using MRPopupSharedPtr = std::shared_ptr<MRPopup>;
 /// 带标题、内容区域和内边距的面板弹窗。
 class MRPopupPanel : public MRPopup {
 public:
+    /// 创建一个面板弹窗。
     static std::shared_ptr<MRPopupPanel> create();
 
     /// 设置面板标题。
@@ -68,6 +69,7 @@ using MRPopupPanelSharedPtr = std::shared_ptr<MRPopupPanel>;
 /// 可关闭的窗口弹窗。
 class MRWindow : public MRPopupPanel {
 public:
+    /// 创建一个带关闭按钮的窗口弹窗。
     static std::shared_ptr<MRWindow> create();
 
     /// 设置窗口关闭按钮是否可见。
@@ -85,6 +87,7 @@ using MRWindowSharedPtr = std::shared_ptr<MRWindow>;
 /// 带确认和取消操作的对话框。
 class MRDialog : public MRWindow {
 public:
+    /// 创建一个带确认和取消操作的对话框。
     static std::shared_ptr<MRDialog> create();
 
     /// 设置对话框正文。
@@ -114,6 +117,7 @@ using MRDialogSharedPtr = std::shared_ptr<MRDialog>;
 /// 跟随目标区域显示的提示气泡。
 class MRTooltip : public MRPopupPanel {
 public:
+    /// 创建一个提示气泡。
     static std::shared_ptr<MRTooltip> create();
 
     /// 设置提示文本。

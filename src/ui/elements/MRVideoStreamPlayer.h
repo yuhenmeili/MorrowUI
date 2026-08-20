@@ -15,16 +15,23 @@ namespace morrow {
 /// RGBA 视频帧播放器：负责播放时钟和状态控制，帧解码由外部提供器完成。
 class MRVideoStreamPlayer : public UIWidget {
 public:
+    /// 播放器状态。
     enum class PlaybackState {
+        /// 已停止，并停留在第 0 帧。
         STOPPED,
+        /// 正在播放。
         PLAYING,
+        /// 已暂停，并保留当前帧。
         PAUSED,
     };
 
     /// 帧提供器。根据帧号写入 width × height × 4 字节 RGBA8 数据，成功返回 true。
     using FrameProvider = std::function<bool(uint64_t, std::vector<unsigned char>&)>;
+    /// 播放状态变化回调。
     using StateChangedCallback = std::function<void(PlaybackState)>;
+    /// 当前帧变化回调。
     using FrameChangedCallback = std::function<void(uint64_t)>;
+    /// 非循环播放结束回调。
     using FinishedCallback = std::function<void()>;
 
     /// 创建播放器。
@@ -71,6 +78,7 @@ public:
     void setOnFrameChangedCallback(FrameChangedCallback callback);
     /// 设置非循环播放结束回调。
     void setOnFinishedCallback(FinishedCallback callback);
+    /// 每帧推进播放时钟并按需提交新的视频帧。
     void update(FrameStateSharedPtr frameState) override;
 
 private:

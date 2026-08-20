@@ -9,10 +9,13 @@
 #include "base/UIWidget.h"
 
 namespace morrow {
+/// 使用制动踏板着色器绘制的 UI 特效组件。
 class MRBrakePedal : public UIWidget {
 public:
+    /// 创建一个制动踏板特效组件。
     static std::shared_ptr<MRBrakePedal> create();
 
+    /// 销毁制动踏板特效组件。
     virtual ~MRBrakePedal() = default;
 
 private:

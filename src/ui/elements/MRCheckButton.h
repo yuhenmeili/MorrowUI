@@ -7,6 +7,7 @@ namespace morrow {
 
 class MRCheckButton : public MRSelectableButton {
 public:
+    /// 创建一个可切换选中状态的按钮。
     static std::shared_ptr<MRCheckButton> create();
 
 protected:

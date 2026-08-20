@@ -10,22 +10,30 @@ namespace morrow {
 
 class MRSelectableButton : public MRButton {
 public:
+    /// 选中状态变化回调。
     using CheckedCallback = std::function<void(bool)>;
 
+    /// 设置按钮是否处于选中状态。
     void setChecked(bool checked);
 
+    /// 获取按钮当前是否处于选中状态。
     bool isChecked() const {
         return m_checked;
     }
 
+    /// 设置选中状态变化时的回调。
     void setOnCheckedChangedCallback(CheckedCallback callback);
 
+    /// 设置选中状态下的默认颜色。
     void setCheckedColor(const Vector4& color);
 
+    /// 使用 RGBA 分量设置选中状态下的默认颜色。
     void setCheckedColor(float r, float g, float b, float a);
 
+    /// 设置选中并悬停状态下的颜色。
     void setCheckedHoverColor(const Vector4& color);
 
+    /// 设置选中并按下状态下的颜色。
     void setCheckedPressedColor(const Vector4& color);
 
 protected:

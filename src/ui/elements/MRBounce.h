@@ -12,10 +12,13 @@
 #include "base/UIWidget.h"
 
 namespace morrow {
+/// 使用弹跳着色器绘制的 UI 特效组件。
 class MRBounce : public UIWidget {
 public:
+    /// 创建一个弹跳特效组件。
     static std::shared_ptr<MRBounce> create();
 
+    /// 销毁弹跳特效组件。
     ~MRBounce() override = default;
 
 private:

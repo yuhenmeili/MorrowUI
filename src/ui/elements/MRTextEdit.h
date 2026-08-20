@@ -14,7 +14,9 @@ namespace morrow {
 
 class MRTextEdit : public UIWidget {
 public:
+    /// 文本内容变化回调。
     using TextChangedCallback = std::function<void(const std::wstring&)>;
+    /// 按下回车后的提交回调。
     using SubmitCallback = std::function<void(const std::wstring&)>;
 
     /// 创建一个支持多行输入的文本编辑框。

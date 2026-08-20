@@ -13,17 +13,23 @@
 
 namespace morrow
 {
+/// 按纹理图集帧序列播放动画的 UI 组件。
 class MRFrameAnimation : public UIWidget
 {
 public:
+    /// 创建一个帧动画组件。
     static std::shared_ptr<MRFrameAnimation> create();
 
+    /// 销毁帧动画组件。
     ~MRFrameAnimation() override = default;
 
+    /// 每帧推进动画时间并更新当前图集区域。
     void update(FrameStateSharedPtr frameState) override;
 
+    /// 设置包含动画帧数据的纹理图集。
     void setTextureAtlas(TextureAtlasSharedPtr textureAtlas);
 
+    /// 将动画重置到起始帧。
     void resetFrame();
 
 private:

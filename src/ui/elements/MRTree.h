@@ -14,15 +14,23 @@ namespace morrow {
 /// 支持展开、折叠和单选的树形列表控件。
 class MRTree : public UIWidget {
 public:
+    /// 树节点数据。
     struct Node {
+        /// 节点标识。
         int id = 0;
+        /// 父节点标识；-1 表示根节点。
         int parentId = -1;
+        /// 节点显示文字。
         std::wstring text;
+        /// 节点是否展开。
         bool expanded = true;
+        /// 节点是否可用。
         bool enabled = true;
     };
 
+    /// 节点选中回调，参数依次为节点 id 和文字。
     using NodeSelectedCallback = std::function<void(int, const std::wstring&)>;
+    /// 节点展开状态变化回调，参数依次为节点 id 和展开状态。
     using NodeExpandedCallback = std::function<void(int, bool)>;
 
     /// 创建树形控件。
@@ -53,6 +61,7 @@ public:
     void setOnNodeExpandedCallback(NodeExpandedCallback callback);
     /// 获取只读树节点数据。
     const std::vector<Node>& getNodes() const;
+    /// 每帧刷新可见节点、滚动范围和行布局。
     void update(FrameStateSharedPtr frameState) override;
 
 private:

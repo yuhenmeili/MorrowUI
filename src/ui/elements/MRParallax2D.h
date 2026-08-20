@@ -10,6 +10,7 @@ namespace morrow {
 /// 视差层：根据背景滚动偏移，以指定倍率移动自身及其子节点。
 class MRParallax2D : public UIWidget {
 public:
+    /// 创建一个视差层。
     static std::shared_ptr<MRParallax2D> create();
 
     /// 设置该层相对于滚动偏移的移动倍率。

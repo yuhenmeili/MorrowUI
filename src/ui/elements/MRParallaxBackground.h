@@ -11,6 +11,7 @@ namespace morrow {
 /// 视差背景容器：统一驱动多个 MRParallax2D 层。
 class MRParallaxBackground : public UIWidget {
 public:
+    /// 创建一个视差背景容器。
     static std::shared_ptr<MRParallaxBackground> create();
 
     /// 添加一个视差层，并设置该层的移动倍率。

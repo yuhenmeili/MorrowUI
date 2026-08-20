@@ -14,12 +14,17 @@ namespace morrow {
 /// 可滚动的单选列表控件。
 class MRItemList : public UIWidget {
 public:
+    /// 列表项数据。
     struct Item {
+        /// 列表项标识。
         int id = 0;
+        /// 列表项显示文字。
         std::wstring text;
+        /// 列表项是否可用。
         bool enabled = true;
     };
 
+    /// 列表项选中回调，参数依次为列表项 id 和文字。
     using ItemSelectedCallback = std::function<void(int, const std::wstring&)>;
 
     /// 创建列表控件。
@@ -46,6 +51,7 @@ public:
     void setOnItemSelectedCallback(ItemSelectedCallback callback);
     /// 获取只读列表数据。
     const std::vector<Item>& getItems() const;
+    /// 每帧刷新滚动范围和列表项布局。
     void update(FrameStateSharedPtr frameState) override;
 
 private:

@@ -8,8 +8,10 @@ namespace morrow {
 
 class MRCheckBox : public MRSelectableButton {
 public:
+    /// 创建一个带勾选指示器的复选框。
     static std::shared_ptr<MRCheckBox> create();
 
+    /// 设置复选框文字，并在文字变化后重新布局指示器。
     void setText(const std::wstring& text, const std::string& fontName) {
         MRButton::setText(text, fontName);
         layoutIndicator();
