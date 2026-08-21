@@ -115,7 +115,9 @@ int main() {
     window->addChild(status);
     window->addChild(timeLabel);
 
-    player->setOnStateChangedCallback([status](MRVideoStreamPlayer::PlaybackState state) {
+    auto stateChangedConnection =
+        player->events().onStateChanged.connect(
+            [status](MRVideoStreamPlayer&, MRVideoStreamPlayer::PlaybackState state) {
         switch (state) {
             case MRVideoStreamPlayer::PlaybackState::PLAYING:
                 status->setText(L"状态：播放中", "default");
@@ -128,38 +130,46 @@ int main() {
                 break;
         }
     });
-    player->setOnFrameChangedCallback([player, timeLabel](uint64_t frame) {
+    auto frameChangedConnection =
+        player->events().onFrameChanged.connect(
+            [player, timeLabel](MRVideoStreamPlayer&, uint64_t frame) {
         wchar_t text[96];
         std::swprintf(text, 96, L"时间：%.2f / %.2f 秒（帧 %llu）", player->getCurrentTime(), player->getDuration(), static_cast<unsigned long long>(frame));
         timeLabel->setText(text, "default");
     });
 
     auto play = createButton(L"播放", 1430.0f, 310.0f);
-    play->setOnClickCallback([player]() { player->play(); });
+    auto playConnection =
+        play->events().onClicked.connect(
+            [player](BaseButton&) { player->play(); });
     window->addChild(play);
 
     auto pause = createButton(L"暂停", 1430.0f, 382.0f);
-    pause->setOnClickCallback([player]() { player->pause(); });
+    auto pauseConnection =
+        pause->events().onClicked.connect(
+            [player](BaseButton&) { player->pause(); });
     window->addChild(pause);
 
     auto stop = createButton(L"停止", 1430.0f, 454.0f);
-    stop->setOnClickCallback([player]() { player->stop(); });
+    auto stopConnection =
+        stop->events().onClicked.connect(
+            [player](BaseButton&) { player->stop(); });
     window->addChild(stop);
 
     auto backward = createButton(L"后退 2 秒", 1430.0f, 550.0f);
-    backward->setOnClickCallback([player]() {
+    auto backwardConnection = backward->events().onClicked.connect([player](BaseButton&) {
         player->seekSeconds(std::max(0.0, player->getCurrentTime() - 2.0));
     });
     window->addChild(backward);
 
     auto forward = createButton(L"前进 2 秒", 1430.0f, 622.0f);
-    forward->setOnClickCallback([player]() {
+    auto forwardConnection = forward->events().onClicked.connect([player](BaseButton&) {
         player->seekSeconds(std::min(player->getDuration(), player->getCurrentTime() + 2.0));
     });
     window->addChild(forward);
 
     auto speed = createButton(L"切换 1x / 2x", 1430.0f, 694.0f);
-    speed->setOnClickCallback([player]() {
+    auto speedConnection = speed->events().onClicked.connect([player](BaseButton&) {
         player->setPlaybackSpeed(player->getPlaybackSpeed() < 1.5f ? 2.0f : 1.0f);
     });
     window->addChild(speed);

@@ -79,14 +79,14 @@ int main() {
     window->addChild(createLabel(L"不同背景层使用不同滚动倍率", 50.0f, 88.0f, 620.0f, 38.0f, 18.0f));
 
     auto scrollLeft = createButton(L"向左滚动", 50.0f, 610.0f);
-    scrollLeft->setOnClickCallback([background]() {
+    auto scrollLeftConnection = scrollLeft->events().onClicked.connect([background](BaseButton&) {
         const auto offset = background->getScrollOffset();
         background->setScrollOffset(offset.x - 60.0f, offset.y);
     });
     window->addChild(scrollLeft);
 
     auto scrollRight = createButton(L"向右滚动", 320.0f, 610.0f);
-    scrollRight->setOnClickCallback([background]() {
+    auto scrollRightConnection = scrollRight->events().onClicked.connect([background](BaseButton&) {
         const auto offset = background->getScrollOffset();
         background->setScrollOffset(offset.x + 60.0f, offset.y);
     });
@@ -126,7 +126,7 @@ int main() {
     window->addChild(modulate);
 
     auto nightButton = createButton(L"切换夜间模式", 1330.0f, 570.0f, 460.0f);
-    nightButton->setOnClickCallback([modulate]() {
+    auto nightModeConnection = nightButton->events().onClicked.connect([modulate](BaseButton&) {
         modulate->setNightMode(!modulate->isNightMode());
         LOG_I("night mode = {}", modulate->isNightMode());
     });
@@ -139,7 +139,7 @@ int main() {
     tooltip->setText(L"Tooltip：跟随目标区域定位的提示气泡。");
     tooltip->attachTo(window);
     auto tooltipButton = createButton(L"显示 Tooltip", 590.0f, 610.0f);
-    tooltipButton->setOnClickCallback([tooltip, tooltipButton]() {
+    auto tooltipConnection = tooltipButton->events().onClicked.connect([tooltip, tooltipButton](BaseButton&) {
         tooltip->showFor(tooltipButton->getScreenSpaceAABB());
     });
     window->addChild(tooltipButton);
@@ -147,11 +147,17 @@ int main() {
     auto dialog = MRDialog::create();
     dialog->setTitle(L"确认操作");
     dialog->setMessage(L"这是一个可复用的 Dialog。确认或取消都会关闭弹窗。");
-    dialog->setOnConfirmedCallback([]() { LOG_I("Dialog confirmed"); });
-    dialog->setOnCanceledCallback([]() { LOG_I("Dialog canceled"); });
+    auto dialogConfirmedConnection =
+        dialog->dialogEvents().onConfirmed.connect(
+            [](MRDialog&) { LOG_I("Dialog confirmed"); });
+    auto dialogCanceledConnection =
+        dialog->dialogEvents().onCanceled.connect(
+            [](MRDialog&) { LOG_I("Dialog canceled"); });
     dialog->attachTo(window);
     auto dialogButton = createButton(L"打开 Dialog", 860.0f, 610.0f);
-    dialogButton->setOnClickCallback([dialog]() { dialog->popup(380.0f, 210.0f); });
+    auto dialogButtonConnection =
+        dialogButton->events().onClicked.connect(
+            [dialog](BaseButton&) { dialog->popup(380.0f, 210.0f); });
     window->addChild(dialogButton);
 
     LOG_I("SceneEffectsDemo started");

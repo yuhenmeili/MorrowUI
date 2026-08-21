@@ -130,6 +130,7 @@ public:
             return {};
         }
 
+        compact();
         auto slot = std::make_shared<Slot>();
         slot->id = m_state->nextId++;
         slot->priority = priority;

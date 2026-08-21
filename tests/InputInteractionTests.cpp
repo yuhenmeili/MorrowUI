@@ -7,6 +7,7 @@
 #include "platform/Platform.h"
 #include "platform/Window.h"
 #include "ui/base/BaseButton.h"
+#include "ui/base/EventDispatcher.h"
 #include "ui/base/TouchEvent.h"
 #include "ui/base/Transform.h"
 #include "ui/base/UIWidget.h"
@@ -81,6 +82,66 @@ void testScreenSpaceAABBUsesTouchCoordinates() {
     const auto bounds = child->getScreenSpaceAABB();
     expect(bounds.Min.x == 10.0f && bounds.Min.y == 20.0f && bounds.Max.x == 110.0f && bounds.Max.y == 60.0f, "screen-space AABB should use top-left framebuffer coordinates");
     expect(bounds.Contains(60.0f, 40.0f), "TouchEvent coordinates should be directly usable for AABB hit testing");
+}
+
+void testEventDispatcherConnections() {
+    EventDispatcher dispatcher;
+    TouchEvent event;
+    event.eventType = TOUCH_EVENT_TYPE_CLICK;
+    int firstCalls = 0;
+    int secondCalls = 0;
+    EventConnection secondConnection;
+
+    auto firstConnection = dispatcher.addEventListener(
+        TOUCH_EVENT_TYPE_CLICK,
+        [&](TouchEvent&) {
+            ++firstCalls;
+            secondConnection.disconnect();
+        });
+    secondConnection = dispatcher.addEventListener(
+        TOUCH_EVENT_TYPE_CLICK,
+        [&](TouchEvent&) { ++secondCalls; });
+
+    dispatcher.dispatchEvent(TOUCH_EVENT_TYPE_CLICK, event);
+    dispatcher.dispatchEvent(TOUCH_EVENT_TYPE_CLICK, event);
+
+    expect(firstCalls == 2,
+           "remaining EventDispatcher listener should run on each dispatch");
+    expect(secondCalls == 0,
+           "disconnecting a pending EventDispatcher listener should take effect immediately");
+    expect(dispatcher.hasEventListener(TOUCH_EVENT_TYPE_CLICK),
+           "dispatcher should retain other connected listeners");
+
+    firstConnection.disconnect();
+    expect(!dispatcher.hasEventListener(TOUCH_EVENT_TYPE_CLICK),
+           "dispatcher should report no listeners after the final connection is removed");
+}
+
+void testEventDispatcherCanClearTypeDuringDispatch() {
+    EventDispatcher dispatcher;
+    TouchEvent event;
+    event.eventType = TOUCH_EVENT_TYPE_CLICK;
+    int firstCalls = 0;
+    int secondCalls = 0;
+
+    auto firstConnection = dispatcher.addEventListener(
+        TOUCH_EVENT_TYPE_CLICK,
+        [&](TouchEvent&) {
+            ++firstCalls;
+            dispatcher.removeEventListener(TOUCH_EVENT_TYPE_CLICK);
+        });
+    auto secondConnection = dispatcher.addEventListener(
+        TOUCH_EVENT_TYPE_CLICK,
+        [&](TouchEvent&) { ++secondCalls; });
+
+    dispatcher.dispatchEvent(TOUCH_EVENT_TYPE_CLICK, event);
+
+    expect(firstCalls == 1,
+           "listener clearing its event type should finish the current callback");
+    expect(secondCalls == 0,
+           "clearing an event type should skip pending listeners in the same dispatch");
+    expect(!dispatcher.hasEventListener(TOUCH_EVENT_TYPE_CLICK),
+           "cleared event type should have no active listeners");
 }
 
 void testPointerBoundaryEvents() {
@@ -202,6 +263,8 @@ void testKeyboardFocusRoutesCharactersToLineEdit() {
 
 int main() {
     testScreenSpaceAABBUsesTouchCoordinates();
+    testEventDispatcherConnections();
+    testEventDispatcherCanClearTypeDuringDispatch();
     testPointerBoundaryEvents();
     testButtonHoverUsesPointerEvents();
     testKeyboardFocusRoutesCharactersToLineEdit();

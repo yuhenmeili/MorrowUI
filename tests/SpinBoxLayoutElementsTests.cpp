@@ -41,7 +41,8 @@ void testSpinBoxSteppingAndClamping() {
     spinBox->setValue(22.0);
 
     double callbackValue = 0.0;
-    spinBox->setOnValueChangedCallback([&callbackValue](double value) { callbackValue = value; });
+    auto valueConnection = spinBox->events().onValueChanged.connect(
+        [&callbackValue](MRSpinBox&, double value) { callbackValue = value; });
 
     auto increase = std::dynamic_pointer_cast<MRButton>(spinBox->m_children[3]);
     click(increase);

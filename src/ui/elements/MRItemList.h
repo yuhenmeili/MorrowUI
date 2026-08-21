@@ -1,7 +1,6 @@
 #ifndef MORROW_GUI_MRITEMLIST_H
 #define MORROW_GUI_MRITEMLIST_H
 
-#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -14,6 +13,10 @@ namespace morrow {
 /// 可滚动的单选列表控件。
 class MRItemList : public UIWidget {
 public:
+    struct Events {
+        Observable<MRItemList&, int, const std::wstring&> onItemSelected;
+    };
+
     /// 列表项数据。
     struct Item {
         /// 列表项标识。
@@ -23,9 +26,6 @@ public:
         /// 列表项是否可用。
         bool enabled = true;
     };
-
-    /// 列表项选中回调，参数依次为列表项 id 和文字。
-    using ItemSelectedCallback = std::function<void(int, const std::wstring&)>;
 
     /// 创建列表控件。
     static std::shared_ptr<MRItemList> create();
@@ -47,8 +47,8 @@ public:
     bool selectItem(int id);
     /// 获取当前选中项 id；未选中时返回 -1。
     int getSelectedId() const;
-    /// 设置列表项选中回调。
-    void setOnItemSelectedCallback(ItemSelectedCallback callback);
+
+    Events& events();
     /// 获取只读列表数据。
     const std::vector<Item>& getItems() const;
     /// 每帧刷新滚动范围和列表项布局。
@@ -67,7 +67,9 @@ private:
 
     std::vector<Item> m_items;
     std::vector<std::shared_ptr<MRButton>> m_itemButtons;
-    ItemSelectedCallback m_onItemSelected;
+    std::vector<Observable<BaseButton&>::Connection> m_itemClickConnections;
+    std::vector<EventConnection> m_wheelConnections;
+    Events m_events;
     float m_itemHeight = 48.0f;
     float m_itemSpacing = 6.0f;
     float m_scrollOffset = 0.0f;

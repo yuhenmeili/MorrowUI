@@ -60,7 +60,9 @@ int main() {
     horizontalSlider->setThumbColor(0.1f, 0.4f, 0.8f, 1.0f);
     horizontalSlider->setThumbRounding(17.0f);
     horizontalSlider->setValue(0.3f);
-    horizontalSlider->setOnValueChangedCallback([linkedBar, valueLabel](float value) {
+    auto horizontalValueConnection =
+        horizontalSlider->events().onValueChanged.connect(
+            [linkedBar, valueLabel](MRSlider&, float value) {
         linkedBar->setProgress(value);
         wchar_t text[64];
         std::swprintf(text, 64, L"当前值：%d%%", static_cast<int>(value * 100.0f + 0.5f));
@@ -93,7 +95,9 @@ int main() {
     verticalBar->setProgress(0.6f);
     window->addChild(verticalBar);
 
-    verticalSlider->setOnValueChangedCallback([verticalBar](float value) {
+    auto verticalValueConnection =
+        verticalSlider->events().onValueChanged.connect(
+            [verticalBar](MRSlider&, float value) {
         verticalBar->setProgress(value);
         LOG_I("vertical slider value = {}", value);
     });

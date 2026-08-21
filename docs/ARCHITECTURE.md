@@ -242,7 +242,39 @@ InputProvider
 
 事件导致的状态修改可以在同一帧进入 update、lateUpdate 和渲染提交。
 
-### 5.2 更新阶段
+### 5.2 UI 事件
+
+UI 事件分为两层：
+
+```text
+Interaction / EventDispatcher
+    -> TouchEventType 原始输入路由
+    -> EventConnection 管理监听生命周期
+
+Widget semantic events
+    -> Button clicked、value changed、selection changed 等组件语义
+    -> Observable 一对多广播
+```
+
+`EventDispatcher::addEventListener()` 返回 RAII `EventConnection`。连接析构或显式
+`disconnect()` 后自动移除；派发期间新增、断开或清空同类型监听均遵循
+`Observable` 的安全派发规则。
+
+组件对外通知不再使用一对一 `setOnXCallback()`。例如：
+
+```cpp
+auto clickConnection =
+    button->events().onClicked.connect(
+        [](BaseButton& source) {
+            // ...
+        });
+```
+
+调用方必须保存 Connection，使其生命周期覆盖监听周期。派生按钮的领域事件使用
+独立聚合入口，例如 `selectionEvents()` 和 `menuEvents()`；内部行为扩展仍使用
+`onActivated()` 等 virtual hook。
+
+### 5.3 更新阶段
 
 更新分为两个阶段：
 
@@ -256,7 +288,7 @@ lateUpdate
 
 `MeshRenderer` 等渲染组件在合适阶段向当前窗口的 `BatchManager` 提交可渲染对象。
 
-### 5.3 提交阶段
+### 5.4 提交阶段
 
 `Window::commitRenderPass()` 调用 `BatchManager::renderBatches()`，完成：
 
@@ -266,7 +298,7 @@ lateUpdate
 4. 应用 Material、Mesh 和 Transform；
 5. 向 `RenderDeviceProxy` 编码 GPU 命令。
 
-### 5.4 FrameState
+### 5.5 FrameState
 
 `FrameState` 是当前帧的轻量运行上下文，包含：
 

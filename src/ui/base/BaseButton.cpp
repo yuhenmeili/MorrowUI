@@ -4,8 +4,6 @@
 
 #include "BaseButton.h"
 
-#include <utility>
-
 #include "Interaction.h"
 #include "TouchEvent.h"
 
@@ -18,37 +16,34 @@ BaseButton::BaseButton() {
     m_interaction->setInteractionEnabled(m_isEnabled && m_isInteractive);
 
     // TOUCH: 按下
-    m_touchHandle = m_interaction->addEventListener(TOUCH_EVENT_TYPE_TOUCH, [this](TouchEvent& /*event*/) { onMouseDown(); });
+    m_touchConnection = m_interaction->addEventListener(
+        TOUCH_EVENT_TYPE_TOUCH,
+        [this](TouchEvent& /*event*/) { onMouseDown(); });
 
     // MOVE: 用于按压过程中的进入/离开（可选）
-    m_pointerEnterHandle = m_interaction->addEventListener(TOUCH_EVENT_TYPE_POINTER_ENTER, [this](TouchEvent& /*event*/) {
+    m_pointerEnterConnection = m_interaction->addEventListener(TOUCH_EVENT_TYPE_POINTER_ENTER, [this](TouchEvent& /*event*/) {
         if (!m_isHovered)
             onMouseEnter();
     });
 
-    m_pointerLeaveHandle = m_interaction->addEventListener(TOUCH_EVENT_TYPE_POINTER_LEAVE, [this](TouchEvent& /*event*/) {
+    m_pointerLeaveConnection = m_interaction->addEventListener(TOUCH_EVENT_TYPE_POINTER_LEAVE, [this](TouchEvent& /*event*/) {
         if (m_isHovered)
             onMouseLeave();
     });
 
     // RELEASE: 只恢复状态，不触发 click
-    m_releaseHandle = m_interaction->addEventListener(TOUCH_EVENT_TYPE_RELEASE, [this](TouchEvent& /*event*/) { onPointerRelease(); });
+    m_releaseConnection = m_interaction->addEventListener(
+        TOUCH_EVENT_TYPE_RELEASE,
+        [this](TouchEvent& /*event*/) { onPointerRelease(); });
 
     // CLICK: 真正触发点击回调
-    m_clickHandle = m_interaction->addEventListener(TOUCH_EVENT_TYPE_CLICK, [this](TouchEvent& /*event*/) { onPointerClick(); });
+    m_clickConnection = m_interaction->addEventListener(
+        TOUCH_EVENT_TYPE_CLICK,
+        [this](TouchEvent& /*event*/) { onPointerClick(); });
 }
 
-// 事件回调
-void BaseButton::setOnClickCallback(std::function<void()> callback) {
-    m_onClickCallback = std::move(callback);
-}
-
-void BaseButton::setOnHoverCallback(std::function<void()> callback) {
-    m_onHoverCallback = std::move(callback);
-}
-
-void BaseButton::setOnLeaveCallback(std::function<void()> callback) {
-    m_onLeaveCallback = std::move(callback);
+BaseButton::Events& BaseButton::events() {
+    return m_events;
 }
 
 // 事件处理
@@ -59,9 +54,7 @@ void BaseButton::onMouseEnter() {
     m_isHovered = true;
     updateButtonState(ButtonState::HOVER);
 
-    if (m_onHoverCallback) {
-        m_onHoverCallback();
-    }
+    m_events.onPointerEntered.notify(*this);
 }
 
 void BaseButton::onMouseLeave() {
@@ -72,9 +65,7 @@ void BaseButton::onMouseLeave() {
     m_isPressed = false;
     updateButtonState(ButtonState::NORMAL);
 
-    if (m_onLeaveCallback) {
-        m_onLeaveCallback();
-    }
+    m_events.onPointerExited.notify(*this);
 }
 
 void BaseButton::onMouseDown() {
@@ -84,6 +75,7 @@ void BaseButton::onMouseDown() {
 
     m_isPressed = true;
     updateButtonState(ButtonState::PRESSED);
+    m_events.onPressed.notify(*this);
 }
 
 void BaseButton::onMouseUp() {
@@ -140,14 +132,14 @@ void BaseButton::onPointerRelease() {
         return;
     m_isPressed = false;
     updateButtonState(m_isHovered ? ButtonState::HOVER : ButtonState::NORMAL);
+    m_events.onReleased.notify(*this);
 }
 
 void BaseButton::onPointerClick() {
     if (!m_isEnabled || !m_isInteractive)
         return;
     onActivated();
-    if (m_onClickCallback)
-        m_onClickCallback();
+    m_events.onClicked.notify(*this);
 }
 
 void BaseButton::onActivated() {

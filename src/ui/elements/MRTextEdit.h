@@ -1,12 +1,12 @@
 #ifndef MORROW_GUI_MRTEXTEDIT_H
 #define MORROW_GUI_MRTEXTEDIT_H
 
-#include <functional>
 #include <memory>
 #include <string>
 
 #include "MRColor.h"
 #include "MRLabel.h"
+#include "base/EventDispatcher.h"
 #include "base/TouchEvent.h"
 #include "base/UIWidget.h"
 
@@ -14,10 +14,10 @@ namespace morrow {
 
 class MRTextEdit : public UIWidget {
 public:
-    /// 文本内容变化回调。
-    using TextChangedCallback = std::function<void(const std::wstring&)>;
-    /// 按下回车后的提交回调。
-    using SubmitCallback = std::function<void(const std::wstring&)>;
+    struct Events {
+        Observable<MRTextEdit&, const std::wstring&> onTextChanged;
+        Observable<MRTextEdit&, const std::wstring&> onSubmitted;
+    };
 
     /// 创建一个支持多行输入的文本编辑框。
     static std::shared_ptr<MRTextEdit> create();
@@ -72,11 +72,7 @@ public:
         return m_readOnly;
     }
 
-    /// 设置文本发生变化时的回调。
-    void setOnTextChangedCallback(TextChangedCallback callback);
-
-    /// 设置按下回车提交时的回调；多行编辑框会在插入换行后触发。
-    void setOnSubmitCallback(SubmitCallback callback);
+    Events& events();
 
     /// 设置光标位置，位置会自动限制在文本长度范围内。
     void setCursorPosition(size_t position);
@@ -109,6 +105,8 @@ protected:
 
     void notifyTextChanged();
 
+    void notifySubmitted();
+
 private:
     void handleCharacter(uint32_t codepoint);
 
@@ -135,8 +133,9 @@ protected:
     Vector4 m_placeholderColor = Vector4(0.48f, 0.52f, 0.58f, 1.0f);
     Vector4 m_backgroundColor = Vector4(0.94f, 0.95f, 0.97f, 1.0f);
     Vector4 m_focusedBackgroundColor = Vector4(0.86f, 0.92f, 0.98f, 1.0f);
-    TextChangedCallback m_onTextChanged;
-    SubmitCallback m_onSubmit;
+    Events m_events;
+    EventConnection m_characterConnection;
+    EventConnection m_keyDownConnection;
     size_t m_cursorPosition = 0;
     size_t m_maxLength = 0;
     float m_fontSize = 22.0f;

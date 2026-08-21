@@ -38,8 +38,10 @@ void MRSpinBox::initializeChildren() {
     };
     configureStepButton(m_decreaseButton, L"-");
     configureStepButton(m_increaseButton, L"+");
-    m_decreaseButton->setOnClickCallback([this]() { stepBy(-m_step); });
-    m_increaseButton->setOnClickCallback([this]() { stepBy(m_step); });
+    m_decreaseConnection = m_decreaseButton->events().onClicked.connect(
+        [this](BaseButton&) { stepBy(-m_step); });
+    m_increaseConnection = m_increaseButton->events().onClicked.connect(
+        [this](BaseButton&) { stepBy(m_step); });
 
     m_valueLabel->setFontSize(22.0f);
     m_valueLabel->setFontColor(0.08f, 0.12f, 0.17f, 1.0f);
@@ -73,8 +75,7 @@ void MRSpinBox::setValue(double value) {
     }
     m_value = clamped;
     refreshText();
-    if (m_onValueChanged)
-        m_onValueChanged(m_value);
+    m_events.onValueChanged.notify(*this, m_value);
 }
 
 void MRSpinBox::setDecimals(int decimals) {
@@ -97,8 +98,8 @@ void MRSpinBox::setEnabled(bool enabled) {
     m_increaseButton->setEnabled(enabled);
 }
 
-void MRSpinBox::setOnValueChangedCallback(ValueChangedCallback callback) {
-    m_onValueChanged = std::move(callback);
+MRSpinBox::Events& MRSpinBox::events() {
+    return m_events;
 }
 
 void MRSpinBox::layoutChildren() {

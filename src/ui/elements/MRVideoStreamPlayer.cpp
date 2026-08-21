@@ -104,16 +104,8 @@ double MRVideoStreamPlayer::getDuration() const {
     return static_cast<double>(m_totalFrames) / m_framesPerSecond;
 }
 
-void MRVideoStreamPlayer::setOnStateChangedCallback(StateChangedCallback callback) {
-    m_onStateChanged = std::move(callback);
-}
-
-void MRVideoStreamPlayer::setOnFrameChangedCallback(FrameChangedCallback callback) {
-    m_onFrameChanged = std::move(callback);
-}
-
-void MRVideoStreamPlayer::setOnFinishedCallback(FinishedCallback callback) {
-    m_onFinished = std::move(callback);
+MRVideoStreamPlayer::Events& MRVideoStreamPlayer::events() {
+    return m_events;
 }
 
 void MRVideoStreamPlayer::update(FrameStateSharedPtr frameState) {
@@ -128,8 +120,7 @@ void MRVideoStreamPlayer::update(FrameStateSharedPtr frameState) {
                 presentFrame(0);
             } else {
                 setState(PlaybackState::STOPPED);
-                if (m_onFinished)
-                    m_onFinished();
+                m_events.onFinished.notify(*this);
             }
         }
     }
@@ -144,8 +135,7 @@ bool MRVideoStreamPlayer::presentFrame(uint64_t frameIndex) {
         return false;
     m_frameTexture->setTextureData(pixels, m_width, m_height, PixelDataFormat::RGBA, false);
     m_currentFrame = frameIndex;
-    if (m_onFrameChanged)
-        m_onFrameChanged(m_currentFrame);
+    m_events.onFrameChanged.notify(*this, m_currentFrame);
     return true;
 }
 
@@ -153,8 +143,7 @@ void MRVideoStreamPlayer::setState(PlaybackState state) {
     if (m_state == state)
         return;
     m_state = state;
-    if (m_onStateChanged)
-        m_onStateChanged(m_state);
+    m_events.onStateChanged.notify(*this, m_state);
 }
 
 }  // namespace morrow

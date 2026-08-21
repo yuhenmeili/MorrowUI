@@ -29,9 +29,11 @@ void testItemListSelection() {
     list->addItem(L"First", 10);
     list->addItem(L"Second", 20);
     bool callbackCalled = false;
-    list->setOnItemSelectedCallback([&](int id, const std::wstring&) {
-        callbackCalled = id == 20;
-    });
+    auto selectionConnection =
+        list->events().onItemSelected.connect(
+            [&](MRItemList&, int id, const std::wstring&) {
+                callbackCalled = id == 20;
+            });
 
     click(std::dynamic_pointer_cast<MRButton>(list->m_children[1]));
     expect(list->getSelectedId() == 20, "item list should store the selected id");

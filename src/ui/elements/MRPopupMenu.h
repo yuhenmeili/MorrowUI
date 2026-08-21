@@ -1,7 +1,6 @@
 #ifndef MORROW_GUI_MRPOPUPMENU_H
 #define MORROW_GUI_MRPOPUPMENU_H
 
-#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -13,6 +12,10 @@ namespace morrow {
 
 class MRPopupMenu : public UIWidget {
 public:
+    struct Events {
+        Observable<MRPopupMenu&, int, const std::wstring&> onItemSelected;
+    };
+
     /// 弹出菜单项数据。
     struct Item {
         /// 菜单项标识。
@@ -22,9 +25,6 @@ public:
         /// 菜单项是否可用。
         bool enabled = true;
     };
-
-    /// 菜单项选中回调，参数依次为菜单项 id 和文字。
-    using ItemSelectedCallback = std::function<void(int, const std::wstring&)>;
 
     /// 创建一个弹出菜单。
     static std::shared_ptr<MRPopupMenu> create();
@@ -44,8 +44,7 @@ public:
     /// 设置菜单宽度。
     void setMenuWidth(float width);
 
-    /// 设置菜单项选中回调。
-    void setOnItemSelectedCallback(ItemSelectedCallback callback);
+    Events& events();
 
     /// 在根节点坐标中的指定位置显示菜单。
     void popup(float x, float y);
@@ -79,7 +78,8 @@ private:
     MRColorSharedPtr m_background;
     std::vector<Item> m_items;
     std::vector<std::shared_ptr<MRButton>> m_itemButtons;
-    ItemSelectedCallback m_onItemSelected;
+    std::vector<Observable<BaseButton&>::Connection> m_itemClickConnections;
+    Events m_events;
     float m_itemHeight = 42.0f;
     float m_menuWidth = 240.0f;
     bool m_open = false;

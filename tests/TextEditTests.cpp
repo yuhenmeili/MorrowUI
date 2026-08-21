@@ -39,8 +39,10 @@ void testMultilineEditing() {
     auto edit = MRTextEdit::create();
     int changedCount = 0;
     bool submitted = false;
-    edit->setOnTextChangedCallback([&changedCount](const std::wstring&) { ++changedCount; });
-    edit->setOnSubmitCallback([&submitted](const std::wstring&) { submitted = true; });
+    auto changedConnection = edit->events().onTextChanged.connect(
+        [&changedCount](MRTextEdit&, const std::wstring&) { ++changedCount; });
+    auto submitConnection = edit->events().onSubmitted.connect(
+        [&submitted](MRTextEdit&, const std::wstring&) { submitted = true; });
 
     typeCharacter(edit, L'A');
     typeCharacter(edit, L'中');
@@ -62,7 +64,10 @@ void testLineEditSubmissionAndPasswordMode() {
     edit->setMaxLength(4);
 
     std::wstring submittedText;
-    edit->setOnSubmitCallback([&submittedText](const std::wstring& text) { submittedText = text; });
+    auto submitConnection = edit->events().onSubmitted.connect(
+        [&submittedText](MRTextEdit&, const std::wstring& text) {
+            submittedText = text;
+        });
 
     typeCharacter(edit, L'1');
     typeCharacter(edit, L'2');

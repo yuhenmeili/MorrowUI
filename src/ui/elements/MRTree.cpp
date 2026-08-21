@@ -1,8 +1,6 @@
 #include "MRTree.h"
 
 #include <algorithm>
-#include <utility>
-
 #include "base/Interaction.h"
 #include "base/TouchEvent.h"
 #include "base/Transform.h"
@@ -71,8 +69,7 @@ bool MRTree::setExpanded(int id, bool expanded) {
     node.expanded = expanded;
     m_treeDirty = true;
     rebuildVisibleNodes();
-    if (m_onNodeExpanded)
-        m_onNodeExpanded(id, expanded);
+    m_events.onNodeExpanded.notify(*this, id, expanded);
     return true;
 }
 
@@ -100,12 +97,8 @@ int MRTree::getSelectedId() const {
     return m_nodes[static_cast<size_t>(m_selectedIndex)].id;
 }
 
-void MRTree::setOnNodeSelectedCallback(NodeSelectedCallback callback) {
-    m_onNodeSelected = std::move(callback);
-}
-
-void MRTree::setOnNodeExpandedCallback(NodeExpandedCallback callback) {
-    m_onNodeExpanded = std::move(callback);
+MRTree::Events& MRTree::events() {
+    return m_events;
 }
 
 const std::vector<MRTree::Node>& MRTree::getNodes() const {
@@ -149,9 +142,22 @@ void MRTree::rebuildVisibleNodes() {
         addChild(row);
         attachWheel(row);
         m_rows.push_back(row);
+        m_rowClickConnections.emplace_back();
     }
     for (size_t i = 0; i < m_rows.size(); ++i)
         m_rows[i]->setVisible(i < m_visibleNodes.size());
+    for (size_t i = 0; i < m_visibleNodes.size(); ++i) {
+        const size_t nodeIndex = m_visibleNodes[i].nodeIndex;
+        const bool parent = hasChildren(m_nodes[nodeIndex].id);
+        m_rowClickConnections[i] =
+            m_rows[i]->events().onClicked.connect(
+                [this, nodeIndex, parent](BaseButton&) {
+                    selectIndex(nodeIndex, true);
+                    if (parent) {
+                        toggleExpanded(m_nodes[nodeIndex].id);
+                    }
+                });
+    }
     m_treeDirty = false;
     layoutRows();
 }
@@ -188,15 +194,24 @@ void MRTree::selectIndex(size_t nodeIndex, bool notify) {
         return;
     m_selectedIndex = static_cast<int>(nodeIndex);
     layoutRows();
-    if (notify && m_onNodeSelected)
-        m_onNodeSelected(m_nodes[nodeIndex].id, m_nodes[nodeIndex].text);
+    if (notify) {
+        m_events.onNodeSelected.notify(
+            *this,
+            m_nodes[nodeIndex].id,
+            m_nodes[nodeIndex].text);
+    }
 }
 
 void MRTree::attachWheel(const std::shared_ptr<Widget>& widget) {
     auto interaction = widget ? widget->getComponent<Interaction>() : nullptr;
     if (!interaction)
         return;
-    interaction->addEventListener(TOUCH_EVENT_TYPE_WHEEL, [this](TouchEvent& event) { setScrollOffset(m_scrollOffset - event.wheelDeltaY * m_rowHeight); });
+    m_wheelConnections.emplace_back(
+        interaction->addEventListener(
+            TOUCH_EVENT_TYPE_WHEEL,
+            [this](TouchEvent& event) {
+                setScrollOffset(m_scrollOffset - event.wheelDeltaY * m_rowHeight);
+            }));
 }
 
 void MRTree::configureRow(size_t rowIndex, const VisibleNode& visibleNode) {
@@ -211,11 +226,6 @@ void MRTree::configureRow(size_t rowIndex, const VisibleNode& visibleNode) {
     row->setBackgroundColor(selected ? Vector4(0.16f, 0.5f, 0.42f, 1.0f) : Vector4(0.91f, 0.94f, 0.92f, 1.0f));
     row->setHoverColor(selected ? Vector4(0.12f, 0.43f, 0.36f, 1.0f) : Vector4(0.82f, 0.89f, 0.85f, 1.0f));
     row->setPressedColor(Vector4(0.09f, 0.36f, 0.31f, 1.0f));
-    row->setOnClickCallback([this, nodeIndex = visibleNode.nodeIndex, parent]() {
-        selectIndex(nodeIndex, true);
-        if (parent)
-            toggleExpanded(m_nodes[nodeIndex].id);
-    });
 }
 
 }  // namespace morrow

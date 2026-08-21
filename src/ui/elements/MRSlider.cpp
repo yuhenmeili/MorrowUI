@@ -5,8 +5,6 @@
 #include "MRSlider.h"
 
 #include <algorithm>
-#include <utility>
-
 #include "base/Interaction.h"
 #include "base/TouchEvent.h"
 #include "base/Transform.h"
@@ -41,16 +39,16 @@ MRSlider::MRSlider() {
     interaction->setLongPressEnabled(false);
     interaction->setInteractionEnabled(m_interactive);
 
-    interaction->addEventListener(TOUCH_EVENT_TYPE_TOUCH, [this](TouchEvent& event) {
+    m_touchConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_TOUCH, [this](TouchEvent& event) {
         m_dragging = true;
         updateValueFromPosition(event.positionX, event.positionY);
     });
-    interaction->addEventListener(TOUCH_EVENT_TYPE_MOVE, [this](TouchEvent& event) {
+    m_moveConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_MOVE, [this](TouchEvent& event) {
         if (m_dragging) {
             updateValueFromPosition(event.positionX, event.positionY);
         }
     });
-    interaction->addEventListener(TOUCH_EVENT_TYPE_RELEASE, [this](TouchEvent& /*event*/) {
+    m_releaseConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_RELEASE, [this](TouchEvent& /*event*/) {
         m_dragging = false;
     });
 }
@@ -88,15 +86,13 @@ void MRSlider::setInteractive(bool interactive) {
     }
 }
 
-void MRSlider::setOnValueChangedCallback(std::function<void(float)> callback) {
-    m_onValueChanged = std::move(callback);
+MRSlider::Events& MRSlider::events() {
+    return m_events;
 }
 
 void MRSlider::onProgressChanged(float progress) {
     repositionThumb();
-    if (m_onValueChanged) {
-        m_onValueChanged(progress);
-    }
+    m_events.onValueChanged.notify(*this, progress);
 }
 
 void MRSlider::updateValueFromPosition(float screenX, float screenY) {

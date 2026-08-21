@@ -11,13 +11,16 @@ MRMenuButton::MRMenuButton() {
 }
 
 void MRMenuButton::setPopupMenu(const MRPopupMenuSharedPtr& menu) {
+    m_menuSelectionConnection.disconnect();
     m_menu = menu;
     if (!m_menu)
         return;
     auto weakSelf = std::weak_ptr<MRMenuButton>(std::static_pointer_cast<MRMenuButton>(shared_from_this()));
-    m_menu->setOnItemSelectedCallback([weakSelf](int id, const std::wstring& text) {
-        if (auto self = weakSelf.lock(); self && self->m_onSelected)
-            self->m_onSelected(id, text);
+    m_menuSelectionConnection =
+        m_menu->events().onItemSelected.connect(
+            [weakSelf](MRPopupMenu&, int id, const std::wstring& text) {
+        if (auto self = weakSelf.lock())
+            self->m_menuEvents.onItemSelected.notify(*self, id, text);
     });
 }
 
@@ -27,8 +30,8 @@ void MRMenuButton::addMenuItem(const std::wstring& text, int id) {
     m_menu->addItem(text, id);
 }
 
-void MRMenuButton::setOnMenuItemSelectedCallback(SelectionCallback callback) {
-    m_onSelected = std::move(callback);
+MRMenuButton::MenuEvents& MRMenuButton::menuEvents() {
+    return m_menuEvents;
 }
 
 void MRMenuButton::onActivated() {

@@ -37,8 +37,12 @@ void MRTextEdit::initializeChildren() {
     interaction->setKeyboardFocusable(true);
     interaction->setClickEnabled(false);
     interaction->setLongPressEnabled(false);
-    interaction->addEventListener(TOUCH_EVENT_TYPE_CHARACTER, [this](TouchEvent& event) { handleCharacter(event.unicodeCodepoint); });
-    interaction->addEventListener(TOUCH_EVENT_TYPE_KEY_DOWN, [this](TouchEvent& event) { handleKeyDown(event.keyCode); });
+    m_characterConnection = interaction->addEventListener(
+        TOUCH_EVENT_TYPE_CHARACTER,
+        [this](TouchEvent& event) { handleCharacter(event.unicodeCodepoint); });
+    m_keyDownConnection = interaction->addEventListener(
+        TOUCH_EVENT_TYPE_KEY_DOWN,
+        [this](TouchEvent& event) { handleKeyDown(event.keyCode); });
 
     layoutChildren();
     refreshVisuals();
@@ -111,12 +115,8 @@ void MRTextEdit::setReadOnly(bool readOnly) {
     updateCursorVisual();
 }
 
-void MRTextEdit::setOnTextChangedCallback(TextChangedCallback callback) {
-    m_onTextChanged = std::move(callback);
-}
-
-void MRTextEdit::setOnSubmitCallback(SubmitCallback callback) {
-    m_onSubmit = std::move(callback);
+MRTextEdit::Events& MRTextEdit::events() {
+    return m_events;
 }
 
 void MRTextEdit::setCursorPosition(size_t position) {
@@ -136,8 +136,7 @@ std::wstring MRTextEdit::buildDisplayText() const {
 void MRTextEdit::handleEnter() {
     if (!m_readOnly)
         insertCharacter(L'\n');
-    if (m_onSubmit)
-        m_onSubmit(m_text);
+    notifySubmitted();
 }
 
 bool MRTextEdit::acceptsCharacter(wchar_t character) const {
@@ -153,8 +152,11 @@ void MRTextEdit::refreshVisuals() {
 }
 
 void MRTextEdit::notifyTextChanged() {
-    if (m_onTextChanged)
-        m_onTextChanged(m_text);
+    m_events.onTextChanged.notify(*this, m_text);
+}
+
+void MRTextEdit::notifySubmitted() {
+    m_events.onSubmitted.notify(*this, m_text);
 }
 
 void MRTextEdit::handleCharacter(uint32_t codepoint) {

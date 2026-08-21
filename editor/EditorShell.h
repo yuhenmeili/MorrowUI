@@ -23,6 +23,7 @@
 namespace morrow {
 class Engine;
 class Window;
+class BaseButton;
 class MRButton;
 class MRLabel;
 class TouchEvent;
@@ -106,6 +107,7 @@ private:
     std::string m_stdoutRemainder;
     std::string m_stderrRemainder;
     Observable<std::vector<TouchEvent>&>::Connection m_inputConnection;
+    std::vector<Observable<BaseButton&>::Connection> m_buttonConnections;
     std::string m_status;
     std::string m_selectedNodeId;
     std::vector<std::string> m_lastNotifiedSelection;

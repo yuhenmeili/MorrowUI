@@ -8,8 +8,9 @@ namespace morrow {
 
 class MRMenuButton : public MRButton {
 public:
-    /// 菜单项选中回调。
-    using SelectionCallback = MRPopupMenu::ItemSelectedCallback;
+    struct MenuEvents {
+        Observable<MRMenuButton&, int, const std::wstring&> onItemSelected;
+    };
 
     /// 创建一个菜单按钮。
     static std::shared_ptr<MRMenuButton> create();
@@ -24,8 +25,7 @@ public:
     /// 向弹出菜单添加菜单项；id 小于 0 时自动生成。
     void addMenuItem(const std::wstring& text, int id = -1);
 
-    /// 设置菜单项选中回调。
-    void setOnMenuItemSelectedCallback(SelectionCallback callback);
+    MenuEvents& menuEvents();
 
 protected:
     MRMenuButton();
@@ -34,7 +34,8 @@ protected:
 
 private:
     MRPopupMenuSharedPtr m_menu;
-    SelectionCallback m_onSelected;
+    Observable<MRPopupMenu&, int, const std::wstring&>::Connection m_menuSelectionConnection;
+    MenuEvents m_menuEvents;
 };
 
 using MRMenuButtonSharedPtr = std::shared_ptr<MRMenuButton>;

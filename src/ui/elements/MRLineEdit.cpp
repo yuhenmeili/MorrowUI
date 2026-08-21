@@ -30,8 +30,7 @@ std::wstring MRLineEdit::buildDisplayText() const {
 }
 
 void MRLineEdit::handleEnter() {
-    if (m_onSubmit)
-        m_onSubmit(m_text);
+    notifySubmitted();
 }
 
 bool MRLineEdit::acceptsCharacter(wchar_t character) const {

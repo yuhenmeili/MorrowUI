@@ -18,7 +18,7 @@ cmake --build "E:\WorkSpace\Client\MorrowUI\cmake-build-debug-mingw" --target MR
 
 1. 创建一条横向滑块（默认左→右），设置轨道灰、填充蓝、圆角，滑块 32×32 蓝色圆角块，初始值 0.3；
 2. 创建一条纵向滑块（下→上），填充绿、滑块绿色，初始值 0.6；
-3. 两个滑块都注册 `setOnValueChangedCallback`，拖拽时在日志打印当前归一化值。
+3. 两个滑块都订阅 `events().onValueChanged`，拖拽时在日志打印当前归一化值。
 
 ## 相关组件介绍
 
@@ -26,7 +26,9 @@ cmake --build "E:\WorkSpace\Client\MorrowUI\cmake-build-debug-mingw" --target MR
 - 继承 `MRProgressBar`，复用其渲染与全部 setter；额外挂载 `Interaction` 组件，支持按下/拖拽改值。
 - `setValue`/`getValue` 是 `setProgress`/`getProgress` 的语义别名，值为 0..1 归一化。
 - `setThumbSize`/`setThumbColor`/`setThumbRounding` 定制滑块；`setInteractive` 开关交互。
-- `setOnValueChangedCallback(std::function<void(float)>)` 在值变化时回调。
+- `events().onValueChanged.connect(...)` 在值变化时广播，参数包含 Slider 源对象
+  和归一化值。
+- 返回的 Connection 必须保存到所需监听周期结束。
 - 拖拽依赖平台层指针捕获：按下后即使指针移出控件，MOVE/RELEASE 仍会路由回滑块。
 
 ## 资源依赖

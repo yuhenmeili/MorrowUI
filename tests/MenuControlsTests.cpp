@@ -40,7 +40,11 @@ void testOptionButton() {
     click(option);
     expect(option->getPopupMenu()->isOpen(), "option button should open its popup menu on activation");
     bool callbackCalled = false;
-    option->setOnSelectedCallback([&callbackCalled](int id, const std::wstring&) { callbackCalled = id == 20; });
+    auto selectionConnection =
+        option->selectionEvents().onSelected.connect(
+            [&callbackCalled](MROptionButton&, int id, const std::wstring&) {
+                callbackCalled = id == 20;
+            });
     auto secondItem = std::dynamic_pointer_cast<MRButton>(option->getPopupMenu()->m_children[2]);
     click(secondItem);
     expect(option->getSelectedId() == 20 && option->getSelectedText() == L"Sport", "option button should store the selected id and text");

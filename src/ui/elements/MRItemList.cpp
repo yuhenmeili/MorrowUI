@@ -1,7 +1,6 @@
 #include "MRItemList.h"
 
 #include <algorithm>
-#include <utility>
 
 #include "base/Interaction.h"
 #include "base/TouchEvent.h"
@@ -33,7 +32,7 @@ void MRItemList::addItem(const std::wstring& text, int id, bool enabled) {
     button->setTextAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
     button->setCornerRadius(5.0f);
     button->setEnabled(enabled);
-    button->setOnClickCallback([this, index]() { selectIndex(index, true); });
+    m_itemClickConnections.emplace_back(button->events().onClicked.connect([this, index](BaseButton&) { selectIndex(index, true); }));
     addChild(button);
     attachWheel(button);
     m_itemButtons.push_back(button);
@@ -46,6 +45,9 @@ void MRItemList::clear() {
         removeChild(button);
     m_items.clear();
     m_itemButtons.clear();
+    m_itemClickConnections.clear();
+    m_wheelConnections.erase(std::remove_if(m_wheelConnections.begin(), m_wheelConnections.end(), [](const EventConnection& connection) { return !connection.connected(); }),
+                             m_wheelConnections.end());
     m_selectedIndex = -1;
     m_scrollOffset = 0.0f;
     m_maxScrollOffset = 0.0f;
@@ -94,8 +96,8 @@ int MRItemList::getSelectedId() const {
     return m_items[static_cast<size_t>(m_selectedIndex)].id;
 }
 
-void MRItemList::setOnItemSelectedCallback(ItemSelectedCallback callback) {
-    m_onItemSelected = std::move(callback);
+MRItemList::Events& MRItemList::events() {
+    return m_events;
 }
 
 const std::vector<MRItemList::Item>& MRItemList::getItems() const {
@@ -115,8 +117,9 @@ void MRItemList::selectIndex(size_t index, bool notify) {
     if (previous >= 0)
         updateItemStyle(static_cast<size_t>(previous));
     updateItemStyle(index);
-    if (notify && m_onItemSelected)
-        m_onItemSelected(m_items[index].id, m_items[index].text);
+    if (notify) {
+        m_events.onItemSelected.notify(*this, m_items[index].id, m_items[index].text);
+    }
 }
 
 void MRItemList::layoutItems() {
@@ -138,7 +141,8 @@ void MRItemList::attachWheel(const std::shared_ptr<Widget>& widget) {
     auto interaction = widget ? widget->getComponent<Interaction>() : nullptr;
     if (!interaction)
         return;
-    interaction->addEventListener(TOUCH_EVENT_TYPE_WHEEL, [this](TouchEvent& event) { setScrollOffset(m_scrollOffset - event.wheelDeltaY * m_itemHeight); });
+    m_wheelConnections.emplace_back(
+        interaction->addEventListener(TOUCH_EVENT_TYPE_WHEEL, [this](TouchEvent& event) { setScrollOffset(m_scrollOffset - event.wheelDeltaY * m_itemHeight); }));
 }
 
 void MRItemList::updateItemStyle(size_t index) {

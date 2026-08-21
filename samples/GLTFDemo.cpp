@@ -67,7 +67,9 @@ int main(int argc, char** argv) {
     transform->setSize(100.0f, 100.0f);
     window->addChild(button);
 
-    button->setOnClickCallback([]() { LOG_I("Button clicked!"); });
+    auto buttonClickConnection =
+        button->events().onClicked.connect(
+            [](BaseButton&) { LOG_I("Button clicked!"); });
 
     // auto radius = 10.0f; // 相机到原点的距离
     // auto height = 3.0f; // Y 坐标（高度）

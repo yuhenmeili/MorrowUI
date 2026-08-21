@@ -199,7 +199,21 @@ std::shared_ptr<MRButton> EditorShell::addButton(const std::shared_ptr<UIWidget>
     button->setBackgroundColor(morrow::Math::Vector4(0.16f, 0.31f, 0.63f, 1.0f));
     button->setHoverColor(morrow::Math::Vector4(0.30f, 0.55f, 0.95f, 1.0f));
     button->setPressedColor(morrow::Math::Vector4(0.10f, 0.22f, 0.48f, 1.0f));
-    button->setOnClickCallback(std::move(callback));
+    m_buttonConnections.erase(
+        std::remove_if(
+            m_buttonConnections.begin(),
+            m_buttonConnections.end(),
+            [](const Observable<BaseButton&>::Connection& connection) {
+                return !connection.connected();
+            }),
+        m_buttonConnections.end());
+    m_buttonConnections.emplace_back(
+        button->events().onClicked.connect(
+            [callback = std::move(callback)](BaseButton&) {
+                if (callback) {
+                    callback();
+                }
+            }));
     auto transform = button->getComponent<Transform>();
     transform->setPosition(x, y, 0.0f);
     transform->setSize(width, height);

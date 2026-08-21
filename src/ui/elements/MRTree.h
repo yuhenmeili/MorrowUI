@@ -1,7 +1,6 @@
 #ifndef MORROW_GUI_MRTREE_H
 #define MORROW_GUI_MRTREE_H
 
-#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -14,6 +13,11 @@ namespace morrow {
 /// 支持展开、折叠和单选的树形列表控件。
 class MRTree : public UIWidget {
 public:
+    struct Events {
+        Observable<MRTree&, int, const std::wstring&> onNodeSelected;
+        Observable<MRTree&, int, bool> onNodeExpanded;
+    };
+
     /// 树节点数据。
     struct Node {
         /// 节点标识。
@@ -27,11 +31,6 @@ public:
         /// 节点是否可用。
         bool enabled = true;
     };
-
-    /// 节点选中回调，参数依次为节点 id 和文字。
-    using NodeSelectedCallback = std::function<void(int, const std::wstring&)>;
-    /// 节点展开状态变化回调，参数依次为节点 id 和展开状态。
-    using NodeExpandedCallback = std::function<void(int, bool)>;
 
     /// 创建树形控件。
     static std::shared_ptr<MRTree> create();
@@ -55,10 +54,8 @@ public:
     bool selectNode(int id);
     /// 获取当前选中节点 id；未选中时返回 -1。
     int getSelectedId() const;
-    /// 设置节点选中回调。
-    void setOnNodeSelectedCallback(NodeSelectedCallback callback);
-    /// 设置节点展开状态变化回调。
-    void setOnNodeExpandedCallback(NodeExpandedCallback callback);
+
+    Events& events();
     /// 获取只读树节点数据。
     const std::vector<Node>& getNodes() const;
     /// 每帧刷新可见节点、滚动范围和行布局。
@@ -91,8 +88,9 @@ private:
     std::vector<Node> m_nodes;
     std::vector<VisibleNode> m_visibleNodes;
     std::vector<std::shared_ptr<MRButton>> m_rows;
-    NodeSelectedCallback m_onNodeSelected;
-    NodeExpandedCallback m_onNodeExpanded;
+    std::vector<Observable<BaseButton&>::Connection> m_rowClickConnections;
+    std::vector<EventConnection> m_wheelConnections;
+    Events m_events;
     float m_rowHeight = 46.0f;
     float m_indentWidth = 28.0f;
     float m_scrollOffset = 0.0f;

@@ -16,6 +16,7 @@
 
 #include "core/BatchDataDefine.h"
 #include "renderer/resource/ssbo/SSBOFieldBinding.h"
+#include "renderer/resource/ssbo/SSBOLayoutBuilder.h"
 #include "renderer/resource/ssbo/layouts/BounceSSBOLayout.h"
 #include "renderer/resource/ssbo/layouts/ButtonSSBOLayout.h"
 #include "renderer/resource/ssbo/layouts/DefaultColorSSBOLayout.h"
@@ -138,8 +139,8 @@ void testDefaultColorLayout() {
     const auto* data = reinterpret_cast<const DefaultBatchData2Attr*>(buffer.data());
     expect(sameMatrix(data->model, batch.transforms[0]->getWorldMatrix()),
            "default_color: model matrix should match");
-    expectVec4(data->attr1, 1.0f, 2.0f, 3.0f, 4.0f, "default_color: attr1 should be color");
-    expectVec4(data->attr2, 0.5f, 0.0f, 0.0f, 0.0f, "default_color: attr2.x should be alpha");
+    expectVec4(data->attrs[0], 1.0f, 2.0f, 3.0f, 4.0f, "default_color: attr1 should be color");
+    expectVec4(data->attrs[1], 0.0f, 0.0f, 0.0f, 0.5f, "default_color: attr2.w should be alpha");
 }
 
 void testDefaultImageLayout() {
@@ -155,7 +156,7 @@ void testDefaultImageLayout() {
     const auto* data = reinterpret_cast<const DefaultBatchData1Attr*>(buffer.data());
     expect(sameMatrix(data->model, batch.transforms[0]->getWorldMatrix()),
            "default_image: model matrix should match");
-    expectVec4(data->attr, 0.25f, 0.0f, 0.0f, 0.0f, "default_image: attr.x should be alpha");
+    expectVec4(data->attrs[0], 0.25f, 0.0f, 0.0f, 0.0f, "default_image: attr.x should be alpha");
 }
 
 void testImageNormalLayout() {
@@ -173,8 +174,8 @@ void testImageNormalLayout() {
     const auto* data = reinterpret_cast<const DefaultBatchData2Attr*>(buffer.data());
     expect(sameMatrix(data->model, batch.transforms[0]->getWorldMatrix()),
            "image_normal: model matrix should match");
-    expectVec4(data->attr1, 10.0f, 20.0f, 30.0f, 0.0f, "image_normal: attr1 should be displaySize");
-    expectVec4(data->attr2, 0.3f, 0.6f, 0.0f, 0.0f, "image_normal: attr2 should be (rounding, alpha)");
+    expectVec4(data->attrs[0], 10.0f, 20.0f, 30.0f, 0.0f, "image_normal: attr1 should be displaySize");
+    expectVec4(data->attrs[1], 0.3f, 0.6f, 0.0f, 0.0f, "image_normal: attr2 should be (rounding, alpha)");
 }
 
 void testFontLayout() {
@@ -191,8 +192,8 @@ void testFontLayout() {
     const auto* data = reinterpret_cast<const DefaultBatchData2Attr*>(buffer.data());
     expect(sameMatrix(data->model, batch.transforms[0]->getWorldMatrix()),
            "font: model matrix should match");
-    expectVec4(data->attr1, 1.0f, 0.0f, 0.0f, 1.0f, "font: attr1 should be fontColor");
-    expectVec4(data->attr2, 0.8f, 0.0f, 0.0f, 0.0f, "font: attr2.x should be alpha");
+    expectVec4(data->attrs[0], 1.0f, 0.0f, 0.0f, 1.0f, "font: attr1 should be fontColor");
+    expectVec4(data->attrs[1], 0.8f, 0.0f, 0.0f, 0.0f, "font: attr2.x should be alpha");
 }
 
 void testBounceLayout() {
@@ -213,8 +214,8 @@ void testBounceLayout() {
     const auto* data = reinterpret_cast<const DefaultBatchData2Attr*>(buffer.data());
     expect(sameMatrix(data->model, batch.transforms[0]->getWorldMatrix()),
            "bounce: model matrix should match");
-    expectVec4(data->attr1, 5.0f, 6.0f, 7.0f, 0.9f, "bounce: attr1 should be (meshCenter, alpha)");
-    expectVec4(data->attr2, 1.0f, 2.0f, 3.0f, 4.0f, "bounce: attr2 should be animation params");
+    expectVec4(data->attrs[0], 5.0f, 6.0f, 7.0f, 0.9f, "bounce: attr1 should be (meshCenter, alpha)");
+    expectVec4(data->attrs[1], 1.0f, 2.0f, 3.0f, 4.0f, "bounce: attr2 should be animation params");
 }
 
 void testButtonLayout() {
@@ -234,10 +235,10 @@ void testButtonLayout() {
     const auto* data = reinterpret_cast<const DefaultBatchData3Attr*>(buffer.data());
     expect(sameMatrix(data->model, batch.transforms[0]->getWorldMatrix()),
            "button: model matrix should match");
-    expectVec4(data->attr1, 0.0f, 1.0f, 0.0f, 1.0f, "button: attr1 should be color");
-    expectVec4(data->attr2, 100.0f, 200.0f, 0.15f, 0.7f,
+    expectVec4(data->attrs[0], 0.0f, 1.0f, 0.0f, 1.0f, "button: attr1 should be color");
+    expectVec4(data->attrs[1], 100.0f, 200.0f, 0.15f, 0.7f,
                "button: attr2 should be (displaySize, rounding, alpha)");
-    expectVec4(data->attr3, 1.0f, 0.0f, 0.0f, 0.0f, "button: attr3.x should be useTexture");
+    expectVec4(data->attrs[2], 1.0f, 0.0f, 0.0f, 0.0f, "button: attr3.x should be useTexture");
 }
 
 // 别名 shader 共享同一 factory：布局内容一致（各别名独立缓存实例，地址不同）
@@ -279,9 +280,9 @@ void testMissingParamsFallbackSafely() {
     std::vector<uint8_t> imageBuffer(imageLayout->elementSize);
     fillSSBOInstance(*imageLayout, imageBuffer.data(), batch, 0);  // 不应抛异常
     const auto* imageData = reinterpret_cast<const DefaultBatchData2Attr*>(imageBuffer.data());
-    expectVec4(imageData->attr1, 0.0f, 0.0f, 0.0f, 0.0f,
+    expectVec4(imageData->attrs[0], 0.0f, 0.0f, 0.0f, 0.0f,
                "image_normal: missing displaySize should fall back to zero");
-    expectVec4(imageData->attr2, 0.0f, 0.0f, 0.0f, 0.0f,
+    expectVec4(imageData->attrs[1], 0.0f, 0.0f, 0.0f, 0.0f,
                "image_normal: missing rounding/alpha should fall back to zero");
 
     // button：color / displaySize / useTexture 全部缺失
@@ -289,9 +290,9 @@ void testMissingParamsFallbackSafely() {
     std::vector<uint8_t> buttonBuffer(buttonLayout->elementSize);
     fillSSBOInstance(*buttonLayout, buttonBuffer.data(), batch, 0);  // 不应抛异常
     const auto* buttonData = reinterpret_cast<const DefaultBatchData3Attr*>(buttonBuffer.data());
-    expectVec4(buttonData->attr1, 0.0f, 0.0f, 0.0f, 0.0f,
+    expectVec4(buttonData->attrs[0], 0.0f, 0.0f, 0.0f, 0.0f,
                "button: missing color should fall back to zero");
-    expectVec4(buttonData->attr3, 0.0f, 0.0f, 0.0f, 0.0f,
+    expectVec4(buttonData->attrs[2], 0.0f, 0.0f, 0.0f, 0.0f,
                "button: missing useTexture should fall back to zero");
 }
 
@@ -317,7 +318,7 @@ void testMultipleInstancesDoNotOverlap() {
             buffer.data() + i * layout->elementSize);
         expect(sameMatrix(instance->model, batch.transforms[i]->getWorldMatrix()),
                "multi-instance: each model matrix should match its own transform");
-        expectVec4(instance->attr2, static_cast<float>(i) + 1.0f, 0.0f, 0.0f, 0.0f,
+        expectVec4(instance->attrs[1], 0.0f, 0.0f, 0.0f, static_cast<float>(i) + 1.0f,
                    "multi-instance: each alpha should be independent");
     }
 }

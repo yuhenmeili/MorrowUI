@@ -254,7 +254,10 @@ Platform
             -> EventDispatcher
 ```
 
-`EventDispatcher` 也应补充派发期间 remove/add 的安全语义，但它属于 UI 事件层，不需要和 Engine event 合并成同一种全局 API。
+`EventDispatcher` 已改为按 `TouchEventType` 持有 `Observable<TouchEvent&>`，
+`addEventListener()` 返回 RAII `EventConnection`。派发期间 connect、disconnect
+和按类型 clear 均使用 Observable 的安全语义；它仍属于 UI 事件层，没有并入
+Engine 全局事件。
 
 ### 5.3 Editor events
 

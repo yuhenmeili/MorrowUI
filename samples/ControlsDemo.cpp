@@ -113,7 +113,9 @@ int main() {
 
     auto textButton = MRButton::create();
     configureButton(textButton, L"普通按钮", 0.0f, 0.0f, 180.0f);
-    textButton->setOnClickCallback([]() { LOG_I("normal button clicked"); });
+    auto textButtonClickConnection =
+        textButton->events().onClicked.connect(
+            [](BaseButton&) { LOG_I("normal button clicked"); });
     buttonRow->addChild(textButton);
 
     auto colorButton = MRButton::create();
@@ -136,7 +138,9 @@ int main() {
     textureButton->setPressedTexture(hoverTexture);
     textureButton->setFocusedTexture(hoverTexture);
     textureButton->setDisabledTexture(disabledTexture);
-    textureButton->setOnClickCallback([]() { LOG_I("texture button clicked"); });
+    auto textureButtonClickConnection =
+        textureButton->events().onClicked.connect(
+            [](BaseButton&) { LOG_I("texture button clicked"); });
     textureButton->getComponent<Transform>()->setPosition(buttonPanelX + 110.0f, kPanelTop + 190.0f, 0.0f);
     textureButton->getComponent<Transform>()->setSize(200.0f, 200.0f);
     window->addChild(textureButton);
@@ -159,25 +163,37 @@ int main() {
 
     auto checkBox = MRCheckBox::create();
     configureSelectionControl(checkBox, L"启用空调", selectionLeft, selectionY);
-    checkBox->setOnCheckedChangedCallback([](bool checked) { LOG_I("CheckBox checked = {}", checked); });
+    auto checkBoxConnection =
+        checkBox->selectionEvents().onCheckedChanged.connect(
+            [](MRSelectableButton&, bool checked) {
+                LOG_I("CheckBox checked = {}", checked);
+            });
     window->addChild(checkBox);
 
     auto checkButton = MRCheckButton::create();
     configureSelectionControl(checkButton, L"座椅加热", selectionLeft, selectionY + 62.0f);
     checkButton->setChecked(true);
-    checkButton->setOnCheckedChangedCallback([](bool checked) { LOG_I("CheckButton checked = {}", checked); });
+    auto checkButtonConnection =
+        checkButton->selectionEvents().onCheckedChanged.connect(
+            [](MRSelectableButton&, bool checked) {
+                LOG_I("CheckButton checked = {}", checked);
+            });
     window->addChild(checkButton);
 
     auto toggle = MRToggle::create();
     configureSelectionControl(toggle, L"自动大灯", selectionLeft, selectionY + 124.0f);
-    toggle->setOnCheckedChangedCallback([](bool checked) { LOG_I("Toggle value = {}", checked); });
+    auto toggleConnection =
+        toggle->selectionEvents().onCheckedChanged.connect(
+            [](MRSelectableButton&, bool checked) {
+                LOG_I("Toggle value = {}", checked);
+            });
     window->addChild(toggle);
 
     auto group = std::make_shared<MRRadioGroup>();
     auto radioA = MRRadioButton::create();
     configureSelectionControl(radioA, L"舒适模式", selectionRight, selectionY);
     radioA->setGroup(group);
-    radioA->setOnCheckedChangedCallback([](bool checked) {
+    auto radioAConnection = radioA->selectionEvents().onCheckedChanged.connect([](MRSelectableButton&, bool checked) {
         if (checked)
             LOG_I("Radio selection = comfort");
     });
@@ -186,7 +202,7 @@ int main() {
     auto radioB = MRRadioButton::create();
     configureSelectionControl(radioB, L"运动模式", selectionRight, selectionY + 62.0f);
     radioB->setGroup(group);
-    radioB->setOnCheckedChangedCallback([](bool checked) {
+    auto radioBConnection = radioB->selectionEvents().onCheckedChanged.connect([](MRSelectableButton&, bool checked) {
         if (checked)
             LOG_I("Radio selection = sport");
     });
@@ -195,7 +211,7 @@ int main() {
     auto radioC = MRRadioButton::create();
     configureSelectionControl(radioC, L"节能模式", selectionRight, selectionY + 124.0f);
     radioC->setGroup(group);
-    radioC->setOnCheckedChangedCallback([](bool checked) {
+    auto radioCConnection = radioC->selectionEvents().onCheckedChanged.connect([](MRSelectableButton&, bool checked) {
         if (checked)
             LOG_I("Radio selection = eco");
     });
@@ -224,7 +240,11 @@ int main() {
     optionButton->addOption(L"驾驶员 B", 102);
     optionButton->addOption(L"访客模式", 103);
     optionButton->getPopupMenu()->setMenuWidth(menuWidth);
-    optionButton->setOnSelectedCallback([](int id, const std::wstring&) { LOG_I("OptionButton selected id = {}", id); });
+    auto optionConnection =
+        optionButton->selectionEvents().onSelected.connect(
+            [](MROptionButton&, int id, const std::wstring&) {
+                LOG_I("OptionButton selected id = {}", id);
+            });
     window->addChild(optionButton);
 
     window->addChild(createLabel(L"MenuButton", menuRight, kPanelTop + 76.0f, menuWidth, 30.0f, 18.0f));
@@ -234,7 +254,11 @@ int main() {
     menuButton->addMenuItem(L"恢复默认设置", 202);
     menuButton->addMenuItem(L"导出配置", 203);
     menuButton->getPopupMenu()->setMenuWidth(menuWidth);
-    menuButton->setOnMenuItemSelectedCallback([](int id, const std::wstring&) { LOG_I("MenuButton selected id = {}", id); });
+    auto menuConnection =
+        menuButton->menuEvents().onItemSelected.connect(
+            [](MRMenuButton&, int id, const std::wstring&) {
+                LOG_I("MenuButton selected id = {}", id);
+            });
     window->addChild(menuButton);
 
     auto popupMenu = MRPopupMenu::create();
@@ -242,12 +266,16 @@ int main() {
     popupMenu->addItem(L"打开诊断页面", 301);
     popupMenu->addItem(L"查看系统信息", 302);
     popupMenu->addItem(L"维护模式（禁用）", 303, false);
-    popupMenu->setOnItemSelectedCallback([](int id, const std::wstring&) { LOG_I("PopupMenu selected id = {}", id); });
+    auto popupMenuConnection =
+        popupMenu->events().onItemSelected.connect(
+            [](MRPopupMenu&, int id, const std::wstring&) {
+                LOG_I("PopupMenu selected id = {}", id);
+            });
     popupMenu->attachTo(window);
 
     auto popupButton = MRButton::create();
     configureMenuButton(popupButton, L"打开独立 PopupMenu", menuLeft, kPanelTop + 245.0f, menuWidth);
-    popupButton->setOnClickCallback([popupMenu, popupButton]() {
+    auto popupButtonConnection = popupButton->events().onClicked.connect([popupMenu, popupButton](BaseButton&) {
         if (popupMenu->isOpen()) {
             popupMenu->hide();
         } else {
@@ -277,7 +305,9 @@ int main() {
     temperature->setDecimals(1);
     temperature->setSuffix(L" C");
     temperature->setValue(22.5);
-    temperature->setOnValueChangedCallback([](double value) { LOG_I("temperature = {}", value); });
+    auto temperatureConnection =
+        temperature->events().onValueChanged.connect(
+            [](MRSpinBox&, double value) { LOG_I("temperature = {}", value); });
     window->addChild(temperature);
 
     auto verticalSeparator = MRVSeparator::create();
@@ -310,8 +340,12 @@ int main() {
     auto spacer = MRSpacer::create(1.0f);
     spacer->setMinimumSize(Vector2(24.0f, 1.0f));
     auto apply = createActionButton(L"应用设置");
-    cancel->setOnClickCallback([]() { LOG_I("cancel settings"); });
-    apply->setOnClickCallback([]() { LOG_I("apply settings"); });
+    auto cancelConnection =
+        cancel->events().onClicked.connect(
+            [](BaseButton&) { LOG_I("cancel settings"); });
+    auto applyConnection =
+        apply->events().onClicked.connect(
+            [](BaseButton&) { LOG_I("apply settings"); });
     actionRow->addChild(cancel);
     actionRow->addChild(spacer);
     actionRow->addChild(apply);

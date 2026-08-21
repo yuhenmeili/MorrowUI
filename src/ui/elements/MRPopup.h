@@ -1,7 +1,6 @@
 #ifndef MORROW_GUI_MRPOPUP_H
 #define MORROW_GUI_MRPOPUP_H
 
-#include <functional>
 #include <memory>
 
 #include "MRColor.h"
@@ -9,9 +8,15 @@
 
 namespace morrow {
 
+class BaseButton;
+
 /// 通用弹出层：提供显示、隐藏、定位和父节点挂载能力。
 class MRPopup : public UIWidget {
 public:
+    struct PopupEvents {
+        Observable<MRPopup&> onClosed;
+    };
+
     /// 创建一个基础弹出层。
     static std::shared_ptr<MRPopup> create();
 
@@ -23,8 +28,8 @@ public:
     virtual void hide();
     /// 返回弹出层是否正在显示。
     bool isOpen() const;
-    /// 设置弹出层关闭时的回调。
-    void setOnClosedCallback(std::function<void()> callback);
+
+    PopupEvents& popupEvents();
 
 protected:
     explicit MRPopup(const char* widgetType);
@@ -34,7 +39,7 @@ protected:
     void closeInternal();
 
     MRColorSharedPtr m_background;
-    std::function<void()> m_onClosed;
+    PopupEvents m_popupEvents;
     bool m_open = false;
 };
 
@@ -80,6 +85,7 @@ public:
 protected:
     MRWindow();
     std::shared_ptr<class MRButton> m_closeButton;
+    Observable<BaseButton&>::Connection m_closeConnection;
 };
 
 using MRWindowSharedPtr = std::shared_ptr<MRWindow>;
@@ -87,6 +93,11 @@ using MRWindowSharedPtr = std::shared_ptr<MRWindow>;
 /// 带确认和取消操作的对话框。
 class MRDialog : public MRWindow {
 public:
+    struct DialogEvents {
+        Observable<MRDialog&> onConfirmed;
+        Observable<MRDialog&> onCanceled;
+    };
+
     /// 创建一个带确认和取消操作的对话框。
     static std::shared_ptr<MRDialog> create();
 
@@ -96,10 +107,8 @@ public:
     void setConfirmText(const std::wstring& text);
     /// 设置取消按钮文字。
     void setCancelText(const std::wstring& text);
-    /// 设置确认回调。
-    void setOnConfirmedCallback(std::function<void()> callback);
-    /// 设置取消回调。
-    void setOnCanceledCallback(std::function<void()> callback);
+
+    DialogEvents& dialogEvents();
 
 protected:
     MRDialog();
@@ -108,8 +117,9 @@ private:
     std::shared_ptr<class MRLabel> m_message;
     std::shared_ptr<class MRButton> m_confirmButton;
     std::shared_ptr<class MRButton> m_cancelButton;
-    std::function<void()> m_onConfirmed;
-    std::function<void()> m_onCanceled;
+    Observable<BaseButton&>::Connection m_confirmConnection;
+    Observable<BaseButton&>::Connection m_cancelConnection;
+    DialogEvents m_dialogEvents;
 };
 
 using MRDialogSharedPtr = std::shared_ptr<MRDialog>;

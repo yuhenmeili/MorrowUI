@@ -1,7 +1,6 @@
 #ifndef MORROW_GUI_MRSELECTABLEBUTTON_H
 #define MORROW_GUI_MRSELECTABLEBUTTON_H
 
-#include <functional>
 #include <memory>
 
 #include "MRButton.h"
@@ -10,8 +9,9 @@ namespace morrow {
 
 class MRSelectableButton : public MRButton {
 public:
-    /// 选中状态变化回调。
-    using CheckedCallback = std::function<void(bool)>;
+    struct SelectionEvents {
+        Observable<MRSelectableButton&, bool> onCheckedChanged;
+    };
 
     /// 设置按钮是否处于选中状态。
     void setChecked(bool checked);
@@ -21,8 +21,7 @@ public:
         return m_checked;
     }
 
-    /// 设置选中状态变化时的回调。
-    void setOnCheckedChangedCallback(CheckedCallback callback);
+    SelectionEvents& selectionEvents();
 
     /// 设置选中状态下的默认颜色。
     void setCheckedColor(const Vector4& color);
@@ -52,7 +51,7 @@ protected:
     Vector4 m_checkedHoverColor = Vector4(0.16f, 0.65f, 0.5f, 1.0f);
     Vector4 m_checkedPressedColor = Vector4(0.08f, 0.42f, 0.32f, 1.0f);
     bool m_checked = false;
-    CheckedCallback m_onCheckedChanged;
+    SelectionEvents m_selectionEvents;
 };
 
 using MRSelectableButtonSharedPtr = std::shared_ptr<MRSelectableButton>;

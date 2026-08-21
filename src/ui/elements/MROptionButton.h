@@ -8,8 +8,9 @@ namespace morrow {
 
 class MROptionButton : public MRButton {
 public:
-    /// 选项选中回调。
-    using SelectionCallback = MRPopupMenu::ItemSelectedCallback;
+    struct SelectionEvents {
+        Observable<MROptionButton&, int, const std::wstring&> onSelected;
+    };
 
     /// 创建一个下拉选项按钮。
     static std::shared_ptr<MROptionButton> create();
@@ -40,8 +41,7 @@ public:
         return m_selectedText;
     }
 
-    /// 设置选项选中回调。
-    void setOnSelectedCallback(SelectionCallback callback);
+    SelectionEvents& selectionEvents();
 
 protected:
     MROptionButton();
@@ -52,7 +52,8 @@ private:
     void handleSelection(int id, const std::wstring& text);
 
     MRPopupMenuSharedPtr m_menu;
-    SelectionCallback m_onSelected;
+    Observable<MRPopupMenu&, int, const std::wstring&>::Connection m_menuSelectionConnection;
+    SelectionEvents m_selectionEvents;
     int m_selectedId = -1;
     std::wstring m_selectedText;
 };

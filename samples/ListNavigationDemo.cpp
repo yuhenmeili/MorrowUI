@@ -32,7 +32,11 @@ std::shared_ptr<MRColor> createPanel(float x, float y, float width, float height
     return panel;
 }
 
-std::shared_ptr<MRButton> createListItem(int index, float width, float y) {
+std::shared_ptr<MRButton> createListItem(
+    int index,
+    float width,
+    float y,
+    std::vector<Observable<BaseButton&>::Connection>& connections) {
     auto item = MRButton::create();
     item->setText(L"车辆消息 " + std::to_wstring(index), "default");
     item->setTextFontSize(19.0f);
@@ -44,7 +48,11 @@ std::shared_ptr<MRButton> createListItem(int index, float width, float y) {
     item->setCornerRadius(6.0f);
     item->getComponent<Transform>()->setPosition(0.0f, y, 0.0f);
     item->getComponent<Transform>()->setSize(width, 48.0f);
-    item->setOnClickCallback([index]() { LOG_I("Scroll list item clicked: {}", index); });
+    connections.emplace_back(
+        item->events().onClicked.connect(
+            [index](BaseButton&) {
+                LOG_I("Scroll list item clicked: {}", index);
+            }));
     return item;
 }
 
@@ -96,8 +104,13 @@ int main() {
     itemList->addItem(L"氛围灯：冰川蓝", 301);
     itemList->addItem(L"氛围灯：日落橙", 302);
     itemList->addItem(L"氛围灯：森林绿", 303);
-    itemList->setOnItemSelectedCallback(
-        [listStatus](int id, const std::wstring& text) { listStatus->setText(L"当前选择：" + text + L"（ID " + std::to_wstring(id) + L"）", "default"); });
+    auto itemSelectionConnection =
+        itemList->events().onItemSelected.connect(
+            [listStatus](MRItemList&, int id, const std::wstring& text) {
+                listStatus->setText(
+                    L"当前选择：" + text + L"（ID " + std::to_wstring(id) + L"）",
+                    "default");
+            });
     window->addChild(itemList);
 
     // ---------------------------------------------------------------------
@@ -129,9 +142,18 @@ int main() {
     tree->addNode(51, L"亮度", 50);
     tree->addNode(52, L"深色模式", 50);
     tree->addNode(60, L"开发者选项（不可用）", 3, true, false);
-    tree->setOnNodeSelectedCallback(
-        [treeStatus](int id, const std::wstring& text) { treeStatus->setText(L"当前节点：" + text + L"（ID " + std::to_wstring(id) + L"）", "default"); });
-    tree->setOnNodeExpandedCallback([](int id, bool expanded) { LOG_I("Tree node {} expanded = {}", id, expanded); });
+    auto treeSelectionConnection =
+        tree->events().onNodeSelected.connect(
+            [treeStatus](MRTree&, int id, const std::wstring& text) {
+                treeStatus->setText(
+                    L"当前节点：" + text + L"（ID " + std::to_wstring(id) + L"）",
+                    "default");
+            });
+    auto treeExpandedConnection =
+        tree->events().onNodeExpanded.connect(
+            [](MRTree&, int id, bool expanded) {
+                LOG_I("Tree node {} expanded = {}", id, expanded);
+            });
     window->addChild(tree);
 
     // ---------------------------------------------------------------------
@@ -149,8 +171,14 @@ int main() {
     scroll->setScrollStep(56.0f);
     scroll->getVerticalScrollBar()->setTrackColor(Vector4(0.86f, 0.89f, 0.93f, 1.0f));
     scroll->getVerticalScrollBar()->setThumbColor(Vector4(0.24f, 0.52f, 0.7f, 1.0f));
+    std::vector<Observable<BaseButton&>::Connection> scrollItemConnections;
     for (int index = 1; index <= 24; ++index) {
-        scroll->addScrollChild(createListItem(index, viewportW - 32.0f, static_cast<float>(index - 1) * 56.0f));
+        scroll->addScrollChild(
+            createListItem(
+                index,
+                viewportW - 32.0f,
+                static_cast<float>(index - 1) * 56.0f,
+                scrollItemConnections));
     }
     window->addChild(scroll);
     window->addChild(createLabel(L"滚轮 / 拖动 / 右侧滚动条", scrollPanelX + 24.0f, panelTop + 680.0f, scrollPanelW - 48.0f, 42.0f, 18.0f));

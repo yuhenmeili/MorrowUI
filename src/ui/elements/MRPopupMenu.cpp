@@ -41,7 +41,9 @@ void MRPopupMenu::addItem(const std::wstring& text, int id, bool enabled) {
     button->setPressedColor(Vector4(0.74f, 0.84f, 0.93f, 1.0f));
     button->setCornerRadius(4.0f);
     button->setEnabled(enabled);
-    button->setOnClickCallback([this, index]() { selectItem(index); });
+    m_itemClickConnections.emplace_back(
+        button->events().onClicked.connect(
+            [this, index](BaseButton&) { selectItem(index); }));
     addChild(button);
     m_itemButtons.push_back(button);
     layoutItems();
@@ -53,6 +55,7 @@ void MRPopupMenu::clear() {
     }
     m_items.clear();
     m_itemButtons.clear();
+    m_itemClickConnections.clear();
     layoutItems();
 }
 
@@ -66,8 +69,8 @@ void MRPopupMenu::setMenuWidth(float width) {
     layoutItems();
 }
 
-void MRPopupMenu::setOnItemSelectedCallback(ItemSelectedCallback callback) {
-    m_onItemSelected = std::move(callback);
+MRPopupMenu::Events& MRPopupMenu::events() {
+    return m_events;
 }
 
 void MRPopupMenu::popup(float x, float y) {
@@ -100,8 +103,7 @@ void MRPopupMenu::selectItem(size_t index) {
         return;
     const Item selected = m_items[index];
     hide();
-    if (m_onItemSelected)
-        m_onItemSelected(selected.id, selected.text);
+    m_events.onItemSelected.notify(*this, selected.id, selected.text);
 }
 
 void MRPopupMenu::layoutItems() {

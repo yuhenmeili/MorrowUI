@@ -38,11 +38,29 @@ void testIndependentSelection() {
 void testToggleUpdatesBeforeClickCallback() {
     auto toggle = MRToggle::create();
     bool callbackObservedChecked = false;
-    toggle->setOnClickCallback([&]() { callbackObservedChecked = toggle->isChecked(); });
+    auto clickConnection = toggle->events().onClicked.connect(
+        [&](BaseButton&) { callbackObservedChecked = toggle->isChecked(); });
 
     click(toggle);
     expect(toggle->isChecked(), "clicking a toggle should switch it on");
     expect(callbackObservedChecked, "the toggle state should update before the user click callback");
+}
+
+void testButtonSupportsMultipleObserversAndRemoval() {
+    auto button = MRCheckBox::create();
+    int firstCalls = 0;
+    int secondCalls = 0;
+    auto firstConnection =
+        button->events().onClicked.connect([&](BaseButton&) { ++firstCalls; });
+    auto secondConnection =
+        button->events().onClicked.connect([&](BaseButton&) { ++secondCalls; });
+
+    click(button);
+    firstConnection.disconnect();
+    click(button);
+
+    expect(firstCalls == 1, "disconnect should remove only the owning button observer");
+    expect(secondCalls == 2, "multiple button observers should be notified independently");
 }
 
 void testRadioGroupIsExclusive() {
@@ -68,6 +86,7 @@ void testRadioGroupIsExclusive() {
 int main() {
     testIndependentSelection();
     testToggleUpdatesBeforeClickCallback();
+    testButtonSupportsMultipleObserversAndRemoval();
     testRadioGroupIsExclusive();
 
     if (g_failures != 0) {

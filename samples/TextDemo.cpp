@@ -64,7 +64,11 @@ int main() {
     multiLineEdit->setFontName(fontName);
     multiLineEdit->setFontSize(24.0f);
     multiLineEdit->setPlaceholder(L"输入多行备注，按 Enter 换行");
-    multiLineEdit->setOnTextChangedCallback([](const std::wstring& text) { LOG_I("multi-line text length = {}", text.size()); });
+    auto multiLineChangedConnection =
+        multiLineEdit->events().onTextChanged.connect(
+            [](MRTextEdit&, const std::wstring& text) {
+                LOG_I("multi-line text length = {}", text.size());
+            });
     window->addChild(multiLineEdit);
 
     auto userNameEdit = MRLineEdit::create();
@@ -74,7 +78,11 @@ int main() {
     userNameEdit->setFontSize(23.0f);
     userNameEdit->setPlaceholder(L"用户名（单行，按 Enter 提交）");
     userNameEdit->setMaxLength(24);
-    userNameEdit->setOnSubmitCallback([](const std::wstring& text) { LOG_I("user name submitted, length = {}", text.size()); });
+    auto userNameSubmitConnection =
+        userNameEdit->events().onSubmitted.connect(
+            [](MRTextEdit&, const std::wstring& text) {
+                LOG_I("user name submitted, length = {}", text.size());
+            });
     window->addChild(userNameEdit);
 
     auto passwordEdit = MRLineEdit::create();
@@ -85,7 +93,11 @@ int main() {
     passwordEdit->setPlaceholder(L"密码输入");
     passwordEdit->setPasswordMode(true);
     passwordEdit->setMaxLength(32);
-    passwordEdit->setOnSubmitCallback([](const std::wstring& text) { LOG_I("password submitted, length = {}", text.size()); });
+    auto passwordSubmitConnection =
+        passwordEdit->events().onSubmitted.connect(
+            [](MRTextEdit&, const std::wstring& text) {
+                LOG_I("password submitted, length = {}", text.size());
+            });
     window->addChild(passwordEdit);
 
     window->addChild(createLabel(L"MRLabel 对齐与排版", fontName, 820.0f, 52.0f, 900.0f, 48.0f, 30.0f));

@@ -2,6 +2,7 @@
 #define MORROW_GUI_MRSCROLLCONTAINER_H
 
 #include <memory>
+#include <vector>
 
 #include "MRScrollBar.h"
 
@@ -52,6 +53,8 @@ private:
 
     std::shared_ptr<UIWidget> m_content;
     MRScrollBarSharedPtr m_scrollBar;
+    Observable<MRScrollBar&, float>::Connection m_scrollBarConnection;
+    std::vector<EventConnection> m_inputConnections;
     float m_scrollOffset = 0.0f;
     float m_maxScrollOffset = 0.0f;
     float m_scrollStep = 48.0f;

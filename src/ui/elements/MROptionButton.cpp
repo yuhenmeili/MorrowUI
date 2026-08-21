@@ -14,11 +14,14 @@ MROptionButton::MROptionButton() {
 }
 
 void MROptionButton::setPopupMenu(const MRPopupMenuSharedPtr& menu) {
+    m_menuSelectionConnection.disconnect();
     m_menu = menu;
     if (!m_menu)
         return;
     auto weakSelf = std::weak_ptr<MROptionButton>(std::static_pointer_cast<MROptionButton>(shared_from_this()));
-    m_menu->setOnItemSelectedCallback([weakSelf](int id, const std::wstring& text) {
+    m_menuSelectionConnection =
+        m_menu->events().onItemSelected.connect(
+            [weakSelf](MRPopupMenu&, int id, const std::wstring& text) {
         if (auto self = weakSelf.lock())
             self->handleSelection(id, text);
     });
@@ -49,8 +52,8 @@ void MROptionButton::setSelected(int id) {
     }
 }
 
-void MROptionButton::setOnSelectedCallback(SelectionCallback callback) {
-    m_onSelected = std::move(callback);
+MROptionButton::SelectionEvents& MROptionButton::selectionEvents() {
+    return m_selectionEvents;
 }
 
 void MROptionButton::onActivated() {
@@ -71,8 +74,7 @@ void MROptionButton::handleSelection(int id, const std::wstring& text) {
     m_selectedId = id;
     m_selectedText = text;
     setText(text, "default");
-    if (m_onSelected)
-        m_onSelected(id, text);
+    m_selectionEvents.onSelected.notify(*this, id, text);
 }
 
 }  // namespace morrow

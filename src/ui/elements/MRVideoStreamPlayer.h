@@ -27,12 +27,12 @@ public:
 
     /// 帧提供器。根据帧号写入 width × height × 4 字节 RGBA8 数据，成功返回 true。
     using FrameProvider = std::function<bool(uint64_t, std::vector<unsigned char>&)>;
-    /// 播放状态变化回调。
-    using StateChangedCallback = std::function<void(PlaybackState)>;
-    /// 当前帧变化回调。
-    using FrameChangedCallback = std::function<void(uint64_t)>;
-    /// 非循环播放结束回调。
-    using FinishedCallback = std::function<void()>;
+
+    struct Events {
+        Observable<MRVideoStreamPlayer&, PlaybackState> onStateChanged;
+        Observable<MRVideoStreamPlayer&, uint64_t> onFrameChanged;
+        Observable<MRVideoStreamPlayer&> onFinished;
+    };
 
     /// 创建播放器。
     /// @param width 视频帧宽度
@@ -72,12 +72,8 @@ public:
     double getCurrentTime() const;
     /// 获取视频总时长，单位为秒。
     double getDuration() const;
-    /// 设置播放状态变化回调。
-    void setOnStateChangedCallback(StateChangedCallback callback);
-    /// 设置当前帧变化回调。
-    void setOnFrameChangedCallback(FrameChangedCallback callback);
-    /// 设置非循环播放结束回调。
-    void setOnFinishedCallback(FinishedCallback callback);
+
+    Events& events();
     /// 每帧推进播放时钟并按需提交新的视频帧。
     void update(FrameStateSharedPtr frameState) override;
 
@@ -98,9 +94,7 @@ private:
     bool m_loop = false;
     PlaybackState m_state = PlaybackState::STOPPED;
     FrameProvider m_frameProvider;
-    StateChangedCallback m_onStateChanged;
-    FrameChangedCallback m_onFrameChanged;
-    FinishedCallback m_onFinished;
+    Events m_events;
     MRImageSharedPtr m_surface;
     TextureSharedPtr m_frameTexture;
 };

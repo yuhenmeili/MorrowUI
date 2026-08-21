@@ -5,13 +5,12 @@
 #ifndef BASEBUTTON_H
 #define BASEBUTTON_H
 #include <cstdint>
-#include <functional>
 
+#include "EventDispatcher.h"
 #include "UIWidget.h"
 
 namespace morrow {
 class Interaction;
-using ListenerHandle = uint64_t;
 // 按钮状态枚举
 enum class ButtonState {
     NORMAL,
@@ -23,14 +22,17 @@ enum class ButtonState {
 
 class BaseButton : public UIWidget {
 public:
+    struct Events {
+        Observable<BaseButton&> onClicked;
+        Observable<BaseButton&> onPointerEntered;
+        Observable<BaseButton&> onPointerExited;
+        Observable<BaseButton&> onPressed;
+        Observable<BaseButton&> onReleased;
+    };
+
     BaseButton();
 
-    // 事件回调
-    void setOnClickCallback(std::function<void()> callback);
-
-    void setOnHoverCallback(std::function<void()> callback);
-
-    void setOnLeaveCallback(std::function<void()> callback);
+    Events& events();
 
     // 事件处理
     void onMouseEnter();
@@ -57,20 +59,18 @@ protected:
 
     /// Interaction 事件桥接（RELEASE 只恢复状态；CLICK 才真正触发 onClick 回调）
     void onPointerRelease();
+
     void onPointerClick();
 
-    // 事件回调
-    std::function<void()> m_onClickCallback;
-    std::function<void()> m_onHoverCallback;
-    std::function<void()> m_onLeaveCallback;
+    Events m_events;
 
     // Interaction（默认挂载）
     std::shared_ptr<Interaction> m_interaction;
-    ListenerHandle m_touchHandle = 0;
-    ListenerHandle m_pointerEnterHandle = 0;
-    ListenerHandle m_pointerLeaveHandle = 0;
-    ListenerHandle m_releaseHandle = 0;
-    ListenerHandle m_clickHandle = 0;
+    EventConnection m_touchConnection;
+    EventConnection m_pointerEnterConnection;
+    EventConnection m_pointerLeaveConnection;
+    EventConnection m_releaseConnection;
+    EventConnection m_clickConnection;
 
     // 状态管理
     ButtonState m_currentState = ButtonState::NORMAL;

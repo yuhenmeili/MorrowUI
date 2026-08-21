@@ -12,7 +12,9 @@ std::shared_ptr<MRScrollContainer> MRScrollContainer::create() {
     auto container = std::shared_ptr<MRScrollContainer>(new MRScrollContainer());
     container->addChild(container->m_scrollBar);
     auto weakSelf = std::weak_ptr<MRScrollContainer>(container);
-    container->m_scrollBar->setOnValueChangedCallback([weakSelf](float value) {
+    container->m_scrollBarConnection =
+        container->m_scrollBar->events().onValueChanged.connect(
+            [weakSelf](MRScrollBar&, float value) {
         if (auto self = weakSelf.lock()) {
             self->setScrollOffset(value * self->m_maxScrollOffset);
         }
@@ -85,19 +87,25 @@ void MRScrollContainer::attachInput(const std::shared_ptr<Widget>& widget) {
     auto interaction = widget->getComponent<Interaction>();
     if (!interaction)
         return;
-    interaction->addEventListener(TOUCH_EVENT_TYPE_WHEEL, [this](TouchEvent& event) { scrollBy(-event.wheelDeltaY * m_scrollStep); });
-    interaction->addEventListener(TOUCH_EVENT_TYPE_TOUCH, [this](TouchEvent& event) {
+    m_inputConnections.emplace_back(
+        interaction->addEventListener(
+            TOUCH_EVENT_TYPE_WHEEL,
+            [this](TouchEvent& event) { scrollBy(-event.wheelDeltaY * m_scrollStep); }));
+    m_inputConnections.emplace_back(interaction->addEventListener(TOUCH_EVENT_TYPE_TOUCH, [this](TouchEvent& event) {
         m_dragging = true;
         m_lastDragY = event.positionY;
-    });
-    interaction->addEventListener(TOUCH_EVENT_TYPE_MOVE, [this](TouchEvent& event) {
+    }));
+    m_inputConnections.emplace_back(interaction->addEventListener(TOUCH_EVENT_TYPE_MOVE, [this](TouchEvent& event) {
         if (!m_dragging)
             return;
         const float delta = m_lastDragY - event.positionY;
         m_lastDragY = event.positionY;
         scrollBy(delta);
-    });
-    interaction->addEventListener(TOUCH_EVENT_TYPE_RELEASE, [this](TouchEvent&) { m_dragging = false; });
+    }));
+    m_inputConnections.emplace_back(
+        interaction->addEventListener(
+            TOUCH_EVENT_TYPE_RELEASE,
+            [this](TouchEvent&) { m_dragging = false; }));
 }
 
 void MRScrollContainer::attachInputRecursive(const std::shared_ptr<Widget>& widget) {

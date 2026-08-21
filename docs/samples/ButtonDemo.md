@@ -33,7 +33,10 @@ cmake --build "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw" --target 
 
 ### `BaseButton`
 - 负责按钮通用交互状态管理。
-- 提供 `setOnClickCallback()`、`setOnHoverCallback()` 等回调绑定能力。
+- 通过 `events().onClicked`、`events().onPointerEntered` 和
+  `events().onPointerExited` 提供一对多事件。
+- `connect()` 返回 RAII Connection；调用方需要保存 Connection，析构或
+  `disconnect()` 后自动移除监听。
 - 适合做所有“可点击 UI 控件”的父类基础。
 
 ### `HBoxContainer`

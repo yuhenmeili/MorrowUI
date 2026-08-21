@@ -227,7 +227,7 @@ int main() {
     if (!require(dock.save(dockPath, error), "save dock layout: " + error)) return 1;
     morrow::editor::DockLayout loadedDock;
     if (!require(loadedDock.load(dockPath, error), "load dock layout: " + error)) return 1;
-    if (!require(loadedDock.find("viewport") != nullptr && loadedDock.find("viewport")->width == 740.0f,
+    if (!require(loadedDock.find("viewport") != nullptr && loadedDock.find("viewport")->width == 670.0f,
                  "dock layout persistence")) return 1;
 
     const auto sessionScene = temporaryDirectory / "session.scene";

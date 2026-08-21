@@ -31,7 +31,7 @@ MRScrollBar::MRScrollBar() : UIWidget(false) {
 
     auto interaction = addComponent<Interaction>();
     interaction->setClickEnabled(false);
-    interaction->addEventListener(TOUCH_EVENT_TYPE_TOUCH, [this](TouchEvent& event) {
+    m_touchConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_TOUCH, [this](TouchEvent& event) {
         const auto bounds = m_thumb->getScreenSpaceAABB();
         if (bounds.Contains(event.positionX, event.positionY)) {
             m_dragging = true;
@@ -40,12 +40,14 @@ MRScrollBar::MRScrollBar() : UIWidget(false) {
             updateValueFromThumbCenter(event.positionY);
         }
     });
-    interaction->addEventListener(TOUCH_EVENT_TYPE_MOVE, [this](TouchEvent& event) {
+    m_moveConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_MOVE, [this](TouchEvent& event) {
         if (m_dragging) {
             updateValueFromThumbCenter(event.positionY - m_dragCenterOffset);
         }
     });
-    interaction->addEventListener(TOUCH_EVENT_TYPE_RELEASE, [this](TouchEvent&) { m_dragging = false; });
+    m_releaseConnection = interaction->addEventListener(
+        TOUCH_EVENT_TYPE_RELEASE,
+        [this](TouchEvent&) { m_dragging = false; });
 }
 
 void MRScrollBar::setValue(float value) {
@@ -54,8 +56,7 @@ void MRScrollBar::setValue(float value) {
         return;
     m_value = clamped;
     updateThumb();
-    if (m_onValueChanged)
-        m_onValueChanged(m_value);
+    m_events.onValueChanged.notify(*this, m_value);
 }
 
 void MRScrollBar::setPageRatio(float ratio) {
@@ -71,8 +72,8 @@ void MRScrollBar::setThumbColor(const Vector4& color) {
     m_thumb->setColor(color);
 }
 
-void MRScrollBar::setOnValueChangedCallback(ValueChangedCallback callback) {
-    m_onValueChanged = std::move(callback);
+MRScrollBar::Events& MRScrollBar::events() {
+    return m_events;
 }
 
 void MRScrollBar::updateThumb() {

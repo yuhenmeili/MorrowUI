@@ -15,8 +15,8 @@ void MRSelectableButton::setChecked(bool checked) {
     onCheckedChanged(m_checked);
 }
 
-void MRSelectableButton::setOnCheckedChangedCallback(CheckedCallback callback) {
-    m_onCheckedChanged = std::move(callback);
+MRSelectableButton::SelectionEvents& MRSelectableButton::selectionEvents() {
+    return m_selectionEvents;
 }
 
 void MRSelectableButton::setCheckedColor(const Vector4& color) {
@@ -69,8 +69,7 @@ void MRSelectableButton::updateVisualState() {
 }
 
 void MRSelectableButton::onCheckedChanged(bool checked) {
-    if (m_onCheckedChanged)
-        m_onCheckedChanged(checked);
+    m_selectionEvents.onCheckedChanged.notify(*this, checked);
 }
 
 }  // namespace morrow

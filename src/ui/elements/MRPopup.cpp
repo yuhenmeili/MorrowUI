@@ -51,16 +51,15 @@ void MRPopup::hide() {
 void MRPopup::closeInternal() {
     m_open = false;
     setVisible(false);
-    if (m_onClosed)
-        m_onClosed();
+    m_popupEvents.onClosed.notify(*this);
 }
 
 bool MRPopup::isOpen() const {
     return m_open;
 }
 
-void MRPopup::setOnClosedCallback(std::function<void()> callback) {
-    m_onClosed = std::move(callback);
+MRPopup::PopupEvents& MRPopup::popupEvents() {
+    return m_popupEvents;
 }
 
 MRPopupPanel::MRPopupPanel() : MRPopup("MRPopupPanel") {
@@ -123,7 +122,8 @@ MRWindow::MRWindow() : MRPopupPanel() {
     m_closeButton->setBackgroundColor(0.88f, 0.91f, 0.95f, 1.0f);
     m_closeButton->setHoverColor(Vector4(0.78f, 0.84f, 0.92f, 1.0f));
     m_closeButton->setCornerRadius(5.0f);
-    m_closeButton->setOnClickCallback([this]() { hide(); });
+    m_closeConnection = m_closeButton->events().onClicked.connect(
+        [this](BaseButton&) { hide(); });
     m_closeButton->getComponent<Transform>()->setPosition(m_panelWidth - 92.0f, 16.0f, 0.0f);
     m_closeButton->getComponent<Transform>()->setSize(72.0f, 38.0f);
     layoutPanel();
@@ -165,13 +165,13 @@ MRDialog::MRDialog() : MRWindow() {
     }
     m_confirmButton->setText(L"确认", "default");
     m_cancelButton->setText(L"取消", "default");
-    m_confirmButton->setOnClickCallback([this]() {
+    m_confirmConnection = m_confirmButton->events().onClicked.connect([this](BaseButton&) {
         hide();
-        if (m_onConfirmed) m_onConfirmed();
+        m_dialogEvents.onConfirmed.notify(*this);
     });
-    m_cancelButton->setOnClickCallback([this]() {
+    m_cancelConnection = m_cancelButton->events().onClicked.connect([this](BaseButton&) {
         hide();
-        if (m_onCanceled) m_onCanceled();
+        m_dialogEvents.onCanceled.notify(*this);
     });
     layoutPanel();
     m_message->getComponent<Transform>()->setPosition(20.0f, 78.0f, 0.0f);
@@ -213,12 +213,8 @@ void MRDialog::setCancelText(const std::wstring& text) {
     m_cancelButton->setText(text, "default");
 }
 
-void MRDialog::setOnConfirmedCallback(std::function<void()> callback) {
-    m_onConfirmed = std::move(callback);
-}
-
-void MRDialog::setOnCanceledCallback(std::function<void()> callback) {
-    m_onCanceled = std::move(callback);
+MRDialog::DialogEvents& MRDialog::dialogEvents() {
+    return m_dialogEvents;
 }
 
 MRTooltip::MRTooltip() : MRPopupPanel() {

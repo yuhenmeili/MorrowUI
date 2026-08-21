@@ -1,7 +1,6 @@
 #ifndef MORROW_GUI_MRSPINBOX_H
 #define MORROW_GUI_MRSPINBOX_H
 
-#include <functional>
 #include <memory>
 #include <string>
 
@@ -13,8 +12,9 @@ namespace morrow {
 
 class MRSpinBox : public UIWidget {
 public:
-    /// 数值变化回调。
-    using ValueChangedCallback = std::function<void(double)>;
+    struct Events {
+        Observable<MRSpinBox&, double> onValueChanged;
+    };
 
     /// 创建一个数值步进输入控件。
     static std::shared_ptr<MRSpinBox> create();
@@ -59,8 +59,7 @@ public:
     /// 设置增减按钮是否可用。
     void setEnabled(bool enabled);
 
-    /// 设置数值变化回调。
-    void setOnValueChangedCallback(ValueChangedCallback callback);
+    Events& events();
 
 private:
     MRSpinBox();
@@ -77,7 +76,9 @@ private:
     std::shared_ptr<MRButton> m_decreaseButton;
     std::shared_ptr<MRButton> m_increaseButton;
     std::shared_ptr<MRLabel> m_valueLabel;
-    ValueChangedCallback m_onValueChanged;
+    Events m_events;
+    Observable<BaseButton&>::Connection m_decreaseConnection;
+    Observable<BaseButton&>::Connection m_increaseConnection;
     double m_minimum = 0.0;
     double m_maximum = 100.0;
     double m_step = 1.0;
