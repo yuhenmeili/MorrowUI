@@ -86,9 +86,9 @@ public:
 private:
     Scene3DAsyncLoader(EngineSharedPtr engine, const std::shared_ptr<MR3DSceneView>& scene3DView);
 
-    void attachPreRenderObserver();
+    void attachFrameBeginObserver();
 
-    void detachPreRenderObserver();
+    void detachFrameBeginObserver();
 
     void handleWorkerCompletion(uint64_t generation, WorkerPayload payload, const std::string& error);
 
@@ -97,7 +97,7 @@ private:
     mutable std::mutex m_mutex;
     EngineSharedPtr m_engine;
     std::weak_ptr<MR3DSceneView> m_scene3DView;
-    std::string m_preRenderObserverId;
+    Observable<>::Connection m_frameBeginConnection;
 
     uint64_t m_generation = 0;
     bool m_loading = false;

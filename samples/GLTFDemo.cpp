@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
     // auto radius = 10.0f; // 相机到原点的距离
     // auto height = 3.0f; // Y 坐标（高度）
     // float angle = 0.0f; // 初始角度
-    // engine->preRender().add([&]() {
+    // auto frameBeginConnection = engine->events().onFrameBegin.connect([&]() {
     //     // 每帧更新角度，控制旋转速度
     //     angle += 0.01f; // 可根据需要调整旋转速度
     //     // radius -= 0.001f;

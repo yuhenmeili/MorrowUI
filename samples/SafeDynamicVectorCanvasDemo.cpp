@@ -53,7 +53,7 @@ int main() {
     // -----------------------------------------------------------------------
     int frameCount = 0;
 
-    engine->preRender().add([&, winW, winH]() {
+    auto frameBeginConnection = engine->events().onFrameBegin.connect([&, winW, winH]() {
         frameCount++;
         canvas->clear();
 

@@ -15,7 +15,7 @@ namespace morrow {
 std::shared_ptr<Scene3DAsyncLoader> Scene3DAsyncLoader::create(const EngineSharedPtr& engine,
                                                                const std::shared_ptr<MR3DSceneView>& scene3DView) {
     auto loader = std::shared_ptr<Scene3DAsyncLoader>(new Scene3DAsyncLoader(engine, scene3DView));
-    loader->attachPreRenderObserver();
+    loader->attachFrameBeginObserver();
     return loader;
 }
 
@@ -27,25 +27,22 @@ Scene3DAsyncLoader::Scene3DAsyncLoader(EngineSharedPtr engine,
 
 Scene3DAsyncLoader::~Scene3DAsyncLoader() {
     cancel();
-    detachPreRenderObserver();
+    detachFrameBeginObserver();
 }
 
-void Scene3DAsyncLoader::attachPreRenderObserver() {
-    if (!m_engine || !m_preRenderObserverId.empty()) return;
+void Scene3DAsyncLoader::attachFrameBeginObserver() {
+    if (!m_engine || m_frameBeginConnection.connected()) return;
 
     std::weak_ptr<Scene3DAsyncLoader> weakSelf = shared_from_this();
-    m_preRenderObserverId = m_engine->preRender().add([weakSelf]() {
+    m_frameBeginConnection = m_engine->events().onFrameBegin.connect([weakSelf]() {
         if (auto self = weakSelf.lock()) {
             self->pumpPendingResult();
         }
     });
 }
 
-void Scene3DAsyncLoader::detachPreRenderObserver() {
-    if (!m_engine || m_preRenderObserverId.empty()) return;
-
-    m_engine->preRender().remove(m_preRenderObserverId);
-    m_preRenderObserverId.clear();
+void Scene3DAsyncLoader::detachFrameBeginObserver() {
+    m_frameBeginConnection.disconnect();
 }
 
 void Scene3DAsyncLoader::load(const AsyncLoadStarter& asyncLoadStarter,
@@ -88,7 +85,7 @@ void Scene3DAsyncLoader::load(const AsyncLoadStarter& asyncLoadStarter,
     }
 
     cancel();
-    attachPreRenderObserver();
+    attachFrameBeginObserver();
 
     uint64_t generation = 0;
     auto onStarted = options.onStarted;
@@ -211,7 +208,7 @@ void Scene3DAsyncLoader::cancel() {
     m_pendingError.clear();
     m_mainThreadApply = {};
     m_activeOptions = {};
-    detachPreRenderObserver();
+    detachFrameBeginObserver();
 }
 
 bool Scene3DAsyncLoader::isLoading() const {
@@ -286,7 +283,7 @@ void Scene3DAsyncLoader::pumpPendingResult() {
             onError = activeOptions.onError;
         }
 
-        detachPreRenderObserver();
+        detachFrameBeginObserver();
 
         if (!activeOptions.debugLabel.empty()) {
             LOG_E("Scene3DAsyncLoader [{}]: {}", activeOptions.debugLabel, failure);
@@ -315,7 +312,7 @@ void Scene3DAsyncLoader::pumpPendingResult() {
             onLoaded = activeOptions.onLoaded;
         }
 
-        detachPreRenderObserver();
+        detachFrameBeginObserver();
 
         if (!activeOptions.debugLabel.empty()) {
             LOG_I("Scene3DAsyncLoader [{}]: scene applied", activeOptions.debugLabel);

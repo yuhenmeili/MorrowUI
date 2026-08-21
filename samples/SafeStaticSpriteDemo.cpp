@@ -139,7 +139,7 @@ int main() {
     int frameCount = 0;
     int lastHundreds = -1, lastTens = -1, lastOnes = -1, lastGear = -1;
 
-    engine->preRender().add([&]() {
+    auto frameBeginConnection = engine->events().onFrameBegin.connect([&]() {
         frameCount++;
 
         // ---- 模拟时速变化（百位、十位、个位）----

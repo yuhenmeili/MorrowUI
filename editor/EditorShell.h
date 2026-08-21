@@ -13,6 +13,7 @@
 #include "assets/ImportQueue.h"
 #include "base/UIWidget.h"
 #include "build/BuildQueue.h"
+#include "core/Observable.h"
 #include "ProjectSettings.h"
 #include "scene/EditorSession.h"
 #include "ui/DockLayout.h"
@@ -98,7 +99,7 @@ private:
     PreviewState m_previewState = PreviewState::Stopped;
     std::string m_stdoutRemainder;
     std::string m_stderrRemainder;
-    std::string m_inputObserver;
+    Observable<std::vector<TouchEvent>&>::Connection m_inputConnection;
     std::string m_status;
     std::string m_selectedNodeId;
     bool m_dragging = false;

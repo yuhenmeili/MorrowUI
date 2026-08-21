@@ -76,6 +76,11 @@ foreach(FILE_PATH ${DEMO_LIST})
 endforeach()
 
 if(BUILD_TESTING)
+    add_executable(ObservableTests tests/ObservableTests.cpp)
+    target_include_directories(ObservableTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(ObservableTests morrow_utils)
+    add_test(NAME ObservableTests COMMAND ObservableTests)
+
     add_executable(BatchBuilderTests tests/BatchBuilderTests.cpp src/core/BatchBuilder.cpp)
     target_include_directories(BatchBuilderTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME BatchBuilderTests COMMAND BatchBuilderTests)

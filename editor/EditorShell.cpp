@@ -98,9 +98,7 @@ EditorShell::EditorShell(const std::shared_ptr<Window>& window, const std::share
 EditorShell::~EditorShell() {
     if (m_buildFuture.valid())
         m_buildFuture.wait();
-    if (!m_inputObserver.empty() && m_engine && m_engine->getFrameState() && m_engine->getFrameState()->inputEventsManager) {
-        m_engine->getFrameState()->inputEventsManager->getResolvedInputEventsDispatcher().remove(m_inputObserver);
-    }
+    m_inputConnection.disconnect();
     if (m_window) {
         auto* glfwWindow = static_cast<GLFWwindow*>(m_window->getSurface());
         if (glfwWindow)
@@ -783,7 +781,7 @@ bool EditorShell::initialize(std::string& error) {
         }
     }
     if (m_engine && m_engine->getFrameState() && m_engine->getFrameState()->inputEventsManager) {
-        m_inputObserver = m_engine->getFrameState()->inputEventsManager->getResolvedInputEventsDispatcher().add(
+        m_inputConnection = m_engine->getFrameState()->inputEventsManager->getResolvedInputEventsDispatcher().connect(
             [this](std::vector<TouchEvent>& events) { handleInput(events); });
     }
     setStatus("Ready");

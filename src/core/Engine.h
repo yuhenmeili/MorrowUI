@@ -2,6 +2,7 @@
 #define MORROW_ENGINE_H_
 
 #include "FrameState.h"
+#include "EngineEvents.h"
 #include "OrthographicCamera.h"
 #include "FPSController.h"
 #include "Platform.h"
@@ -38,11 +39,9 @@ public:
 
     void setFPS(int32_t fps);
 
-    Observable<>& preRender();
+    EngineEvents& events();
 
     void render();
-
-    Observable<>& afterRender();
 
     bool writeObjectSnapshot(const std::string& path) const;
 
@@ -55,8 +54,7 @@ private:
 
     void processObjectSnapshotCommand();
 
-    Observable<> m_preRender;
-    Observable<> m_afterRender;
+    EngineEvents m_events;
 
     //debug
     double m_lastHeartbeatTime = 0.0;

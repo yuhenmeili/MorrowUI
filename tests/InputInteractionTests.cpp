@@ -102,7 +102,8 @@ void testPointerBoundaryEvents() {
     auto frameState = std::make_shared<FrameState>();
     frameState->inputEventsManager = platform->getInputManager();
     size_t observedResolvedEventCount = 0;
-    frameState->inputEventsManager->getResolvedInputEventsDispatcher().add([&](std::vector<TouchEvent>& events) { observedResolvedEventCount = events.size(); });
+    auto inputConnection = frameState->inputEventsManager->getResolvedInputEventsDispatcher().connect(
+        [&](std::vector<TouchEvent>& events) { observedResolvedEventCount = events.size(); });
 
     TouchEvent move;
     move.touchID = -1;

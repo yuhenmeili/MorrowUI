@@ -187,7 +187,7 @@ int main() {
     constexpr int kMsgCount = sizeof(warningMessages) / sizeof(warningMessages[0]);
     int frameCount = 0;
 
-    engine->preRender().add([&]() {
+    auto frameBeginConnection = engine->events().onFrameBegin.connect([&]() {
         frameCount++;
         // 每 2 秒切换一次
         int msgIdx = (frameCount / 120) % kMsgCount;

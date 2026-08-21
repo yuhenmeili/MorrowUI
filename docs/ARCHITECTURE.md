@@ -199,7 +199,7 @@ Platform::beginFrame
     ↓
 Platform::dispatchEvents
     ↓
-Engine::preRender
+EngineEvents::onFrameBegin
     ↓
 TweenManager::update
     ↓
@@ -211,9 +211,9 @@ Platform::lateUpdateWidgets
     ↓
 Platform::commitRenderPass
     ↓
-Debug / afterRender
+Debug / Platform::endFrame / one-shot frame callbacks
     ↓
-Platform::endFrame
+EngineEvents::onFrameEnd
 ```
 
 ### 5.1 输入阶段

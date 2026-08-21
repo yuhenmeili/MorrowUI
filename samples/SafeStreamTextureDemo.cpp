@@ -178,7 +178,7 @@ int main() {
     // -----------------------------------------------------------------------
     int frameCount = 0;
 
-    engine->preRender().add([&]() {
+    auto frameBeginConnection = engine->events().onFrameBegin.connect([&]() {
 #ifdef OPENGL_EGL
         // OES/EGLImage directly references the submitted buffer. Keep three
         // buffers in rotation and only reuse one after the GPU fence callback.

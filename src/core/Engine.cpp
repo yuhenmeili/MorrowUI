@@ -83,8 +83,8 @@ void Engine::setFPS(int32_t fps) {
     m_fpsController->setFPS(fps);
 }
 
-Observable<>& Engine::preRender() {
-    return m_preRender;
+EngineEvents& Engine::events() {
+    return m_events;
 }
 
 void Engine::render() {
@@ -113,7 +113,7 @@ void Engine::render() {
         }
 
         // ── 阶段 2: 动画准备 ──
-        m_preRender.notify();
+        m_events.onFrameBegin.notify();
         TweenManager::getInstance().update(m_frameState);
 
         // ── 阶段 3: 渲染管线 ──
@@ -127,10 +127,10 @@ void Engine::render() {
         ObjectRegistry::getInstance().setCurrentFrame(m_frameState->frameNumber);
         heartbeat();
         m_debugPlane->update(m_frameState);
-        m_afterRender.notify();
         m_platform->endFrame();
 
         callAfterRenderFunctions();
+        m_events.onFrameEnd.notify();
         ++renderedFrameCount;
         if (m_maxFrames > 0 && renderedFrameCount >= m_maxFrames) {
             break;
@@ -141,10 +141,6 @@ void Engine::render() {
         writeObjectSnapshot(m_objectSnapshotPath);
     }
     m_platform->terminate();
-}
-
-Observable<>& Engine::afterRender() {
-    return m_afterRender;
 }
 
 bool Engine::writeObjectSnapshot(const std::string& path) const {
