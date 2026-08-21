@@ -76,6 +76,12 @@ foreach(FILE_PATH ${DEMO_LIST})
 endforeach()
 
 if(BUILD_TESTING)
+    if(MORROW_ENABLE_DEBUG_OVERLAY)
+        add_executable(DebugOverlayTests tests/DebugOverlayTests.cpp)
+        target_link_libraries(DebugOverlayTests morrow)
+        add_test(NAME DebugOverlayTests COMMAND DebugOverlayTests)
+    endif()
+
     add_executable(MainThreadDispatcherTests
         tests/MainThreadDispatcherTests.cpp
         src/core/MainThreadDispatcher.cpp)

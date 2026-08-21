@@ -894,7 +894,11 @@ Present
 
 > 当前状态：非短期。短期优化先使用固定场景、现有 Batch 统计和局部计时验证。
 
-已有：`DebugPlane` 显示 FPS、Batch 统计（cache hit/miss、break reason 计数、Draw Call 计数）。缺失各阶段耗时分离。
+已有：`DebugPlane` 显示 FPS、Batch 统计（cache hit/miss、break reason 计数、
+Draw Call 计数），默认隐藏且关闭时不更新文字。Windows runtime 和 MorrowEditor
+可按 `F3` 切换；也可通过 `EngineOptions::debugOverlayVisible` 设置初始状态。
+`MORROW_ENABLE_DEBUG_OVERLAY=OFF` 会在 CMake 配置阶段移除 `DebugPlane.cpp` 并
+裁掉 Engine 快捷键处理。当前仍缺失各阶段耗时分离。
 
 需要建立统一、低开销的性能统计：
 

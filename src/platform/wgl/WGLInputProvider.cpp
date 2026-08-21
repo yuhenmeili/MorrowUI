@@ -228,6 +228,8 @@ void WGLInputProvider::character_callback(GLFWwindow* window, unsigned int codep
 void WGLInputProvider::key_callback(GLFWwindow* window, int key, int /*scancode*/, int action, int mods) {
     if (action != GLFW_PRESS && action != GLFW_REPEAT)
         return;
+    if (key == GLFW_KEY_F3 && action != GLFW_PRESS)
+        return;
     auto it = getProviderRegistry().find(window);
     if (it == getProviderRegistry().end() || !it->second)
         return;
@@ -258,6 +260,9 @@ void WGLInputProvider::key_callback(GLFWwindow* window, int key, int /*scancode*
             break;
         case GLFW_KEY_TAB:
             mappedKey = TOUCH_KEY_TAB;
+            break;
+        case GLFW_KEY_F3:
+            mappedKey = TOUCH_KEY_F3;
             break;
         default:
             break;

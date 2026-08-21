@@ -10,7 +10,9 @@
 #include "ui/base/Widget.h"
 #include "GlobalObject.h"
 #include "PlatformFactory.h"
+#if MORROW_ENABLE_DEBUG_OVERLAY
 #include "debug/DebugPlane.h"
+#endif
 #include "ui/helpers/Tween.h"
 #include "debug/ObjectRegistry.h"
 #include "renderer/device/RenderDeviceProxy.h"
@@ -66,8 +68,15 @@ Engine::Engine(const EngineOptions& options) {
     // m_frameState->esContext = m_esContext;
     m_frameState->camera = m_camera;
     m_frameState->inputEventsManager = m_platform->getInputManager();
+#if MORROW_ENABLE_DEBUG_OVERLAY
     m_debugPlane = std::make_shared<DebugPlane>();
     m_debugPlane->initialize(m_platform->getWindow());
+    m_debugPlane->setVisible(options.debugOverlayVisible);
+#else
+    if (options.debugOverlayVisible) {
+        LOG_W("debugOverlayVisible ignored because MORROW_ENABLE_DEBUG_OVERLAY=OFF");
+    }
+#endif
 }
 
 Engine::~Engine() {
@@ -99,6 +108,32 @@ MainThreadDispatcher& Engine::mainThreadDispatcher() {
     return m_mainThreadDispatcher;
 }
 
+void Engine::setDebugOverlayVisible(bool visible) {
+#if MORROW_ENABLE_DEBUG_OVERLAY
+    if (m_debugPlane) {
+        m_debugPlane->setVisible(visible);
+    }
+#else
+    (void)visible;
+#endif
+}
+
+void Engine::toggleDebugOverlay() {
+#if MORROW_ENABLE_DEBUG_OVERLAY
+    if (m_debugPlane) {
+        m_debugPlane->toggleVisible();
+    }
+#endif
+}
+
+bool Engine::isDebugOverlayVisible() const {
+#if MORROW_ENABLE_DEBUG_OVERLAY
+    return m_debugPlane && m_debugPlane->isVisible();
+#else
+    return false;
+#endif
+}
+
 void Engine::render() {
     m_lastHeartbeatTime = Math::getCurrentMonotonicTime();
     uint32_t renderedFrameCount = 0;
@@ -111,6 +146,7 @@ void Engine::render() {
         if (!m_platform->beginFrame(m_frameState)) {
             break;
         }
+        processDebugShortcuts();
         m_platform->dispatchEvents(m_frameState);
         if (m_platform->shouldClose()) {
             break;
@@ -139,7 +175,11 @@ void Engine::render() {
         m_frameState->frameNumber++;
         ObjectRegistry::getInstance().setCurrentFrame(m_frameState->frameNumber);
         heartbeat();
-        m_debugPlane->update(m_frameState);
+#if MORROW_ENABLE_DEBUG_OVERLAY
+        if (m_debugPlane) {
+            m_debugPlane->update(m_frameState);
+        }
+#endif
         m_platform->endFrame();
 
         callAfterRenderFunctions();
@@ -223,6 +263,21 @@ void Engine::processObjectSnapshotCommand() {
         return;
     }
     writeObjectSnapshot(path);
+}
+
+void Engine::processDebugShortcuts() {
+#if MORROW_ENABLE_DEBUG_OVERLAY
+    if (!m_frameState || !m_frameState->inputEventsManager) {
+        return;
+    }
+    for (const auto& event : m_frameState->inputEventsManager->getInputEvents()) {
+        if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN &&
+            event.keyCode == TOUCH_KEY_F3) {
+            toggleDebugOverlay();
+            return;
+        }
+    }
+#endif
 }
 
 void Engine::updateFrameState() {

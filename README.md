@@ -68,6 +68,15 @@ sudo apt install -y libglfw3-dev pkg-config
 
 ## Build Instructions
 
+### Runtime debug overlay
+
+The FPS/batch debug overlay is compiled by default but starts hidden.
+
+- Press `F3` to toggle it at runtime on Windows desktop and in MorrowEditor.
+- Set `EngineOptions::debugOverlayVisible = true` to show it on startup.
+- Configure with `-DMORROW_ENABLE_DEBUG_OVERLAY=OFF` to remove the overlay
+  implementation and shortcut handling from the runtime build.
+
 ### 1) Linux (native)
 
 ```bash

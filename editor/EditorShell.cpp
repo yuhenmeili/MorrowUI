@@ -747,6 +747,13 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
 }
 
 void EditorShell::handleKey(int key, int action, int mods) {
+    if (key == GLFW_KEY_F3 && action == GLFW_PRESS) {
+        if (m_engine) {
+            m_engine->toggleDebugOverlay();
+        }
+        return;
+    }
+
     if (action != GLFW_PRESS && action != GLFW_REPEAT)
         return;
     if (!m_editProperty.empty()) {

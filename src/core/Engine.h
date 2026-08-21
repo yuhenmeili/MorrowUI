@@ -20,6 +20,7 @@ struct EngineOptions {
     bool enableRequestRender = false;
     int32_t samples = 1;
     uint32_t maxFrames = 0; // 0 = run until the platform window closes
+    bool debugOverlayVisible = false;
     std::string objectSnapshotPath;
     std::string objectSnapshotCommandPath;
     WindowInfo windowInfo = {};
@@ -44,6 +45,12 @@ public:
 
     MainThreadDispatcher& mainThreadDispatcher();
 
+    void setDebugOverlayVisible(bool visible);
+
+    void toggleDebugOverlay();
+
+    [[nodiscard]] bool isDebugOverlayVisible() const;
+
     void render();
 
     bool writeObjectSnapshot(const std::string& path) const;
@@ -56,6 +63,8 @@ private:
     void heartbeat();
 
     void processObjectSnapshotCommand();
+
+    void processDebugShortcuts();
 
     EngineEvents m_events;
     MainThreadDispatcher m_mainThreadDispatcher;

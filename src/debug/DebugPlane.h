@@ -17,10 +17,20 @@ public:
 
     void update(std::shared_ptr<FrameState> frame_state);
 
+    void setVisible(bool visible);
+
+    void toggleVisible();
+
+    [[nodiscard]] bool isVisible() const;
+
 private:
+    void applyVisibility();
+
     std::shared_ptr<MRLabel> m_frameLabel;
 
     std::shared_ptr<MRLabel> m_batchLabel;
+
+    bool m_visible = false;
 };
 
 } // morrow
