@@ -40,6 +40,12 @@ add_custom_command(TARGET MorrowEditor POST_BUILD
 )
 
 if(BUILD_TESTING)
+    add_executable(EditorEventsTests
+        ${CMAKE_SOURCE_DIR}/tests/EditorEventsTests.cpp
+    )
+    target_link_libraries(EditorEventsTests PRIVATE morrow_editor_document morrow)
+    add_test(NAME EditorEventsTests COMMAND EditorEventsTests)
+
     add_executable(SceneDocumentTests
         ${CMAKE_SOURCE_DIR}/tests/SceneDocumentTests.cpp
     )

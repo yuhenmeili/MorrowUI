@@ -4,6 +4,7 @@
 
 #include "Scene3DAsyncLoader.h"
 
+#include <exception>
 #include <utility>
 
 #include "GLTFAnimationController.h"
@@ -12,57 +13,31 @@
 #include "Log.h"
 
 namespace morrow {
-std::shared_ptr<Scene3DAsyncLoader> Scene3DAsyncLoader::create(const EngineSharedPtr& engine,
-                                                               const std::shared_ptr<MR3DSceneView>& scene3DView) {
-    auto loader = std::shared_ptr<Scene3DAsyncLoader>(new Scene3DAsyncLoader(engine, scene3DView));
-    loader->attachFrameBeginObserver();
-    return loader;
+std::shared_ptr<Scene3DAsyncLoader> Scene3DAsyncLoader::create(const EngineSharedPtr& engine, const std::shared_ptr<MR3DSceneView>& scene3DView) {
+    return std::shared_ptr<Scene3DAsyncLoader>(new Scene3DAsyncLoader(engine, scene3DView));
 }
 
-Scene3DAsyncLoader::Scene3DAsyncLoader(EngineSharedPtr engine,
-                                       const std::shared_ptr<MR3DSceneView>& scene3DView)
-    : m_engine(std::move(engine)),
-      m_scene3DView(scene3DView) {
+Scene3DAsyncLoader::Scene3DAsyncLoader(EngineSharedPtr engine, const std::shared_ptr<MR3DSceneView>& scene3DView) : m_engine(std::move(engine)), m_scene3DView(scene3DView) {
 }
 
 Scene3DAsyncLoader::~Scene3DAsyncLoader() {
     cancel();
-    detachFrameBeginObserver();
 }
 
-void Scene3DAsyncLoader::attachFrameBeginObserver() {
-    if (!m_engine || m_frameBeginConnection.connected()) return;
-
-    std::weak_ptr<Scene3DAsyncLoader> weakSelf = shared_from_this();
-    m_frameBeginConnection = m_engine->events().onFrameBegin.connect([weakSelf]() {
-        if (auto self = weakSelf.lock()) {
-            self->pumpPendingResult();
-        }
-    });
-}
-
-void Scene3DAsyncLoader::detachFrameBeginObserver() {
-    m_frameBeginConnection.disconnect();
-}
-
-void Scene3DAsyncLoader::load(const AsyncLoadStarter& asyncLoadStarter,
-                              MainThreadApply mainThreadApply,
-                              Scene3DAsyncLoadOptions options) {
+void Scene3DAsyncLoader::load(const AsyncLoadStarter& asyncLoadStarter, MainThreadApply mainThreadApply, Scene3DAsyncLoadOptions options) {
     if (!asyncLoadStarter || !mainThreadApply) {
         const std::string error = "Scene3DAsyncLoader requires both asyncLoadStarter and mainThreadApply";
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_loading = false;
-            m_ready = false;
             m_status = Status::Failed;
             m_lastError = error;
-            m_pendingPayload.reset();
-            m_pendingError.clear();
             m_mainThreadApply = {};
             m_activeOptions = {};
         }
         LOG_E("Scene3DAsyncLoader: {}", error);
-        if (options.onError) options.onError(error);
+        if (options.onError)
+            options.onError(error);
         return;
     }
 
@@ -71,21 +46,18 @@ void Scene3DAsyncLoader::load(const AsyncLoadStarter& asyncLoadStarter,
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_loading = false;
-            m_ready = false;
             m_status = Status::Failed;
             m_lastError = error;
-            m_pendingPayload.reset();
-            m_pendingError.clear();
             m_mainThreadApply = {};
             m_activeOptions = {};
         }
         LOG_E("Scene3DAsyncLoader: {}", error);
-        if (options.onError) options.onError(error);
+        if (options.onError)
+            options.onError(error);
         return;
     }
 
     cancel();
-    attachFrameBeginObserver();
 
     uint64_t generation = 0;
     auto onStarted = options.onStarted;
@@ -95,10 +67,7 @@ void Scene3DAsyncLoader::load(const AsyncLoadStarter& asyncLoadStarter,
         ++m_generation;
         generation = m_generation;
         m_loading = true;
-        m_ready = false;
         m_status = Status::Loading;
-        m_pendingPayload.reset();
-        m_pendingError.clear();
         m_mainThreadApply = std::move(mainThreadApply);
         m_activeOptions = std::move(options);
         m_lastError.clear();
@@ -110,7 +79,8 @@ void Scene3DAsyncLoader::load(const AsyncLoadStarter& asyncLoadStarter,
         LOG_I("Scene3DAsyncLoader: start generation {}", generation);
     }
 
-    if (onStarted) onStarted();
+    if (onStarted)
+        onStarted();
 
     std::weak_ptr<Scene3DAsyncLoader> weakSelf = shared_from_this();
     asyncLoadStarter([weakSelf, generation](WorkerPayload payload, const std::string& error) mutable {
@@ -124,8 +94,7 @@ void Scene3DAsyncLoader::loadGLTF(const std::string& modelPath) {
     loadGLTF(modelPath, GLTFLoadOptions{});
 }
 
-void Scene3DAsyncLoader::loadGLTF(const std::string& modelPath,
-                                  const GLTFLoadOptions& options) {
+void Scene3DAsyncLoader::loadGLTF(const std::string& modelPath, const GLTFLoadOptions& options) {
     GLTFLoadOptions resolvedOptions = options;
     auto shaderName = resolvedOptions.shaderName.empty() ? std::string("gltf_pbr") : resolvedOptions.shaderName;
     auto onSceneBuilt = std::move(resolvedOptions.onSceneBuilt);
@@ -138,8 +107,7 @@ void Scene3DAsyncLoader::loadGLTF(const std::string& modelPath,
 
     load(
         [modelPath](Completion completion) {
-            GLTFLoader::loadAsync(modelPath, [completion = std::move(completion)](const std::shared_ptr<GLTFScene>& scene,
-                                                                                  const std::string& error) mutable {
+            GLTFLoader::loadAsync(modelPath, [completion = std::move(completion)](const std::shared_ptr<GLTFScene>& scene, const std::string& error) mutable {
                 completion(std::static_pointer_cast<void>(scene), error);
             });
         },
@@ -159,24 +127,13 @@ void Scene3DAsyncLoader::loadGLTF(const std::string& modelPath,
 
             result.hasBounds = GLTFSceneBuilder::computeBounds(gltfScene, result.boundsMin, result.boundsMax);
             if (result.hasBounds && normalization.enabled) {
-                const Scene3DNormalizationResult normalized =
-                    calculateScene3DNormalization(
-                        result.boundsMin,
-                        result.boundsMax,
-                        normalization);
+                const Scene3DNormalizationResult normalized = calculateScene3DNormalization(result.boundsMin, result.boundsMax, normalization);
                 if (normalized.applied) {
                     if (auto transform = result.sceneRoot->getTransform()) {
-                        transform->setLocalScale(
-                            normalized.uniformScale,
-                            normalized.uniformScale,
-                            normalized.uniformScale);
+                        transform->setLocalScale(normalized.uniformScale, normalized.uniformScale, normalized.uniformScale);
                         result.boundsMin = normalized.boundsMin;
                         result.boundsMax = normalized.boundsMax;
-                        LOG_I(
-                            "Scene3DAsyncLoader: normalized GLTF radius {} -> {} (scale={})",
-                            normalized.sourceRadius,
-                            normalized.normalizedRadius,
-                            normalized.uniformScale);
+                        LOG_I("Scene3DAsyncLoader: normalized GLTF radius {} -> {} (scale={})", normalized.sourceRadius, normalized.normalizedRadius, normalized.uniformScale);
                     }
                 }
             }
@@ -199,16 +156,12 @@ void Scene3DAsyncLoader::loadGLTF(const std::string& modelPath,
 
 void Scene3DAsyncLoader::cancel() {
     std::lock_guard<std::mutex> lock(m_mutex);
-    const bool hadActiveLoad = m_loading || m_ready;
+    const bool hadActiveLoad = m_loading;
     ++m_generation;
     m_loading = false;
-    m_ready = false;
     m_status = hadActiveLoad ? Status::Cancelled : Status::Idle;
-    m_pendingPayload.reset();
-    m_pendingError.clear();
     m_mainThreadApply = {};
     m_activeOptions = {};
-    detachFrameBeginObserver();
 }
 
 bool Scene3DAsyncLoader::isLoading() const {
@@ -226,43 +179,46 @@ std::string Scene3DAsyncLoader::getLastError() const {
     return m_lastError;
 }
 
-void Scene3DAsyncLoader::handleWorkerCompletion(uint64_t generation,
-                                                WorkerPayload payload,
-                                                const std::string& error) {
+void Scene3DAsyncLoader::handleWorkerCompletion(uint64_t generation, WorkerPayload payload, const std::string& error) {
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (generation != m_generation || !m_loading) {
             return;
         }
-        m_pendingPayload = std::move(payload);
-        m_pendingError = error;
-        m_ready = true;
     }
 
-    if (auto scene3DView = m_scene3DView.lock()) {
-        scene3DView->requestRender("Scene3DAsyncLoader::handleWorkerCompletion");
+    std::weak_ptr<Scene3DAsyncLoader> weakSelf = shared_from_this();
+    const bool posted = m_engine && m_engine->mainThreadDispatcher().post([weakSelf, generation, payload = std::move(payload), error]() mutable {
+        if (auto self = weakSelf.lock()) {
+            self->applyWorkerCompletion(generation, std::move(payload), std::move(error));
+        }
+    });
+    if (posted) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (generation == m_generation && m_loading) {
+        m_loading = false;
+        m_status = Status::Cancelled;
+        m_lastError = "Engine main-thread dispatcher is not accepting tasks";
+        m_mainThreadApply = {};
+        m_activeOptions = {};
     }
 }
 
-void Scene3DAsyncLoader::pumpPendingResult() {
-    WorkerPayload payload;
-    std::string error;
+void Scene3DAsyncLoader::applyWorkerCompletion(uint64_t generation, WorkerPayload payload, std::string error) {
     MainThreadApply mainThreadApply;
     Scene3DAsyncLoadOptions activeOptions;
-    uint64_t generation = 0;
 
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        if (!m_ready) {
+        if (generation != m_generation || !m_loading) {
             return;
         }
 
-        generation = m_generation;
-        payload = std::move(m_pendingPayload);
-        error = std::move(m_pendingError);
         mainThreadApply = m_mainThreadApply;
         activeOptions = m_activeOptions;
-        m_ready = false;
     }
 
     auto fail = [&](const std::string& failure) {
@@ -273,17 +229,12 @@ void Scene3DAsyncLoader::pumpPendingResult() {
                 return;
             }
             m_loading = false;
-            m_ready = false;
             m_status = Status::Failed;
             m_lastError = failure;
-            m_pendingPayload.reset();
-            m_pendingError.clear();
             m_mainThreadApply = {};
             m_activeOptions = {};
             onError = activeOptions.onError;
         }
-
-        detachFrameBeginObserver();
 
         if (!activeOptions.debugLabel.empty()) {
             LOG_E("Scene3DAsyncLoader [{}]: {}", activeOptions.debugLabel, failure);
@@ -291,7 +242,8 @@ void Scene3DAsyncLoader::pumpPendingResult() {
             LOG_E("Scene3DAsyncLoader: {}", failure);
         }
 
-        if (onError) onError(failure);
+        if (onError)
+            onError(failure);
     };
 
     auto succeed = [&](const Scene3DAsyncLoadResult& result) {
@@ -302,17 +254,12 @@ void Scene3DAsyncLoader::pumpPendingResult() {
                 return;
             }
             m_loading = false;
-            m_ready = false;
             m_status = Status::Succeeded;
             m_lastError.clear();
-            m_pendingPayload.reset();
-            m_pendingError.clear();
             m_mainThreadApply = {};
             m_activeOptions = {};
             onLoaded = activeOptions.onLoaded;
         }
-
-        detachFrameBeginObserver();
 
         if (!activeOptions.debugLabel.empty()) {
             LOG_I("Scene3DAsyncLoader [{}]: scene applied", activeOptions.debugLabel);
@@ -320,7 +267,8 @@ void Scene3DAsyncLoader::pumpPendingResult() {
             LOG_I("Scene3DAsyncLoader: scene applied");
         }
 
-        if (onLoaded) onLoaded(result);
+        if (onLoaded)
+            onLoaded(result);
     };
 
     if (!error.empty()) {
@@ -344,7 +292,16 @@ void Scene3DAsyncLoader::pumpPendingResult() {
         return;
     }
 
-    Scene3DAsyncLoadResult result = mainThreadApply(payload);
+    Scene3DAsyncLoadResult result;
+    try {
+        result = mainThreadApply(payload);
+    } catch (const std::exception& exception) {
+        fail(std::string("Main-thread scene build failed: ") + exception.what());
+        return;
+    } catch (...) {
+        fail("Main-thread scene build failed with an unknown exception");
+        return;
+    }
 
     {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -368,8 +325,8 @@ void Scene3DAsyncLoader::pumpPendingResult() {
     } else {
         scene3DView->setSceneRoot(result.sceneRoot);
     }
-    scene3DView->requestRender("Scene3DAsyncLoader::pumpPendingResult");
+    scene3DView->requestRender("Scene3DAsyncLoader::applyWorkerCompletion");
 
     succeed(result);
 }
-} // namespace morrow
+}  // namespace morrow

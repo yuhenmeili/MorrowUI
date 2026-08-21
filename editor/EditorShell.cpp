@@ -93,6 +93,13 @@ EditorShell::EditorShell(const std::shared_ptr<Window>& window, const std::share
                          std::filesystem::path assetRoot) :
     m_window(window), m_engine(engine), m_projectPath(std::move(projectPath)), m_scenePath(std::move(scenePath)), m_assetRoot(std::move(assetRoot)),
     m_session(std::make_shared<EditorSession>(m_scenePath)), m_dockLayoutPath(m_projectPath.parent_path() / ".morrow" / "editor.layout") {
+    m_selectionChangedConnection = m_events.onSelectionChanged.connect(
+        [this](const SelectionState& selection) {
+            m_selectedNodeId =
+                selection.nodeIds.empty() ? std::string{} : selection.nodeIds.back();
+            rebuildRuntime();
+            refreshInspector();
+        });
 }
 
 EditorShell::~EditorShell() {
@@ -104,6 +111,10 @@ EditorShell::~EditorShell() {
         if (glfwWindow)
             shells().erase(glfwWindow);
     }
+}
+
+EditorEvents& EditorShell::events() {
+    return m_events;
 }
 
 void EditorShell::setStatus(const std::string& text) {
@@ -154,6 +165,18 @@ void EditorShell::runImportQueue() {
     setStatus("Assets: imported=" + std::to_string(imported) + " unchanged=" + std::to_string(skipped) + " failed=" + std::to_string(failed));
     if (!success && !error.empty())
         setStatus("Import failed: " + error);
+    if (!results.empty()) {
+        m_events.onAssetDatabaseChanged.notify(m_assets);
+    }
+}
+
+void EditorShell::notifySelectionChanged() {
+    const auto& selection = m_session->model().selection();
+    if (selection.nodeIds == m_lastNotifiedSelection) {
+        return;
+    }
+    m_lastNotifiedSelection = selection.nodeIds;
+    m_events.onSelectionChanged.notify(selection);
 }
 
 void EditorShell::addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height) {
@@ -459,9 +482,7 @@ void EditorShell::refreshSceneTree() {
                                 220.0f - item.depth * 12.0f, 30.0f, [this, id] {
                                     std::string error;
                                     if (m_session->selectNode(id, false, error)) {
-                                        m_selectedNodeId = id;
-                                        rebuildRuntime();
-                                        refreshInspector();
+                                        notifySelectionChanged();
                                         setStatus("Selected " + id);
                                     } else
                                         setStatus(error);
@@ -556,7 +577,9 @@ void EditorShell::rebuildRuntime() {
     m_previewRoot->m_children.clear();
     refreshViewportGuides();
     std::string error;
-    if (!SceneInstantiator::instantiate(m_session->document(), m_previewRoot, &m_assets, error)) {
+    const bool runtimeInstantiated =
+        SceneInstantiator::instantiate(m_session->document(), m_previewRoot, &m_assets, error);
+    if (!runtimeInstantiated) {
         setStatus(error);
     }
     float x = 0.0f;
@@ -578,6 +601,9 @@ void EditorShell::rebuildRuntime() {
         m_previewRoot->addChild(frame);
     } else {
         m_selectionFrame.reset();
+    }
+    if (runtimeInstantiated) {
+        m_events.onRuntimeRebuilt.notify();
     }
 }
 
@@ -630,7 +656,7 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
         std::string error;
         const bool additive = (event.modifiers & TOUCH_MODIFIER_CTRL) != 0;
         if (m_session->selectAt(x, y, error, additive)) {
-            m_selectedNodeId = m_session->model().selection().nodeIds.back();
+            notifySelectionChanged();
             float nodeX = 0.0f;
             float nodeY = 0.0f;
             float nodeWidth = 0.0f;
@@ -640,8 +666,6 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
             m_dragging = !m_resizing;
             m_lastPointerX = panelX;
             m_lastPointerY = panelY;
-            rebuildRuntime();
-            refreshInspector();
         }
     } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && m_resizing && !m_selectedNodeId.empty()) {
         float nodeX = 0.0f;

@@ -12,9 +12,9 @@
 #include <string>
 
 #include "Engine.h"
+#include "GLTFTypes.h"
 #include "ui/elements/MR3DSceneView.h"
 #include "ui/helpers/Scene3DNormalization.h"
-#include "GLTFTypes.h"
 
 namespace morrow {
 class SceneNode;
@@ -57,23 +57,18 @@ public:
         /// a consistent scene size. Set enabled=false to preserve source units.
         Scene3DNormalizationOptions normalization;
         Scene3DAsyncLoadOptions sceneOptions;
-        std::function<void(const std::shared_ptr<GLTFScene>& scene,
-                           const std::shared_ptr<SceneNode>& sceneRoot)> onSceneBuilt;
+        std::function<void(const std::shared_ptr<GLTFScene>& scene, const std::shared_ptr<SceneNode>& sceneRoot)> onSceneBuilt;
     };
 
-    static std::shared_ptr<Scene3DAsyncLoader> create(const EngineSharedPtr& engine,
-                                                      const std::shared_ptr<MR3DSceneView>& scene3DView);
+    static std::shared_ptr<Scene3DAsyncLoader> create(const EngineSharedPtr& engine, const std::shared_ptr<MR3DSceneView>& scene3DView);
 
     ~Scene3DAsyncLoader();
 
-    void load(const AsyncLoadStarter& asyncLoadStarter,
-              MainThreadApply mainThreadApply,
-              Scene3DAsyncLoadOptions options = Scene3DAsyncLoadOptions());
+    void load(const AsyncLoadStarter& asyncLoadStarter, MainThreadApply mainThreadApply, Scene3DAsyncLoadOptions options = Scene3DAsyncLoadOptions());
 
     void loadGLTF(const std::string& modelPath);
 
-    void loadGLTF(const std::string& modelPath,
-                  const GLTFLoadOptions& options);
+    void loadGLTF(const std::string& modelPath, const GLTFLoadOptions& options);
 
     void cancel();
 
@@ -86,29 +81,21 @@ public:
 private:
     Scene3DAsyncLoader(EngineSharedPtr engine, const std::shared_ptr<MR3DSceneView>& scene3DView);
 
-    void attachFrameBeginObserver();
-
-    void detachFrameBeginObserver();
-
     void handleWorkerCompletion(uint64_t generation, WorkerPayload payload, const std::string& error);
 
-    void pumpPendingResult();
+    void applyWorkerCompletion(uint64_t generation, WorkerPayload payload, std::string error);
 
     mutable std::mutex m_mutex;
     EngineSharedPtr m_engine;
     std::weak_ptr<MR3DSceneView> m_scene3DView;
-    Observable<>::Connection m_frameBeginConnection;
 
     uint64_t m_generation = 0;
     bool m_loading = false;
-    bool m_ready = false;
     Status m_status = Status::Idle;
-    WorkerPayload m_pendingPayload;
-    std::string m_pendingError;
     MainThreadApply m_mainThreadApply;
     Scene3DAsyncLoadOptions m_activeOptions;
     std::string m_lastError;
 };
-} // namespace morrow
+}  // namespace morrow
 
-#endif //MORROW_GUI_SCENE3DASYNCLOADER_H
+#endif  // MORROW_GUI_SCENE3DASYNCLOADER_H

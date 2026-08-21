@@ -199,6 +199,10 @@ Platform::beginFrame
     ↓
 Platform::dispatchEvents
     ↓
+request-render gate
+    ↓
+MainThreadDispatcher::drain
+    ↓
 EngineEvents::onFrameBegin
     ↓
 TweenManager::update
@@ -215,6 +219,14 @@ Debug / Platform::endFrame / one-shot frame callbacks
     ↓
 EngineEvents::onFrameEnd
 ```
+
+`MainThreadDispatcher` 是 worker 到 Engine 主线程的一次性任务队列。任意线程可
+`post()`，Engine 只在 request-render gate 通过后 drain；post 会通过
+`RenderingThread::requestRender()` 合并渲染请求并唤醒平台事件等待。本次 drain
+期间新增的任务固定留到下一次 drain，Engine 退出时停止接收并清空 pending task。
+
+`FrameState::callAfterTouched` 和 `callAfterRender` 继续保留。它们描述当前帧内
+特定阶段的一次性回调，不承担跨线程任务交接。
 
 ### 5.1 输入阶段
 

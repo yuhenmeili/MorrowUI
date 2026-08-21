@@ -4,8 +4,8 @@
 > 对照对象：`UnravelEngine/EVENT_DRIVEN_SYSTEM_ANALYSIS.md`、`UnravelEngine/engine/engine/events.h`  
 > MorrowUI 范围：Engine 主循环、`Observable`、Platform/Input、Widget UI 事件、Editor 和渲染线程边界。
 
-> 实施状态：P0、P1、P2 已于 2026-08-21 落地。本文前半部分保留实施前问题分析，
-> 第 9 节记录的 P0-P2 已按当前源码更新。
+> 实施状态：P0-P4 已于 2026-08-21 落地。本文前半部分保留实施前问题分析，
+> 第 9 节记录的 P0-P4 已按当前源码更新。
 
 ## 1. 结论
 
@@ -258,41 +258,44 @@ Platform
 
 ### 5.3 Editor events
 
-Editor 当前通过 `EditorShell` 集中协调。随着 panel、selection、scene document、asset import 和 preview 增多，建议增加 editor 本地事件：
+Editor 事件由每个 `EditorShell` 实例拥有：
 
 ```cpp
 struct EditorEvents {
-    Observable<const std::string&> onSelectionChanged;
-    Observable<> onSceneOpened;
-    Observable<> onSceneClosed;
+    Observable<const SelectionState&> onSelectionChanged;
     Observable<> onRuntimeRebuilt;
-    Observable<> onAssetDatabaseChanged;
+    Observable<const AssetDatabase&> onAssetDatabaseChanged;
 };
 ```
 
-具体 payload 应使用稳定领域类型，以上仅表示边界。Editor event 不应加入 runtime 的 `EngineEvents`，避免 morrow runtime 依赖 editor 类型。
+selection 事件实际驱动 EditorShell 内的 runtime preview 和 inspector 刷新；
+runtime rebuild 只在场景实例化成功后广播；asset database 事件在 import 产生结果
+后广播。Editor event 没有加入 runtime `EngineEvents`，runtime 也不 include
+`EditorEvents.h`。
 
 ### 5.4 一次性主线程任务
 
-`FrameState::callAfterRender` 和异步加载结果本质上更接近 task queue，而不是长期事件订阅。
-
-建议逐步建立：
+异步 worker 结果通过 `MainThreadDispatcher` 一次性交给 Engine 主线程：
 
 ```cpp
 MainThreadDispatcher::post(Task);
 MainThreadDispatcher::drain();
 ```
 
-语义应明确为：
-
 - 多生产者可投递；
-- 仅主线程 drain；
+- 仅 Engine 主线程 drain；
 - 每个任务最多执行一次；
-- 投递时触发 request-render/wake；
-- 本轮 drain 中新增任务是本轮还是下一轮执行，需要固定规则；
-- Engine 退出时如何取消或清理。
+- 投递时通过 `RenderingThread::requestRender()` 请求渲染并唤醒等待；
+- drain 使用任务快照，本轮新增任务下一轮执行；
+- 单个任务异常会记录错误，但不会阻止后续任务；
+- Engine 退出时 shutdown，停止接收并清空 pending task。
 
-`Scene3DAsyncLoader` 当前借 `preRender` 每帧轮询 pending result。主线程队列落地后，可由 worker completion 直接 post apply task，并请求渲染，不再为每个 loader 长期订阅每帧事件。
+`Scene3DAsyncLoader` 已删除每帧 `onFrameBegin` observer、ready 标志和 pending
+payload 轮询。worker completion 直接 post main-thread apply task，并继续使用
+generation 防止 cancel/reload 后的过期结果生效。
+
+`FrameState::callAfterTouched` 和 `callAfterRender` 没有迁移。它们描述当前帧内
+特定阶段的一次性操作，不是跨线程任务队列。
 
 ### 5.5 继续使用直接调用的部分
 
@@ -467,22 +470,28 @@ Observable<>& preRender();
 - `Engine` 实例持有 `EngineEvents`；
 - 当前只定义 `onFrameBegin` 和 `onFrameEnd` 两个真实生命周期边界；
 - 删除旧 `preRender/afterRender` API，不保留 deprecated 转发；
-- `Scene3DAsyncLoader`、samples 和其他订阅者已迁移到 `events().onFrameBegin`；
+- samples 的逐帧更新已迁移到 `events().onFrameBegin`；
 - 不预先复制 play mode、script、project 等 MorrowUI 尚不存在的事件。
 
-### P3：建立主线程任务队列
+### P3：建立主线程任务队列 ✅
 
-- worker completion 通过 queue 交给主线程；
-- queue post 时 request render 并唤醒等待；
-- 迁移 `Scene3DAsyncLoader` 的每帧 polling observer；
-- 梳理 `callAfterTouched/callAfterRender`，按语义保留或迁移到命名队列。
+- 新增多生产者、单主线程 drain 的 `MainThreadDispatcher`；
+- post 时 request render 并通过现有 RenderingThread 唤醒平台等待；
+- drain 使用 snapshot，本轮新增任务下一轮执行；
+- Engine 退出时 shutdown 并清理 pending task；
+- `Scene3DAsyncLoader` 已迁移为一次性 main-thread apply task；
+- `callAfterTouched/callAfterRender` 按当前帧阶段语义保留；
+- `MainThreadDispatcherTests` 覆盖唤醒、FIFO、多生产者、嵌套 post、异常和 shutdown。
 
-### P4：建立 EditorEvents
+### P4：建立 EditorEvents ✅
 
-- 从 selection changed、runtime rebuilt、asset database changed 等真实跨模块通知开始；
-- Editor event 由 editor host/session 拥有；
-- 禁止 runtime include editor event 类型；
-- panel 使用 RAII Connection，支持销毁和重建。
+- `EditorEvents` 由每个 `EditorShell` 实例拥有；
+- 已接入 selection changed、runtime rebuilt 和 asset database changed；
+- selection 仅在选中集合实际变化时广播；
+- runtime rebuild 仅在实例化成功后广播；
+- EditorShell 使用 RAII Connection 驱动 preview/inspector 刷新；
+- runtime 不 include editor event 类型；
+- `EditorEventsTests` 覆盖 payload 和连接生命周期。
 
 ### P5：按证据扩展
 

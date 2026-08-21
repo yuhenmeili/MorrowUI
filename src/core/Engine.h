@@ -3,6 +3,7 @@
 
 #include "FrameState.h"
 #include "EngineEvents.h"
+#include "MainThreadDispatcher.h"
 #include "OrthographicCamera.h"
 #include "FPSController.h"
 #include "Platform.h"
@@ -41,6 +42,8 @@ public:
 
     EngineEvents& events();
 
+    MainThreadDispatcher& mainThreadDispatcher();
+
     void render();
 
     bool writeObjectSnapshot(const std::string& path) const;
@@ -55,6 +58,7 @@ private:
     void processObjectSnapshotCommand();
 
     EngineEvents m_events;
+    MainThreadDispatcher m_mainThreadDispatcher;
 
     //debug
     double m_lastHeartbeatTime = 0.0;

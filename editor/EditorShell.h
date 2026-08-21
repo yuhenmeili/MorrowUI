@@ -14,6 +14,7 @@
 #include "base/UIWidget.h"
 #include "build/BuildQueue.h"
 #include "core/Observable.h"
+#include "EditorEvents.h"
 #include "ProjectSettings.h"
 #include "scene/EditorSession.h"
 #include "ui/DockLayout.h"
@@ -39,6 +40,8 @@ public:
 
     bool initialize(std::string& error);
 
+    EditorEvents& events();
+
 private:
     void buildLayout();
     void rebuildRuntime();
@@ -63,6 +66,7 @@ private:
     void handleChar(unsigned int codepoint);
     void setStatus(const std::string& text);
     void runImportQueue();
+    void notifySelectionChanged();
     void addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height);
     std::shared_ptr<MRButton> addButton(const std::shared_ptr<UIWidget>& parent, const std::wstring& text, float x, float y, float width, float height,
                                         std::function<void()> callback);
@@ -72,6 +76,8 @@ private:
 
     std::shared_ptr<Window> m_window;
     std::shared_ptr<Engine> m_engine;
+    EditorEvents m_events;
+    Observable<const SelectionState&>::Connection m_selectionChangedConnection;
     std::filesystem::path m_projectPath;
     std::filesystem::path m_scenePath;
     std::filesystem::path m_assetRoot;
@@ -102,6 +108,7 @@ private:
     Observable<std::vector<TouchEvent>&>::Connection m_inputConnection;
     std::string m_status;
     std::string m_selectedNodeId;
+    std::vector<std::string> m_lastNotifiedSelection;
     bool m_dragging = false;
     bool m_resizing = false;
     bool m_panning = false;

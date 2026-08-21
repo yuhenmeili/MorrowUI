@@ -76,6 +76,13 @@ foreach(FILE_PATH ${DEMO_LIST})
 endforeach()
 
 if(BUILD_TESTING)
+    add_executable(MainThreadDispatcherTests
+        tests/MainThreadDispatcherTests.cpp
+        src/core/MainThreadDispatcher.cpp)
+    target_include_directories(MainThreadDispatcherTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(MainThreadDispatcherTests morrow_utils)
+    add_test(NAME MainThreadDispatcherTests COMMAND MainThreadDispatcherTests)
+
     add_executable(ObservableTests tests/ObservableTests.cpp)
     target_include_directories(ObservableTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(ObservableTests morrow_utils)

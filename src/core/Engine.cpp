@@ -48,6 +48,13 @@ Engine::Engine(const EngineOptions& options) {
     m_objectSnapshotCommandPath = options.objectSnapshotCommandPath;
     m_platform = PlatformFactory::create(windowInfo);
     m_platform->initialize(options.multithread);
+    std::weak_ptr<RenderingThread> weakRenderingThread =
+        GlobalObject::getInstance().getRenderingThread();
+    m_mainThreadDispatcher.setWakeCallback([weakRenderingThread]() {
+        if (const auto renderingThread = weakRenderingThread.lock()) {
+            renderingThread->requestRender();
+        }
+    });
 
     m_camera = std::make_shared<OrthographicCamera>(0.0f, 11000.0f);
     m_camera->setPosition(0.0f, 0.0f, 10000.0f);
@@ -64,6 +71,7 @@ Engine::Engine(const EngineOptions& options) {
 }
 
 Engine::~Engine() {
+    m_mainThreadDispatcher.shutdown();
     GlobalObject::getInstance().destroy();
 }
 
@@ -85,6 +93,10 @@ void Engine::setFPS(int32_t fps) {
 
 EngineEvents& Engine::events() {
     return m_events;
+}
+
+MainThreadDispatcher& Engine::mainThreadDispatcher() {
+    return m_mainThreadDispatcher;
 }
 
 void Engine::render() {
@@ -112,7 +124,8 @@ void Engine::render() {
             continue;
         }
 
-        // ── 阶段 2: 动画准备 ──
+        // ── 阶段 2: 主线程任务与动画准备 ──
+        m_mainThreadDispatcher.drain();
         m_events.onFrameBegin.notify();
         TweenManager::getInstance().update(m_frameState);
 
@@ -140,6 +153,7 @@ void Engine::render() {
     if (!m_objectSnapshotPath.empty()) {
         writeObjectSnapshot(m_objectSnapshotPath);
     }
+    m_mainThreadDispatcher.shutdown();
     m_platform->terminate();
 }
 
