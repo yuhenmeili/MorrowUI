@@ -9,17 +9,15 @@
 namespace {
 
 std::string lowercase(std::string value) {
-    std::transform(
-        value.begin(), value.end(), value.begin(),
-        [](unsigned char character) {
-            return static_cast<char>(std::tolower(character));
-        });
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
     return value;
 }
 
-bool isInside(
-    const std::filesystem::path& root,
-    const std::filesystem::path& candidate) {
+std::string extension(const std::filesystem::path& path) {
+    return lowercase(path.extension().string());
+}
+
+bool isInside(const std::filesystem::path& root, const std::filesystem::path& candidate) {
     std::error_code error;
     const auto relative = std::filesystem::relative(candidate, root, error);
     if (error || relative.empty())
@@ -32,17 +30,11 @@ bool isInside(
 
 namespace morrow::editor {
 
-bool ProjectFileSystemModel::scan(
-    const std::filesystem::path& projectRoot,
-    const AssetDatabase* assets,
-    std::string& error) {
+bool ProjectFileSystemModel::scan(const std::filesystem::path& projectRoot, const AssetDatabase* assets, std::string& error) {
     std::error_code filesystemError;
-    const auto canonicalRoot =
-        std::filesystem::weakly_canonical(projectRoot, filesystemError);
-    if (filesystemError || canonicalRoot.empty() ||
-        !std::filesystem::is_directory(canonicalRoot, filesystemError)) {
-        error = "project root is not a readable directory: " +
-                projectRoot.string();
+    const auto canonicalRoot = std::filesystem::weakly_canonical(projectRoot, filesystemError);
+    if (filesystemError || canonicalRoot.empty() || !std::filesystem::is_directory(canonicalRoot, filesystemError)) {
+        error = "project root is not a readable directory: " + projectRoot.string();
         return false;
     }
 
@@ -57,13 +49,18 @@ bool ProjectFileSystemModel::scan(
     root.relativePath = ".";
     root.name = m_projectRoot.filename().string();
     root.directory = true;
-    root.modifiedTime =
-        std::filesystem::last_write_time(m_projectRoot, filesystemError);
+    root.modifiedTime = std::filesystem::last_write_time(m_projectRoot, filesystemError);
     m_entries.push_back(std::move(root));
 
     if (!appendDirectory(m_projectRoot, {}, 0, error)) {
         m_entries.clear();
         return false;
+    }
+    for (auto iterator = m_selectedPaths.begin(); iterator != m_selectedPaths.end();) {
+        if (!findByPath(*iterator))
+            iterator = m_selectedPaths.erase(iterator);
+        else
+            ++iterator;
     }
     return true;
 }
@@ -74,6 +71,19 @@ bool ProjectFileSystemModel::refresh(std::string& error) {
         return false;
     }
     return scan(m_projectRoot, m_assets, error);
+}
+
+void ProjectFileSystemModel::setSortMode(FileSortMode mode, bool ascending) {
+    m_sortMode = mode;
+    m_sortAscending = ascending;
+}
+
+FileSortMode ProjectFileSystemModel::sortMode() const {
+    return m_sortMode;
+}
+
+bool ProjectFileSystemModel::sortAscending() const {
+    return m_sortAscending;
 }
 
 const std::filesystem::path& ProjectFileSystemModel::projectRoot() const {
@@ -92,8 +102,7 @@ const ProjectFileEntry* ProjectFileSystemModel::findById(int id) const {
     return nullptr;
 }
 
-const ProjectFileEntry* ProjectFileSystemModel::findByPath(
-    const std::filesystem::path& relativePath) const {
+const ProjectFileEntry* ProjectFileSystemModel::findByPath(const std::filesystem::path& relativePath) const {
     const auto normalized = relativePath.lexically_normal();
     for (const auto& entry : m_entries) {
         if (entry.relativePath.lexically_normal() == normalized)
@@ -102,8 +111,7 @@ const ProjectFileEntry* ProjectFileSystemModel::findByPath(
     return nullptr;
 }
 
-std::vector<const ProjectFileEntry*> ProjectFileSystemModel::filteredEntries(
-    const std::string& query) const {
+std::vector<const ProjectFileEntry*> ProjectFileSystemModel::filteredEntries(const std::string& query) const {
     if (query.empty()) {
         std::vector<const ProjectFileEntry*> all;
         all.reserve(m_entries.size());
@@ -115,8 +123,7 @@ std::vector<const ProjectFileEntry*> ProjectFileSystemModel::filteredEntries(
     const std::string normalizedQuery = lowercase(query);
     std::unordered_set<int> includedIds;
     for (const auto& entry : m_entries) {
-        const std::string searchable =
-            lowercase(entry.name + " " + entry.relativePath.generic_string());
+        const std::string searchable = lowercase(entry.name + " " + entry.relativePath.generic_string());
         if (searchable.find(normalizedQuery) == std::string::npos)
             continue;
         const ProjectFileEntry* current = &entry;
@@ -136,40 +143,87 @@ std::vector<const ProjectFileEntry*> ProjectFileSystemModel::filteredEntries(
     return filtered;
 }
 
-bool ProjectFileSystemModel::appendDirectory(
-    const std::filesystem::path& absoluteDirectory,
-    const std::filesystem::path& relativeDirectory,
-    int parentId,
-    std::string& error) {
+bool ProjectFileSystemModel::select(int id, bool additive) {
+    const auto* entry = findById(id);
+    if (!entry)
+        return false;
+    if (!additive)
+        m_selectedPaths.clear();
+    const auto normalized = entry->relativePath.lexically_normal();
+    if (additive && m_selectedPaths.count(normalized) != 0)
+        m_selectedPaths.erase(normalized);
+    else
+        m_selectedPaths.insert(normalized);
+    return true;
+}
+
+void ProjectFileSystemModel::clearSelection() {
+    m_selectedPaths.clear();
+}
+
+bool ProjectFileSystemModel::isSelected(const std::filesystem::path& relativePath) const {
+    return m_selectedPaths.count(relativePath.lexically_normal()) != 0;
+}
+
+std::vector<const ProjectFileEntry*> ProjectFileSystemModel::selectedEntries() const {
+    std::vector<const ProjectFileEntry*> selected;
+    for (const auto& entry : m_entries) {
+        if (isSelected(entry.relativePath))
+            selected.push_back(&entry);
+    }
+    return selected;
+}
+
+bool ProjectFileSystemModel::appendDirectory(const std::filesystem::path& absoluteDirectory, const std::filesystem::path& relativeDirectory, int parentId, std::string& error) {
     std::error_code filesystemError;
     std::vector<std::filesystem::directory_entry> children;
-    for (std::filesystem::directory_iterator iterator(
-             absoluteDirectory,
-             std::filesystem::directory_options::skip_permission_denied,
-             filesystemError);
-         !filesystemError && iterator != std::filesystem::directory_iterator();
-         iterator.increment(filesystemError)) {
+    for (std::filesystem::directory_iterator iterator(absoluteDirectory, std::filesystem::directory_options::skip_permission_denied, filesystemError);
+         !filesystemError && iterator != std::filesystem::directory_iterator(); iterator.increment(filesystemError)) {
         if (!shouldSkip(*iterator))
             children.push_back(*iterator);
     }
     if (filesystemError) {
-        error = "failed to enumerate directory '" +
-                absoluteDirectory.string() + "': " + filesystemError.message();
+        error = "failed to enumerate directory '" + absoluteDirectory.string() + "': " + filesystemError.message();
         return false;
     }
 
-    std::sort(
-        children.begin(), children.end(),
-        [](const auto& left, const auto& right) {
-            std::error_code leftError;
-            std::error_code rightError;
-            const bool leftDirectory = left.is_directory(leftError);
-            const bool rightDirectory = right.is_directory(rightError);
-            if (leftDirectory != rightDirectory)
-                return leftDirectory;
-            return lowercase(left.path().filename().string()) <
-                   lowercase(right.path().filename().string());
-        });
+    std::sort(children.begin(), children.end(), [this](const auto& left, const auto& right) {
+        std::error_code leftError;
+        std::error_code rightError;
+        const bool leftDirectory = left.is_directory(leftError);
+        const bool rightDirectory = right.is_directory(rightError);
+        if (leftDirectory != rightDirectory)
+            return leftDirectory;
+        int comparison = 0;
+        switch (m_sortMode) {
+            case FileSortMode::Type:
+                if (extension(left.path()) != extension(right.path())) {
+                    comparison = extension(left.path()) < extension(right.path()) ? -1 : 1;
+                } else {
+                    comparison = lowercase(left.path().filename().string()) < lowercase(right.path().filename().string())
+                                     ? -1
+                                     : (lowercase(left.path().filename().string()) == lowercase(right.path().filename().string()) ? 0 : 1);
+                }
+                break;
+            case FileSortMode::Modified:
+                comparison =
+                    left.last_write_time(leftError) < right.last_write_time(rightError) ? -1 : (left.last_write_time(leftError) == right.last_write_time(rightError) ? 0 : 1);
+                break;
+            case FileSortMode::Size:
+                if (leftDirectory) {
+                    comparison = lowercase(left.path().filename().string()) < lowercase(right.path().filename().string()) ? -1 : 1;
+                } else {
+                    comparison = left.file_size(leftError) < right.file_size(rightError) ? -1 : (left.file_size(leftError) == right.file_size(rightError) ? 0 : 1);
+                }
+                break;
+            case FileSortMode::Name:
+                comparison = lowercase(left.path().filename().string()) < lowercase(right.path().filename().string())
+                                 ? -1
+                                 : (lowercase(left.path().filename().string()) == lowercase(right.path().filename().string()) ? 0 : 1);
+                break;
+        }
+        return m_sortAscending ? comparison < 0 : comparison > 0;
+    });
 
     for (const auto& child : children) {
         std::error_code typeError;
@@ -177,10 +231,8 @@ bool ProjectFileSystemModel::appendDirectory(
         if (typeError || child.is_symlink(typeError))
             continue;
 
-        const auto childRelative =
-            (relativeDirectory / child.path().filename()).lexically_normal();
-        const auto absoluteChild =
-            std::filesystem::weakly_canonical(child.path(), typeError);
+        const auto childRelative = (relativeDirectory / child.path().filename()).lexically_normal();
+        const auto absoluteChild = std::filesystem::weakly_canonical(child.path(), typeError);
         if (typeError || !isInside(m_projectRoot, absoluteChild))
             continue;
 
@@ -198,22 +250,18 @@ bool ProjectFileSystemModel::appendDirectory(
         const int entryId = entry.id;
         m_entries.push_back(std::move(entry));
 
-        if (directory &&
-            !appendDirectory(
-                absoluteChild, childRelative, entryId, error)) {
+        if (directory && !appendDirectory(absoluteChild, childRelative, entryId, error)) {
             return false;
         }
     }
     return true;
 }
 
-bool ProjectFileSystemModel::shouldSkip(
-    const std::filesystem::directory_entry& entry) const {
+bool ProjectFileSystemModel::shouldSkip(const std::filesystem::directory_entry& entry) const {
     const std::string name = entry.path().filename().string();
     std::error_code error;
     if (entry.is_directory(error)) {
-        return name == ".morrow" || name == ".git" ||
-               name == ".idea" || name == ".vscode";
+        return name == ".morrow" || name == ".git" || name == ".idea" || name == ".vscode";
     }
     return entry.path().extension() == ".import";
 }
@@ -247,6 +295,20 @@ const char* fileImportStateName(FileImportState state) {
             return "file";
     }
     return "file";
+}
+
+const char* fileSortModeName(FileSortMode mode) {
+    switch (mode) {
+        case FileSortMode::Name:
+            return "Name";
+        case FileSortMode::Type:
+            return "Type";
+        case FileSortMode::Modified:
+            return "Modified";
+        case FileSortMode::Size:
+            return "Size";
+    }
+    return "Name";
 }
 
 }  // namespace morrow::editor

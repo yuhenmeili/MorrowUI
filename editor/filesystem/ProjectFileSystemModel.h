@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,13 @@ enum class FileImportState {
     Ready,
     NeedsImport,
     Failed,
+};
+
+enum class FileSortMode {
+    Name,
+    Type,
+    Modified,
+    Size,
 };
 
 struct ProjectFileEntry {
@@ -32,12 +40,15 @@ struct ProjectFileEntry {
 
 class ProjectFileSystemModel {
 public:
-    bool scan(
-        const std::filesystem::path& projectRoot,
-        const AssetDatabase* assets,
-        std::string& error);
+    bool scan(const std::filesystem::path& projectRoot, const AssetDatabase* assets, std::string& error);
 
     bool refresh(std::string& error);
+
+    void setSortMode(FileSortMode mode, bool ascending = true);
+
+    FileSortMode sortMode() const;
+
+    bool sortAscending() const;
 
     const std::filesystem::path& projectRoot() const;
 
@@ -45,18 +56,20 @@ public:
 
     const ProjectFileEntry* findById(int id) const;
 
-    const ProjectFileEntry* findByPath(
-        const std::filesystem::path& relativePath) const;
+    const ProjectFileEntry* findByPath(const std::filesystem::path& relativePath) const;
 
-    std::vector<const ProjectFileEntry*> filteredEntries(
-        const std::string& query) const;
+    std::vector<const ProjectFileEntry*> filteredEntries(const std::string& query) const;
+
+    bool select(int id, bool additive);
+
+    void clearSelection();
+
+    bool isSelected(const std::filesystem::path& relativePath) const;
+
+    std::vector<const ProjectFileEntry*> selectedEntries() const;
 
 private:
-    bool appendDirectory(
-        const std::filesystem::path& absoluteDirectory,
-        const std::filesystem::path& relativeDirectory,
-        int parentId,
-        std::string& error);
+    bool appendDirectory(const std::filesystem::path& absoluteDirectory, const std::filesystem::path& relativeDirectory, int parentId, std::string& error);
 
     bool shouldSkip(const std::filesystem::directory_entry& entry) const;
 
@@ -65,10 +78,14 @@ private:
     std::filesystem::path m_projectRoot;
     const AssetDatabase* m_assets = nullptr;
     std::vector<ProjectFileEntry> m_entries;
+    std::set<std::filesystem::path> m_selectedPaths;
+    FileSortMode m_sortMode = FileSortMode::Name;
+    bool m_sortAscending = true;
     int m_nextId = 0;
 };
 
 const char* fileImportStateName(FileImportState state);
+const char* fileSortModeName(FileSortMode mode);
 
 }  // namespace morrow::editor
 

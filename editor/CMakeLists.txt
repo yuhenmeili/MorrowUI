@@ -7,6 +7,7 @@ add_library(morrow_editor_document STATIC
     assets/AssetDatabase.cpp
     assets/ImportQueue.cpp
     filesystem/ProjectFileSystemModel.cpp
+    filesystem/FileSystemWatcher.cpp
     EditorInputRouter.cpp
     ui/DockLayout.cpp
     build/BuildQueue.cpp
@@ -16,6 +17,7 @@ target_include_directories(morrow_editor_document PUBLIC ${CMAKE_CURRENT_SOURCE_
 
 add_library(morrow_editor_runtime STATIC
     scene/SceneInstantiator.cpp
+    filesystem/ThumbnailService.cpp
     ui/DockDropOverlay.cpp
     ui/FileSystemPanel.cpp
     EditorShell.cpp
@@ -60,4 +62,10 @@ if(BUILD_TESTING)
     )
     target_link_libraries(ProjectFileSystemModelTests PRIVATE morrow_editor_document)
     add_test(NAME ProjectFileSystemModelTests COMMAND ProjectFileSystemModelTests)
+
+    add_executable(FileSystemEnhancementTests
+        ${CMAKE_SOURCE_DIR}/tests/FileSystemEnhancementTests.cpp
+    )
+    target_link_libraries(FileSystemEnhancementTests PRIVATE morrow_editor_document)
+    add_test(NAME FileSystemEnhancementTests COMMAND FileSystemEnhancementTests)
 endif()

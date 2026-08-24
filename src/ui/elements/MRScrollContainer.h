@@ -21,6 +21,8 @@ public:
     }
     /// 向内容节点添加子节点，并为其绑定滚动输入。
     void addScrollChild(const std::shared_ptr<Widget>& child);
+    /// 移除当前内容中的所有滚动子节点并重建输入绑定。
+    void clearScrollChildren();
 
     /// 设置滚轮每次滚动的距离。
     void setScrollStep(float step);

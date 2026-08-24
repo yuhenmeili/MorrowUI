@@ -55,6 +55,20 @@ void MRScrollContainer::addScrollChild(const std::shared_ptr<Widget>& child) {
     m_metricsDirty = true;
 }
 
+void MRScrollContainer::clearScrollChildren() {
+    if (!m_content)
+        return;
+    const auto children = m_content->m_children;
+    for (const auto& child : children)
+        m_content->removeChild(child);
+    m_inputConnections.clear();
+    attachInput(shared_from_this());
+    attachInputRecursive(m_content);
+    m_scrollOffset = 0.0f;
+    m_maxScrollOffset = 0.0f;
+    m_metricsDirty = true;
+}
+
 void MRScrollContainer::setScrollStep(float step) {
     m_scrollStep = std::max(1.0f, step);
 }
