@@ -16,6 +16,7 @@ target_include_directories(morrow_editor_document PUBLIC ${CMAKE_CURRENT_SOURCE_
 
 add_library(morrow_editor_runtime STATIC
     scene/SceneInstantiator.cpp
+    ui/DockDropOverlay.cpp
     ui/FileSystemPanel.cpp
     EditorShell.cpp
 )

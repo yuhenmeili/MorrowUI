@@ -126,6 +126,10 @@ if(BUILD_TESTING)
     target_link_libraries(TabContainerTests morrow)
     add_test(NAME TabContainerTests COMMAND TabContainerTests)
 
+    add_executable(DragDropManagerTests tests/DragDropManagerTests.cpp)
+    target_link_libraries(DragDropManagerTests morrow)
+    add_test(NAME DragDropManagerTests COMMAND DragDropManagerTests)
+
     add_executable(SpinBoxLayoutElementsTests tests/SpinBoxLayoutElementsTests.cpp)
     target_link_libraries(SpinBoxLayoutElementsTests morrow)
     add_test(NAME SpinBoxLayoutElementsTests COMMAND SpinBoxLayoutElementsTests)

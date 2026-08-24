@@ -27,6 +27,12 @@ public:
         Observable<MRTabContainer&> onTabOrderChanged;
     };
 
+    struct DetachedTab {
+        std::string id;
+        std::wstring title;
+        std::shared_ptr<UIWidget> content;
+    };
+
     static std::shared_ptr<MRTabContainer> create();
 
     bool addTab(const std::string& id, const std::wstring& title, const std::shared_ptr<UIWidget>& content);
@@ -36,6 +42,10 @@ public:
     bool selectTab(const std::string& id);
 
     bool moveTab(size_t from, size_t to);
+
+    bool detachTab(const std::string& id, DetachedTab& result);
+
+    std::string tabIdForWidget(const std::shared_ptr<Widget>& widget) const;
 
     const std::string& currentTabId() const;
 

@@ -20,8 +20,10 @@
 #include "scene/EditorSession.h"
 #include "ui/DockLayout.h"
 #include "ui/FileSystemPanel.h"
+#include "ui/DockDropOverlay.h"
 #include "layout/MRSplitContainer.h"
 #include "layout/MRTabContainer.h"
+#include "layout/DragDropManager.h"
 #include "wgl/OpenglHeader.h"
 
 namespace morrow {
@@ -56,8 +58,16 @@ private:
     void handleInput(std::vector<TouchEvent>& events);
     void handleKey(int key, int action, int mods);
     void handleViewportPointer(const TouchEvent& event);
+    bool handleDockDrag(const TouchEvent& event);
     void applyDockLayout();
     void saveDockLayout();
+    void syncDockTabs();
+    DockDropZone dropZoneAt(float x, float y) const;
+    std::shared_ptr<MRTabContainer> tabContainerForId(
+        const std::string& id) const;
+    std::string tabGroupForWidget(
+        const std::shared_ptr<Widget>& widget) const;
+    void completeDockDrop(float x, float y);
     void handleFramebufferResize(const Vector2& size);
     void refreshOutput();
     void runBuild(BuildTaskKind kind);
@@ -102,7 +112,9 @@ private:
     std::shared_ptr<MRSplitContainer> m_mainSplit;
     std::shared_ptr<MRSplitContainer> m_centerSplit;
     std::shared_ptr<MRTabContainer> m_leftTabs;
+    std::shared_ptr<MRTabContainer> m_centerTabs;
     std::shared_ptr<MRTabContainer> m_bottomTabs;
+    std::shared_ptr<DockDropOverlay> m_dockDropOverlay;
     std::shared_ptr<EditorSession> m_session;
     AssetDatabase m_assets;
     ProjectFileSystemModel m_fileSystem;
@@ -143,6 +155,11 @@ private:
     float m_viewportY = 40.0f;
     float m_viewportWidth = 740.0f;
     float m_viewportHeight = 580.0f;
+    DragDropManager m_dragDrop;
+    std::string m_pendingDockTab;
+    std::string m_pendingDockGroup;
+    float m_pendingDockX = 0.0f;
+    float m_pendingDockY = 0.0f;
 };
 
 }  // namespace morrow::editor

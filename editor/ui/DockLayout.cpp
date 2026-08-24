@@ -36,6 +36,7 @@ DockLayout DockLayout::defaultLayout(float width, float height) {
     };
     layout.m_tabs = {
         {"left_dock", "scene_tree", {"scene_tree", "filesystem"}},
+        {"center_dock", "viewport", {"viewport"}},
         {"bottom_dock", "output", {"output", "build"}},
     };
     return layout;

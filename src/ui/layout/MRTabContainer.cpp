@@ -91,6 +91,38 @@ bool MRTabContainer::moveTab(size_t from, size_t to) {
     return true;
 }
 
+bool MRTabContainer::detachTab(const std::string& id, DetachedTab& result) {
+    const int index = findTabIndex(id);
+    if (index < 0)
+        return false;
+    const size_t position = static_cast<size_t>(index);
+    result.id = m_tabs[position].id;
+    result.title = m_tabs[position].title;
+    result.content = m_tabs[position].content;
+    removeChild(m_tabs[position].button);
+    removeChild(m_tabs[position].content);
+    m_tabs.erase(m_tabs.begin() + index);
+    m_tabConnections.erase(m_tabConnections.begin() + index);
+    if (m_currentTabId == id) {
+        if (m_tabs.empty())
+            m_currentTabId.clear();
+        else
+            m_currentTabId = m_tabs[std::min(position, m_tabs.size() - 1)].id;
+    }
+    layoutTabs();
+    return true;
+}
+
+std::string MRTabContainer::tabIdForWidget(const std::shared_ptr<Widget>& widget) const {
+    if (!widget)
+        return {};
+    for (const auto& tab : m_tabs) {
+        if (tab.button == widget)
+            return tab.id;
+    }
+    return {};
+}
+
 const std::string& MRTabContainer::currentTabId() const {
     return m_currentTabId;
 }

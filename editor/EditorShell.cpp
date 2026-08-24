@@ -322,9 +322,13 @@ void EditorShell::buildLayout() {
     m_leftTabs->addTab("scene_tree", L"Scene", m_sceneTreePanel);
     m_leftTabs->addTab("filesystem", L"FileSystem", m_fileSystemPanel);
 
+    m_centerTabs = MRTabContainer::create();
+    m_centerTabs->addTab("viewport", L"Viewport", m_viewportPanel);
+
     m_bottomTabs = MRTabContainer::create();
     m_bottomTabs->addTab("output", L"Output", m_statusPanel);
     m_bottomTabs->addTab("build", L"Build", m_buildPanel);
+    m_dockDropOverlay = DockDropOverlay::create();
 
     m_centerSplit = MRSplitContainer::create();
     m_centerSplit->setOrientation(SplitOrientation::Horizontal);
@@ -332,7 +336,7 @@ void EditorShell::buildLayout() {
     m_centerSplit->setSecondMinSize(260.0f);
     m_centerSplit->setHandleWidth(5.0f);
 
-    m_centerSplit->setFirst(m_viewportPanel);
+    m_centerSplit->setFirst(m_centerTabs);
     m_centerSplit->setSecond(m_inspectorPanel);
     m_mainSplit->setFirst(m_leftTabs);
     m_mainSplit->setSecond(m_centerSplit);
@@ -341,6 +345,7 @@ void EditorShell::buildLayout() {
 
     m_shellRoot->addChild(m_toolbarPanel);
     m_shellRoot->addChild(m_workspaceSplit);
+    m_shellRoot->addChild(m_dockDropOverlay);
     m_viewportPanel->addChild(m_previewRoot);
     m_window->addChild(m_shellRoot);
 
@@ -391,6 +396,7 @@ void EditorShell::buildLayout() {
                 }));
     };
     connectTabs("left_dock", m_leftTabs);
+    connectTabs("center_dock", m_centerTabs);
     connectTabs("bottom_dock", m_bottomTabs);
 
     addLabel(m_toolbarPanel, "MorrowEditor", 8.0f, 5.0f, 150.0f, 28.0f);
@@ -464,8 +470,13 @@ void EditorShell::applyDockLayout() {
     };
     if (const auto* tabs = m_dockLayout.findTabs("left_dock"))
         applyTabState(tabs, m_leftTabs);
+    if (const auto* tabs = m_dockLayout.findTabs("center_dock"))
+        applyTabState(tabs, m_centerTabs);
     if (const auto* tabs = m_dockLayout.findTabs("bottom_dock"))
         applyTabState(tabs, m_bottomTabs);
+    if (m_dockDropOverlay)
+        m_dockDropOverlay->setWorkspaceBounds(
+            m_workspaceSplit->getScreenSpaceAABB());
 
     const Vector3 viewportSize = m_viewportPanel->getTransform()->getSize();
     m_viewportWidth = viewportSize.x;
@@ -474,6 +485,183 @@ void EditorShell::applyDockLayout() {
         viewportSize.x, std::max(1.0f, viewportSize.y - 32.0f));
     if (m_previewCanvas || m_previewGrid)
         refreshViewportGuides();
+}
+
+void EditorShell::syncDockTabs() {
+    const auto sync = [this](
+                          const std::string& id,
+                          const std::shared_ptr<MRTabContainer>& tabs) {
+        if (auto* state = m_dockLayout.findTabs(id)) {
+            state->active = tabs->currentTabId();
+            state->panels.clear();
+            for (const auto& tab : tabs->tabs())
+                state->panels.push_back(tab.id);
+        }
+    };
+    sync("left_dock", m_leftTabs);
+    sync("center_dock", m_centerTabs);
+    sync("bottom_dock", m_bottomTabs);
+}
+
+std::shared_ptr<MRTabContainer> EditorShell::tabContainerForId(
+    const std::string& id) const {
+    if (id == "left_dock")
+        return m_leftTabs;
+    if (id == "center_dock")
+        return m_centerTabs;
+    if (id == "bottom_dock")
+        return m_bottomTabs;
+    return nullptr;
+}
+
+std::string EditorShell::tabGroupForWidget(
+    const std::shared_ptr<Widget>& widget) const {
+    if (m_leftTabs && !m_leftTabs->tabIdForWidget(widget).empty())
+        return "left_dock";
+    if (m_bottomTabs && !m_bottomTabs->tabIdForWidget(widget).empty())
+        return "bottom_dock";
+    if (m_centerTabs && !m_centerTabs->tabIdForWidget(widget).empty())
+        return "center_dock";
+    return {};
+}
+
+DockDropZone EditorShell::dropZoneAt(float x, float y) const {
+    if (!m_workspaceSplit)
+        return DockDropZone::None;
+    const Math::Rect bounds = m_workspaceSplit->getScreenSpaceAABB();
+    if (!bounds.Contains(x, y))
+        return DockDropZone::None;
+    const float nx = (x - bounds.Min.x) / std::max(1.0f, bounds.GetWidth());
+    const float ny = (y - bounds.Min.y) / std::max(1.0f, bounds.GetHeight());
+    if (nx < 0.20f)
+        return DockDropZone::Left;
+    if (nx > 0.80f)
+        return DockDropZone::Right;
+    if (ny < 0.20f)
+        return DockDropZone::Top;
+    if (ny > 0.80f)
+        return DockDropZone::Bottom;
+    return DockDropZone::Center;
+}
+
+bool EditorShell::handleDockDrag(const TouchEvent& event) {
+    if (event.eventType == TOUCH_EVENT_TYPE_TOUCH &&
+        event.button == TOUCH_MOUSE_BUTTON_LEFT) {
+        const auto target = event.target;
+        const std::string leftId =
+            m_leftTabs ? m_leftTabs->tabIdForWidget(target) : std::string{};
+        const std::string bottomId =
+            m_bottomTabs ? m_bottomTabs->tabIdForWidget(target) : std::string{};
+        const std::string centerId =
+            m_centerTabs ? m_centerTabs->tabIdForWidget(target) : std::string{};
+        if (!leftId.empty()) {
+            m_pendingDockTab = leftId;
+            m_pendingDockGroup = "left_dock";
+        } else if (!bottomId.empty()) {
+            m_pendingDockTab = bottomId;
+            m_pendingDockGroup = "bottom_dock";
+        } else if (!centerId.empty()) {
+            m_pendingDockTab = centerId;
+            m_pendingDockGroup = "center_dock";
+        } else {
+            return false;
+        }
+        m_pendingDockX = event.positionX;
+        m_pendingDockY = event.positionY;
+        return false;
+    }
+
+    if (event.eventType == TOUCH_EVENT_TYPE_MOVE) {
+        if (m_dragDrop.isActive()) {
+            m_dragDrop.update(event.positionX, event.positionY);
+            if (m_dockDropOverlay) {
+                m_dockDropOverlay->setVisible(true);
+                m_dockDropOverlay->setZone(
+                    dropZoneAt(event.positionX, event.positionY));
+            }
+            return true;
+        }
+        if (!m_pendingDockTab.empty()) {
+            const float dx = event.positionX - m_pendingDockX;
+            const float dy = event.positionY - m_pendingDockY;
+            if (dx * dx + dy * dy >= 36.0f) {
+                DragPayload payload;
+                payload.type = "editor/dock-panel";
+                payload.id = m_pendingDockTab;
+                payload.source = event.target;
+                m_dragDrop.begin(payload, event.positionX, event.positionY);
+                if (m_dockDropOverlay) {
+                    m_dockDropOverlay->setVisible(true);
+                    m_dockDropOverlay->setZone(
+                        dropZoneAt(event.positionX, event.positionY));
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (event.eventType == TOUCH_EVENT_TYPE_RELEASE) {
+        if (m_dragDrop.isActive()) {
+            completeDockDrop(event.positionX, event.positionY);
+            m_pendingDockTab.clear();
+            m_pendingDockGroup.clear();
+            return true;
+        }
+        m_pendingDockTab.clear();
+        m_pendingDockGroup.clear();
+    }
+    return false;
+}
+
+void EditorShell::completeDockDrop(float x, float y) {
+    const auto state = m_dragDrop.state();
+    const std::string panelId = state.payload.id;
+    const DockDropZone zone = dropZoneAt(x, y);
+    if (m_dockDropOverlay) {
+        m_dockDropOverlay->setVisible(false);
+        m_dockDropOverlay->setZone(DockDropZone::None);
+    }
+    m_dragDrop.drop(x, y);
+    if (zone == DockDropZone::None)
+        return;
+
+    std::shared_ptr<MRTabContainer> targetTabs;
+    if (zone == DockDropZone::Bottom) {
+        targetTabs = m_bottomTabs;
+    } else if (zone == DockDropZone::Left) {
+        targetTabs = m_leftTabs;
+    } else if (zone == DockDropZone::Right || zone == DockDropZone::Top) {
+        targetTabs = m_centerTabs;
+    } else {
+        const Math::Rect leftBounds = m_leftTabs->getScreenSpaceAABB();
+        const Math::Rect centerBounds = m_centerTabs->getScreenSpaceAABB();
+        const Math::Rect bottomBounds =
+            m_bottomTabs->getScreenSpaceAABB();
+        targetTabs = bottomBounds.Contains(x, y)
+                         ? m_bottomTabs
+                         : (leftBounds.Contains(x, y) ? m_leftTabs
+                                                       : centerBounds.Contains(x, y)
+                                                             ? m_centerTabs
+                                                             : m_leftTabs);
+    }
+    if (!targetTabs)
+        return;
+
+    std::shared_ptr<MRTabContainer> sourceTabs =
+        m_pendingDockGroup == "bottom_dock"
+            ? m_bottomTabs
+            : (m_pendingDockGroup == "center_dock" ? m_centerTabs : m_leftTabs);
+    MRTabContainer::DetachedTab detached;
+    if (!sourceTabs->detachTab(panelId, detached))
+        return;
+    if (!targetTabs->addTab(detached.id, detached.title, detached.content)) {
+        sourceTabs->addTab(detached.id, detached.title, detached.content);
+        return;
+    }
+    targetTabs->selectTab(detached.id);
+    syncDockTabs();
+    saveDockLayout();
 }
 
 void EditorShell::saveDockLayout() {
@@ -877,6 +1065,8 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
 void EditorShell::handleInput(std::vector<TouchEvent>& events) {
     pollBuild();
     for (const auto& event : events) {
+        if (handleDockDrag(event))
+            continue;
         auto target = event.target;
         bool viewportTarget = false;
         while (target) {
