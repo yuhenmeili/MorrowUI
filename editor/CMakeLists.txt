@@ -3,6 +3,7 @@ add_library(morrow_editor_document STATIC
     scene/SceneDocument.cpp
     scene/SceneEditorModel.cpp
     scene/EditorSession.cpp
+    scene/NodeTypeCatalog.cpp
     commands/CommandHistory.cpp
     assets/AssetDatabase.cpp
     assets/ImportQueue.cpp
@@ -19,6 +20,7 @@ add_library(morrow_editor_runtime STATIC
     scene/SceneInstantiator.cpp
     filesystem/ThumbnailService.cpp
     ui/DockDropOverlay.cpp
+    ui/CreateNodeDialog.cpp
     ui/FileSystemPanel.cpp
     EditorShell.cpp
 )

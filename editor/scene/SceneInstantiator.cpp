@@ -12,8 +12,51 @@
 #include "base/Transform.h"
 #include "base/UIWidget.h"
 #include "elements/MRButton.h"
+#include "elements/MR3DSceneView.h"
+#include "elements/MRAnchorPointScale.h"
+#include "elements/MRBounce.h"
+#include "elements/MRBrakePedal.h"
+#include "elements/MRCanvasModulate.h"
+#include "elements/MRCheckBox.h"
+#include "elements/MRCheckButton.h"
+#include "elements/MRColor.h"
+#include "elements/MRFlowingLight.h"
+#include "elements/MRFrameAnimation.h"
+#include "elements/MRGearsIris.h"
+#include "elements/MRGearsOpening.h"
+#include "elements/MRGearsSelect.h"
+#include "elements/MRGearsShine.h"
 #include "elements/MRImage.h"
+#include "elements/MRItemList.h"
 #include "elements/MRLabel.h"
+#include "elements/MRLineEdit.h"
+#include "elements/MRMenuButton.h"
+#include "elements/MROptionButton.h"
+#include "elements/MRParallax2D.h"
+#include "elements/MRParallaxBackground.h"
+#include "elements/MRParticles2D.h"
+#include "elements/MRPopup.h"
+#include "elements/MRPopupMenu.h"
+#include "elements/MRProgressBar.h"
+#include "elements/MRRadioButton.h"
+#include "elements/MRRichTextLabel.h"
+#include "elements/MRScrollBar.h"
+#include "elements/MRScrollContainer.h"
+#include "elements/MRSeparator.h"
+#include "elements/MRSlider.h"
+#include "elements/MRSpacer.h"
+#include "elements/MRSpinBox.h"
+#include "elements/MRTextEdit.h"
+#include "elements/MRTextureButton.h"
+#include "elements/MRToggle.h"
+#include "elements/MRTree.h"
+#include "elements/MRVideoStreamPlayer.h"
+#include "layout/CenterContainer.h"
+#include "layout/HBoxContainer.h"
+#include "layout/MarginContainer.h"
+#include "layout/MRSplitContainer.h"
+#include "layout/MRTabContainer.h"
+#include "layout/VBoxContainer.h"
 
 namespace {
 
@@ -24,6 +67,14 @@ class SceneContainer2D final : public morrow::UIWidget {
 public:
     SceneContainer2D() : UIWidget(false) {
         setWidgetType("SceneNode");
+    }
+};
+
+class CatalogPlaceholderWidget final : public morrow::UIWidget {
+public:
+    explicit CatalogPlaceholderWidget(const std::string& type)
+        : UIWidget(false) {
+        setWidgetType(type);
     }
 };
 
@@ -82,6 +133,61 @@ std::shared_ptr<morrow::Widget> createNode(const morrow::editor::SceneNodeRecord
     }
     if (record.type == "MRImage") {
         return morrow::MRImage::create();
+    }
+    if (record.type == "MRColor") return morrow::MRColor::create();
+    if (record.type == "MRCheckBox") return morrow::MRCheckBox::create();
+    if (record.type == "MRCheckButton") return morrow::MRCheckButton::create();
+    if (record.type == "MRRadioButton") return morrow::MRRadioButton::create();
+    if (record.type == "MRToggle") return morrow::MRToggle::create();
+    if (record.type == "MRLineEdit") return morrow::MRLineEdit::create();
+    if (record.type == "MRTextEdit") return morrow::MRTextEdit::create();
+    if (record.type == "MRSpinBox") return morrow::MRSpinBox::create();
+    if (record.type == "MRSlider") return morrow::MRSlider::create();
+    if (record.type == "MRMenuButton") return morrow::MRMenuButton::create();
+    if (record.type == "MROptionButton") return morrow::MROptionButton::create();
+    if (record.type == "MRTextureButton") return morrow::MRTextureButton::create();
+    if (record.type == "MRProgressBar") return morrow::MRProgressBar::create();
+    if (record.type == "MRItemList") return morrow::MRItemList::create();
+    if (record.type == "MRTree") return morrow::MRTree::create();
+    if (record.type == "MRRichTextLabel") return morrow::MRRichTextLabel::create();
+    if (record.type == "MRScrollBar") return morrow::MRScrollBar::create();
+    if (record.type == "MRScrollContainer") return morrow::MRScrollContainer::create();
+    if (record.type == "MRSpacer") return morrow::MRSpacer::create();
+    if (record.type == "MRHSeparator") return morrow::MRHSeparator::create();
+    if (record.type == "MRVSeparator") return morrow::MRVSeparator::create();
+    if (record.type == "CenterContainer") return std::make_shared<morrow::CenterContainer>();
+    if (record.type == "HBoxContainer") return std::make_shared<morrow::HBoxContainer>();
+    if (record.type == "VBoxContainer") return std::make_shared<morrow::VBoxContainer>();
+    if (record.type == "MarginContainer") return std::make_shared<morrow::MarginContainer>();
+    if (record.type == "MRSplitContainer") return morrow::MRSplitContainer::create();
+    if (record.type == "MRTabContainer") return morrow::MRTabContainer::create();
+    if (record.type == "MRPopup") return morrow::MRPopup::create();
+    if (record.type == "MRPopupPanel") return morrow::MRPopupPanel::create();
+    if (record.type == "MRWindow") return morrow::MRWindow::create();
+    if (record.type == "MRDialog") return morrow::MRDialog::create();
+    if (record.type == "MRTooltip") return morrow::MRTooltip::create();
+    if (record.type == "MRPopupMenu") return morrow::MRPopupMenu::create();
+    if (record.type == "MR3DSceneView") return morrow::MR3DSceneView::create();
+    if (record.type == "MRCanvasModulate") return morrow::MRCanvasModulate::create();
+    if (record.type == "MRParallax2D") return morrow::MRParallax2D::create();
+    if (record.type == "MRParallaxBackground") return morrow::MRParallaxBackground::create();
+    if (record.type == "MRCPUParticles2D") return morrow::MRCPUParticles2D::create();
+    if (record.type == "MRGPUParticles2D") return morrow::MRGPUParticles2D::create();
+    if (record.type == "MRFrameAnimation") return morrow::MRFrameAnimation::create();
+    if (record.type == "MRBounce") return morrow::MRBounce::create();
+    if (record.type == "MRFlowingLight") return morrow::MRFlowingLight::create();
+    if (record.type == "MRAnchorPointScale") return morrow::MRAnchorPointScale::create();
+    if (record.type == "MRBrakePedal") return morrow::MRBrakePedal::create();
+    if (record.type == "MRGearsIris") return morrow::MRGearsIris::create();
+    if (record.type == "MRGearsOpening") return morrow::MRGearsOpening::create();
+    if (record.type == "MRGearsSelect") return morrow::MRGearsSelect::create();
+    if (record.type == "MRGearsShine") return morrow::MRGearsShine::create();
+    if (record.type == "MRVideoStreamPlayer") {
+        return morrow::MRVideoStreamPlayer::create(320, 180, 30.0f, 1);
+    }
+    if (record.type.rfind("MR", 0) == 0 ||
+        record.type.find("Container") != std::string::npos) {
+        return std::make_shared<CatalogPlaceholderWidget>(record.type);
     }
     error = "unsupported scene node type '" + record.type + "'";
     return nullptr;

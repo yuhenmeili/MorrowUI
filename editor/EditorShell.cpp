@@ -7,15 +7,17 @@
 #include <utility>
 
 #include "Engine.h"
-#include "base/TouchEvent.h"
-#include "base/Transform.h"
+#include "base/Interaction.h"
+#include "base/Mesh.h"
 #include "base/MeshFilter.h"
 #include "base/MeshRenderer.h"
+#include "base/TouchEvent.h"
+#include "base/Transform.h"
 #include "elements/MRButton.h"
 #include "elements/MRLabel.h"
-#include "base/Mesh.h"
-#include "renderer/resource/ssbo/layouts/ButtonSSBOLayout.h"
+#include "elements/MRPopupMenu.h"
 #include "platform/Window.h"
+#include "renderer/resource/ssbo/layouts/ButtonSSBOLayout.h"
 #include "scene/SceneInstantiator.h"
 #include "wgl/OpenglHeader.h"
 
@@ -35,8 +37,7 @@ std::unordered_map<GLFWwindow*, GLFWcharfun>& previousCharCallbacks() {
     return callbacks;
 }
 
-std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float height,
-                                            const morrow::Math::Vector4& color = morrow::Math::Vector4(0.12f, 0.14f, 0.17f, 1.0f)) {
+std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float height, const morrow::Math::Vector4& color = morrow::Math::Vector4(0.12f, 0.14f, 0.17f, 1.0f)) {
     auto panel = morrow::MRButton::create();
     panel->setInteractive(false);
     panel->setBackgroundColor(color);
@@ -68,8 +69,7 @@ public:
         material->setFloat("alpha", color.w);
     }
 
-    void setGeometry(std::vector<morrow::Math::Vector3> vertices, std::vector<int16_t> indices, float x, float y,
-                     float width = 0.0f, float height = 0.0f) {
+    void setGeometry(std::vector<morrow::Math::Vector3> vertices, std::vector<int16_t> indices, float x, float y, float width = 0.0f, float height = 0.0f) {
         auto mesh = getComponent<morrow::MeshFilter>()->getMesh();
         mesh->setVertices(vertices);
         mesh->setIndices(indices);
@@ -81,15 +81,14 @@ public:
     }
 };
 
-void addQuad(std::vector<morrow::Math::Vector3>& vertices, std::vector<int16_t>& indices,
-             float left, float top, float right, float bottom) {
+void addQuad(std::vector<morrow::Math::Vector3>& vertices, std::vector<int16_t>& indices, float left, float top, float right, float bottom) {
     const auto start = static_cast<int16_t>(vertices.size());
     vertices.emplace_back(left, top, 0.0f);
     vertices.emplace_back(right, top, 0.0f);
     vertices.emplace_back(right, bottom, 0.0f);
     vertices.emplace_back(left, bottom, 0.0f);
-    indices.insert(indices.end(), {start, static_cast<int16_t>(start + 1), static_cast<int16_t>(start + 2),
-                                   static_cast<int16_t>(start + 2), static_cast<int16_t>(start + 3), start});
+    indices.insert(indices.end(),
+                   {start, static_cast<int16_t>(start + 1), static_cast<int16_t>(start + 2), static_cast<int16_t>(start + 2), static_cast<int16_t>(start + 3), start});
 }
 
 std::shared_ptr<EditorGuideWidget> makeGuide(const morrow::Math::Vector4& color) {
@@ -104,13 +103,11 @@ EditorShell::EditorShell(const std::shared_ptr<Window>& window, const std::share
                          std::filesystem::path assetRoot) :
     m_window(window), m_engine(engine), m_projectPath(std::move(projectPath)), m_scenePath(std::move(scenePath)), m_assetRoot(std::move(assetRoot)),
     m_session(std::make_shared<EditorSession>(m_scenePath)), m_dockLayoutPath(m_projectPath.parent_path() / ".morrow" / "editor.layout") {
-    m_selectionChangedConnection = m_events.onSelectionChanged.connect(
-        [this](const SelectionState& selection) {
-            m_selectedNodeId =
-                selection.nodeIds.empty() ? std::string{} : selection.nodeIds.back();
-            rebuildRuntime();
-            refreshInspector();
-        });
+    m_selectionChangedConnection = m_events.onSelectionChanged.connect([this](const SelectionState& selection) {
+        m_selectedNodeId = selection.nodeIds.empty() ? std::string{} : selection.nodeIds.back();
+        rebuildRuntime();
+        refreshInspector();
+    });
 }
 
 EditorShell::~EditorShell() {
@@ -120,13 +117,11 @@ EditorShell::~EditorShell() {
     if (m_window) {
         auto* glfwWindow = static_cast<GLFWwindow*>(m_window->getSurface());
         if (glfwWindow) {
-            if (const auto iterator = previousKeyCallbacks().find(glfwWindow);
-                iterator != previousKeyCallbacks().end()) {
+            if (const auto iterator = previousKeyCallbacks().find(glfwWindow); iterator != previousKeyCallbacks().end()) {
                 glfwSetKeyCallback(glfwWindow, iterator->second);
                 previousKeyCallbacks().erase(iterator);
             }
-            if (const auto iterator = previousCharCallbacks().find(glfwWindow);
-                iterator != previousCharCallbacks().end()) {
+            if (const auto iterator = previousCharCallbacks().find(glfwWindow); iterator != previousCharCallbacks().end()) {
                 glfwSetCharCallback(glfwWindow, iterator->second);
                 previousCharCallbacks().erase(iterator);
             }
@@ -151,11 +146,20 @@ void EditorShell::setPreviewState(PreviewState state) {
     m_previewState = state;
     const char* label = "Stopped";
     switch (state) {
-        case PreviewState::Starting: label = "Starting"; break;
-        case PreviewState::Running: label = "Running"; break;
-        case PreviewState::Outdated: label = "Outdated"; break;
-        case PreviewState::Failed: label = "Failed"; break;
-        case PreviewState::Stopped: break;
+        case PreviewState::Starting:
+            label = "Starting";
+            break;
+        case PreviewState::Running:
+            label = "Running";
+            break;
+        case PreviewState::Outdated:
+            label = "Outdated";
+            break;
+        case PreviewState::Failed:
+            label = "Failed";
+            break;
+        case PreviewState::Stopped:
+            break;
     }
     setStatus(std::string("Preview: ") + label);
 }
@@ -188,8 +192,7 @@ void EditorShell::runImportQueue() {
     if (!success && !error.empty())
         setStatus("Import failed: " + error);
     std::string scanError;
-    if (!m_assets.scan(
-            m_projectPath.parent_path(), m_assetRoot, scanError)) {
+    if (!m_assets.scan(m_projectPath.parent_path(), m_assetRoot, scanError)) {
         setStatus("Asset rescan failed: " + scanError);
     }
     if (!m_fileSystem.projectRoot().empty()) {
@@ -211,6 +214,7 @@ void EditorShell::notifySelectionChanged() {
     }
     m_lastNotifiedSelection = selection.nodeIds;
     m_events.onSelectionChanged.notify(selection);
+    refreshSceneTreeSelectionStyles();
 }
 
 void EditorShell::addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height) {
@@ -234,20 +238,13 @@ std::shared_ptr<MRButton> EditorShell::addButton(const std::shared_ptr<UIWidget>
     button->setHoverColor(morrow::Math::Vector4(0.30f, 0.55f, 0.95f, 1.0f));
     button->setPressedColor(morrow::Math::Vector4(0.10f, 0.22f, 0.48f, 1.0f));
     m_buttonConnections.erase(
-        std::remove_if(
-            m_buttonConnections.begin(),
-            m_buttonConnections.end(),
-            [](const Observable<BaseButton&>::Connection& connection) {
-                return !connection.connected();
-            }),
+        std::remove_if(m_buttonConnections.begin(), m_buttonConnections.end(), [](const Observable<BaseButton&>::Connection& connection) { return !connection.connected(); }),
         m_buttonConnections.end());
-    m_buttonConnections.emplace_back(
-        button->events().onClicked.connect(
-            [callback = std::move(callback)](BaseButton&) {
-                if (callback) {
-                    callback();
-                }
-            }));
+    m_buttonConnections.emplace_back(button->events().onClicked.connect([callback = std::move(callback)](BaseButton&) {
+        if (callback) {
+            callback();
+        }
+    }));
     auto transform = button->getComponent<Transform>();
     transform->setPosition(x, y, 0.0f);
     transform->setSize(width, height);
@@ -295,12 +292,8 @@ void EditorShell::buildLayout() {
     m_viewportPanel = makePanel(0.0f, 0.0f, 740.0f, 570.0f, morrow::Math::Vector4(0.10f, 0.12f, 0.15f, 1.0f));
     m_inspectorPanel = makePanel(0.0f, 0.0f, 300.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
     m_statusPanel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
-    m_buildPanel = makePanel(
-        0.0f, 0.0f, 1280.0f, 140.0f,
-        morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
-    m_fileSystemPanel = FileSystemPanel::create(
-        m_fileSystem,
-        [this](const std::string& status) { setStatus(status); });
+    m_buildPanel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
+    m_fileSystemPanel = FileSystemPanel::create(m_fileSystem, [this](const std::string& status) { setStatus(status); });
     m_previewRoot = makePanel(0.0f, 32.0f, 740.0f, 538.0f);
     m_previewRoot->setWidgetName("PreviewRoot");
 
@@ -329,6 +322,19 @@ void EditorShell::buildLayout() {
     m_bottomTabs->addTab("output", L"Output", m_statusPanel);
     m_bottomTabs->addTab("build", L"Build", m_buildPanel);
     m_dockDropOverlay = DockDropOverlay::create();
+    m_createNodeDialog = CreateNodeDialog::create(m_nodeTypeCatalog);
+    m_createNodeConnection = m_createNodeDialog->events().onConfirmed.connect(
+        [this](CreateNodeDialog&, const NodeTypeDescriptor& descriptor, const std::string& parentId) { createChildNode(descriptor, parentId); });
+    m_sceneContextMenu = MRPopupMenu::create();
+    m_sceneContextMenu->setMenuWidth(220.0f);
+    m_sceneContextMenu->addItem(L"Add Child Node...", 1);
+    m_sceneContextMenu->addItem(L"Delete", 2);
+    m_sceneContextMenuConnection = m_sceneContextMenu->events().onItemSelected.connect([this](MRPopupMenu&, int id, const std::wstring&) {
+        if (id == 1)
+            showCreateNodeDialog(m_sceneContextParentId);
+        else if (id == 2)
+            deleteSelectedSceneNode();
+    });
 
     m_centerSplit = MRSplitContainer::create();
     m_centerSplit->setOrientation(SplitOrientation::Horizontal);
@@ -346,54 +352,43 @@ void EditorShell::buildLayout() {
     m_shellRoot->addChild(m_toolbarPanel);
     m_shellRoot->addChild(m_workspaceSplit);
     m_shellRoot->addChild(m_dockDropOverlay);
+    m_shellRoot->addChild(m_createNodeDialog);
     m_viewportPanel->addChild(m_previewRoot);
     m_window->addChild(m_shellRoot);
 
-    const auto connectSplit = [this](
-                                  const std::string& id,
-                                  const std::shared_ptr<MRSplitContainer>& split) {
-        m_splitConnections.emplace_back(
-            split->events().onSplitRatioChanged.connect(
-                [this, id](MRSplitContainer&, float ratio) {
-                    if (auto* state = m_dockLayout.findSplit(id))
-                        state->ratio = ratio;
-                    applyDockLayout();
-                }));
-        m_splitConnections.emplace_back(
-            split->events().onDragFinished.connect(
-                [this, id](MRSplitContainer&, float ratio) {
-                    if (auto* state = m_dockLayout.findSplit(id))
-                        state->ratio = ratio;
-                    saveDockLayout();
-                }));
+    const auto connectSplit = [this](const std::string& id, const std::shared_ptr<MRSplitContainer>& split) {
+        m_splitConnections.emplace_back(split->events().onSplitRatioChanged.connect([this, id](MRSplitContainer&, float ratio) {
+            if (auto* state = m_dockLayout.findSplit(id))
+                state->ratio = ratio;
+            applyDockLayout();
+        }));
+        m_splitConnections.emplace_back(split->events().onDragFinished.connect([this, id](MRSplitContainer&, float ratio) {
+            if (auto* state = m_dockLayout.findSplit(id))
+                state->ratio = ratio;
+            saveDockLayout();
+        }));
     };
     connectSplit("workspace", m_workspaceSplit);
     connectSplit("left", m_mainSplit);
     connectSplit("center", m_centerSplit);
 
-    const auto connectTabs = [this](
-                                 const std::string& id,
-                                 const std::shared_ptr<MRTabContainer>& tabs) {
-        m_tabConnections.emplace_back(
-            tabs->events().onCurrentTabChanged.connect(
-                [this, id](MRTabContainer& container, const std::string& active) {
-                    if (auto* state = m_dockLayout.findTabs(id))
-                        state->active = active;
-                    saveDockLayout();
-                    if (id == "bottom_dock" && active == "build")
-                        refreshOutput();
-                    (void)container;
-                }));
-        m_tabOrderConnections.emplace_back(
-            tabs->events().onTabOrderChanged.connect(
-                [this, id](MRTabContainer& container) {
-                    if (auto* state = m_dockLayout.findTabs(id)) {
-                        state->panels.clear();
-                        for (const auto& tab : container.tabs())
-                            state->panels.push_back(tab.id);
-                    }
-                    saveDockLayout();
-                }));
+    const auto connectTabs = [this](const std::string& id, const std::shared_ptr<MRTabContainer>& tabs) {
+        m_tabConnections.emplace_back(tabs->events().onCurrentTabChanged.connect([this, id](MRTabContainer& container, const std::string& active) {
+            if (auto* state = m_dockLayout.findTabs(id))
+                state->active = active;
+            saveDockLayout();
+            if (id == "bottom_dock" && active == "build")
+                refreshOutput();
+            (void)container;
+        }));
+        m_tabOrderConnections.emplace_back(tabs->events().onTabOrderChanged.connect([this, id](MRTabContainer& container) {
+            if (auto* state = m_dockLayout.findTabs(id)) {
+                state->panels.clear();
+                for (const auto& tab : container.tabs())
+                    state->panels.push_back(tab.id);
+            }
+            saveDockLayout();
+        }));
     };
     connectTabs("left_dock", m_leftTabs);
     connectTabs("center_dock", m_centerTabs);
@@ -433,13 +428,11 @@ void EditorShell::buildLayout() {
     addButton(m_toolbarPanel, L"Import", 906.0f, 4.0f, 82.0f, 30.0f, [this] { runImportQueue(); });
     addButton(m_toolbarPanel, L"Assets", 994.0f, 4.0f, 82.0f, 30.0f, [this] { showAssetBrowser(); });
     addLabel(m_sceneTreePanel, "Scene", 8.0f, 6.0f, 220.0f, 28.0f);
+    addButton(m_sceneTreePanel, L"+", 196.0f, 4.0f, 34.0f, 28.0f, [this] { showCreateNodeDialog(); });
     addLabel(m_viewportPanel, "2D Viewport", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_inspectorPanel, "Inspector", 8.0f, 6.0f, 260.0f, 28.0f);
     addLabel(m_buildPanel, "Build / Run", 8.0f, 3.0f, 260.0f, 24.0f);
-    addLabel(
-        m_buildPanel,
-        "Use the toolbar commands to configure, build, run, or stop.",
-        8.0f, 30.0f, 620.0f, 22.0f);
+    addLabel(m_buildPanel, "Use the toolbar commands to configure, build, run, or stop.", 8.0f, 30.0f, 620.0f, 22.0f);
     applyDockLayout();
     refreshOutput();
 }
@@ -451,16 +444,13 @@ void EditorShell::applyDockLayout() {
         m_mainSplit->setSplitRatio(split->ratio);
     if (const auto* split = m_dockLayout.findSplit("center"))
         m_centerSplit->setSplitRatio(split->ratio);
-    const auto applyTabState = [](
-                                   const DockTabState* state,
-                                   const std::shared_ptr<MRTabContainer>& tabs) {
+    const auto applyTabState = [](const DockTabState* state, const std::shared_ptr<MRTabContainer>& tabs) {
         if (!state || !tabs)
             return;
         for (size_t target = 0; target < state->panels.size(); ++target) {
             const auto& desired = state->panels[target];
             size_t current = target;
-            while (current < tabs->tabs().size() &&
-                   tabs->tabs()[current].id != desired) {
+            while (current < tabs->tabs().size() && tabs->tabs()[current].id != desired) {
                 ++current;
             }
             if (current < tabs->tabs().size() && current != target)
@@ -475,22 +465,20 @@ void EditorShell::applyDockLayout() {
     if (const auto* tabs = m_dockLayout.findTabs("bottom_dock"))
         applyTabState(tabs, m_bottomTabs);
     if (m_dockDropOverlay)
-        m_dockDropOverlay->setWorkspaceBounds(
-            m_workspaceSplit->getScreenSpaceAABB());
+        m_dockDropOverlay->setWorkspaceBounds(m_workspaceSplit->getScreenSpaceAABB());
+    if (m_createNodeDialog && m_shellRoot)
+        m_createNodeDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
 
     const Vector3 viewportSize = m_viewportPanel->getTransform()->getSize();
     m_viewportWidth = viewportSize.x;
     m_viewportHeight = viewportSize.y;
-    m_previewRoot->getTransform()->setSize(
-        viewportSize.x, std::max(1.0f, viewportSize.y - 32.0f));
+    m_previewRoot->getTransform()->setSize(viewportSize.x, std::max(1.0f, viewportSize.y - 32.0f));
     if (m_previewCanvas || m_previewGrid)
         refreshViewportGuides();
 }
 
 void EditorShell::syncDockTabs() {
-    const auto sync = [this](
-                          const std::string& id,
-                          const std::shared_ptr<MRTabContainer>& tabs) {
+    const auto sync = [this](const std::string& id, const std::shared_ptr<MRTabContainer>& tabs) {
         if (auto* state = m_dockLayout.findTabs(id)) {
             state->active = tabs->currentTabId();
             state->panels.clear();
@@ -503,8 +491,7 @@ void EditorShell::syncDockTabs() {
     sync("bottom_dock", m_bottomTabs);
 }
 
-std::shared_ptr<MRTabContainer> EditorShell::tabContainerForId(
-    const std::string& id) const {
+std::shared_ptr<MRTabContainer> EditorShell::tabContainerForId(const std::string& id) const {
     if (id == "left_dock")
         return m_leftTabs;
     if (id == "center_dock")
@@ -514,8 +501,7 @@ std::shared_ptr<MRTabContainer> EditorShell::tabContainerForId(
     return nullptr;
 }
 
-std::string EditorShell::tabGroupForWidget(
-    const std::shared_ptr<Widget>& widget) const {
+std::string EditorShell::tabGroupForWidget(const std::shared_ptr<Widget>& widget) const {
     if (m_leftTabs && !m_leftTabs->tabIdForWidget(widget).empty())
         return "left_dock";
     if (m_bottomTabs && !m_bottomTabs->tabIdForWidget(widget).empty())
@@ -545,15 +531,11 @@ DockDropZone EditorShell::dropZoneAt(float x, float y) const {
 }
 
 bool EditorShell::handleDockDrag(const TouchEvent& event) {
-    if (event.eventType == TOUCH_EVENT_TYPE_TOUCH &&
-        event.button == TOUCH_MOUSE_BUTTON_LEFT) {
+    if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_LEFT) {
         const auto target = event.target;
-        const std::string leftId =
-            m_leftTabs ? m_leftTabs->tabIdForWidget(target) : std::string{};
-        const std::string bottomId =
-            m_bottomTabs ? m_bottomTabs->tabIdForWidget(target) : std::string{};
-        const std::string centerId =
-            m_centerTabs ? m_centerTabs->tabIdForWidget(target) : std::string{};
+        const std::string leftId = m_leftTabs ? m_leftTabs->tabIdForWidget(target) : std::string{};
+        const std::string bottomId = m_bottomTabs ? m_bottomTabs->tabIdForWidget(target) : std::string{};
+        const std::string centerId = m_centerTabs ? m_centerTabs->tabIdForWidget(target) : std::string{};
         if (!leftId.empty()) {
             m_pendingDockTab = leftId;
             m_pendingDockGroup = "left_dock";
@@ -576,8 +558,7 @@ bool EditorShell::handleDockDrag(const TouchEvent& event) {
             m_dragDrop.update(event.positionX, event.positionY);
             if (m_dockDropOverlay) {
                 m_dockDropOverlay->setVisible(true);
-                m_dockDropOverlay->setZone(
-                    dropZoneAt(event.positionX, event.positionY));
+                m_dockDropOverlay->setZone(dropZoneAt(event.positionX, event.positionY));
             }
             return true;
         }
@@ -592,8 +573,7 @@ bool EditorShell::handleDockDrag(const TouchEvent& event) {
                 m_dragDrop.begin(payload, event.positionX, event.positionY);
                 if (m_dockDropOverlay) {
                     m_dockDropOverlay->setVisible(true);
-                    m_dockDropOverlay->setZone(
-                        dropZoneAt(event.positionX, event.positionY));
+                    m_dockDropOverlay->setZone(dropZoneAt(event.positionX, event.positionY));
                 }
                 return true;
             }
@@ -636,22 +616,13 @@ void EditorShell::completeDockDrop(float x, float y) {
     } else {
         const Math::Rect leftBounds = m_leftTabs->getScreenSpaceAABB();
         const Math::Rect centerBounds = m_centerTabs->getScreenSpaceAABB();
-        const Math::Rect bottomBounds =
-            m_bottomTabs->getScreenSpaceAABB();
-        targetTabs = bottomBounds.Contains(x, y)
-                         ? m_bottomTabs
-                         : (leftBounds.Contains(x, y) ? m_leftTabs
-                                                       : centerBounds.Contains(x, y)
-                                                             ? m_centerTabs
-                                                             : m_leftTabs);
+        const Math::Rect bottomBounds = m_bottomTabs->getScreenSpaceAABB();
+        targetTabs = bottomBounds.Contains(x, y) ? m_bottomTabs : (leftBounds.Contains(x, y) ? m_leftTabs : centerBounds.Contains(x, y) ? m_centerTabs : m_leftTabs);
     }
     if (!targetTabs)
         return;
 
-    std::shared_ptr<MRTabContainer> sourceTabs =
-        m_pendingDockGroup == "bottom_dock"
-            ? m_bottomTabs
-            : (m_pendingDockGroup == "center_dock" ? m_centerTabs : m_leftTabs);
+    std::shared_ptr<MRTabContainer> sourceTabs = m_pendingDockGroup == "bottom_dock" ? m_bottomTabs : (m_pendingDockGroup == "center_dock" ? m_centerTabs : m_leftTabs);
     MRTabContainer::DetachedTab detached;
     if (!sourceTabs->detachTab(panelId, detached))
         return;
@@ -676,8 +647,7 @@ void EditorShell::handleFramebufferResize(const Vector2& size) {
     m_shellRoot->getTransform()->setSize(size.x, size.y);
     m_toolbarPanel->getTransform()->setSize(size.x, 40.0f);
     m_workspaceSplit->getTransform()->setPosition(0.0f, 40.0f, 0.0f);
-    m_workspaceSplit->getTransform()->setSize(
-        size.x, std::max(1.0f, size.y - 40.0f));
+    m_workspaceSplit->getTransform()->setSize(size.x, std::max(1.0f, size.y - 40.0f));
     applyDockLayout();
     refreshOutput();
 }
@@ -688,8 +658,7 @@ void EditorShell::refreshOutput() {
     m_statusPanel->m_children.clear();
     addLabel(m_statusPanel, "Output / Assets / Build", 8.0f, 2.0f, 360.0f, 22.0f);
     float y = 26.0f;
-    const float contentWidth =
-        std::max(1.0f, m_statusPanel->getTransform()->getSize().x - 16.0f);
+    const float contentWidth = std::max(1.0f, m_statusPanel->getTransform()->getSize().x - 16.0f);
     for (const auto& line : m_outputLines) {
         addLabel(m_statusPanel, line, 8.0f, y, contentWidth, 20.0f);
         y += 21.0f;
@@ -764,8 +733,7 @@ void EditorShell::pollBuild() {
 
     if (!m_buildFuture.valid())
         return;
-    if (m_buildQueue.state() == BuildProcessState::Running &&
-        (m_pendingBuildKind == BuildTaskKind::Run || m_pendingBuildKind == BuildTaskKind::BuildAndRun) &&
+    if (m_buildQueue.state() == BuildProcessState::Running && (m_pendingBuildKind == BuildTaskKind::Run || m_pendingBuildKind == BuildTaskKind::BuildAndRun) &&
         m_previewState == PreviewState::Starting) {
         m_previewState = PreviewState::Running;
     }
@@ -790,8 +758,8 @@ void EditorShell::pollBuild() {
     } else if (m_pendingBuildKind == BuildTaskKind::Run || m_pendingBuildKind == BuildTaskKind::BuildAndRun) {
         setPreviewState(result.cancelled ? PreviewState::Stopped : (result.success ? PreviewState::Stopped : PreviewState::Failed));
     }
-    setStatus(result.cancelled ? "Process cancelled" : (result.success ? "Process succeeded, exit=" + std::to_string(result.exitCode) :
-                                                                 "Process failed, exit=" + std::to_string(result.exitCode)));
+    setStatus(result.cancelled ? "Process cancelled"
+                               : (result.success ? "Process succeeded, exit=" + std::to_string(result.exitCode) : "Process failed, exit=" + std::to_string(result.exitCode)));
 }
 
 void EditorShell::appendBuildResult(const BuildTaskResult& result) {
@@ -805,8 +773,7 @@ void EditorShell::appendBuildResult(const BuildTaskResult& result) {
         if (!line.empty())
             m_outputLines.push_back("[stderr] " + line);
     for (const auto& diagnostic : result.diagnostics) {
-        m_outputLines.push_back(std::string(diagnostic.error ? "[error] " : "[warning] ") +
-                                diagnostic.file.string() + ":" + std::to_string(diagnostic.line) + ":" +
+        m_outputLines.push_back(std::string(diagnostic.error ? "[error] " : "[warning] ") + diagnostic.file.string() + ":" + std::to_string(diagnostic.line) + ":" +
                                 std::to_string(diagnostic.column) + " " + diagnostic.message);
     }
     while (m_outputLines.size() > 6)
@@ -822,23 +789,23 @@ void EditorShell::showAssetBrowser() {
     }
     if (m_fileSystemPanel)
         m_fileSystemPanel->refreshView();
-    setStatus(
-        "FileSystem: " + std::to_string(m_fileSystem.entries().size()) +
-        " entries, " + std::to_string(m_assets.assets().size()) +
-        " assets");
+    setStatus("FileSystem: " + std::to_string(m_fileSystem.entries().size()) + " entries, " + std::to_string(m_assets.assets().size()) + " assets");
 }
 
 void EditorShell::refreshSceneTree() {
     if (!m_sceneTreePanel)
         return;
-    while (m_sceneTreePanel->m_children.size() > 1) {
+    while (m_sceneTreePanel->m_children.size() > 2) {
         m_sceneTreePanel->m_children.pop_back();
     }
+    m_sceneTreeContextConnections.clear();
+    m_sceneTreeRows.clear();
     float y = 38.0f;
+    const float panelWidth = std::max(80.0f, m_sceneTreePanel->getTransform()->getSize().x);
     for (const auto& item : m_session->model().buildSceneTree()) {
         const auto id = item.id;
         auto button = addButton(m_sceneTreePanel, std::wstring(item.depth * 2, L' ') + std::wstring(item.name.begin(), item.name.end()), 8.0f + item.depth * 12.0f, y,
-                                220.0f - item.depth * 12.0f, 30.0f, [this, id] {
+                                std::max(40.0f, panelWidth - 16.0f - item.depth * 12.0f), 30.0f, [this, id] {
                                     std::string error;
                                     if (m_session->selectNode(id, false, error)) {
                                         notifySelectionChanged();
@@ -847,8 +814,210 @@ void EditorShell::refreshSceneTree() {
                                         setStatus(error);
                                 });
         button->setWidgetName("SceneTree_" + item.id);
+        button->setTextAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
+        m_sceneTreeRows.push_back({item.id, button});
+        if (auto interaction = button->getComponent<Interaction>()) {
+            const auto parentId = item.id;
+            m_sceneTreeContextConnections.emplace_back(interaction->addEventListener(
+                TOUCH_EVENT_TYPE_TOUCH,
+                [this, parentId](TouchEvent& event) {
+                    if (event.button != TOUCH_MOUSE_BUTTON_RIGHT)
+                        return;
+                    std::string error;
+                    if (m_session->selectNode(parentId, false, error))
+                        notifySelectionChanged();
+                    m_sceneContextParentId = parentId;
+                    m_sceneContextMenu->attachTo(m_shellRoot);
+                    m_sceneContextMenu->popup(event.positionX, event.positionY);
+                },
+                20));
+        }
         y += 32.0f;
     }
+    refreshSceneTreeSelectionStyles();
+}
+
+void EditorShell::refreshSceneTreeSelectionStyles() {
+    const auto& selected = m_session->model().selection().nodeIds;
+    for (auto& row : m_sceneTreeRows) {
+        if (!row.button)
+            continue;
+        const bool isSelected = std::find(selected.begin(), selected.end(), row.nodeId) != selected.end();
+        const bool isDropTarget = m_sceneDragging && row.nodeId == m_sceneDropTarget;
+        if (isDropTarget) {
+            row.button->setTextColor(Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+            row.button->setBackgroundColor(Vector4(0.15f, 0.52f, 0.38f, 1.0f));
+            row.button->setHoverColor(Vector4(0.20f, 0.64f, 0.46f, 1.0f));
+            row.button->setPressedColor(Vector4(0.11f, 0.42f, 0.30f, 1.0f));
+        } else if (isSelected) {
+            row.button->setTextColor(Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+            row.button->setBackgroundColor(Vector4(0.16f, 0.34f, 0.62f, 1.0f));
+            row.button->setHoverColor(Vector4(0.22f, 0.44f, 0.74f, 1.0f));
+            row.button->setPressedColor(Vector4(0.11f, 0.27f, 0.52f, 1.0f));
+        } else {
+            row.button->setTextColor(Vector4(0.82f, 0.86f, 0.92f, 1.0f));
+            row.button->setBackgroundColor(Vector4(0.13f, 0.15f, 0.19f, 1.0f));
+            row.button->setHoverColor(Vector4(0.20f, 0.25f, 0.33f, 1.0f));
+            row.button->setPressedColor(Vector4(0.10f, 0.22f, 0.42f, 1.0f));
+        }
+    }
+}
+
+std::string EditorShell::sceneTreeNodeForWidget(const std::shared_ptr<Widget>& widget) const {
+    if (!widget)
+        return {};
+    for (const auto& row : m_sceneTreeRows) {
+        if (row.button == widget)
+            return row.nodeId;
+    }
+    return {};
+}
+
+std::string EditorShell::sceneTreeNodeAt(float x, float y) const {
+    for (const auto& row : m_sceneTreeRows) {
+        if (row.button && row.button->getScreenSpaceAABB().Contains(x, y)) {
+            return row.nodeId;
+        }
+    }
+    return {};
+}
+
+bool EditorShell::handleSceneTreeDrag(const TouchEvent& event) {
+    if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_LEFT) {
+        const std::string nodeId = sceneTreeNodeForWidget(event.target);
+        if (nodeId.empty())
+            return false;
+        m_pendingSceneDragNode = nodeId;
+        m_sceneDragStartX = event.positionX;
+        m_sceneDragStartY = event.positionY;
+        return false;
+    }
+
+    if (event.eventType == TOUCH_EVENT_TYPE_MOVE) {
+        if (!m_sceneDragging && !m_pendingSceneDragNode.empty()) {
+            const float dx = event.positionX - m_sceneDragStartX;
+            const float dy = event.positionY - m_sceneDragStartY;
+            if (dx * dx + dy * dy >= 36.0f) {
+                m_sceneDragging = true;
+                m_sceneDragNode = m_pendingSceneDragNode;
+                std::string error;
+                if (m_session->selectNode(m_sceneDragNode, false, error)) {
+                    notifySelectionChanged();
+                }
+            }
+        }
+        if (!m_sceneDragging)
+            return false;
+        std::string target = sceneTreeNodeAt(event.positionX, event.positionY);
+        if (target == m_sceneDragNode)
+            target.clear();
+        if (m_sceneDropTarget != target) {
+            m_sceneDropTarget = std::move(target);
+            refreshSceneTreeSelectionStyles();
+        }
+        return true;
+    }
+
+    if (event.eventType == TOUCH_EVENT_TYPE_RELEASE) {
+        m_pendingSceneDragNode.clear();
+        if (!m_sceneDragging)
+            return false;
+        const std::string dragged = m_sceneDragNode;
+        const std::string target = m_sceneDropTarget;
+        m_sceneDragging = false;
+        m_sceneDragNode.clear();
+        m_sceneDropTarget.clear();
+        refreshSceneTreeSelectionStyles();
+        if (target.empty())
+            return true;
+        const auto* node = m_session->document().findNode(dragged);
+        if (node && node->parentId == target) {
+            setStatus("Node already has the requested parent");
+            return true;
+        }
+        std::string error;
+        if (!m_session->reparentNode(dragged, target, error)) {
+            setStatus("Cannot reparent node: " + error);
+            return true;
+        }
+        refreshSceneTree();
+        rebuildRuntime();
+        refreshInspector();
+        setStatus("Reparented " + dragged + " under " + target);
+        return true;
+    }
+    return false;
+}
+
+void EditorShell::deleteSelectedSceneNode() {
+    const auto selected = m_session->model().selection().nodeIds;
+    if (selected.empty()) {
+        setStatus("Select a scene node to delete");
+        return;
+    }
+    const std::string nodeId = selected.back();
+    const auto* node = m_session->document().findNode(nodeId);
+    if (!node) {
+        setStatus("Selected scene node no longer exists");
+        return;
+    }
+    if (node->parentId.empty()) {
+        setStatus("The scene root node cannot be deleted");
+        return;
+    }
+    std::string error;
+    if (!m_session->deleteNode(nodeId, error)) {
+        setStatus("Failed to delete node: " + error);
+        return;
+    }
+    m_session->model().clearSelection();
+    m_selectedNodeId.clear();
+    notifySelectionChanged();
+    refreshSceneTree();
+    rebuildRuntime();
+    refreshInspector();
+    setStatus("Deleted node " + nodeId);
+}
+
+void EditorShell::showCreateNodeDialog(const std::string& parentId) {
+    std::string resolvedParent = parentId;
+    if (resolvedParent.empty() && !m_session->model().selection().nodeIds.empty()) {
+        resolvedParent = m_session->model().selection().nodeIds.back();
+    }
+    if (resolvedParent.empty()) {
+        for (const auto& node : m_session->document().nodes()) {
+            if (node.parentId.empty()) {
+                resolvedParent = node.id;
+                break;
+            }
+        }
+    }
+    const auto* parent = m_session->document().findNode(resolvedParent);
+    if (!parent) {
+        setStatus("Select a valid parent node first");
+        return;
+    }
+    m_createNodeDialog->showForParent(parent->id, parent->name);
+}
+
+void EditorShell::createChildNode(const NodeTypeDescriptor& descriptor, const std::string& parentId) {
+    SceneNodeRecord node = m_nodeTypeCatalog.createNode(descriptor, parentId, m_session->document());
+    const std::string nodeId = node.id;
+    const std::string nodeName = node.name;
+    std::string error;
+    if (!m_session->addNode(std::move(node), error)) {
+        setStatus("Failed to create node: " + error);
+        return;
+    }
+    if (!m_session->selectNode(nodeId, false, error)) {
+        setStatus("Node created, but selection failed: " + error);
+    } else {
+        notifySelectionChanged();
+    }
+    refreshSceneTree();
+    rebuildRuntime();
+    refreshInspector();
+    setStatus("Created " + descriptor.displayName + " '" + nodeName + "' under " + parentId);
 }
 
 void EditorShell::refreshInspector() {
@@ -873,7 +1042,9 @@ void EditorShell::refreshInspector() {
                     m_editProperty = property.name;
                     m_editValue = std::to_string(std::stof(property.value) - 1.0f);
                     commitPropertyEdit();
-                } catch (...) { setStatus("Invalid numeric property"); }
+                } catch (...) {
+                    setStatus("Invalid numeric property");
+                }
             });
             addButton(m_inspectorPanel, std::wstring(property.value.begin(), property.value.end()), 48.0f, y, 196.0f, 30.0f,
                       [this, property] { beginPropertyEdit(property.name, property.value); });
@@ -882,15 +1053,15 @@ void EditorShell::refreshInspector() {
                     m_editProperty = property.name;
                     m_editValue = std::to_string(std::stof(property.value) + 1.0f);
                     commitPropertyEdit();
-                } catch (...) { setStatus("Invalid numeric property"); }
+                } catch (...) {
+                    setStatus("Invalid numeric property");
+                }
             });
         } else {
             std::wstring value(property.value.begin(), property.value.end());
             if (property.type == "Color")
                 value = L"\u25a0 " + value;
-            addButton(m_inspectorPanel, value, 8.0f, y, 280.0f, 30.0f, [this, property] {
-                beginPropertyEdit(property.name, property.mixed ? std::string{} : property.value);
-            });
+            addButton(m_inspectorPanel, value, 8.0f, y, 280.0f, 30.0f, [this, property] { beginPropertyEdit(property.name, property.mixed ? std::string{} : property.value); });
         }
         y += 36.0f;
     }
@@ -936,8 +1107,7 @@ void EditorShell::rebuildRuntime() {
     m_previewRoot->m_children.clear();
     refreshViewportGuides();
     std::string error;
-    const bool runtimeInstantiated =
-        SceneInstantiator::instantiate(m_session->document(), m_previewRoot, &m_assets, error);
+    const bool runtimeInstantiated = SceneInstantiator::instantiate(m_session->document(), m_previewRoot, &m_assets, error);
     if (!runtimeInstantiated) {
         setStatus(error);
     }
@@ -1025,8 +1195,7 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
             float nodeY = 0.0f;
             float nodeWidth = 0.0f;
             float nodeHeight = 0.0f;
-            m_resizing = m_session->model().selectedRect(nodeX, nodeY, nodeWidth, nodeHeight) &&
-                         x >= nodeX + nodeWidth - 12.0f && y >= nodeY + nodeHeight - 12.0f;
+            m_resizing = m_session->model().selectedRect(nodeX, nodeY, nodeWidth, nodeHeight) && x >= nodeX + nodeWidth - 12.0f && y >= nodeY + nodeHeight - 12.0f;
             m_dragging = !m_resizing;
             m_lastPointerX = panelX;
             m_lastPointerY = panelY;
@@ -1065,6 +1234,12 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
 void EditorShell::handleInput(std::vector<TouchEvent>& events) {
     pollBuild();
     for (const auto& event : events) {
+        if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN && event.keyCode == TOUCH_KEY_DELETE && !event.target && (!m_createNodeDialog || !m_createNodeDialog->isOpen())) {
+            deleteSelectedSceneNode();
+            continue;
+        }
+        if (handleSceneTreeDrag(event))
+            continue;
         if (handleDockDrag(event))
             continue;
         auto target = event.target;
@@ -1083,6 +1258,10 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
 }
 
 void EditorShell::handleKey(int key, int action, int mods) {
+    if (m_createNodeDialog && m_createNodeDialog->isOpen() && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        m_createNodeDialog->hideDialog();
+        return;
+    }
     if (key == GLFW_KEY_F3 && action == GLFW_PRESS) {
         if (m_engine) {
             m_engine->toggleDebugOverlay();
@@ -1129,8 +1308,7 @@ void EditorShell::handleKey(int key, int action, int mods) {
 }
 
 void EditorShell::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (const auto iterator = previousKeyCallbacks().find(window);
-        iterator != previousKeyCallbacks().end() && iterator->second) {
+    if (const auto iterator = previousKeyCallbacks().find(window); iterator != previousKeyCallbacks().end() && iterator->second) {
         iterator->second(window, key, scancode, action, mods);
     }
     const auto iterator = shells().find(window);
@@ -1140,8 +1318,7 @@ void EditorShell::keyCallback(GLFWwindow* window, int key, int scancode, int act
 }
 
 void EditorShell::charCallback(GLFWwindow* window, unsigned int codepoint) {
-    if (const auto iterator = previousCharCallbacks().find(window);
-        iterator != previousCharCallbacks().end() && iterator->second) {
+    if (const auto iterator = previousCharCallbacks().find(window); iterator != previousCharCallbacks().end() && iterator->second) {
         iterator->second(window, codepoint);
     }
     const auto iterator = shells().find(window);
@@ -1157,15 +1334,12 @@ bool EditorShell::initialize(std::string& error) {
     if (!m_assets.scan(m_projectPath.parent_path(), m_assetRoot, error)) {
         return false;
     }
-    if (!m_fileSystem.scan(
-            m_project.projectRoot(), &m_assets, error)) {
+    if (!m_fileSystem.scan(m_project.projectRoot(), &m_assets, error)) {
         return false;
     }
     buildLayout();
     if (m_window) {
-        m_framebufferSizeConnection =
-            m_window->events().onFramebufferSizeChanged.connect(
-                [this](const Vector2& size) { handleFramebufferResize(size); });
+        m_framebufferSizeConnection = m_window->events().onFramebufferSizeChanged.connect([this](const Vector2& size) { handleFramebufferResize(size); });
     }
     runImportQueue();
     refreshSceneTree();
@@ -1174,15 +1348,13 @@ bool EditorShell::initialize(std::string& error) {
         auto* glfwWindow = static_cast<GLFWwindow*>(m_window->getSurface());
         if (glfwWindow) {
             shells()[glfwWindow] = this;
-            previousKeyCallbacks()[glfwWindow] =
-                glfwSetKeyCallback(glfwWindow, keyCallback);
-            previousCharCallbacks()[glfwWindow] =
-                glfwSetCharCallback(glfwWindow, charCallback);
+            previousKeyCallbacks()[glfwWindow] = glfwSetKeyCallback(glfwWindow, keyCallback);
+            previousCharCallbacks()[glfwWindow] = glfwSetCharCallback(glfwWindow, charCallback);
         }
     }
     if (m_engine && m_engine->getFrameState() && m_engine->getFrameState()->inputEventsManager) {
-        m_inputConnection = m_engine->getFrameState()->inputEventsManager->getResolvedInputEventsDispatcher().connect(
-            [this](std::vector<TouchEvent>& events) { handleInput(events); });
+        m_inputConnection =
+            m_engine->getFrameState()->inputEventsManager->getResolvedInputEventsDispatcher().connect([this](std::vector<TouchEvent>& events) { handleInput(events); });
     }
     setStatus("Ready");
     return true;

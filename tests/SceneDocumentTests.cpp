@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -11,6 +12,7 @@
 #include "ui/DockLayout.h"
 #include "commands/CommandHistory.h"
 #include "scene/EditorSession.h"
+#include "scene/NodeTypeCatalog.h"
 #include "scene/SceneDocument.h"
 
 namespace {
@@ -227,8 +229,15 @@ int main() {
     if (!require(dock.save(dockPath, error), "save dock layout: " + error)) return 1;
     morrow::editor::DockLayout loadedDock;
     if (!require(loadedDock.load(dockPath, error), "load dock layout: " + error)) return 1;
-    if (!require(loadedDock.find("viewport") != nullptr && loadedDock.find("viewport")->width == 670.0f,
-                 "dock layout persistence")) return 1;
+    if (!require(
+            loadedDock.findSplit("left") != nullptr &&
+                loadedDock.findSplit("center") != nullptr &&
+                loadedDock.findSplit("workspace") != nullptr &&
+                loadedDock.findTabs("center_dock") != nullptr &&
+                loadedDock.findTabs("center_dock")->active == "viewport",
+            "dock layout persistence")) {
+        return 1;
+    }
 
     const auto sessionScene = temporaryDirectory / "session.scene";
     {
@@ -306,6 +315,56 @@ int main() {
                      0
                  }, error),
                  "add node: " + error)) {
+        return 1;
+    }
+    morrow::editor::NodeTypeCatalog nodeTypes;
+    const auto filteredTypes = nodeTypes.filter("button");
+    const bool foundButtonType = std::any_of(
+        filteredTypes.begin(), filteredTypes.end(),
+        [](const morrow::editor::NodeTypeDescriptor* descriptor) {
+            return descriptor && descriptor->type == "MRButton";
+        });
+    if (!require(foundButtonType &&
+                     nodeTypes.types().size() > 40,
+                 "node type catalog search")) {
+        return 1;
+    }
+    const auto* buttonType = nodeTypes.find("MRButton");
+    if (!require(buttonType != nullptr, "button node type exists"))
+        return 1;
+    auto catalogButton = nodeTypes.createNode(
+        *buttonType, "root", session.document());
+    const auto catalogButtonId = catalogButton.id;
+    if (!require(
+            catalogButton.parentId == "root" &&
+                catalogButton.properties.at("text") == "Button" &&
+                catalogButton.properties.at("size") ==
+                    "Vector2(180.0, 48.0)",
+            "button node default properties")) {
+        return 1;
+    }
+    if (!require(session.addNode(catalogButton, error),
+                 "add catalog button: " + error)) {
+        return 1;
+    }
+    if (!require(session.document().findNode(catalogButtonId) != nullptr,
+                 "catalog button exists after add")) {
+        return 1;
+    }
+    if (!require(session.undo(error),
+                 "undo catalog button creation: " + error)) {
+        return 1;
+    }
+    if (!require(session.document().findNode(catalogButtonId) == nullptr,
+                 "catalog button removed by undo")) {
+        return 1;
+    }
+    if (!require(session.redo(error),
+                 "redo catalog button creation: " + error)) {
+        return 1;
+    }
+    if (!require(session.document().findNode(catalogButtonId) != nullptr,
+                 "catalog button restored by redo")) {
         return 1;
     }
     if (!require(session.reparentNode("button_added", "", error),

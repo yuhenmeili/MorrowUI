@@ -18,6 +18,8 @@
 #include "filesystem/ProjectFileSystemModel.h"
 #include "ProjectSettings.h"
 #include "scene/EditorSession.h"
+#include "scene/NodeTypeCatalog.h"
+#include "ui/CreateNodeDialog.h"
 #include "ui/DockLayout.h"
 #include "ui/FileSystemPanel.h"
 #include "ui/DockDropOverlay.h"
@@ -32,6 +34,7 @@ class Window;
 class BaseButton;
 class MRButton;
 class MRLabel;
+class MRPopupMenu;
 class TouchEvent;
 }  // namespace morrow
 
@@ -50,10 +53,25 @@ public:
     EditorEvents& events();
 
 private:
+    struct SceneTreeRow {
+        std::string nodeId;
+        std::shared_ptr<MRButton> button;
+    };
+
     void buildLayout();
     void rebuildRuntime();
     void refreshViewportGuides();
     void refreshSceneTree();
+    void refreshSceneTreeSelectionStyles();
+    bool handleSceneTreeDrag(const TouchEvent& event);
+    std::string sceneTreeNodeAt(float x, float y) const;
+    std::string sceneTreeNodeForWidget(
+        const std::shared_ptr<Widget>& widget) const;
+    void deleteSelectedSceneNode();
+    void showCreateNodeDialog(const std::string& parentId = {});
+    void createChildNode(
+        const NodeTypeDescriptor& descriptor,
+        const std::string& parentId);
     void refreshInspector();
     void handleInput(std::vector<TouchEvent>& events);
     void handleKey(int key, int action, int mods);
@@ -115,9 +133,12 @@ private:
     std::shared_ptr<MRTabContainer> m_centerTabs;
     std::shared_ptr<MRTabContainer> m_bottomTabs;
     std::shared_ptr<DockDropOverlay> m_dockDropOverlay;
+    std::shared_ptr<CreateNodeDialog> m_createNodeDialog;
+    std::shared_ptr<MRPopupMenu> m_sceneContextMenu;
     std::shared_ptr<EditorSession> m_session;
     AssetDatabase m_assets;
     ProjectFileSystemModel m_fileSystem;
+    NodeTypeCatalog m_nodeTypeCatalog;
     ImportQueue m_importQueue;
     BuildQueue m_buildQueue;
     ProjectSettings m_project;
@@ -138,8 +159,22 @@ private:
     std::vector<Observable<MRTabContainer&>::Connection>
         m_tabOrderConnections;
     std::vector<Observable<BaseButton&>::Connection> m_buttonConnections;
+    std::vector<EventConnection> m_sceneTreeContextConnections;
+    std::vector<SceneTreeRow> m_sceneTreeRows;
+    Observable<MRPopupMenu&, int, const std::wstring&>::Connection
+        m_sceneContextMenuConnection;
+    Observable<CreateNodeDialog&, const NodeTypeDescriptor&,
+               const std::string&>::Connection
+        m_createNodeConnection;
     std::string m_status;
     std::string m_selectedNodeId;
+    std::string m_sceneContextParentId;
+    std::string m_pendingSceneDragNode;
+    std::string m_sceneDragNode;
+    std::string m_sceneDropTarget;
+    float m_sceneDragStartX = 0.0f;
+    float m_sceneDragStartY = 0.0f;
+    bool m_sceneDragging = false;
     std::vector<std::string> m_lastNotifiedSelection;
     bool m_dragging = false;
     bool m_resizing = false;

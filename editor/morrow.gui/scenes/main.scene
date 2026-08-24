@@ -13,3 +13,15 @@ property position = Vector3(80.0, 80.0, 0.0)
 property size = Vector2(280.0, 64.0)
 property style = sub_resource("button_style")
 property text = "MorrowEditor Scene"
+
+[node id="node_0003" type="MRSlider" parent="node_0001" name="Slider"]
+property position = Vector3(48.000, 292.000, 0.000)
+property size = Vector2(180.0, 80.0)
+
+[node id="node_0004" type="MRImage" parent="node_0003" name="Image"]
+property position = Vector3(553.000, 134.000, 0.000)
+property size = Vector2(180.0, 120.0)
+
+[node id="node_0005" type="MRImage" parent="node_0001" name="Image"]
+property position = Vector3(553.000, 67.000, 0.000)
+property size = Vector2(180.0, 120.0)
