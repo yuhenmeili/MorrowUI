@@ -32,6 +32,7 @@ DockLayout DockLayout::defaultLayout(float width, float height) {
         {"workspace", mainHeight / workspaceAvailable},
         {"left", sceneWidth / horizontalAvailable},
         {"center", viewportWidth / centerAvailable},
+        {"left_stack", 0.48f},
     };
     return layout;
 }

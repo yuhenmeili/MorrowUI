@@ -13,6 +13,16 @@ namespace morrow {
 /// 支持展开、折叠和单选的树形列表控件。
 class MRTree : public UIWidget {
 public:
+    struct RowStyle {
+        Vector4 textColor = Vector4(0.12f, 0.16f, 0.22f, 1.0f);
+        Vector4 backgroundColor = Vector4(0.91f, 0.94f, 0.92f, 1.0f);
+        Vector4 hoverColor = Vector4(0.82f, 0.89f, 0.85f, 1.0f);
+        Vector4 selectedTextColor = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+        Vector4 selectedBackgroundColor = Vector4(0.16f, 0.5f, 0.42f, 1.0f);
+        Vector4 selectedHoverColor = Vector4(0.12f, 0.43f, 0.36f, 1.0f);
+        Vector4 pressedColor = Vector4(0.09f, 0.36f, 0.31f, 1.0f);
+    };
+
     struct Events {
         Observable<MRTree&, int, const std::wstring&> onNodeSelected;
         Observable<MRTree&, int, bool> onNodeExpanded;
@@ -42,6 +52,8 @@ public:
     void setRowHeight(float height);
     /// 设置每一级树节点的缩进宽度。
     void setIndentWidth(float width);
+    /// 设置树行的正常、悬停和选中颜色。
+    void setRowStyle(const RowStyle& style);
     /// 设置垂直滚动偏移。
     void setScrollOffset(float offset);
     /// 展开或折叠指定节点。
@@ -97,6 +109,7 @@ private:
     float m_maxScrollOffset = 0.0f;
     int m_selectedIndex = -1;
     bool m_treeDirty = true;
+    RowStyle m_rowStyle;
 };
 
 using MRTreeSharedPtr = std::shared_ptr<MRTree>;

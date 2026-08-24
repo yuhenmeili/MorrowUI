@@ -1,6 +1,7 @@
 #include "MRTree.h"
 
 #include <algorithm>
+
 #include "base/Interaction.h"
 #include "base/TouchEvent.h"
 #include "base/Transform.h"
@@ -48,6 +49,12 @@ void MRTree::setRowHeight(float height) {
 void MRTree::setIndentWidth(float width) {
     m_indentWidth = std::max(0.0f, width);
     layoutRows();
+}
+
+void MRTree::setRowStyle(const RowStyle& style) {
+    m_rowStyle = style;
+    layoutRows();
+    requestRender("tree row style");
 }
 
 void MRTree::setScrollOffset(float offset) {
@@ -149,14 +156,12 @@ void MRTree::rebuildVisibleNodes() {
     for (size_t i = 0; i < m_visibleNodes.size(); ++i) {
         const size_t nodeIndex = m_visibleNodes[i].nodeIndex;
         const bool parent = hasChildren(m_nodes[nodeIndex].id);
-        m_rowClickConnections[i] =
-            m_rows[i]->events().onClicked.connect(
-                [this, nodeIndex, parent](BaseButton&) {
-                    selectIndex(nodeIndex, true);
-                    if (parent) {
-                        toggleExpanded(m_nodes[nodeIndex].id);
-                    }
-                });
+        m_rowClickConnections[i] = m_rows[i]->events().onClicked.connect([this, nodeIndex, parent](BaseButton&) {
+            selectIndex(nodeIndex, true);
+            if (parent) {
+                toggleExpanded(m_nodes[nodeIndex].id);
+            }
+        });
     }
     m_treeDirty = false;
     layoutRows();
@@ -195,10 +200,7 @@ void MRTree::selectIndex(size_t nodeIndex, bool notify) {
     m_selectedIndex = static_cast<int>(nodeIndex);
     layoutRows();
     if (notify) {
-        m_events.onNodeSelected.notify(
-            *this,
-            m_nodes[nodeIndex].id,
-            m_nodes[nodeIndex].text);
+        m_events.onNodeSelected.notify(*this, m_nodes[nodeIndex].id, m_nodes[nodeIndex].text);
     }
 }
 
@@ -207,11 +209,7 @@ void MRTree::attachWheel(const std::shared_ptr<Widget>& widget) {
     if (!interaction)
         return;
     m_wheelConnections.emplace_back(
-        interaction->addEventListener(
-            TOUCH_EVENT_TYPE_WHEEL,
-            [this](TouchEvent& event) {
-                setScrollOffset(m_scrollOffset - event.wheelDeltaY * m_rowHeight);
-            }));
+        interaction->addEventListener(TOUCH_EVENT_TYPE_WHEEL, [this](TouchEvent& event) { setScrollOffset(m_scrollOffset - event.wheelDeltaY * m_rowHeight); }));
 }
 
 void MRTree::configureRow(size_t rowIndex, const VisibleNode& visibleNode) {
@@ -222,10 +220,10 @@ void MRTree::configureRow(size_t rowIndex, const VisibleNode& visibleNode) {
     row->setText(prefix + node.text, "default");
     row->setEnabled(node.enabled);
     const bool selected = static_cast<int>(visibleNode.nodeIndex) == m_selectedIndex;
-    row->setTextColor(selected ? Vector4(1.0f, 1.0f, 1.0f, 1.0f) : Vector4(0.12f, 0.16f, 0.22f, 1.0f));
-    row->setBackgroundColor(selected ? Vector4(0.16f, 0.5f, 0.42f, 1.0f) : Vector4(0.91f, 0.94f, 0.92f, 1.0f));
-    row->setHoverColor(selected ? Vector4(0.12f, 0.43f, 0.36f, 1.0f) : Vector4(0.82f, 0.89f, 0.85f, 1.0f));
-    row->setPressedColor(Vector4(0.09f, 0.36f, 0.31f, 1.0f));
+    row->setTextColor(selected ? m_rowStyle.selectedTextColor : m_rowStyle.textColor);
+    row->setBackgroundColor(selected ? m_rowStyle.selectedBackgroundColor : m_rowStyle.backgroundColor);
+    row->setHoverColor(selected ? m_rowStyle.selectedHoverColor : m_rowStyle.hoverColor);
+    row->setPressedColor(m_rowStyle.pressedColor);
 }
 
 }  // namespace morrow

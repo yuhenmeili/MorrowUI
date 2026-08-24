@@ -25,6 +25,16 @@ std::unordered_map<GLFWwindow*, morrow::editor::EditorShell*>& shells() {
     return value;
 }
 
+std::unordered_map<GLFWwindow*, GLFWkeyfun>& previousKeyCallbacks() {
+    static std::unordered_map<GLFWwindow*, GLFWkeyfun> callbacks;
+    return callbacks;
+}
+
+std::unordered_map<GLFWwindow*, GLFWcharfun>& previousCharCallbacks() {
+    static std::unordered_map<GLFWwindow*, GLFWcharfun> callbacks;
+    return callbacks;
+}
+
 std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float height,
                                             const morrow::Math::Vector4& color = morrow::Math::Vector4(0.12f, 0.14f, 0.17f, 1.0f)) {
     auto panel = morrow::MRButton::create();
@@ -109,8 +119,19 @@ EditorShell::~EditorShell() {
     m_inputConnection.disconnect();
     if (m_window) {
         auto* glfwWindow = static_cast<GLFWwindow*>(m_window->getSurface());
-        if (glfwWindow)
+        if (glfwWindow) {
+            if (const auto iterator = previousKeyCallbacks().find(glfwWindow);
+                iterator != previousKeyCallbacks().end()) {
+                glfwSetKeyCallback(glfwWindow, iterator->second);
+                previousKeyCallbacks().erase(iterator);
+            }
+            if (const auto iterator = previousCharCallbacks().find(glfwWindow);
+                iterator != previousCharCallbacks().end()) {
+                glfwSetCharCallback(glfwWindow, iterator->second);
+                previousCharCallbacks().erase(iterator);
+            }
             shells().erase(glfwWindow);
+        }
     }
 }
 
@@ -166,6 +187,18 @@ void EditorShell::runImportQueue() {
     setStatus("Assets: imported=" + std::to_string(imported) + " unchanged=" + std::to_string(skipped) + " failed=" + std::to_string(failed));
     if (!success && !error.empty())
         setStatus("Import failed: " + error);
+    std::string scanError;
+    if (!m_assets.scan(
+            m_projectPath.parent_path(), m_assetRoot, scanError)) {
+        setStatus("Asset rescan failed: " + scanError);
+    }
+    if (!m_fileSystem.projectRoot().empty()) {
+        if (!m_fileSystem.refresh(scanError)) {
+            setStatus("FileSystem refresh failed: " + scanError);
+        } else if (m_fileSystemPanel) {
+            m_fileSystemPanel->refreshView();
+        }
+    }
     if (!results.empty()) {
         m_events.onAssetDatabaseChanged.notify(m_assets);
     }
@@ -258,6 +291,9 @@ void EditorShell::buildLayout() {
     m_viewportPanel = makePanel(0.0f, 0.0f, 740.0f, 570.0f, morrow::Math::Vector4(0.10f, 0.12f, 0.15f, 1.0f));
     m_inspectorPanel = makePanel(0.0f, 0.0f, 300.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
     m_statusPanel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
+    m_fileSystemPanel = FileSystemPanel::create(
+        m_fileSystem,
+        [this](const std::string& status) { setStatus(status); });
     m_previewRoot = makePanel(0.0f, 32.0f, 740.0f, 538.0f);
     m_previewRoot->setWidgetName("PreviewRoot");
 
@@ -275,6 +311,12 @@ void EditorShell::buildLayout() {
     m_mainSplit->setSecondMinSize(520.0f);
     m_mainSplit->setHandleWidth(5.0f);
 
+    m_leftSplit = MRSplitContainer::create();
+    m_leftSplit->setOrientation(SplitOrientation::Vertical);
+    m_leftSplit->setFirstMinSize(140.0f);
+    m_leftSplit->setSecondMinSize(180.0f);
+    m_leftSplit->setHandleWidth(5.0f);
+
     m_centerSplit = MRSplitContainer::create();
     m_centerSplit->setOrientation(SplitOrientation::Horizontal);
     m_centerSplit->setFirstMinSize(320.0f);
@@ -283,7 +325,9 @@ void EditorShell::buildLayout() {
 
     m_centerSplit->setFirst(m_viewportPanel);
     m_centerSplit->setSecond(m_inspectorPanel);
-    m_mainSplit->setFirst(m_sceneTreePanel);
+    m_leftSplit->setFirst(m_sceneTreePanel);
+    m_leftSplit->setSecond(m_fileSystemPanel);
+    m_mainSplit->setFirst(m_leftSplit);
     m_mainSplit->setSecond(m_centerSplit);
     m_workspaceSplit->setFirst(m_mainSplit);
     m_workspaceSplit->setSecond(m_statusPanel);
@@ -314,6 +358,7 @@ void EditorShell::buildLayout() {
     connectSplit("workspace", m_workspaceSplit);
     connectSplit("left", m_mainSplit);
     connectSplit("center", m_centerSplit);
+    connectSplit("left_stack", m_leftSplit);
 
     addLabel(m_toolbarPanel, "MorrowEditor", 8.0f, 5.0f, 150.0f, 28.0f);
     addButton(m_toolbarPanel, L"Save", 170.0f, 4.0f, 72.0f, 30.0f, [this] {
@@ -362,6 +407,8 @@ void EditorShell::applyDockLayout() {
         m_mainSplit->setSplitRatio(split->ratio);
     if (const auto* split = m_dockLayout.findSplit("center"))
         m_centerSplit->setSplitRatio(split->ratio);
+    if (const auto* split = m_dockLayout.findSplit("left_stack"))
+        m_leftSplit->setSplitRatio(split->ratio);
 
     const Vector3 viewportSize = m_viewportPanel->getTransform()->getSize();
     m_viewportWidth = viewportSize.x;
@@ -523,20 +570,17 @@ void EditorShell::appendBuildResult(const BuildTaskResult& result) {
 }
 
 void EditorShell::showAssetBrowser() {
-    setStatus("Assets: " + std::to_string(m_assets.assets().size()) + " scanned");
-    for (const auto& asset : m_assets.assets()) {
-        std::string line = "[asset] " + asset.sourcePath.string() + " (" + asset.type + ")";
-        if (!asset.error.empty())
-            line += " ERROR: " + asset.error;
-        else if (asset.needsImport)
-            line += " [import required]";
-        else
-            line += " [ready]";
-        m_outputLines.push_back(std::move(line));
+    std::string error;
+    if (!m_fileSystem.refresh(error)) {
+        setStatus("FileSystem refresh failed: " + error);
+        return;
     }
-    while (m_outputLines.size() > 6)
-        m_outputLines.erase(m_outputLines.begin());
-    refreshOutput();
+    if (m_fileSystemPanel)
+        m_fileSystemPanel->refreshView();
+    setStatus(
+        "FileSystem: " + std::to_string(m_fileSystem.entries().size()) +
+        " entries, " + std::to_string(m_assets.assets().size()) +
+        " assets");
 }
 
 void EditorShell::refreshSceneTree() {
@@ -837,7 +881,11 @@ void EditorShell::handleKey(int key, int action, int mods) {
     refreshInspector();
 }
 
-void EditorShell::keyCallback(GLFWwindow* window, int key, int, int action, int mods) {
+void EditorShell::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (const auto iterator = previousKeyCallbacks().find(window);
+        iterator != previousKeyCallbacks().end() && iterator->second) {
+        iterator->second(window, key, scancode, action, mods);
+    }
     const auto iterator = shells().find(window);
     if (iterator != shells().end() && iterator->second) {
         iterator->second->handleKey(key, action, mods);
@@ -845,6 +893,10 @@ void EditorShell::keyCallback(GLFWwindow* window, int key, int, int action, int 
 }
 
 void EditorShell::charCallback(GLFWwindow* window, unsigned int codepoint) {
+    if (const auto iterator = previousCharCallbacks().find(window);
+        iterator != previousCharCallbacks().end() && iterator->second) {
+        iterator->second(window, codepoint);
+    }
     const auto iterator = shells().find(window);
     if (iterator != shells().end() && iterator->second)
         iterator->second->handleChar(codepoint);
@@ -856,6 +908,10 @@ bool EditorShell::initialize(std::string& error) {
     if (!m_session->load(error))
         return false;
     if (!m_assets.scan(m_projectPath.parent_path(), m_assetRoot, error)) {
+        return false;
+    }
+    if (!m_fileSystem.scan(
+            m_project.projectRoot(), &m_assets, error)) {
         return false;
     }
     buildLayout();
@@ -871,8 +927,10 @@ bool EditorShell::initialize(std::string& error) {
         auto* glfwWindow = static_cast<GLFWwindow*>(m_window->getSurface());
         if (glfwWindow) {
             shells()[glfwWindow] = this;
-            glfwSetKeyCallback(glfwWindow, keyCallback);
-            glfwSetCharCallback(glfwWindow, charCallback);
+            previousKeyCallbacks()[glfwWindow] =
+                glfwSetKeyCallback(glfwWindow, keyCallback);
+            previousCharCallbacks()[glfwWindow] =
+                glfwSetCharCallback(glfwWindow, charCallback);
         }
     }
     if (m_engine && m_engine->getFrameState() && m_engine->getFrameState()->inputEventsManager) {

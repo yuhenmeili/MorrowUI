@@ -15,9 +15,11 @@
 #include "build/BuildQueue.h"
 #include "core/Observable.h"
 #include "EditorEvents.h"
+#include "filesystem/ProjectFileSystemModel.h"
 #include "ProjectSettings.h"
 #include "scene/EditorSession.h"
 #include "ui/DockLayout.h"
+#include "ui/FileSystemPanel.h"
 #include "layout/MRSplitContainer.h"
 #include "wgl/OpenglHeader.h"
 
@@ -93,11 +95,14 @@ private:
     std::shared_ptr<UIWidget> m_inspectorPanel;
     std::shared_ptr<UIWidget> m_viewportPanel;
     std::shared_ptr<UIWidget> m_statusPanel;
+    std::shared_ptr<FileSystemPanel> m_fileSystemPanel;
     std::shared_ptr<MRSplitContainer> m_workspaceSplit;
     std::shared_ptr<MRSplitContainer> m_mainSplit;
     std::shared_ptr<MRSplitContainer> m_centerSplit;
+    std::shared_ptr<MRSplitContainer> m_leftSplit;
     std::shared_ptr<EditorSession> m_session;
     AssetDatabase m_assets;
+    ProjectFileSystemModel m_fileSystem;
     ImportQueue m_importQueue;
     BuildQueue m_buildQueue;
     ProjectSettings m_project;
