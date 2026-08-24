@@ -71,6 +71,8 @@ void testDockLayoutPersistsSplitRatios() {
     layout.findSplit("workspace")->ratio = 0.71f;
     layout.findSplit("left")->ratio = 0.22f;
     layout.findSplit("center")->ratio = 0.63f;
+    layout.findTabs("left_dock")->active = "filesystem";
+    layout.findTabs("left_dock")->panels = {"filesystem", "scene_tree"};
 
     const auto path =
         std::filesystem::temp_directory_path() /
@@ -97,6 +99,13 @@ void testDockLayoutPersistsSplitRatios() {
     expect(loaded.findSplit("center") &&
                near(loaded.findSplit("center")->ratio, 0.63f),
            "center split ratio should survive persistence");
+    expect(loaded.findTabs("left_dock") &&
+               loaded.findTabs("left_dock")->active == "filesystem",
+           "active tab should survive persistence");
+    expect(loaded.findTabs("left_dock") &&
+               loaded.findTabs("left_dock")->panels ==
+                   std::vector<std::string>({"filesystem", "scene_tree"}),
+           "tab order should survive persistence");
 
     std::filesystem::remove(path, filesystemError);
 }

@@ -21,6 +21,7 @@
 #include "ui/DockLayout.h"
 #include "ui/FileSystemPanel.h"
 #include "layout/MRSplitContainer.h"
+#include "layout/MRTabContainer.h"
 #include "wgl/OpenglHeader.h"
 
 namespace morrow {
@@ -95,11 +96,13 @@ private:
     std::shared_ptr<UIWidget> m_inspectorPanel;
     std::shared_ptr<UIWidget> m_viewportPanel;
     std::shared_ptr<UIWidget> m_statusPanel;
+    std::shared_ptr<UIWidget> m_buildPanel;
     std::shared_ptr<FileSystemPanel> m_fileSystemPanel;
     std::shared_ptr<MRSplitContainer> m_workspaceSplit;
     std::shared_ptr<MRSplitContainer> m_mainSplit;
     std::shared_ptr<MRSplitContainer> m_centerSplit;
-    std::shared_ptr<MRSplitContainer> m_leftSplit;
+    std::shared_ptr<MRTabContainer> m_leftTabs;
+    std::shared_ptr<MRTabContainer> m_bottomTabs;
     std::shared_ptr<EditorSession> m_session;
     AssetDatabase m_assets;
     ProjectFileSystemModel m_fileSystem;
@@ -118,6 +121,10 @@ private:
     Observable<std::vector<TouchEvent>&>::Connection m_inputConnection;
     Observable<const Vector2&>::Connection m_framebufferSizeConnection;
     std::vector<Observable<MRSplitContainer&, float>::Connection> m_splitConnections;
+    std::vector<Observable<MRTabContainer&, const std::string&>::Connection>
+        m_tabConnections;
+    std::vector<Observable<MRTabContainer&>::Connection>
+        m_tabOrderConnections;
     std::vector<Observable<BaseButton&>::Connection> m_buttonConnections;
     std::string m_status;
     std::string m_selectedNodeId;

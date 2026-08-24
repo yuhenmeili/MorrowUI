@@ -34,6 +34,10 @@ DockLayout DockLayout::defaultLayout(float width, float height) {
         {"center", viewportWidth / centerAvailable},
         {"left_stack", 0.48f},
     };
+    layout.m_tabs = {
+        {"left_dock", "scene_tree", {"scene_tree", "filesystem"}},
+        {"bottom_dock", "output", {"output", "build"}},
+    };
     return layout;
 }
 
@@ -73,6 +77,7 @@ bool DockLayout::load(const std::filesystem::path& path, std::string& error) {
     }
     std::vector<DockPanelState> loaded;
     std::vector<DockSplitState> loadedSplits;
+    std::vector<DockTabState> loadedTabs;
     std::string line;
     size_t lineNumber = 0;
     while (std::getline(input, line)) {
@@ -92,6 +97,26 @@ bool DockLayout::load(const std::filesystem::path& path, std::string& error) {
             loadedSplits.push_back(std::move(split));
             continue;
         }
+        if (kindOrId == "tabs") {
+            DockTabState tabs;
+            size_t panelCount = 0;
+            if (!(row >> tabs.id >> tabs.active >> panelCount)) {
+                error = "invalid tab layout at line " +
+                        std::to_string(lineNumber);
+                return false;
+            }
+            for (size_t index = 0; index < panelCount; ++index) {
+                std::string panelId;
+                if (!(row >> panelId)) {
+                    error = "invalid tab panel list at line " +
+                            std::to_string(lineNumber);
+                    return false;
+                }
+                tabs.panels.push_back(std::move(panelId));
+            }
+            loadedTabs.push_back(std::move(tabs));
+            continue;
+        }
         DockPanelState panel;
         panel.id = std::move(kindOrId);
         int visible = 1;
@@ -102,12 +127,13 @@ bool DockLayout::load(const std::filesystem::path& path, std::string& error) {
         panel.visible = visible != 0;
         loaded.push_back(std::move(panel));
     }
-    if (loaded.empty() && loadedSplits.empty()) {
+    if (loaded.empty() && loadedSplits.empty() && loadedTabs.empty()) {
         error = "dock layout contains no panels";
         return false;
     }
     m_panels = std::move(loaded);
     m_splits = std::move(loadedSplits);
+    m_tabs = std::move(loadedTabs);
     if (m_splits.empty() && !m_panels.empty()) {
         float totalWidth = 0.0f;
         float totalHeight = 0.0f;
@@ -143,9 +169,16 @@ bool DockLayout::save(const std::filesystem::path& path, std::string& error) con
         error = "failed to write dock layout: " + path.string();
         return false;
     }
-    output << "# MorrowEditor dock layout v2\n";
+    output << "# MorrowEditor dock layout v3\n";
     for (const auto& split : m_splits) {
         output << "split " << split.id << ' ' << split.ratio << '\n';
+    }
+    for (const auto& tabs : m_tabs) {
+        output << "tabs " << tabs.id << ' ' << tabs.active << ' '
+               << tabs.panels.size();
+        for (const auto& panel : tabs.panels)
+            output << ' ' << panel;
+        output << '\n';
     }
     return output.good();
 }
@@ -163,6 +196,30 @@ std::vector<DockSplitState>& DockLayout::splits() {
 
 const std::vector<DockSplitState>& DockLayout::splits() const {
     return m_splits;
+}
+
+DockTabState* DockLayout::findTabs(const std::string& id) {
+    for (auto& tabs : m_tabs) {
+        if (tabs.id == id)
+            return &tabs;
+    }
+    return nullptr;
+}
+
+const DockTabState* DockLayout::findTabs(const std::string& id) const {
+    for (const auto& tabs : m_tabs) {
+        if (tabs.id == id)
+            return &tabs;
+    }
+    return nullptr;
+}
+
+std::vector<DockTabState>& DockLayout::tabs() {
+    return m_tabs;
+}
+
+const std::vector<DockTabState>& DockLayout::tabs() const {
+    return m_tabs;
 }
 
 }  // namespace morrow::editor

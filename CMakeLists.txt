@@ -122,6 +122,10 @@ if(BUILD_TESTING)
     target_link_libraries(ScrollControlsTests morrow)
     add_test(NAME ScrollControlsTests COMMAND ScrollControlsTests)
 
+    add_executable(TabContainerTests tests/TabContainerTests.cpp)
+    target_link_libraries(TabContainerTests morrow)
+    add_test(NAME TabContainerTests COMMAND TabContainerTests)
+
     add_executable(SpinBoxLayoutElementsTests tests/SpinBoxLayoutElementsTests.cpp)
     target_link_libraries(SpinBoxLayoutElementsTests morrow)
     add_test(NAME SpinBoxLayoutElementsTests COMMAND SpinBoxLayoutElementsTests)

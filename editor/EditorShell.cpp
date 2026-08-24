@@ -282,6 +282,10 @@ void EditorShell::buildLayout() {
                 if (!loadedLayout.findSplit(defaultSplit.id))
                     loadedLayout.splits().push_back(defaultSplit);
             }
+            for (const auto& defaultTabs : defaultLayout.tabs()) {
+                if (!loadedLayout.findTabs(defaultTabs.id))
+                    loadedLayout.tabs().push_back(defaultTabs);
+            }
             m_dockLayout = std::move(loadedLayout);
         }
     }
@@ -291,6 +295,9 @@ void EditorShell::buildLayout() {
     m_viewportPanel = makePanel(0.0f, 0.0f, 740.0f, 570.0f, morrow::Math::Vector4(0.10f, 0.12f, 0.15f, 1.0f));
     m_inspectorPanel = makePanel(0.0f, 0.0f, 300.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
     m_statusPanel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
+    m_buildPanel = makePanel(
+        0.0f, 0.0f, 1280.0f, 140.0f,
+        morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
     m_fileSystemPanel = FileSystemPanel::create(
         m_fileSystem,
         [this](const std::string& status) { setStatus(status); });
@@ -311,11 +318,13 @@ void EditorShell::buildLayout() {
     m_mainSplit->setSecondMinSize(520.0f);
     m_mainSplit->setHandleWidth(5.0f);
 
-    m_leftSplit = MRSplitContainer::create();
-    m_leftSplit->setOrientation(SplitOrientation::Vertical);
-    m_leftSplit->setFirstMinSize(140.0f);
-    m_leftSplit->setSecondMinSize(180.0f);
-    m_leftSplit->setHandleWidth(5.0f);
+    m_leftTabs = MRTabContainer::create();
+    m_leftTabs->addTab("scene_tree", L"Scene", m_sceneTreePanel);
+    m_leftTabs->addTab("filesystem", L"FileSystem", m_fileSystemPanel);
+
+    m_bottomTabs = MRTabContainer::create();
+    m_bottomTabs->addTab("output", L"Output", m_statusPanel);
+    m_bottomTabs->addTab("build", L"Build", m_buildPanel);
 
     m_centerSplit = MRSplitContainer::create();
     m_centerSplit->setOrientation(SplitOrientation::Horizontal);
@@ -325,12 +334,10 @@ void EditorShell::buildLayout() {
 
     m_centerSplit->setFirst(m_viewportPanel);
     m_centerSplit->setSecond(m_inspectorPanel);
-    m_leftSplit->setFirst(m_sceneTreePanel);
-    m_leftSplit->setSecond(m_fileSystemPanel);
-    m_mainSplit->setFirst(m_leftSplit);
+    m_mainSplit->setFirst(m_leftTabs);
     m_mainSplit->setSecond(m_centerSplit);
     m_workspaceSplit->setFirst(m_mainSplit);
-    m_workspaceSplit->setSecond(m_statusPanel);
+    m_workspaceSplit->setSecond(m_bottomTabs);
 
     m_shellRoot->addChild(m_toolbarPanel);
     m_shellRoot->addChild(m_workspaceSplit);
@@ -358,7 +365,33 @@ void EditorShell::buildLayout() {
     connectSplit("workspace", m_workspaceSplit);
     connectSplit("left", m_mainSplit);
     connectSplit("center", m_centerSplit);
-    connectSplit("left_stack", m_leftSplit);
+
+    const auto connectTabs = [this](
+                                 const std::string& id,
+                                 const std::shared_ptr<MRTabContainer>& tabs) {
+        m_tabConnections.emplace_back(
+            tabs->events().onCurrentTabChanged.connect(
+                [this, id](MRTabContainer& container, const std::string& active) {
+                    if (auto* state = m_dockLayout.findTabs(id))
+                        state->active = active;
+                    saveDockLayout();
+                    if (id == "bottom_dock" && active == "build")
+                        refreshOutput();
+                    (void)container;
+                }));
+        m_tabOrderConnections.emplace_back(
+            tabs->events().onTabOrderChanged.connect(
+                [this, id](MRTabContainer& container) {
+                    if (auto* state = m_dockLayout.findTabs(id)) {
+                        state->panels.clear();
+                        for (const auto& tab : container.tabs())
+                            state->panels.push_back(tab.id);
+                    }
+                    saveDockLayout();
+                }));
+    };
+    connectTabs("left_dock", m_leftTabs);
+    connectTabs("bottom_dock", m_bottomTabs);
 
     addLabel(m_toolbarPanel, "MorrowEditor", 8.0f, 5.0f, 150.0f, 28.0f);
     addButton(m_toolbarPanel, L"Save", 170.0f, 4.0f, 72.0f, 30.0f, [this] {
@@ -396,6 +429,11 @@ void EditorShell::buildLayout() {
     addLabel(m_sceneTreePanel, "Scene", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_viewportPanel, "2D Viewport", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_inspectorPanel, "Inspector", 8.0f, 6.0f, 260.0f, 28.0f);
+    addLabel(m_buildPanel, "Build / Run", 8.0f, 3.0f, 260.0f, 24.0f);
+    addLabel(
+        m_buildPanel,
+        "Use the toolbar commands to configure, build, run, or stop.",
+        8.0f, 30.0f, 620.0f, 22.0f);
     applyDockLayout();
     refreshOutput();
 }
@@ -407,8 +445,27 @@ void EditorShell::applyDockLayout() {
         m_mainSplit->setSplitRatio(split->ratio);
     if (const auto* split = m_dockLayout.findSplit("center"))
         m_centerSplit->setSplitRatio(split->ratio);
-    if (const auto* split = m_dockLayout.findSplit("left_stack"))
-        m_leftSplit->setSplitRatio(split->ratio);
+    const auto applyTabState = [](
+                                   const DockTabState* state,
+                                   const std::shared_ptr<MRTabContainer>& tabs) {
+        if (!state || !tabs)
+            return;
+        for (size_t target = 0; target < state->panels.size(); ++target) {
+            const auto& desired = state->panels[target];
+            size_t current = target;
+            while (current < tabs->tabs().size() &&
+                   tabs->tabs()[current].id != desired) {
+                ++current;
+            }
+            if (current < tabs->tabs().size() && current != target)
+                tabs->moveTab(current, target);
+        }
+        tabs->selectTab(state->active);
+    };
+    if (const auto* tabs = m_dockLayout.findTabs("left_dock"))
+        applyTabState(tabs, m_leftTabs);
+    if (const auto* tabs = m_dockLayout.findTabs("bottom_dock"))
+        applyTabState(tabs, m_bottomTabs);
 
     const Vector3 viewportSize = m_viewportPanel->getTransform()->getSize();
     m_viewportWidth = viewportSize.x;

@@ -22,6 +22,12 @@ struct DockSplitState {
     float ratio = 0.5f;
 };
 
+struct DockTabState {
+    std::string id;
+    std::string active;
+    std::vector<std::string> panels;
+};
+
 class DockLayout {
 public:
     static DockLayout defaultLayout(float width, float height);
@@ -46,9 +52,18 @@ public:
 
     const std::vector<DockSplitState>& splits() const;
 
+    DockTabState* findTabs(const std::string& id);
+
+    const DockTabState* findTabs(const std::string& id) const;
+
+    std::vector<DockTabState>& tabs();
+
+    const std::vector<DockTabState>& tabs() const;
+
 private:
     std::vector<DockPanelState> m_panels;
     std::vector<DockSplitState> m_splits;
+    std::vector<DockTabState> m_tabs;
 };
 
 }  // namespace morrow::editor
