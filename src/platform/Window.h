@@ -8,8 +8,25 @@
 #include <string>
 
 #include "base/UIWidget.h"
+#include "core/Observable.h"
 
 namespace morrow {
+enum class CursorShape {
+    Arrow,
+    IBeam,
+    Hand,
+    ResizeHorizontal,
+    ResizeVertical,
+    ResizeAll,
+    Forbidden,
+};
+
+struct WindowEvents {
+    Observable<const Vector2&> onWindowSizeChanged;
+    Observable<const Vector2&> onFramebufferSizeChanged;
+    Observable<float> onContentScaleChanged;
+};
+
 enum WindowMask : int32_t {
     SCREEN_SENSITIVITY_MASK_ALWAYS = (1 << 0),
     SCREEN_SENSITIVITY_MASK_NEVER = (2 << 0),
@@ -54,6 +71,10 @@ public:
 
     virtual void setClearColor(float r, float g, float b, float a);
 
+    virtual void setCursorShape(CursorShape shape);
+
+    WindowEvents& events();
+
     /// ────────── 渲染阶段（替代原 update()）──────────
     /// GPU 准备：viewport、clear、framebuffer
     virtual void beginRenderPass(FrameStateSharedPtr frameState);
@@ -69,6 +90,7 @@ public:
     virtual void* getSurface() const;
 protected:
     std::shared_ptr<BatchManager> m_batchManager;
+    WindowEvents m_events;
 };
 
 using WindowSharedPtr = std::shared_ptr<Window>;

@@ -30,6 +30,7 @@ WGLWindow::WGLWindow(const WindowInfo& info) {
     }
     glfwSetWindowSizeCallback(m_window, window_size_callback);
     glfwSetFramebufferSizeCallback(m_window, framebuffer_size_callback);
+    glfwSetWindowContentScaleCallback(m_window, content_scale_callback);
     glfwSetCursorPosCallback(m_window, mouse_callback);
     glfwSetScrollCallback(m_window, scroll_callback);
     glfwSetMouseButtonCallback(m_window, mouse_button_callback);
@@ -44,6 +45,10 @@ WGLWindow::WGLWindow(const WindowInfo& info) {
     int fbHeight = 0;
     glfwGetFramebufferSize(m_window, &fbWidth, &fbHeight);
     m_framebufferSize.set(static_cast<float>(fbWidth), static_cast<float>(fbHeight));
+    float xscale = 1.0f;
+    float yscale = 1.0f;
+    glfwGetWindowContentScale(m_window, &xscale, &yscale);
+    m_contentScale = std::max(xscale, yscale);
 }
 
 bool WGLWindow::initializeIfNeeded() {
@@ -59,6 +64,38 @@ void WGLWindow::setClearColor(float r, float g, float b, float a) {
         m_clearColor.set(r, g, b, a);
         requestRender("setClearColor");
     }
+}
+
+void WGLWindow::setCursorShape(CursorShape shape) {
+    if (!m_window)
+        return;
+    int glfwShape = GLFW_ARROW_CURSOR;
+    switch (shape) {
+        case CursorShape::IBeam:
+            glfwShape = GLFW_IBEAM_CURSOR;
+            break;
+        case CursorShape::Hand:
+            glfwShape = GLFW_HAND_CURSOR;
+            break;
+        case CursorShape::ResizeHorizontal:
+            glfwShape = GLFW_HRESIZE_CURSOR;
+            break;
+        case CursorShape::ResizeVertical:
+            glfwShape = GLFW_VRESIZE_CURSOR;
+            break;
+        case CursorShape::ResizeAll:
+            glfwShape = GLFW_CROSSHAIR_CURSOR;
+            break;
+        case CursorShape::Forbidden:
+            glfwShape = GLFW_NOT_ALLOWED_CURSOR;
+            break;
+        case CursorShape::Arrow:
+            break;
+    }
+    auto& cursor = m_cursors[glfwShape];
+    if (!cursor)
+        cursor = glfwCreateStandardCursor(glfwShape);
+    glfwSetCursor(m_window, cursor);
 }
 
 void WGLWindow::beginRenderPass(FrameStateSharedPtr frameState) {
@@ -83,10 +120,15 @@ void WGLWindow::beginRenderPass(FrameStateSharedPtr frameState) {
     }
 
     frameState->screenAlpha = 1.0f;
+    frameState->framebufferWidth = fbWidth;
+    frameState->framebufferHeight = fbHeight;
+    frameState->currentClip = {};
+    frameState->clipStack.clear();
     frameState->camera->update(m_windowPosition.x, m_windowPosition.y, m_framebufferSize.x, m_framebufferSize.y);
     frameState->batchManager = m_batchManager;
     RENDERINGTHREAD->setClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
     RENDERINGTHREAD->setViewPort(0, 0, fbWidth, fbHeight);
+    RENDERINGTHREAD->setScissorRect(false, 0, 0, 0, 0);
     RENDERINGTHREAD->clear();
     m_batchManager->clear();
 }
@@ -104,7 +146,14 @@ bool WGLWindow::isWindowShouldClose() {
 }
 
 void WGLWindow::terminate() {
+    for (auto& [shape, cursor] : m_cursors) {
+        (void)shape;
+        if (cursor)
+            glfwDestroyCursor(cursor);
+    }
+    m_cursors.clear();
     glfwDestroyWindow(m_window);
+    m_window = nullptr;
     glfwTerminate();
 }
 
@@ -113,6 +162,7 @@ void WGLWindow::window_size_callback(GLFWwindow* window, int width, int height) 
     auto* self = static_cast<WGLWindow*>(glfwGetWindowUserPointer(window));
     if (!self) return;
     self->m_windowSize.set(static_cast<float>(width), static_cast<float>(height));
+    self->m_events.onWindowSizeChanged.notify(self->m_windowSize);
     self->requestRender("window_size_callback");
 }
 
@@ -121,7 +171,19 @@ void WGLWindow::framebuffer_size_callback(GLFWwindow* window, int width, int hei
     auto* self = static_cast<WGLWindow*>(glfwGetWindowUserPointer(window));
     if (!self) return;
     self->m_framebufferSize.set(static_cast<float>(width), static_cast<float>(height));
+    self->m_events.onFramebufferSizeChanged.notify(self->m_framebufferSize);
     self->requestRender("framebuffer_size_callback");
+}
+
+void WGLWindow::content_scale_callback(GLFWwindow* window, float xscale, float yscale) {
+    if (!window)
+        return;
+    auto* self = static_cast<WGLWindow*>(glfwGetWindowUserPointer(window));
+    if (!self)
+        return;
+    self->m_contentScale = std::max(xscale, yscale);
+    self->m_events.onContentScaleChanged.notify(self->m_contentScale);
+    self->requestRender("content_scale_callback");
 }
 
 void WGLWindow::mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {

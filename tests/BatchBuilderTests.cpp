@@ -93,6 +93,19 @@ void testGeometryBreaksBatch() {
            "different mesh state should report Geometry");
 }
 
+void testClipRectBreaksBatch() {
+    BatchBuilder builder;
+    auto first = makeItem(1);
+    auto second = makeItem(1);
+    first.clipRect = {true, 0.0f, 0.0f, 100.0f, 100.0f};
+    second.clipRect = {true, 100.0f, 0.0f, 200.0f, 100.0f};
+    const auto result = builder.build({first, second});
+    expect(result.groups.size() == 2,
+           "different clip rectangles must form separate batches");
+    expect(result.breakReasons[0] == BatchBreakReason::OrderBarrier,
+           "clip rectangle changes should preserve an order barrier");
+}
+
 void testResourceRevisionsDoNotInvalidateBatchStructure() {
     auto current = std::vector<RenderItem>{makeItem(1)};
     auto previous = current;
@@ -119,6 +132,7 @@ int main() {
     testBlendStateBreaksBatch();
     testDisplayLayerBreaksBatch();
     testGeometryBreaksBatch();
+    testClipRectBreaksBatch();
     testResourceRevisionsDoNotInvalidateBatchStructure();
 
     if (g_failures != 0) {

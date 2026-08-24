@@ -4,7 +4,10 @@
 
 #include "BatchManager.h"
 
+#include <cmath>
+
 #include "BatchDataDefine.h"
+#include "GlobalObject.h"
 #include "Material.h"
 #include "OrthographicCamera.h"
 #include "RenderBatchPool.h"
@@ -28,12 +31,14 @@ BatchManager::BatchManager() {
 void BatchManager::addRenderable(std::shared_ptr<Material> material,
                                  std::shared_ptr<MeshFilter> meshFilter,
                                  std::shared_ptr<Transform> transform,
+                                 const ClipRect& clipRect,
                                  bool underlay) {
     RenderItem item;
     item.material = std::move(material);
     item.meshFilter = std::move(meshFilter);
     item.transform = std::move(transform);
     item.batchKey = createBatchKey(item.material, item.meshFilter);
+    item.clipRect = clipRect;
     item.insertionIndex = m_insertionCounter++;
 
     // 从 Widget 获取 displayLayer（-10 ~ 10）
@@ -76,6 +81,7 @@ void BatchManager::renderBatches(std::shared_ptr<FrameState> frameState) {
     // ---- 渲染所有批次 ----
     for (auto& batch : m_batches) {
         if (batch.materials.empty()) continue;
+        applyClipRect(frameState, batch.clipRect);
 
         if (frameState->isSSBOSupport && batch.isSSBOShader && batch.materials.size() > 1) {
             ++statistics.ssboBatchCount;
@@ -90,6 +96,7 @@ void BatchManager::renderBatches(std::shared_ptr<FrameState> frameState) {
             }
         }
     }
+    RENDERINGTHREAD->setScissorRect(false, 0, 0, 0, 0);
     statistics.batchDrawCallCount = frameState->drawCallCount - drawCallsBeforeBatches;
 }
 
@@ -153,6 +160,7 @@ void BatchManager::buildFromItems(const std::vector<RenderItem>& items, BatchSta
             firstItem.material->getShaderName(),
             firstItem.material->isSSBOShader());
         newBatch.ssboLayout = firstItem.material->getSSBOLayout();
+        newBatch.clipRect = firstItem.clipRect;
 
         for (const uint32_t itemIndex : group.itemIndices) {
             const auto& item = items[itemIndex];
@@ -162,6 +170,22 @@ void BatchManager::buildFromItems(const std::vector<RenderItem>& items, BatchSta
         }
         m_batches.emplace_back(std::move(newBatch));
     }
+}
+
+void BatchManager::applyClipRect(const std::shared_ptr<FrameState>& frameState, const ClipRect& clipRect) {
+    if (!clipRect.enabled) {
+        RENDERINGTHREAD->setScissorRect(false, 0, 0, 0, 0);
+        return;
+    }
+
+    const int32_t left = std::max(0, static_cast<int32_t>(std::floor(clipRect.left)));
+    const int32_t top = std::max(0, static_cast<int32_t>(std::floor(clipRect.top)));
+    const int32_t right = std::min(frameState->framebufferWidth, static_cast<int32_t>(std::ceil(clipRect.right)));
+    const int32_t bottom = std::min(frameState->framebufferHeight, static_cast<int32_t>(std::ceil(clipRect.bottom)));
+    const int32_t width = std::max(0, right - left);
+    const int32_t height = std::max(0, bottom - top);
+    const int32_t glY = std::max(0, frameState->framebufferHeight - bottom);
+    RENDERINGTHREAD->setScissorRect(true, left, glY, width, height);
 }
 
 // ---------------------------------------------------------------------------

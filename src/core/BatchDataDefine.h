@@ -8,6 +8,7 @@
 #include <vector>
 #include "Vector3.h"
 #include "Vector4.h"
+#include "ClipRect.h"
 #include "renderer/device/ResourceHandle.h"
 
 namespace morrow {
@@ -31,6 +32,7 @@ struct RenderBatch {
     std::vector<std::shared_ptr<Material>> materials;
     std::vector<std::shared_ptr<MeshFilter>> meshFilters;
     std::vector<std::shared_ptr<Transform>> transforms;
+    ClipRect clipRect;
     std::shared_ptr<ShaderStorageBuffer> ssbo;
     SSBOLayoutComponentSharedPtr ssboLayout;
 };

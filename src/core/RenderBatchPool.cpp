@@ -39,6 +39,7 @@ void RenderBatchPool::release(RenderBatch&& batch) {
     batch.meshFilters.clear();
     batch.transforms.clear();
     batch.ssboLayout.reset();
+    batch.clipRect = {};
 
     std::string key = makeKey(batch.shaderName, batch.isSSBOShader);
     m_pool[key].emplace_back(std::move(batch));
@@ -51,6 +52,7 @@ void RenderBatchPool::releaseAll(std::vector<RenderBatch>& batches) {
         batch.meshFilters.clear();
         batch.transforms.clear();
         batch.ssboLayout.reset();
+        batch.clipRect = {};
 
         std::string key = makeKey(batch.shaderName, batch.isSSBOShader);
         m_pool[key].emplace_back(std::move(batch));

@@ -7,6 +7,8 @@
 #include "Window.h"
 #include "OpenglHeader.h"
 
+#include <unordered_map>
+
 namespace morrow {
 
 class WGLWindow: public Window{
@@ -16,6 +18,8 @@ public:
     bool initializeIfNeeded() override;
 
     void setClearColor(float r, float g, float b, float a) override;
+
+    void setCursorShape(CursorShape shape) override;
 
     void beginRenderPass(FrameStateSharedPtr frameState) override;
     void updateWidgets(FrameStateSharedPtr frameState) override;
@@ -34,6 +38,8 @@ private:
 
     static void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 
+    static void content_scale_callback(GLFWwindow* window, float xscale, float yscale);
+
     static void mouse_callback(GLFWwindow *window, double xposIn, double yposIn);
 
     static void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
@@ -44,7 +50,9 @@ private:
     Vector2 m_windowPosition;
     Vector2 m_windowSize;
     Vector2 m_framebufferSize;
+    float m_contentScale = 1.0f;
     Vector4 m_clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+    std::unordered_map<int, GLFWcursor*> m_cursors;
 };
 
 } // morrow

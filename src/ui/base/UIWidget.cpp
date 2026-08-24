@@ -4,6 +4,7 @@
 
 #include "UIWidget.h"
 #include "base/Transform.h"
+#include "FrameState.h"
 
 #include <algorithm>
 #include <array>
@@ -78,6 +79,46 @@ Math::Rect UIWidget::getScreenSpaceAABB() const {
     }
 
     return Math::Rect(minX, minY, maxX, maxY);
+}
+
+void UIWidget::setClipChildren(bool clip) {
+    if (m_clipChildren == clip)
+        return;
+    m_clipChildren = clip;
+    requestRender("setClipChildren");
+}
+
+bool UIWidget::getClipChildren() const {
+    return m_clipChildren;
+}
+
+void UIWidget::update(FrameStateSharedPtr frameState) {
+    m_componentManager->updateComponents(frameState);
+
+    ClipRect previousClip;
+    bool pushedClip = false;
+    if (frameState && m_clipChildren) {
+        previousClip = frameState->currentClip;
+        frameState->clipStack.push_back(previousClip);
+        const Math::Rect bounds = getScreenSpaceAABB();
+        frameState->currentClip = previousClip.intersected(
+            ClipRect::fromBounds(
+                bounds.Min.x, bounds.Min.y, bounds.Max.x, bounds.Max.y));
+        pushedClip = true;
+    }
+
+    if (!frameState || !frameState->currentClip.empty()) {
+        for (auto& child : m_children) {
+            if (child->getVisible()) {
+                child->update(frameState);
+            }
+        }
+    }
+
+    if (pushedClip) {
+        frameState->currentClip = frameState->clipStack.back();
+        frameState->clipStack.pop_back();
+    }
 }
 
 void UIWidget::setAlpha(float alpha) {

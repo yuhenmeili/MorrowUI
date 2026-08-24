@@ -4,12 +4,16 @@ namespace morrow {
 
 bool BatchBuilder::canBatch(const RenderItem& previous, const RenderItem& current) {
     if (previous.displayLayer != current.displayLayer) return false;
+    if (previous.clipRect != current.clipRect) return false;
     return previous.batchKey == current.batchKey;
 }
 
 BatchBreakReason BatchBuilder::getBreakReason(const RenderItem& previous, const RenderItem& current) {
     if (previous.displayLayer != current.displayLayer) {
         return BatchBreakReason::DisplayLayer;
+    }
+    if (previous.clipRect != current.clipRect) {
+        return BatchBreakReason::OrderBarrier;
     }
     if (previous.batchKey.materialStateHash != current.batchKey.materialStateHash) {
         return BatchBreakReason::MaterialState;

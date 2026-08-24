@@ -38,6 +38,13 @@ void Window::commitRenderPass(FrameStateSharedPtr frameState) {
 void Window::setClearColor(float r, float g, float b, float a) {
 }
 
+void Window::setCursorShape(CursorShape /*shape*/) {
+}
+
+WindowEvents& Window::events() {
+    return m_events;
+}
+
 void Window::terminate() {
 }
 

@@ -17,6 +17,11 @@ struct DockPanelState {
     int order = 0;
 };
 
+struct DockSplitState {
+    std::string id;
+    float ratio = 0.5f;
+};
+
 class DockLayout {
 public:
     static DockLayout defaultLayout(float width, float height);
@@ -24,6 +29,10 @@ public:
     DockPanelState* find(const std::string& id);
 
     const DockPanelState* find(const std::string& id) const;
+
+    DockSplitState* findSplit(const std::string& id);
+
+    const DockSplitState* findSplit(const std::string& id) const;
 
     bool load(const std::filesystem::path& path, std::string& error);
 
@@ -33,8 +42,13 @@ public:
 
     const std::vector<DockPanelState>& panels() const;
 
+    std::vector<DockSplitState>& splits();
+
+    const std::vector<DockSplitState>& splits() const;
+
 private:
     std::vector<DockPanelState> m_panels;
+    std::vector<DockSplitState> m_splits;
 };
 
 }  // namespace morrow::editor

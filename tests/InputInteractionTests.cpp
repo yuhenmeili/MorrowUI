@@ -259,6 +259,40 @@ void testKeyboardFocusRoutesCharactersToLineEdit() {
     expect(lineEdit->getText() == L"A", "keyboard characters should route to the focused line edit");
 }
 
+void testParentClipRejectsOverflowingChildHit() {
+    auto platform = std::make_shared<TestPlatform>();
+    auto window = std::make_shared<Window>();
+    window->getTransform()->setSize(640.0f, 360.0f);
+
+    auto clippedParent = std::make_shared<UIWidget>(false);
+    clippedParent->setClipChildren(true);
+    clippedParent->getTransform()->setPosition(20.0f, 20.0f, 0.0f);
+    clippedParent->getTransform()->setSize(100.0f, 100.0f);
+
+    auto overflowingButton = std::make_shared<TestButton>();
+    overflowingButton->getTransform()->setPosition(80.0f, 20.0f, 0.0f);
+    overflowingButton->getTransform()->setSize(100.0f, 40.0f);
+    clippedParent->addChild(overflowingButton);
+    window->addChild(clippedParent);
+    platform->setWindow(window);
+
+    auto frameState = std::make_shared<FrameState>();
+    frameState->inputEventsManager = platform->getInputManager();
+
+    TouchEvent insideChildOutsideParent;
+    insideChildOutsideParent.touchID = 0;
+    insideChildOutsideParent.positionX = 160.0f;
+    insideChildOutsideParent.positionY = 60.0f;
+    insideChildOutsideParent.eventType = TOUCH_EVENT_TYPE_TOUCH;
+    insideChildOutsideParent.deviceType = TOUCH_DEVICE_TYPE_MOUSE;
+    frameState->inputEventsManager->getInputEvents().push_back(
+        insideChildOutsideParent);
+    platform->beginFrame(frameState);
+
+    expect(frameState->inputEventsManager->getInputEvents()[0].target == nullptr,
+           "a child outside its clipping parent must not receive input");
+}
+
 }  // namespace
 
 int main() {
@@ -268,6 +302,7 @@ int main() {
     testPointerBoundaryEvents();
     testButtonHoverUsesPointerEvents();
     testKeyboardFocusRoutesCharactersToLineEdit();
+    testParentClipRejectsOverflowingChildHit();
 
     if (g_failures != 0) {
         std::cerr << g_failures << " input interaction test(s) failed\n";

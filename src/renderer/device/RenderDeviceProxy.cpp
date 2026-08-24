@@ -50,6 +50,7 @@ enum CommandType {
     Cmd_UpdateTexture2D,
     Cmd_SetClearColor,
     Cmd_SetViewPort,
+    Cmd_SetScissorRect,
     Cmd_DumpFrameBuffer,
     Cmd_CreateVBO,
     Cmd_UpdateVBO,
@@ -129,6 +130,14 @@ struct SetClearColorPayload {
 
 struct SetViewPortPayload {
     Vector4 v;
+};
+
+struct SetScissorRectPayload {
+    int32_t enabled = 0;
+    int32_t x = 0;
+    int32_t y = 0;
+    int32_t width = 0;
+    int32_t height = 0;
 };
 
 struct DumpFrameBufferPayload {
@@ -490,6 +499,19 @@ void RenderDeviceProxy::setViewPort(int32_t x, int32_t y, int32_t width, int32_t
     }
     auto* pl = CMD_BUF.push<SetViewPortPayload>(Cmd_SetViewPort);
     pl->v = Vector4(float(x), float(y), float(width), float(height));
+}
+
+void RenderDeviceProxy::setScissorRect(bool enabled, int32_t x, int32_t y, int32_t width, int32_t height) {
+    if (!m_threaded) {
+        m_realDevice->setScissorRect(enabled, x, y, width, height);
+        return;
+    }
+    auto* pl = CMD_BUF.push<SetScissorRectPayload>(Cmd_SetScissorRect);
+    pl->enabled = enabled ? 1 : 0;
+    pl->x = x;
+    pl->y = y;
+    pl->width = width;
+    pl->height = height;
 }
 
 void RenderDeviceProxy::dumpFrameBuffer(int32_t x, int32_t y, int32_t displayWidth, int32_t displayHeight, int32_t rectX, int32_t rectY, int32_t rectWidth, int32_t rectHeight,
@@ -1213,6 +1235,12 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
             case Cmd_CheckSSBOSupport: {
                 auto* pl = static_cast<CheckSSBOSupportPayload*>(p);
                 pl->result.set_value(m_realDevice->checkSSBOSupport());
+                break;
+            }
+            case Cmd_SetScissorRect: {
+                auto* pl = static_cast<SetScissorRectPayload*>(p);
+                m_realDevice->setScissorRect(
+                    pl->enabled != 0, pl->x, pl->y, pl->width, pl->height);
                 break;
             }
             case Cmd_ReflectSSBOBlock: {

@@ -36,6 +36,7 @@ public:
     void addRenderable(std::shared_ptr<Material> material,
                        std::shared_ptr<MeshFilter> meshFilter,
                        std::shared_ptr<Transform> transform,
+                       const ClipRect& clipRect,
                        bool underlay = false);
 
     /// 执行合批渲染（在 commitRenderPass 中调用）
@@ -67,6 +68,8 @@ private:
     /// 安全 fallback：当前非 SSBO shader 的 per-object uniform 无法一次 draw 表达，
     /// 因此保持批次顺序并逐对象提交，避免错误烘焙变换/圆角/透明度。
     void renderNonSSBOFallback(std::shared_ptr<FrameState> frameState, RenderBatch& batch, Matrix4& projectionMatrix);
+
+    void applyClipRect(const std::shared_ptr<FrameState>& frameState, const ClipRect& clipRect);
 
     // ---- 数据成员 ----
 

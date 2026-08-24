@@ -31,6 +31,7 @@ std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float
     panel->setInteractive(false);
     panel->setBackgroundColor(color);
     panel->setCornerRadius(0.0f);
+    panel->setClipChildren(true);
     auto transform = panel->getTransform();
     transform->setPosition(x, y, 0.0f);
     transform->setSize(width, height);
@@ -238,35 +239,81 @@ void EditorShell::buildLayout() {
     }
     m_shellRoot->getTransform()->setSize(windowWidth, windowHeight);
 
-    m_dockLayout = DockLayout::defaultLayout(windowWidth, windowHeight);
+    const DockLayout defaultLayout = DockLayout::defaultLayout(windowWidth, windowHeight);
+    m_dockLayout = defaultLayout;
     std::string layoutError;
-    if (std::filesystem::exists(m_dockLayoutPath) && m_dockLayout.load(m_dockLayoutPath, layoutError)) {
-        float savedRight = 0.0f;
-        float savedBottom = 0.0f;
-        for (const auto& panel : m_dockLayout.panels()) {
-            savedRight = std::max(savedRight, panel.x + panel.width);
-            savedBottom = std::max(savedBottom, panel.y + panel.height);
+    if (std::filesystem::exists(m_dockLayoutPath)) {
+        DockLayout loadedLayout;
+        if (loadedLayout.load(m_dockLayoutPath, layoutError)) {
+            for (const auto& defaultSplit : defaultLayout.splits()) {
+                if (!loadedLayout.findSplit(defaultSplit.id))
+                    loadedLayout.splits().push_back(defaultSplit);
+            }
+            m_dockLayout = std::move(loadedLayout);
         }
-        // Discard a stale layout saved for a much smaller editor window.
-        if (savedRight < windowWidth * 0.75f || savedBottom < windowHeight * 0.75f)
-            m_dockLayout = DockLayout::defaultLayout(windowWidth, windowHeight);
     }
 
     m_toolbarPanel = makePanel(0.0f, 0.0f, windowWidth, 40.0f);
-    m_sceneTreePanel = makePanel(0.0f, 40.0f, 240.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
-    m_viewportPanel = makePanel(240.0f, 40.0f, 740.0f, 570.0f, morrow::Math::Vector4(0.10f, 0.12f, 0.15f, 1.0f));
-    m_inspectorPanel = makePanel(980.0f, 40.0f, 300.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
-    m_statusPanel = makePanel(0.0f, 610.0f, 1280.0f, 110.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
+    m_sceneTreePanel = makePanel(0.0f, 0.0f, 240.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
+    m_viewportPanel = makePanel(0.0f, 0.0f, 740.0f, 570.0f, morrow::Math::Vector4(0.10f, 0.12f, 0.15f, 1.0f));
+    m_inspectorPanel = makePanel(0.0f, 0.0f, 300.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
+    m_statusPanel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
     m_previewRoot = makePanel(0.0f, 32.0f, 740.0f, 538.0f);
     m_previewRoot->setWidgetName("PreviewRoot");
 
+    m_workspaceSplit = MRSplitContainer::create();
+    m_workspaceSplit->setOrientation(SplitOrientation::Vertical);
+    m_workspaceSplit->setFirstMinSize(260.0f);
+    m_workspaceSplit->setSecondMinSize(120.0f);
+    m_workspaceSplit->setHandleWidth(5.0f);
+    m_workspaceSplit->getTransform()->setPosition(0.0f, 40.0f, 0.0f);
+    m_workspaceSplit->getTransform()->setSize(windowWidth, std::max(1.0f, windowHeight - 40.0f));
+
+    m_mainSplit = MRSplitContainer::create();
+    m_mainSplit->setOrientation(SplitOrientation::Horizontal);
+    m_mainSplit->setFirstMinSize(220.0f);
+    m_mainSplit->setSecondMinSize(520.0f);
+    m_mainSplit->setHandleWidth(5.0f);
+
+    m_centerSplit = MRSplitContainer::create();
+    m_centerSplit->setOrientation(SplitOrientation::Horizontal);
+    m_centerSplit->setFirstMinSize(320.0f);
+    m_centerSplit->setSecondMinSize(260.0f);
+    m_centerSplit->setHandleWidth(5.0f);
+
+    m_centerSplit->setFirst(m_viewportPanel);
+    m_centerSplit->setSecond(m_inspectorPanel);
+    m_mainSplit->setFirst(m_sceneTreePanel);
+    m_mainSplit->setSecond(m_centerSplit);
+    m_workspaceSplit->setFirst(m_mainSplit);
+    m_workspaceSplit->setSecond(m_statusPanel);
+
     m_shellRoot->addChild(m_toolbarPanel);
-    m_shellRoot->addChild(m_sceneTreePanel);
-    m_shellRoot->addChild(m_viewportPanel);
-    m_shellRoot->addChild(m_inspectorPanel);
-    m_shellRoot->addChild(m_statusPanel);
+    m_shellRoot->addChild(m_workspaceSplit);
     m_viewportPanel->addChild(m_previewRoot);
     m_window->addChild(m_shellRoot);
+
+    const auto connectSplit = [this](
+                                  const std::string& id,
+                                  const std::shared_ptr<MRSplitContainer>& split) {
+        m_splitConnections.emplace_back(
+            split->events().onSplitRatioChanged.connect(
+                [this, id](MRSplitContainer&, float ratio) {
+                    if (auto* state = m_dockLayout.findSplit(id))
+                        state->ratio = ratio;
+                    applyDockLayout();
+                }));
+        m_splitConnections.emplace_back(
+            split->events().onDragFinished.connect(
+                [this, id](MRSplitContainer&, float ratio) {
+                    if (auto* state = m_dockLayout.findSplit(id))
+                        state->ratio = ratio;
+                    saveDockLayout();
+                }));
+    };
+    connectSplit("workspace", m_workspaceSplit);
+    connectSplit("left", m_mainSplit);
+    connectSplit("center", m_centerSplit);
 
     addLabel(m_toolbarPanel, "MorrowEditor", 8.0f, 5.0f, 150.0f, 28.0f);
     addButton(m_toolbarPanel, L"Save", 170.0f, 4.0f, 72.0f, 30.0f, [this] {
@@ -309,25 +356,20 @@ void EditorShell::buildLayout() {
 }
 
 void EditorShell::applyDockLayout() {
-    const auto apply = [](const std::shared_ptr<UIWidget>& widget, const DockPanelState* panel) {
-        if (!widget || !panel)
-            return;
-        widget->getTransform()->setPosition(panel->x, panel->y, 0.0f);
-        widget->getTransform()->setSize(panel->width, panel->height);
-    };
-    apply(m_sceneTreePanel, m_dockLayout.find("scene_tree"));
-    apply(m_viewportPanel, m_dockLayout.find("viewport"));
-    apply(m_inspectorPanel, m_dockLayout.find("inspector"));
-    apply(m_statusPanel, m_dockLayout.find("output"));
-    if (const auto* viewport = m_dockLayout.find("viewport")) {
-        m_viewportX = viewport->x;
-        m_viewportY = viewport->y;
-        m_viewportWidth = viewport->width;
-        m_viewportHeight = viewport->height;
-        m_previewRoot->getTransform()->setSize(viewport->width, std::max(1.0f, viewport->height - 32.0f));
-        if (m_previewCanvas || m_previewGrid)
-            refreshViewportGuides();
-    }
+    if (const auto* split = m_dockLayout.findSplit("workspace"))
+        m_workspaceSplit->setSplitRatio(split->ratio);
+    if (const auto* split = m_dockLayout.findSplit("left"))
+        m_mainSplit->setSplitRatio(split->ratio);
+    if (const auto* split = m_dockLayout.findSplit("center"))
+        m_centerSplit->setSplitRatio(split->ratio);
+
+    const Vector3 viewportSize = m_viewportPanel->getTransform()->getSize();
+    m_viewportWidth = viewportSize.x;
+    m_viewportHeight = viewportSize.y;
+    m_previewRoot->getTransform()->setSize(
+        viewportSize.x, std::max(1.0f, viewportSize.y - 32.0f));
+    if (m_previewCanvas || m_previewGrid)
+        refreshViewportGuides();
 }
 
 void EditorShell::saveDockLayout() {
@@ -336,14 +378,28 @@ void EditorShell::saveDockLayout() {
         setStatus(error);
 }
 
+void EditorShell::handleFramebufferResize(const Vector2& size) {
+    if (!m_shellRoot || size.x <= 0.0f || size.y <= 0.0f)
+        return;
+    m_shellRoot->getTransform()->setSize(size.x, size.y);
+    m_toolbarPanel->getTransform()->setSize(size.x, 40.0f);
+    m_workspaceSplit->getTransform()->setPosition(0.0f, 40.0f, 0.0f);
+    m_workspaceSplit->getTransform()->setSize(
+        size.x, std::max(1.0f, size.y - 40.0f));
+    applyDockLayout();
+    refreshOutput();
+}
+
 void EditorShell::refreshOutput() {
     if (!m_statusPanel)
         return;
     m_statusPanel->m_children.clear();
     addLabel(m_statusPanel, "Output / Assets / Build", 8.0f, 2.0f, 360.0f, 22.0f);
     float y = 26.0f;
+    const float contentWidth =
+        std::max(1.0f, m_statusPanel->getTransform()->getSize().x - 16.0f);
     for (const auto& line : m_outputLines) {
-        addLabel(m_statusPanel, line, 8.0f, y, 1240.0f, 20.0f);
+        addLabel(m_statusPanel, line, 8.0f, y, contentWidth, 20.0f);
         y += 21.0f;
     }
 }
@@ -636,6 +692,11 @@ void EditorShell::refreshViewportGuides() {
 }
 
 void EditorShell::handleViewportPointer(const TouchEvent& event) {
+    const Math::Rect viewportBounds = m_viewportPanel->getScreenSpaceAABB();
+    m_viewportX = viewportBounds.Min.x;
+    m_viewportY = viewportBounds.Min.y;
+    m_viewportWidth = viewportBounds.GetWidth();
+    m_viewportHeight = viewportBounds.GetHeight();
     const float panelX = event.positionX - m_viewportX;
     const float panelY = event.positionY - m_viewportY;
     const float x = (panelX - m_viewPanX) / m_viewZoom;
@@ -712,37 +773,21 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
     }
 }
 
-bool EditorShell::handleDockPointer(const TouchEvent& event) {
-    if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_RIGHT) {
-        for (auto& panel : m_dockLayout.panels()) {
-            if (event.positionX >= panel.x && event.positionX <= panel.x + panel.width && event.positionY >= panel.y &&
-                event.positionY <= panel.y + 28.0f) {
-                m_draggedDockPanel = panel.id;
-                m_dockDragOffsetX = event.positionX - panel.x;
-                m_dockDragOffsetY = event.positionY - panel.y;
-                return true;
-            }
-        }
-    } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && !m_draggedDockPanel.empty()) {
-        if (auto* panel = m_dockLayout.find(m_draggedDockPanel)) {
-            panel->x = std::max(0.0f, event.positionX - m_dockDragOffsetX);
-            panel->y = std::max(40.0f, event.positionY - m_dockDragOffsetY);
-            applyDockLayout();
-        }
-        return true;
-    } else if (event.eventType == TOUCH_EVENT_TYPE_RELEASE && !m_draggedDockPanel.empty()) {
-        m_draggedDockPanel.clear();
-        saveDockLayout();
-        return true;
-    }
-    return false;
-}
-
 void EditorShell::handleInput(std::vector<TouchEvent>& events) {
     pollBuild();
     for (const auto& event : events) {
-        if (!handleDockPointer(event))
+        auto target = event.target;
+        bool viewportTarget = false;
+        while (target) {
+            if (target == m_viewportPanel) {
+                viewportTarget = true;
+                break;
+            }
+            target = target->m_parent;
+        }
+        if (viewportTarget) {
             handleViewportPointer(event);
+        }
     }
 }
 
@@ -814,6 +859,11 @@ bool EditorShell::initialize(std::string& error) {
         return false;
     }
     buildLayout();
+    if (m_window) {
+        m_framebufferSizeConnection =
+            m_window->events().onFramebufferSizeChanged.connect(
+                [this](const Vector2& size) { handleFramebufferResize(size); });
+    }
     runImportQueue();
     refreshSceneTree();
     rebuildRuntime();

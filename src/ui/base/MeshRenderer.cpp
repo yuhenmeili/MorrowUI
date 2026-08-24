@@ -23,7 +23,8 @@ void MeshRenderer::update(FrameStateSharedPtr frameState) {
     auto meshFilter = getComponent<MeshFilter>();
     if (meshFilter) {
         auto transform = getComponent<Transform>();
-        frameState->batchManager->addRenderable(m_material, meshFilter, transform);
+        frameState->batchManager->addRenderable(
+            m_material, meshFilter, transform, frameState->currentClip);
     }
 }
 

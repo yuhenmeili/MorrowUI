@@ -10,6 +10,7 @@
 #include "ui/elements/MRSpacer.h"
 #include "ui/elements/MRSpinBox.h"
 #include "ui/layout/HBoxContainer.h"
+#include "ui/layout/MRSplitContainer.h"
 #include "ui/layout/VBoxContainer.h"
 
 using namespace morrow;
@@ -102,6 +103,36 @@ void testSeparatorDefaults() {
     expect(vertical->getComponent<Transform>()->getSize().y > vertical->getComponent<Transform>()->getSize().x, "vertical separator should default to a tall, thin shape");
 }
 
+void testSplitContainerLayoutAndMinimums() {
+    auto split = MRSplitContainer::create();
+    split->setOrientation(SplitOrientation::Horizontal);
+    split->setHandleWidth(10.0f);
+    split->setFirstMinSize(100.0f);
+    split->setSecondMinSize(120.0f);
+    split->getTransform()->setSize(500.0f, 200.0f);
+
+    auto first = std::make_shared<UIWidget>(false);
+    auto second = std::make_shared<UIWidget>(false);
+    split->setFirst(first);
+    split->setSecond(second);
+    split->setSplitRatio(0.25f);
+
+    expect(near(first->getTransform()->getSize().x, 122.5),
+           "horizontal split should size the first panel from the ratio");
+    expect(near(second->getTransform()->getPosition().x, 132.5),
+           "horizontal split should place the second panel after the handle");
+    expect(near(second->getTransform()->getSize().x, 367.5),
+           "horizontal split should give the remaining width to the second panel");
+
+    split->setSplitRatio(0.01f);
+    expect(first->getTransform()->getSize().x >= 100.0f,
+           "split ratio should respect the first panel minimum size");
+
+    split->setSplitRatio(0.99f);
+    expect(second->getTransform()->getSize().x >= 120.0f,
+           "split ratio should respect the second panel minimum size");
+}
+
 }  // namespace
 
 int main() {
@@ -109,6 +140,7 @@ int main() {
     testHorizontalSpacerDistribution();
     testVerticalSpacerDistribution();
     testSeparatorDefaults();
+    testSplitContainerLayoutAndMinimums();
 
     if (g_failures != 0) {
         std::cerr << g_failures << " spin box/layout element test(s) failed\n";

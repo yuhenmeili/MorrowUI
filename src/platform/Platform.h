@@ -9,6 +9,7 @@
 
 #include "FrameState.h"
 #include "InputEventsManager.h"
+#include "ClipRect.h"
 
 namespace morrow {
 struct WindowInfo;
@@ -67,6 +68,12 @@ public:
 
 protected:
     std::shared_ptr<Widget> findTopmostInteractiveWidget(const std::shared_ptr<Widget>& root, float x, float y);
+
+    std::shared_ptr<Widget> findTopmostInteractiveWidget(
+        const std::shared_ptr<Widget>& root,
+        float x,
+        float y,
+        const ClipRect& inheritedClip);
 
     void resolveInputTargets(const FrameStateSharedPtr& frameState);
 

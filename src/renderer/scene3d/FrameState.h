@@ -11,6 +11,7 @@
 #include <memory>
 
 #include "BatchStatistics.h"
+#include "ClipRect.h"
 #include "Scene3DPassContext.h"
 #include "Vector3.h"
 
@@ -36,6 +37,10 @@ struct FrameState {
     std::vector<std::shared_ptr<Widget>> debugWidgetsAfterAnimate{};
     std::shared_ptr<BatchManager> batchManager;
     std::shared_ptr<SSBOManager> ssboManager;
+    ClipRect currentClip;
+    std::vector<ClipRect> clipStack;
+    int32_t framebufferWidth = 0;
+    int32_t framebufferHeight = 0;
 
     uint32_t drawCallCount = 0;
     uint32_t fps = 0;

@@ -42,6 +42,8 @@ public:
 
     void setViewPort(int32_t x, int32_t y, int32_t width, int32_t height);
 
+    void setScissorRect(bool enabled, int32_t x, int32_t y, int32_t width, int32_t height);
+
     void dumpFrameBuffer(int32_t x, int32_t y, int32_t displayWidth, int32_t displayHeight, int32_t rectX, int32_t rectY, int32_t rectWidth, int32_t rectHeight, int32_t comp);
 
     bool checkSSBOSupport();
@@ -165,6 +167,11 @@ private:
         int32_t viewportX = 0, viewportY = 0, viewportW = 0, viewportH = 0;
         bool viewportValid = false;
 
+        bool scissorEnabled = false;
+        bool scissorStateValid = false;
+        int32_t scissorX = 0, scissorY = 0, scissorW = 0, scissorH = 0;
+        bool scissorRectValid = false;
+
         bool depthTestEnabled = false;
         bool depthTestValid = false;
 
@@ -182,6 +189,8 @@ private:
             blendStateValid = false;
             blendFuncValid = false;
             viewportValid = false;
+            scissorStateValid = false;
+            scissorRectValid = false;
             depthTestValid = false;
             depthWriteValid = false;
             cullFaceValid = false;

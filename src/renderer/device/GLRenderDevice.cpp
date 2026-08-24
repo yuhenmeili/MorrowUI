@@ -119,6 +119,31 @@ void GLRenderDevice::setViewPort(int32_t x, int32_t y, int32_t width, int32_t he
     glViewport(x, y, width, height);
 }
 
+void GLRenderDevice::setScissorRect(bool enabled, int32_t x, int32_t y, int32_t width, int32_t height) {
+    if (!m_stateCache.scissorStateValid || m_stateCache.scissorEnabled != enabled) {
+        m_stateCache.scissorEnabled = enabled;
+        m_stateCache.scissorStateValid = true;
+        if (enabled) {
+            glEnable(GL_SCISSOR_TEST);
+        } else {
+            glDisable(GL_SCISSOR_TEST);
+        }
+    }
+    if (!enabled)
+        return;
+    if (m_stateCache.scissorRectValid &&
+        m_stateCache.scissorX == x && m_stateCache.scissorY == y &&
+        m_stateCache.scissorW == width && m_stateCache.scissorH == height) {
+        return;
+    }
+    m_stateCache.scissorX = x;
+    m_stateCache.scissorY = y;
+    m_stateCache.scissorW = width;
+    m_stateCache.scissorH = height;
+    m_stateCache.scissorRectValid = true;
+    glScissor(x, y, width, height);
+}
+
 void GLRenderDevice::setClearColor(float r, float g, float b, float alpha) {
     glClearColor(r, g, b, alpha);
 }

@@ -25,17 +25,24 @@ public:
     /// top-left origin with X rightwards and Y downwards.
     Math::Rect getScreenSpaceAABB() const;
 
+    void setClipChildren(bool clip);
+
+    bool getClipChildren() const;
+
     void setAlpha(float alpha);
 
     void setUVData(const Vector2& uv0, const Vector2& uv1);
 
     virtual void initialize();
 
+    void update(FrameStateSharedPtr frameState) override;
+
 protected:
     MeshFilterSharedPtr m_meshFilter;
     MeshRendererSharedPtr m_meshRenderer;
     MaterialSharedPtr m_material;
     float m_alpha = 1.0f;
+    bool m_clipChildren = false;
 };
 } // morrow
 

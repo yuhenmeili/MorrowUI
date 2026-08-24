@@ -1,8 +1,11 @@
+#include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <string>
 
 #include "EditorEvents.h"
 #include "assets/AssetDatabase.h"
+#include "ui/DockLayout.h"
 
 using namespace morrow::editor;
 
@@ -63,11 +66,47 @@ void testEditorEventConnectionsAreScoped() {
            "destroying an editor event connection should stop later notifications");
 }
 
+void testDockLayoutPersistsSplitRatios() {
+    auto layout = DockLayout::defaultLayout(1920.0f, 1080.0f);
+    layout.findSplit("workspace")->ratio = 0.71f;
+    layout.findSplit("left")->ratio = 0.22f;
+    layout.findSplit("center")->ratio = 0.63f;
+
+    const auto path =
+        std::filesystem::temp_directory_path() /
+        "morrow_editor_dock_layout_test.layout";
+    std::error_code filesystemError;
+    std::filesystem::remove(path, filesystemError);
+
+    std::string error;
+    expect(layout.save(path, error),
+           "dock layout should save split ratios");
+
+    DockLayout loaded;
+    expect(loaded.load(path, error),
+           "dock layout should load saved split ratios");
+    const auto near = [](float left, float right) {
+        return std::abs(left - right) < 0.0001f;
+    };
+    expect(loaded.findSplit("workspace") &&
+               near(loaded.findSplit("workspace")->ratio, 0.71f),
+           "workspace split ratio should survive persistence");
+    expect(loaded.findSplit("left") &&
+               near(loaded.findSplit("left")->ratio, 0.22f),
+           "left split ratio should survive persistence");
+    expect(loaded.findSplit("center") &&
+               near(loaded.findSplit("center")->ratio, 0.63f),
+           "center split ratio should survive persistence");
+
+    std::filesystem::remove(path, filesystemError);
+}
+
 } // namespace
 
 int main() {
     testEditorEventPayloads();
     testEditorEventConnectionsAreScoped();
+    testDockLayoutPersistsSplitRatios();
 
     if (g_failures != 0) {
         std::cerr << g_failures << " EditorEvents test(s) failed\n";

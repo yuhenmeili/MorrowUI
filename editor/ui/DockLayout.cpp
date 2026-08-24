@@ -24,6 +24,15 @@ DockLayout DockLayout::defaultLayout(float width, float height) {
         {"inspector", inspectorX, contentY, inspectorWidth, contentHeight, true, 2},
         {"output", 0.0f, height - output, width, output, true, 3},
     };
+    const float workspaceAvailable = std::max(1.0f, height - toolbar - gap);
+    const float mainHeight = std::max(1.0f, height - toolbar - output - gap);
+    const float horizontalAvailable = std::max(1.0f, width - gap);
+    const float centerAvailable = std::max(1.0f, viewportWidth + inspectorWidth);
+    layout.m_splits = {
+        {"workspace", mainHeight / workspaceAvailable},
+        {"left", sceneWidth / horizontalAvailable},
+        {"center", viewportWidth / centerAvailable},
+    };
     return layout;
 }
 
@@ -41,6 +50,20 @@ const DockPanelState* DockLayout::find(const std::string& id) const {
     return nullptr;
 }
 
+DockSplitState* DockLayout::findSplit(const std::string& id) {
+    for (auto& split : m_splits)
+        if (split.id == id)
+            return &split;
+    return nullptr;
+}
+
+const DockSplitState* DockLayout::findSplit(const std::string& id) const {
+    for (const auto& split : m_splits)
+        if (split.id == id)
+            return &split;
+    return nullptr;
+}
+
 bool DockLayout::load(const std::filesystem::path& path, std::string& error) {
     std::ifstream input(path);
     if (!input.is_open()) {
@@ -48,6 +71,7 @@ bool DockLayout::load(const std::filesystem::path& path, std::string& error) {
         return false;
     }
     std::vector<DockPanelState> loaded;
+    std::vector<DockSplitState> loadedSplits;
     std::string line;
     size_t lineNumber = 0;
     while (std::getline(input, line)) {
@@ -55,20 +79,54 @@ bool DockLayout::load(const std::filesystem::path& path, std::string& error) {
         if (line.empty() || line[0] == '#')
             continue;
         std::istringstream row(line);
+        std::string kindOrId;
+        row >> kindOrId;
+        if (kindOrId == "split") {
+            DockSplitState split;
+            if (!(row >> split.id >> split.ratio)) {
+                error = "invalid split layout at line " + std::to_string(lineNumber);
+                return false;
+            }
+            split.ratio = std::clamp(split.ratio, 0.0f, 1.0f);
+            loadedSplits.push_back(std::move(split));
+            continue;
+        }
         DockPanelState panel;
+        panel.id = std::move(kindOrId);
         int visible = 1;
-        if (!(row >> panel.id >> panel.x >> panel.y >> panel.width >> panel.height >> visible >> panel.order)) {
+        if (!(row >> panel.x >> panel.y >> panel.width >> panel.height >> visible >> panel.order)) {
             error = "invalid dock layout at line " + std::to_string(lineNumber);
             return false;
         }
         panel.visible = visible != 0;
         loaded.push_back(std::move(panel));
     }
-    if (loaded.empty()) {
+    if (loaded.empty() && loadedSplits.empty()) {
         error = "dock layout contains no panels";
         return false;
     }
     m_panels = std::move(loaded);
+    m_splits = std::move(loadedSplits);
+    if (m_splits.empty() && !m_panels.empty()) {
+        float totalWidth = 0.0f;
+        float totalHeight = 0.0f;
+        for (const auto& panel : m_panels) {
+            totalWidth = std::max(totalWidth, panel.x + panel.width);
+            totalHeight = std::max(totalHeight, panel.y + panel.height);
+        }
+        const auto* scene = find("scene_tree");
+        const auto* viewport = find("viewport");
+        const auto* inspector = find("inspector");
+        const auto* output = find("output");
+        if (scene)
+            m_splits.push_back({"left", scene->width / std::max(1.0f, totalWidth)});
+        if (viewport && inspector)
+            m_splits.push_back(
+                {"center", viewport->width / std::max(1.0f, viewport->width + inspector->width)});
+        if (output)
+            m_splits.push_back(
+                {"workspace", (output->y - 40.0f) / std::max(1.0f, totalHeight - 40.0f)});
+    }
     return true;
 }
 
@@ -84,9 +142,9 @@ bool DockLayout::save(const std::filesystem::path& path, std::string& error) con
         error = "failed to write dock layout: " + path.string();
         return false;
     }
-    output << "# MorrowEditor dock layout v1\n";
-    for (const auto& panel : m_panels) {
-        output << panel.id << ' ' << panel.x << ' ' << panel.y << ' ' << panel.width << ' ' << panel.height << ' ' << (panel.visible ? 1 : 0) << ' ' << panel.order << '\n';
+    output << "# MorrowEditor dock layout v2\n";
+    for (const auto& split : m_splits) {
+        output << "split " << split.id << ' ' << split.ratio << '\n';
     }
     return output.good();
 }
@@ -96,6 +154,14 @@ std::vector<DockPanelState>& DockLayout::panels() {
 }
 const std::vector<DockPanelState>& DockLayout::panels() const {
     return m_panels;
+}
+
+std::vector<DockSplitState>& DockLayout::splits() {
+    return m_splits;
+}
+
+const std::vector<DockSplitState>& DockLayout::splits() const {
+    return m_splits;
 }
 
 }  // namespace morrow::editor

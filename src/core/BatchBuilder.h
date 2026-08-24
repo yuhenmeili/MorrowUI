@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "ClipRect.h"
 #include "renderer/BatchStatistics.h"
 
 namespace morrow {
@@ -28,6 +29,7 @@ struct RenderItem {
     std::shared_ptr<MeshFilter> meshFilter;
     std::shared_ptr<Transform> transform;
     BatchCompatibilityKey batchKey;
+    ClipRect clipRect;
     int32_t displayLayer = 0;
     uint32_t insertionIndex = 0;
 
@@ -38,6 +40,7 @@ struct RenderItem {
                meshFilter.get() == other.meshFilter.get() &&
                transform.get() == other.transform.get() &&
                displayLayer == other.displayLayer &&
+               clipRect == other.clipRect &&
                batchKey == other.batchKey;
     }
 };

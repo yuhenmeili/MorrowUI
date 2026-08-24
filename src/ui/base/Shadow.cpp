@@ -45,7 +45,8 @@ void Shadow::update(FrameStateSharedPtr frameState) {
 
     // 作为 underlay 渲染项提交给 BatchManager，参与合批/排序/统计，
     // 且保证在原始对象之前绘制（阴影先画，被原对象覆盖）。
-    frameState->batchManager->addRenderable(m_shadowMaterial, meshFilter, originalTransform, true);
+    frameState->batchManager->addRenderable(
+        m_shadowMaterial, meshFilter, originalTransform, frameState->currentClip, true);
 }
 
 void Shadow::setShadowOffset(const Vector2& offset) {

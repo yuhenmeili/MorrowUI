@@ -18,6 +18,7 @@
 #include "ProjectSettings.h"
 #include "scene/EditorSession.h"
 #include "ui/DockLayout.h"
+#include "layout/MRSplitContainer.h"
 #include "wgl/OpenglHeader.h"
 
 namespace morrow {
@@ -52,9 +53,9 @@ private:
     void handleInput(std::vector<TouchEvent>& events);
     void handleKey(int key, int action, int mods);
     void handleViewportPointer(const TouchEvent& event);
-    bool handleDockPointer(const TouchEvent& event);
     void applyDockLayout();
     void saveDockLayout();
+    void handleFramebufferResize(const Vector2& size);
     void refreshOutput();
     void runBuild(BuildTaskKind kind);
     void pollBuild();
@@ -92,6 +93,9 @@ private:
     std::shared_ptr<UIWidget> m_inspectorPanel;
     std::shared_ptr<UIWidget> m_viewportPanel;
     std::shared_ptr<UIWidget> m_statusPanel;
+    std::shared_ptr<MRSplitContainer> m_workspaceSplit;
+    std::shared_ptr<MRSplitContainer> m_mainSplit;
+    std::shared_ptr<MRSplitContainer> m_centerSplit;
     std::shared_ptr<EditorSession> m_session;
     AssetDatabase m_assets;
     ImportQueue m_importQueue;
@@ -107,6 +111,8 @@ private:
     std::string m_stdoutRemainder;
     std::string m_stderrRemainder;
     Observable<std::vector<TouchEvent>&>::Connection m_inputConnection;
+    Observable<const Vector2&>::Connection m_framebufferSizeConnection;
+    std::vector<Observable<MRSplitContainer&, float>::Connection> m_splitConnections;
     std::vector<Observable<BaseButton&>::Connection> m_buttonConnections;
     std::string m_status;
     std::string m_selectedNodeId;
@@ -114,9 +120,6 @@ private:
     bool m_dragging = false;
     bool m_resizing = false;
     bool m_panning = false;
-    std::string m_draggedDockPanel;
-    float m_dockDragOffsetX = 0.0f;
-    float m_dockDragOffsetY = 0.0f;
     float m_lastPointerX = 0.0f;
     float m_lastPointerY = 0.0f;
     float m_viewPanX = 0.0f;

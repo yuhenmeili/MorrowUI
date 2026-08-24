@@ -41,6 +41,8 @@ public:
 
     void setViewPort(int32_t x, int32_t y, int32_t width, int32_t height) override;
 
+    void setScissorRect(bool enabled, int32_t x, int32_t y, int32_t width, int32_t height) override;
+
     void dumpFrameBuffer(int32_t x, int32_t y, int32_t displayWidth, int32_t displayHeight, int32_t rectX, int32_t rectY, int32_t rectWidth, int32_t rectHeight, int32_t comp) override;
 
     bool checkSSBOSupport() override;

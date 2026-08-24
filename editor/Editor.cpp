@@ -151,8 +151,8 @@ public:
         engineOptions.multithread = false;
         engineOptions.enableRequestRender = false;
         engineOptions.windowInfo.name = "MorrowEditor Preview";
-        engineOptions.windowInfo.width = 2560;
-        engineOptions.windowInfo.height = 1440;
+        engineOptions.windowInfo.width = 1920;
+        engineOptions.windowInfo.height = 1080;
 
         EngineSharedPtr engine = std::make_shared<morrow::Engine>(engineOptions);
         auto window = engine->getWindow();

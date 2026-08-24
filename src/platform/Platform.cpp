@@ -13,6 +13,7 @@
 #include "Window.h"
 #include "ui/base/Interaction.h"
 #include "ui/base/TouchEvent.h"
+#include "ui/base/UIWidget.h"
 #include "ui/base/Widget.h"
 
 namespace morrow {
@@ -38,12 +39,32 @@ bool Platform::shouldClose() const {
 }
 
 std::shared_ptr<Widget> Platform::findTopmostInteractiveWidget(const std::shared_ptr<Widget>& root, float x, float y) {
+    return findTopmostInteractiveWidget(root, x, y, {});
+}
+
+std::shared_ptr<Widget> Platform::findTopmostInteractiveWidget(
+    const std::shared_ptr<Widget>& root,
+    float x,
+    float y,
+    const ClipRect& inheritedClip) {
     if (!root || !root->getVisible()) {
         return nullptr;
     }
+    if (!inheritedClip.contains(x, y)) {
+        return nullptr;
+    }
+
+    ClipRect childClip = inheritedClip;
+    if (const auto uiWidget = std::dynamic_pointer_cast<UIWidget>(root);
+        uiWidget && uiWidget->getClipChildren()) {
+        const Math::Rect bounds = uiWidget->getScreenSpaceAABB();
+        childClip = inheritedClip.intersected(
+            ClipRect::fromBounds(
+                bounds.Min.x, bounds.Min.y, bounds.Max.x, bounds.Max.y));
+    }
 
     for (auto childIt = root->m_children.rbegin(); childIt != root->m_children.rend(); ++childIt) {
-        if (auto hit = findTopmostInteractiveWidget(*childIt, x, y)) {
+        if (auto hit = findTopmostInteractiveWidget(*childIt, x, y, childClip)) {
             return hit;
         }
     }
