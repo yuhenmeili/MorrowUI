@@ -27,7 +27,10 @@ namespace morrow::editor {
 NodeTypeCatalog::NodeTypeCatalog() {
     const std::map<std::string, std::string> common = {
         {"position", "Vector3(80.0, 80.0, 0.0)"},
+        {"rotation", "Vector3(0.0, 0.0, 0.0)"},
+        {"scale", "Vector3(1.0, 1.0, 1.0)"},
         {"size", "Vector2(180.0, 80.0)"},
+        {"visible", "true"},
     };
     const auto add = [this, &common](
                          const std::string& type,
@@ -57,7 +60,8 @@ NodeTypeCatalog::NodeTypeCatalog() {
          {"text", "Label"}});
     add("MRImage", "Image", "Basic Controls",
         "A rectangular image control.",
-        {{"size", "Vector2(180.0, 120.0)"}});
+        {{"size", "Vector2(180.0, 120.0)"},
+         {"texture_asset", ""}});
     add("MRColor", "Color Rect", "Basic Controls",
         "A solid-color rectangular control.");
 

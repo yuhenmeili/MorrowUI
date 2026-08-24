@@ -239,6 +239,29 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record,
             transform->setSize(Vector3(components[0], components[1], 0.0f));
             return true;
         }
+        if (key == "scale") {
+            std::vector<float> components;
+            if (!parseVector(value, "Vector3", components) ||
+                components.size() != 3) {
+                error = "property 'scale' must be Vector3(x, y, z)";
+                return false;
+            }
+            transform->setScale(
+                components[0], components[1], components[2]);
+            return true;
+        }
+        if (key == "rotation") {
+            std::vector<float> components;
+            if (!parseVector(value, "Vector3", components) ||
+                components.size() != 3) {
+                error = "property 'rotation' must be Vector3(x, y, z)";
+                return false;
+            }
+            transform->setRotation(
+                Vector3(0.0f, 0.0f, 1.0f),
+                components[2] * 3.14159265359f / 180.0f);
+            return true;
+        }
     }
 
     if (auto button = std::dynamic_pointer_cast<morrow::MRButton>(widget)) {
@@ -324,6 +347,27 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record,
                         components[2], components[3]));
                 }
             }
+            return true;
+        }
+    }
+
+    if (auto image = std::dynamic_pointer_cast<morrow::MRImage>(widget)) {
+        if (key == "texture_asset") {
+            if (value.empty())
+                return true;
+            if (!assets) {
+                error = "texture_asset requires an asset database";
+                return false;
+            }
+            const auto* asset = assets->findById(value);
+            if (!asset || asset->type != "Texture") {
+                error = "texture asset '" + value + "' was not found";
+                return false;
+            }
+            auto texture = morrow::Texture::create();
+            texture->setImageUrl(
+                assets->resolveSourcePath(value).string());
+            image->setTexture(texture);
             return true;
         }
     }

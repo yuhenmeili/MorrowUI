@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <utility>
 
@@ -15,6 +16,7 @@
 #include "base/Transform.h"
 #include "elements/MRButton.h"
 #include "elements/MRLabel.h"
+#include "elements/MRLineEdit.h"
 #include "elements/MRPopupMenu.h"
 #include "platform/Window.h"
 #include "renderer/resource/ssbo/layouts/ButtonSSBOLayout.h"
@@ -93,6 +95,53 @@ void addQuad(std::vector<morrow::Math::Vector3>& vertices, std::vector<int16_t>&
 
 std::shared_ptr<EditorGuideWidget> makeGuide(const morrow::Math::Vector4& color) {
     return std::make_shared<EditorGuideWidget>(color);
+}
+
+bool isDescendantOf(
+    std::shared_ptr<morrow::Widget> widget,
+    const std::shared_ptr<morrow::Widget>& ancestor) {
+    while (widget) {
+        if (widget == ancestor)
+            return true;
+        widget = widget->m_parent;
+    }
+    return false;
+}
+
+bool parseTypedComponents(
+    const std::string& value,
+    const std::string& type,
+    std::vector<std::string>& components) {
+    if (value.rfind(type + "(", 0) != 0 || value.empty() ||
+        value.back() != ')') {
+        return false;
+    }
+    std::istringstream stream(
+        value.substr(type.size() + 1, value.size() - type.size() - 2));
+    std::string component;
+    while (std::getline(stream, component, ',')) {
+        const auto first = component.find_first_not_of(" \t");
+        const auto last = component.find_last_not_of(" \t");
+        components.push_back(
+            first == std::string::npos
+                ? std::string{}
+                : component.substr(first, last - first + 1));
+    }
+    return !components.empty();
+}
+
+std::string typedComponents(
+    const std::string& type,
+    const std::vector<std::string>& components) {
+    std::ostringstream output;
+    output << type << '(';
+    for (size_t index = 0; index < components.size(); ++index) {
+        if (index > 0)
+            output << ", ";
+        output << components[index];
+    }
+    output << ')';
+    return output.str();
 }
 
 }  // namespace
@@ -325,16 +374,55 @@ void EditorShell::buildLayout() {
     m_createNodeDialog = CreateNodeDialog::create(m_nodeTypeCatalog);
     m_createNodeConnection = m_createNodeDialog->events().onConfirmed.connect(
         [this](CreateNodeDialog&, const NodeTypeDescriptor& descriptor, const std::string& parentId) { createChildNode(descriptor, parentId); });
+    m_renameNodeDialog = RenameNodeDialog::create();
+    m_renameNodeConnection =
+        m_renameNodeDialog->events().onConfirmed.connect(
+            [this](RenameNodeDialog&, const std::string& nodeId,
+                   const std::string& name) {
+                renameSceneNode(nodeId, name);
+            });
     m_sceneContextMenu = MRPopupMenu::create();
     m_sceneContextMenu->setMenuWidth(220.0f);
     m_sceneContextMenu->addItem(L"Add Child Node...", 1);
-    m_sceneContextMenu->addItem(L"Delete", 2);
+    m_sceneContextMenu->addItem(L"Rename...", 2);
+    m_sceneContextMenu->addItem(L"Delete", 3);
     m_sceneContextMenuConnection = m_sceneContextMenu->events().onItemSelected.connect([this](MRPopupMenu&, int id, const std::wstring&) {
         if (id == 1)
             showCreateNodeDialog(m_sceneContextParentId);
         else if (id == 2)
+            showRenameNodeDialog(m_sceneContextParentId);
+        else if (id == 3)
             deleteSelectedSceneNode();
     });
+    m_textureAssetMenu = MRPopupMenu::create();
+    m_textureAssetMenu->setMenuWidth(320.0f);
+    m_textureAssetMenuConnection =
+        m_textureAssetMenu->events().onItemSelected.connect(
+            [this](MRPopupMenu&, int id, const std::wstring&) {
+                const auto iterator = m_textureAssetMenuIds.find(id);
+                if (iterator == m_textureAssetMenuIds.end())
+                    return;
+                std::string error;
+                bool changed = false;
+                for (const auto& nodeId : m_textureEditNodeIds) {
+                    if (!m_session->setProperty(
+                            nodeId, m_textureEditProperty,
+                            iterator->second, false, error)) {
+                        break;
+                    }
+                    changed = true;
+                }
+                if (changed) {
+                    rebuildRuntime();
+                    refreshInspector();
+                    setStatus(
+                        iterator->second.empty()
+                            ? "Cleared texture resource"
+                            : "Assigned texture asset " + iterator->second);
+                } else if (!error.empty()) {
+                    setStatus(error);
+                }
+            });
 
     m_centerSplit = MRSplitContainer::create();
     m_centerSplit->setOrientation(SplitOrientation::Horizontal);
@@ -353,6 +441,7 @@ void EditorShell::buildLayout() {
     m_shellRoot->addChild(m_workspaceSplit);
     m_shellRoot->addChild(m_dockDropOverlay);
     m_shellRoot->addChild(m_createNodeDialog);
+    m_shellRoot->addChild(m_renameNodeDialog);
     m_viewportPanel->addChild(m_previewRoot);
     m_window->addChild(m_shellRoot);
 
@@ -468,6 +557,9 @@ void EditorShell::applyDockLayout() {
         m_dockDropOverlay->setWorkspaceBounds(m_workspaceSplit->getScreenSpaceAABB());
     if (m_createNodeDialog && m_shellRoot)
         m_createNodeDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
+    if (m_renameNodeDialog && m_shellRoot)
+        m_renameNodeDialog->getTransform()->setSize(
+            m_shellRoot->getTransform()->getSize());
 
     const Vector3 viewportSize = m_viewportPanel->getTransform()->getSize();
     m_viewportWidth = viewportSize.x;
@@ -979,6 +1071,34 @@ void EditorShell::deleteSelectedSceneNode() {
     setStatus("Deleted node " + nodeId);
 }
 
+void EditorShell::showRenameNodeDialog(const std::string& nodeId) {
+    std::string resolved = nodeId;
+    if (resolved.empty() &&
+        !m_session->model().selection().nodeIds.empty()) {
+        resolved = m_session->model().selection().nodeIds.back();
+    }
+    const auto* node = m_session->document().findNode(resolved);
+    if (!node) {
+        setStatus("Select a scene node to rename");
+        return;
+    }
+    m_renameNodeDialog->show(node->id, node->name);
+}
+
+void EditorShell::renameSceneNode(
+    const std::string& nodeId,
+    const std::string& name) {
+    std::string error;
+    if (!m_session->renameNode(nodeId, name, error)) {
+        setStatus("Failed to rename node: " + error);
+        return;
+    }
+    refreshSceneTree();
+    rebuildRuntime();
+    refreshInspector();
+    setStatus("Renamed node " + nodeId + " to " + name);
+}
+
 void EditorShell::showCreateNodeDialog(const std::string& parentId) {
     std::string resolvedParent = parentId;
     if (resolvedParent.empty() && !m_session->model().selection().nodeIds.empty()) {
@@ -1026,45 +1146,230 @@ void EditorShell::refreshInspector() {
     while (m_inspectorPanel->m_children.size() > 1) {
         m_inspectorPanel->m_children.pop_back();
     }
+    m_inspectorEditConnections.clear();
+    auto properties = m_session->model().inspectSelected();
+    if (properties.empty())
+        return;
+
+    const float panelWidth =
+        std::max(180.0f, m_inspectorPanel->getTransform()->getSize().x);
+    const float fieldWidth = panelWidth - 16.0f;
     float y = 38.0f;
-    for (const auto& property : m_session->model().inspectSelected()) {
-        addLabel(m_inspectorPanel, property.name + " [" + property.type + "]", 8.0f, y, 280.0f, 22.0f);
+    const std::vector<std::string> priority = {
+        "position", "rotation", "scale", "size", "visible",
+        "display_layer", "texture_asset"};
+    std::stable_sort(
+        properties.begin(), properties.end(),
+        [&priority](const InspectorProperty& left,
+                    const InspectorProperty& right) {
+            const auto order = [&priority](const std::string& name) {
+                const auto iterator =
+                    std::find(priority.begin(), priority.end(), name);
+                return iterator == priority.end()
+                           ? priority.size()
+                           : static_cast<size_t>(
+                                 std::distance(priority.begin(), iterator));
+            };
+            return order(left.name) < order(right.name);
+        });
+
+    addLabel(
+        m_inspectorPanel, "Transform / Properties",
+        8.0f, y, fieldWidth, 24.0f);
+    y += 28.0f;
+
+    for (const auto& property : properties) {
+        addLabel(
+            m_inspectorPanel, property.name,
+            8.0f, y, fieldWidth, 22.0f);
         y += 24.0f;
         if (property.type == "bool" && !property.mixed) {
-            addButton(m_inspectorPanel, property.value == "true" ? L"[x] true" : L"[ ] false", 8.0f, y, 280.0f, 30.0f, [this, property] {
-                m_editProperty = property.name;
-                m_editValue = property.value == "true" ? "false" : "true";
-                commitPropertyEdit();
-            });
-        } else if (property.type == "number" && !property.mixed) {
-            addButton(m_inspectorPanel, L"-", 8.0f, y, 36.0f, 30.0f, [this, property] {
-                try {
-                    m_editProperty = property.name;
-                    m_editValue = std::to_string(std::stof(property.value) - 1.0f);
-                    commitPropertyEdit();
-                } catch (...) {
-                    setStatus("Invalid numeric property");
+            addButton(
+                m_inspectorPanel,
+                property.value == "true" ? L"[x] true" : L"[ ] false",
+                8.0f, y, fieldWidth, 30.0f,
+                [this, property] {
+                    applyInspectorValue(
+                        property.name,
+                        property.value == "true" ? "false" : "true");
+                });
+        } else if (property.type == "TextureAsset") {
+            std::string display = "<empty>";
+            if (!property.value.empty()) {
+                display = property.value;
+                if (const auto* asset =
+                        m_assets.findById(property.value)) {
+                    display = asset->sourcePath.generic_string();
                 }
-            });
-            addButton(m_inspectorPanel, std::wstring(property.value.begin(), property.value.end()), 48.0f, y, 196.0f, 30.0f,
-                      [this, property] { beginPropertyEdit(property.name, property.value); });
-            addButton(m_inspectorPanel, L"+", 248.0f, y, 40.0f, 30.0f, [this, property] {
-                try {
-                    m_editProperty = property.name;
-                    m_editValue = std::to_string(std::stof(property.value) + 1.0f);
-                    commitPropertyEdit();
-                } catch (...) {
-                    setStatus("Invalid numeric property");
-                }
-            });
+            }
+            auto button = MRButton::create();
+            button->setText(
+                std::wstring(display.begin(), display.end()), "default");
+            button->setTextFontSize(14.0f);
+            button->setBackgroundColor(
+                Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+            button->setHoverColor(
+                Vector4(0.14f, 0.20f, 0.29f, 1.0f));
+            button->setTextColor(
+                Vector4(0.86f, 0.89f, 0.94f, 1.0f));
+            button->getTransform()->setPosition(8.0f, y, 0.0f);
+            button->getTransform()->setSize(fieldWidth, 30.0f);
+            m_buttonConnections.emplace_back(
+                button->events().onClicked.connect(
+                    [this, property](BaseButton& source) {
+                        m_textureAssetMenu->clear();
+                        m_textureAssetMenuIds.clear();
+                        m_textureAssetMenu->addItem(L"<empty>", 0);
+                        m_textureAssetMenuIds[0] = "";
+                        int itemId = 1;
+                        for (const auto& asset : m_assets.assets()) {
+                            if (asset.type != "Texture" ||
+                                !asset.error.empty())
+                                continue;
+                            const std::string pathText =
+                                asset.sourcePath.generic_string();
+                            m_textureAssetMenu->addItem(
+                                std::wstring(
+                                    pathText.begin(), pathText.end()),
+                                itemId);
+                            m_textureAssetMenuIds[itemId] = asset.assetId;
+                            ++itemId;
+                        }
+                        m_textureEditProperty = property.name;
+                        m_textureEditNodeIds =
+                            m_session->model().selection().nodeIds;
+                        m_textureAssetMenu->attachTo(m_shellRoot);
+                        m_textureAssetMenu->popupBelow(
+                            source.getScreenSpaceAABB());
+                    }));
+            m_inspectorPanel->addChild(button);
+        } else if ((property.type == "Vector2" ||
+                    property.type == "Vector3") &&
+                   !property.mixed) {
+            std::vector<std::string> components;
+            if (!parseTypedComponents(
+                    property.value, property.type, components)) {
+                components.assign(
+                    property.type == "Vector2" ? 2 : 3, "0.0");
+            }
+            const float width =
+                (fieldWidth -
+                 6.0f * static_cast<float>(components.size() - 1)) /
+                static_cast<float>(components.size());
+            for (size_t index = 0; index < components.size(); ++index) {
+                auto edit = MRLineEdit::create();
+                edit->setFontSize(14.0f);
+                edit->setText(std::wstring(
+                    components[index].begin(), components[index].end()));
+                edit->setBackgroundColor(
+                    Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+                edit->setFocusedBackgroundColor(
+                    Vector4(0.10f, 0.13f, 0.18f, 1.0f));
+                edit->setTextColor(
+                    index == 0
+                        ? Vector4(0.82f, 0.38f, 0.43f, 1.0f)
+                        : (index == 1
+                               ? Vector4(0.55f, 0.78f, 0.32f, 1.0f)
+                               : Vector4(0.35f, 0.62f, 0.88f, 1.0f)));
+                edit->getTransform()->setPosition(
+                    8.0f + static_cast<float>(index) * (width + 6.0f),
+                    y, 0.0f);
+                edit->getTransform()->setSize(width, 30.0f);
+                const auto original = components;
+                m_inspectorEditConnections.emplace_back(
+                    edit->events().onSubmitted.connect(
+                        [this, property, index, original](
+                            MRTextEdit&, const std::wstring& text) {
+                            auto updated = original;
+                            updated[index] =
+                                std::string(text.begin(), text.end());
+                            try {
+                                size_t consumed = 0;
+                                std::stof(updated[index], &consumed);
+                                if (consumed != updated[index].size())
+                                    throw std::invalid_argument("number");
+                            } catch (...) {
+                                setStatus(
+                                    "Vector component must be numeric");
+                                return;
+                            }
+                            const std::string value =
+                                typedComponents(property.type, updated);
+                            m_engine->mainThreadDispatcher().post(
+                                [this, propertyName = property.name,
+                                 value] {
+                                    applyInspectorValue(
+                                        propertyName, value);
+                                });
+                        }));
+                m_inspectorPanel->addChild(edit);
+            }
         } else {
-            std::wstring value(property.value.begin(), property.value.end());
-            if (property.type == "Color")
-                value = L"\u25a0 " + value;
-            addButton(m_inspectorPanel, value, 8.0f, y, 280.0f, 30.0f, [this, property] { beginPropertyEdit(property.name, property.mixed ? std::string{} : property.value); });
+            auto edit = MRLineEdit::create();
+            edit->setFontSize(14.0f);
+            const std::string initial =
+                property.mixed ? std::string{} : property.value;
+            edit->setText(
+                std::wstring(initial.begin(), initial.end()));
+            if (property.mixed)
+                edit->setPlaceholder(L"<mixed>");
+            edit->setBackgroundColor(
+                Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+            edit->setFocusedBackgroundColor(
+                Vector4(0.10f, 0.13f, 0.18f, 1.0f));
+            edit->setTextColor(
+                Vector4(0.88f, 0.90f, 0.94f, 1.0f));
+            edit->getTransform()->setPosition(8.0f, y, 0.0f);
+            edit->getTransform()->setSize(fieldWidth, 30.0f);
+            m_inspectorEditConnections.emplace_back(
+                edit->events().onSubmitted.connect(
+                    [this, property](
+                        MRTextEdit&, const std::wstring& text) {
+                        const std::string value(
+                            text.begin(), text.end());
+                        if (property.type == "number") {
+                            try {
+                                size_t consumed = 0;
+                                std::stof(value, &consumed);
+                                if (consumed != value.size())
+                                    throw std::invalid_argument("number");
+                            } catch (...) {
+                                setStatus("Property must be numeric");
+                                return;
+                            }
+                        }
+                        m_engine->mainThreadDispatcher().post(
+                            [this, propertyName = property.name, value] {
+                                applyInspectorValue(propertyName, value);
+                            });
+                    }));
+            m_inspectorPanel->addChild(edit);
         }
         y += 36.0f;
     }
+}
+
+void EditorShell::applyInspectorValue(
+    const std::string& property,
+    const std::string& value) {
+    std::string error;
+    bool changed = false;
+    for (const auto& nodeId :
+         m_session->model().selection().nodeIds) {
+        if (!m_session->setProperty(
+                nodeId, property, value, false, error)) {
+            break;
+        }
+        changed = true;
+    }
+    if (!changed) {
+        if (!error.empty())
+            setStatus(error);
+        return;
+    }
+    rebuildRuntime();
+    refreshInspector();
+    setStatus("Applied " + property + " = " + value);
 }
 
 void EditorShell::beginPropertyEdit(const std::string& property, const std::string& value) {
@@ -1234,7 +1539,20 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
 void EditorShell::handleInput(std::vector<TouchEvent>& events) {
     pollBuild();
     for (const auto& event : events) {
-        if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN && event.keyCode == TOUCH_KEY_DELETE && !event.target && (!m_createNodeDialog || !m_createNodeDialog->isOpen())) {
+        if (event.eventType == TOUCH_EVENT_TYPE_TOUCH) {
+            if (m_sceneContextMenu && m_sceneContextMenu->isOpen() &&
+                !isDescendantOf(event.target, m_sceneContextMenu)) {
+                m_sceneContextMenu->hide();
+            }
+            if (m_textureAssetMenu && m_textureAssetMenu->isOpen() &&
+                !isDescendantOf(event.target, m_textureAssetMenu)) {
+                m_textureAssetMenu->hide();
+            }
+        }
+        if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN &&
+            event.keyCode == TOUCH_KEY_DELETE && !event.target &&
+            (!m_createNodeDialog || !m_createNodeDialog->isOpen()) &&
+            (!m_renameNodeDialog || !m_renameNodeDialog->isOpen())) {
             deleteSelectedSceneNode();
             continue;
         }
@@ -1258,6 +1576,11 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
 }
 
 void EditorShell::handleKey(int key, int action, int mods) {
+    if (m_renameNodeDialog && m_renameNodeDialog->isOpen() &&
+        key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        m_renameNodeDialog->hideDialog();
+        return;
+    }
     if (m_createNodeDialog && m_createNodeDialog->isOpen() && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         m_createNodeDialog->hideDialog();
         return;

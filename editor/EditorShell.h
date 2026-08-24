@@ -5,6 +5,7 @@
 #include <functional>
 #include <future>
 #include <memory>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -20,6 +21,7 @@
 #include "scene/EditorSession.h"
 #include "scene/NodeTypeCatalog.h"
 #include "ui/CreateNodeDialog.h"
+#include "ui/RenameNodeDialog.h"
 #include "ui/DockLayout.h"
 #include "ui/FileSystemPanel.h"
 #include "ui/DockDropOverlay.h"
@@ -34,6 +36,8 @@ class Window;
 class BaseButton;
 class MRButton;
 class MRLabel;
+class MRLineEdit;
+class MRTextEdit;
 class MRPopupMenu;
 class TouchEvent;
 }  // namespace morrow
@@ -68,11 +72,18 @@ private:
     std::string sceneTreeNodeForWidget(
         const std::shared_ptr<Widget>& widget) const;
     void deleteSelectedSceneNode();
+    void showRenameNodeDialog(const std::string& nodeId = {});
+    void renameSceneNode(
+        const std::string& nodeId,
+        const std::string& name);
     void showCreateNodeDialog(const std::string& parentId = {});
     void createChildNode(
         const NodeTypeDescriptor& descriptor,
         const std::string& parentId);
     void refreshInspector();
+    void applyInspectorValue(
+        const std::string& property,
+        const std::string& value);
     void handleInput(std::vector<TouchEvent>& events);
     void handleKey(int key, int action, int mods);
     void handleViewportPointer(const TouchEvent& event);
@@ -134,7 +145,9 @@ private:
     std::shared_ptr<MRTabContainer> m_bottomTabs;
     std::shared_ptr<DockDropOverlay> m_dockDropOverlay;
     std::shared_ptr<CreateNodeDialog> m_createNodeDialog;
+    std::shared_ptr<RenameNodeDialog> m_renameNodeDialog;
     std::shared_ptr<MRPopupMenu> m_sceneContextMenu;
+    std::shared_ptr<MRPopupMenu> m_textureAssetMenu;
     std::shared_ptr<EditorSession> m_session;
     AssetDatabase m_assets;
     ProjectFileSystemModel m_fileSystem;
@@ -166,6 +179,15 @@ private:
     Observable<CreateNodeDialog&, const NodeTypeDescriptor&,
                const std::string&>::Connection
         m_createNodeConnection;
+    Observable<RenameNodeDialog&, const std::string&, const std::string&>::Connection
+        m_renameNodeConnection;
+    Observable<MRPopupMenu&, int, const std::wstring&>::Connection
+        m_textureAssetMenuConnection;
+    std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection>
+        m_inspectorEditConnections;
+    std::map<int, std::string> m_textureAssetMenuIds;
+    std::string m_textureEditProperty;
+    std::vector<std::string> m_textureEditNodeIds;
     std::string m_status;
     std::string m_selectedNodeId;
     std::string m_sceneContextParentId;

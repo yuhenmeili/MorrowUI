@@ -75,6 +75,37 @@ bool ReparentNodeCommand::undo(SceneDocument& document, std::string& error) {
     return document.reparentNode(m_nodeId, m_previousParentId, error);
 }
 
+RenameNodeCommand::RenameNodeCommand(
+    std::string nodeId,
+    std::string name)
+    : m_nodeId(std::move(nodeId)), m_name(std::move(name)) {
+}
+
+bool RenameNodeCommand::execute(
+    SceneDocument& document,
+    std::string& error) {
+    if (!m_capturedPreviousName) {
+        const auto* node = document.findNode(m_nodeId);
+        if (!node) {
+            error = "node '" + m_nodeId + "' was not found";
+            return false;
+        }
+        m_previousName = node->name;
+        m_capturedPreviousName = true;
+    }
+    return document.renameNode(m_nodeId, m_name, error);
+}
+
+bool RenameNodeCommand::undo(
+    SceneDocument& document,
+    std::string& error) {
+    if (!m_capturedPreviousName) {
+        error = "command has not been executed";
+        return false;
+    }
+    return document.renameNode(m_nodeId, m_previousName, error);
+}
+
 AddNodeCommand::AddNodeCommand(SceneNodeRecord node)
     : m_node(std::move(node)) {}
 

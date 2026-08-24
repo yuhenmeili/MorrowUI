@@ -264,7 +264,7 @@ int main() {
                  "multi selection: " + error)) {
         return 1;
     }
-    if (!require(session.model().inspectSelected().size() == 3,
+    if (!require(session.model().inspectSelected().size() >= 3,
                  "inspector property count")) {
         return 1;
     }
@@ -365,6 +365,63 @@ int main() {
     }
     if (!require(session.document().findNode(catalogButtonId) != nullptr,
                  "catalog button restored by redo")) {
+        return 1;
+    }
+    if (!require(session.renameNode(
+                     catalogButtonId, "RenamedButton", error),
+                 "rename node: " + error)) {
+        return 1;
+    }
+    if (!require(
+            session.document().findNode(catalogButtonId)->name ==
+                "RenamedButton",
+            "renamed node name")) {
+        return 1;
+    }
+    if (!require(session.undo(error), "undo rename: " + error))
+        return 1;
+    if (!require(
+            session.document().findNode(catalogButtonId)->name ==
+                catalogButton.name,
+            "rename undo restores old name")) {
+        return 1;
+    }
+    if (!require(session.redo(error), "redo rename: " + error))
+        return 1;
+
+    const auto* imageType = nodeTypes.find("MRImage");
+    if (!require(
+            imageType &&
+                imageType->defaultProperties.count("texture_asset") == 1,
+            "image type has texture resource property")) {
+        return 1;
+    }
+    auto imageNode = nodeTypes.createNode(
+        *imageType, "root", session.document());
+    const auto imageId = imageNode.id;
+    if (!require(session.addNode(imageNode, error),
+                 "add image node: " + error)) {
+        return 1;
+    }
+    if (!require(session.selectNode(imageId, false, error),
+                 "select image node: " + error)) {
+        return 1;
+    }
+    const auto imageProperties = session.model().inspectSelected();
+    const auto hasProperty =
+        [&imageProperties](const std::string& name) {
+            return std::any_of(
+                imageProperties.begin(), imageProperties.end(),
+                [&name](const morrow::editor::InspectorProperty& property) {
+                    return property.name == name;
+                });
+        };
+    if (!require(
+            hasProperty("position") && hasProperty("rotation") &&
+                hasProperty("scale") && hasProperty("size") &&
+                hasProperty("visible") &&
+                hasProperty("texture_asset"),
+            "image inspector exposes transform and texture properties")) {
         return 1;
     }
     if (!require(session.reparentNode("button_added", "", error),

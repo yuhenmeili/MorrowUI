@@ -23,6 +23,21 @@ bool parseComponents(const std::string& value, const std::string& type, std::vec
     }
     return true;
 }
+
+std::map<std::string, std::string> effectiveProperties(
+    const SceneNodeRecord& node) {
+    std::map<std::string, std::string> properties = node.properties;
+    if (node.type != "SceneNode") {
+        properties.emplace("position", "Vector3(0.0, 0.0, 0.0)");
+        properties.emplace("rotation", "Vector3(0.0, 0.0, 0.0)");
+        properties.emplace("scale", "Vector3(1.0, 1.0, 1.0)");
+        properties.emplace("size", "Vector2(100.0, 40.0)");
+        properties.emplace("visible", "true");
+    }
+    if (node.type == "MRImage")
+        properties.emplace("texture_asset", "");
+    return properties;
+}
 }  // namespace
 
 SceneEditorModel::SceneEditorModel(SceneDocument& document) : m_document(document) {
@@ -94,8 +109,9 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
     const auto node = m_document.findNode(m_selection.nodeIds.front());
     if (!node)
         return result;
-    result.reserve(node->properties.size());
-    for (const auto& [name, value] : node->properties) {
+    const auto properties = effectiveProperties(*node);
+    result.reserve(properties.size());
+    for (const auto& [name, value] : properties) {
         std::string type = "string";
         if (value == "true" || value == "false")
             type = "bool";
@@ -105,6 +121,8 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
             type = "Vector3";
         else if (value.find("Color(") == 0)
             type = "Color";
+        else if (name == "texture_asset")
+            type = "TextureAsset";
         else if (!value.empty() && (std::isdigit(static_cast<unsigned char>(value.front())) || value.front() == '-')) {
             type = "number";
         }
@@ -115,8 +133,10 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
                 mixed = true;
                 break;
             }
-            const auto selectedProperty = selected->properties.find(name);
-            if (selectedProperty == selected->properties.end() || selectedProperty->second != value) {
+            const auto selectedProperties = effectiveProperties(*selected);
+            const auto selectedProperty = selectedProperties.find(name);
+            if (selectedProperty == selectedProperties.end() ||
+                selectedProperty->second != value) {
                 mixed = true;
                 break;
             }

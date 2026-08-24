@@ -158,6 +158,19 @@ bool EditorSession::reparentNode(const std::string& nodeId, const std::string& p
     return changed;
 }
 
+bool EditorSession::renameNode(
+    const std::string& nodeId,
+    std::string name,
+    std::string& error) {
+    const bool changed = m_history.execute(
+        std::make_unique<RenameNodeCommand>(
+            nodeId, std::move(name)),
+        m_document, error);
+    if (changed)
+        m_dirty = true;
+    return changed;
+}
+
 bool EditorSession::moveGizmo(const std::string& nodeId, float x, float y, float z, bool continuous, std::string& error) {
     return setProperty(nodeId, "position", vector3(x, y, z), continuous, error);
 }

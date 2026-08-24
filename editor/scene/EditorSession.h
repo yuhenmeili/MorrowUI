@@ -40,6 +40,8 @@ public:
 
     bool reparentNode(const std::string& nodeId, const std::string& parentId, std::string& error);
 
+    bool renameNode(const std::string& nodeId, std::string name, std::string& error);
+
     bool moveGizmo(const std::string& nodeId, float x, float y, float z, bool continuous, std::string& error);
 
     bool resizeGizmo(const std::string& nodeId, float width, float height, bool continuous, std::string& error);

@@ -51,6 +51,8 @@ public:
 
     bool reparentNode(const std::string& nodeId, const std::string& parentId, std::string& error);
 
+    bool renameNode(const std::string& nodeId, std::string name, std::string& error);
+
     bool addNode(SceneNodeRecord node, std::string& error);
 
     bool removeNodeSubtree(const std::string& nodeId,

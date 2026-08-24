@@ -417,6 +417,34 @@ bool SceneDocument::reparentNode(const std::string& nodeId, const std::string& p
     return true;
 }
 
+bool SceneDocument::renameNode(
+    const std::string& nodeId,
+    std::string name,
+    std::string& error) {
+    auto node = findNode(nodeId);
+    if (!node) {
+        error = "node '" + nodeId + "' was not found";
+        return false;
+    }
+    if (name.empty()) {
+        error = "node name cannot be empty";
+        return false;
+    }
+    const bool duplicate = std::any_of(
+        m_nodes.begin(), m_nodes.end(),
+        [&nodeId, &name, &node](const SceneNodeRecord& existing) {
+            return existing.id != nodeId &&
+                   existing.parentId == node->parentId &&
+                   existing.name == name;
+        });
+    if (duplicate) {
+        error = "a sibling node named '" + name + "' already exists";
+        return false;
+    }
+    node->name = std::move(name);
+    return true;
+}
+
 bool SceneDocument::addNode(SceneNodeRecord node, std::string& error) {
     if (node.id.empty() || node.type.empty() || node.name.empty()) {
         error = "node requires id, type and name";

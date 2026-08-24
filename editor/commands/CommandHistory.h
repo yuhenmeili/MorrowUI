@@ -58,6 +58,21 @@ private:
     bool m_capturedPreviousParent = false;
 };
 
+class RenameNodeCommand final : public SceneCommand {
+public:
+    RenameNodeCommand(std::string nodeId, std::string name);
+
+    bool execute(SceneDocument& document, std::string& error) override;
+
+    bool undo(SceneDocument& document, std::string& error) override;
+
+private:
+    std::string m_nodeId;
+    std::string m_name;
+    std::string m_previousName;
+    bool m_capturedPreviousName = false;
+};
+
 class AddNodeCommand final : public SceneCommand {
 public:
     explicit AddNodeCommand(SceneNodeRecord node);

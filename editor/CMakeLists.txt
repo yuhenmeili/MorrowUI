@@ -21,6 +21,7 @@ add_library(morrow_editor_runtime STATIC
     filesystem/ThumbnailService.cpp
     ui/DockDropOverlay.cpp
     ui/CreateNodeDialog.cpp
+    ui/RenameNodeDialog.cpp
     ui/FileSystemPanel.cpp
     EditorShell.cpp
 )
