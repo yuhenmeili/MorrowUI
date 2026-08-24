@@ -73,6 +73,30 @@ private:
     bool m_capturedPreviousName = false;
 };
 
+class SetNodeRectCommand final : public SceneCommand {
+public:
+    SetNodeRectCommand(
+        std::string nodeId,
+        std::string position,
+        std::string size);
+
+    bool execute(SceneDocument& document, std::string& error) override;
+
+    bool undo(SceneDocument& document, std::string& error) override;
+
+    bool canMergeWith(const SceneCommand& other) const override;
+
+    bool mergeFrom(const SceneCommand& other) override;
+
+private:
+    std::string m_nodeId;
+    std::string m_position;
+    std::string m_size;
+    std::string m_previousPosition;
+    std::string m_previousSize;
+    bool m_capturedPrevious = false;
+};
+
 class AddNodeCommand final : public SceneCommand {
 public:
     explicit AddNodeCommand(SceneNodeRecord node);

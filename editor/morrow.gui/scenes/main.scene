@@ -9,12 +9,12 @@ property corner_radius = 8.0
 [node id="node_0001" type="SceneNode" name="Main"]
 
 [node id="node_0002" type="MRButton" parent="node_0001" name="StartButton"]
-property position = Vector3(80.0, 80.0, 0.0)
-property size = Vector2(280.0, 64.0)
+property position = Vector3(80.000, 80.000, 0.000)
+property size = Vector2(446.000, 155.000)
 property style = sub_resource("button_style")
 property text = "MorrowEditor Scene"
 
 [node id="node_0005" type="MRImage" parent="node_0001" name="Image"]
-property position = Vector3(553.000, 67.000, 0.000)
-property size = Vector2(180.0, 120.0)
+property position = Vector3(674.000, 67.000, 0.000)
+property size = Vector2(179.000, 127.000)
 property texture_asset = "asset_box_wood"

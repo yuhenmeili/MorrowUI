@@ -45,6 +45,17 @@ class TouchEvent;
 namespace morrow::editor {
 
 enum class PreviewState { Stopped, Starting, Running, Outdated, Failed };
+enum class ResizeHandle {
+    None,
+    TopLeft,
+    Top,
+    TopRight,
+    Right,
+    BottomRight,
+    Bottom,
+    BottomLeft,
+    Left,
+};
 
 class EditorShell {
 public:
@@ -62,8 +73,20 @@ private:
         std::shared_ptr<MRButton> button;
     };
 
+    struct InspectorBinding {
+        std::string property;
+        std::string type;
+        std::vector<std::shared_ptr<MRLineEdit>> edits;
+        std::shared_ptr<MRButton> button;
+    };
+
     void buildLayout();
     void rebuildRuntime();
+    void refreshSelectionOverlay();
+    bool syncRuntimeNode(
+        const std::string& nodeId,
+        bool transformOnly);
+    void syncSelectedRuntimeNodes(bool transformOnly);
     void refreshViewportGuides();
     void refreshSceneTree();
     void refreshSceneTreeSelectionStyles();
@@ -80,13 +103,19 @@ private:
     void createChildNode(
         const NodeTypeDescriptor& descriptor,
         const std::string& parentId);
-    void refreshInspector();
+    void refreshInspector(bool force = false);
+    void updateInspectorValues(
+        const std::vector<InspectorProperty>& properties);
     void applyInspectorValue(
         const std::string& property,
         const std::string& value);
     void handleInput(std::vector<TouchEvent>& events);
     void handleKey(int key, int action, int mods);
     void handleViewportPointer(const TouchEvent& event);
+    ResizeHandle resizeHandleAt(
+        float x, float y,
+        float nodeX, float nodeY,
+        float width, float height) const;
     bool handleDockDrag(const TouchEvent& event);
     void applyDockLayout();
     void saveDockLayout();
@@ -130,7 +159,8 @@ private:
     std::shared_ptr<UIWidget> m_previewRoot;
     std::shared_ptr<UIWidget> m_previewCanvas;
     std::shared_ptr<UIWidget> m_previewGrid;
-    std::shared_ptr<UIWidget> m_selectionFrame;
+    std::vector<std::shared_ptr<UIWidget>> m_selectionBorders;
+    std::vector<std::shared_ptr<UIWidget>> m_selectionHandles;
     std::shared_ptr<UIWidget> m_sceneTreePanel;
     std::shared_ptr<UIWidget> m_inspectorPanel;
     std::shared_ptr<UIWidget> m_viewportPanel;
@@ -149,6 +179,8 @@ private:
     std::shared_ptr<MRPopupMenu> m_sceneContextMenu;
     std::shared_ptr<MRPopupMenu> m_textureAssetMenu;
     std::shared_ptr<EditorSession> m_session;
+    std::unordered_map<std::string, std::shared_ptr<Widget>>
+        m_runtimeNodes;
     AssetDatabase m_assets;
     ProjectFileSystemModel m_fileSystem;
     NodeTypeCatalog m_nodeTypeCatalog;
@@ -185,6 +217,7 @@ private:
         m_textureAssetMenuConnection;
     std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection>
         m_inspectorEditConnections;
+    std::map<std::string, InspectorBinding> m_inspectorBindings;
     std::map<int, std::string> m_textureAssetMenuIds;
     std::string m_textureEditProperty;
     std::vector<std::string> m_textureEditNodeIds;
@@ -201,6 +234,15 @@ private:
     bool m_dragging = false;
     bool m_resizing = false;
     bool m_panning = false;
+    bool m_viewportTransformChanged = false;
+    ResizeHandle m_resizeHandle = ResizeHandle::None;
+    float m_resizePointerStartX = 0.0f;
+    float m_resizePointerStartY = 0.0f;
+    float m_resizeNodeStartX = 0.0f;
+    float m_resizeNodeStartY = 0.0f;
+    float m_resizeNodeStartZ = 0.0f;
+    float m_resizeNodeStartWidth = 0.0f;
+    float m_resizeNodeStartHeight = 0.0f;
     float m_lastPointerX = 0.0f;
     float m_lastPointerY = 0.0f;
     float m_viewPanX = 0.0f;
@@ -208,6 +250,7 @@ private:
     float m_viewZoom = 1.0f;
     std::string m_editProperty;
     std::string m_editValue;
+    std::string m_lastInspectorSchemaSignature;
     float m_viewportX = 240.0f;
     float m_viewportY = 40.0f;
     float m_viewportWidth = 740.0f;

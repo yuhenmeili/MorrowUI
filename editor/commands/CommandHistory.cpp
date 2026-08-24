@@ -106,6 +106,72 @@ bool RenameNodeCommand::undo(
     return document.renameNode(m_nodeId, m_previousName, error);
 }
 
+SetNodeRectCommand::SetNodeRectCommand(
+    std::string nodeId,
+    std::string position,
+    std::string size)
+    : m_nodeId(std::move(nodeId)),
+      m_position(std::move(position)),
+      m_size(std::move(size)) {
+}
+
+bool SetNodeRectCommand::execute(
+    SceneDocument& document,
+    std::string& error) {
+    if (!m_capturedPrevious) {
+        const auto* node = document.findNode(m_nodeId);
+        if (!node) {
+            error = "node '" + m_nodeId + "' was not found";
+            return false;
+        }
+        const auto position = node->properties.find("position");
+        const auto size = node->properties.find("size");
+        if (position == node->properties.end() ||
+            size == node->properties.end()) {
+            error = "node requires position and size properties";
+            return false;
+        }
+        m_previousPosition = position->second;
+        m_previousSize = size->second;
+        m_capturedPrevious = true;
+    }
+    if (!document.setNodeProperty(
+            m_nodeId, "position", m_position, error))
+        return false;
+    return document.setNodeProperty(m_nodeId, "size", m_size, error);
+}
+
+bool SetNodeRectCommand::undo(
+    SceneDocument& document,
+    std::string& error) {
+    if (!m_capturedPrevious) {
+        error = "command has not been executed";
+        return false;
+    }
+    if (!document.setNodeProperty(
+            m_nodeId, "position", m_previousPosition, error))
+        return false;
+    return document.setNodeProperty(
+        m_nodeId, "size", m_previousSize, error);
+}
+
+bool SetNodeRectCommand::canMergeWith(
+    const SceneCommand& other) const {
+    const auto* command =
+        dynamic_cast<const SetNodeRectCommand*>(&other);
+    return command && command->m_nodeId == m_nodeId;
+}
+
+bool SetNodeRectCommand::mergeFrom(const SceneCommand& other) {
+    const auto* command =
+        dynamic_cast<const SetNodeRectCommand*>(&other);
+    if (!command || command->m_nodeId != m_nodeId)
+        return false;
+    m_position = command->m_position;
+    m_size = command->m_size;
+    return true;
+}
+
 AddNodeCommand::AddNodeCommand(SceneNodeRecord node)
     : m_node(std::move(node)) {}
 

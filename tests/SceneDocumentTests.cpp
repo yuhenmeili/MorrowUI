@@ -389,6 +389,31 @@ int main() {
     if (!require(session.redo(error), "redo rename: " + error))
         return 1;
 
+    if (!require(
+            session.setNodeRect(
+                "button", 20.0f, 30.0f, 0.0f,
+                140.0f, 60.0f, true, error),
+            "continuous rect edit: " + error)) {
+        return 1;
+    }
+    if (!require(
+            session.setNodeRect(
+                "button", 30.0f, 40.0f, 0.0f,
+                160.0f, 70.0f, true, error),
+            "merged continuous rect edit: " + error)) {
+        return 1;
+    }
+    if (!require(session.undo(error), "undo merged rect edit: " + error))
+        return 1;
+    if (!require(
+            session.document().findNode("button")->properties.at("position") ==
+                    "Vector3(10.0, 20.0, 0.0)" &&
+                session.document().findNode("button")->properties.at("size") ==
+                    "Vector2(100.0, 40.0)",
+            "merged rect edit restores original transform")) {
+        return 1;
+    }
+
     const auto* imageType = nodeTypes.find("MRImage");
     if (!require(
             imageType &&
@@ -422,6 +447,40 @@ int main() {
                 hasProperty("visible") &&
                 hasProperty("texture_asset"),
             "image inspector exposes transform and texture properties")) {
+        return 1;
+    }
+    if (!require(
+            session.addNode(
+                {"nested_parent", "SceneNode", "root", "NestedParent",
+                 {{"position", "Vector3(100.0, 50.0, 0.0)"},
+                  {"size", "Vector2(300.0, 200.0)"}},
+                 0},
+                error),
+            "add nested parent: " + error)) {
+        return 1;
+    }
+    if (!require(
+            session.addNode(
+                {"nested_child", "MRImage", "nested_parent", "NestedChild",
+                 {{"position", "Vector3(10.0, 20.0, 0.0)"},
+                  {"size", "Vector2(40.0, 30.0)"}},
+                 0},
+                error),
+            "add nested child: " + error)) {
+        return 1;
+    }
+    float worldX = 0.0f;
+    float worldY = 0.0f;
+    float worldZ = 0.0f;
+    float worldWidth = 0.0f;
+    float worldHeight = 0.0f;
+    if (!require(
+            session.model().nodeWorldRect(
+                "nested_child", worldX, worldY, worldZ,
+                worldWidth, worldHeight) &&
+                worldX == 110.0f && worldY == 70.0f &&
+                worldWidth == 40.0f && worldHeight == 30.0f,
+            "nested node world rectangle")) {
         return 1;
     }
     if (!require(session.reparentNode("button_added", "", error),

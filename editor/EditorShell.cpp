@@ -9,17 +9,14 @@
 
 #include "Engine.h"
 #include "base/Interaction.h"
-#include "base/Mesh.h"
-#include "base/MeshFilter.h"
-#include "base/MeshRenderer.h"
 #include "base/TouchEvent.h"
 #include "base/Transform.h"
 #include "elements/MRButton.h"
+#include "elements/MRColor.h"
 #include "elements/MRLabel.h"
 #include "elements/MRLineEdit.h"
 #include "elements/MRPopupMenu.h"
 #include "platform/Window.h"
-#include "renderer/resource/ssbo/layouts/ButtonSSBOLayout.h"
 #include "scene/SceneInstantiator.h"
 #include "wgl/OpenglHeader.h"
 
@@ -49,52 +46,6 @@ std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float
     transform->setPosition(x, y, 0.0f);
     transform->setSize(width, height);
     return panel;
-}
-
-class EditorGuideWidget final : public morrow::UIWidget {
-public:
-    explicit EditorGuideWidget(const morrow::Math::Vector4& color) : morrow::UIWidget(true) {
-        // Reuse the button shader because it already has a compatible SSBO
-        // layout in the renderer's batch path.
-        auto material = getComponent<morrow::MeshRenderer>()->getMaterial();
-        material->setShader("button");
-        material->setSSBOLayout(std::make_shared<morrow::ButtonSSBOLayout>());
-        material->setFloat("rounding", 0.0f);
-        material->setFloat("useTexture", 0.0f);
-        material->setVector("color", color);
-        material->setFloat("alpha", color.w);
-    }
-
-    void setColor(const morrow::Math::Vector4& color) {
-        auto material = getComponent<morrow::MeshRenderer>()->getMaterial();
-        material->setVector("color", color);
-        material->setFloat("alpha", color.w);
-    }
-
-    void setGeometry(std::vector<morrow::Math::Vector3> vertices, std::vector<int16_t> indices, float x, float y, float width = 0.0f, float height = 0.0f) {
-        auto mesh = getComponent<morrow::MeshFilter>()->getMesh();
-        mesh->setVertices(vertices);
-        mesh->setIndices(indices);
-        if (width > 0.0f && height > 0.0f)
-            getTransform()->setSize(width, height);
-        if (width > 0.0f && height > 0.0f)
-            getComponent<morrow::MeshRenderer>()->getMaterial()->setVector("displaySize", morrow::Math::Vector3(width, height, 0.0f));
-        getTransform()->setPosition(x, y, 0.0f);
-    }
-};
-
-void addQuad(std::vector<morrow::Math::Vector3>& vertices, std::vector<int16_t>& indices, float left, float top, float right, float bottom) {
-    const auto start = static_cast<int16_t>(vertices.size());
-    vertices.emplace_back(left, top, 0.0f);
-    vertices.emplace_back(right, top, 0.0f);
-    vertices.emplace_back(right, bottom, 0.0f);
-    vertices.emplace_back(left, bottom, 0.0f);
-    indices.insert(indices.end(),
-                   {start, static_cast<int16_t>(start + 1), static_cast<int16_t>(start + 2), static_cast<int16_t>(start + 2), static_cast<int16_t>(start + 3), start});
-}
-
-std::shared_ptr<EditorGuideWidget> makeGuide(const morrow::Math::Vector4& color) {
-    return std::make_shared<EditorGuideWidget>(color);
 }
 
 bool isDescendantOf(
@@ -144,6 +95,17 @@ std::string typedComponents(
     return output.str();
 }
 
+const morrow::editor::InspectorProperty* findInspectorProperty(
+    const std::vector<morrow::editor::InspectorProperty>& properties,
+    const std::string& name) {
+    const auto iterator = std::find_if(
+        properties.begin(), properties.end(),
+        [&name](const morrow::editor::InspectorProperty& property) {
+            return property.name == name;
+        });
+    return iterator == properties.end() ? nullptr : &*iterator;
+}
+
 }  // namespace
 
 namespace morrow::editor {
@@ -154,7 +116,7 @@ EditorShell::EditorShell(const std::shared_ptr<Window>& window, const std::share
     m_session(std::make_shared<EditorSession>(m_scenePath)), m_dockLayoutPath(m_projectPath.parent_path() / ".morrow" / "editor.layout") {
     m_selectionChangedConnection = m_events.onSelectionChanged.connect([this](const SelectionState& selection) {
         m_selectedNodeId = selection.nodeIds.empty() ? std::string{} : selection.nodeIds.back();
-        rebuildRuntime();
+        refreshSelectionOverlay();
         refreshInspector();
     });
 }
@@ -413,7 +375,8 @@ void EditorShell::buildLayout() {
                     changed = true;
                 }
                 if (changed) {
-                    rebuildRuntime();
+                    syncSelectedRuntimeNodes(false);
+                    refreshSelectionOverlay();
                     refreshInspector();
                     setStatus(
                         iterator->second.empty()
@@ -1094,7 +1057,8 @@ void EditorShell::renameSceneNode(
         return;
     }
     refreshSceneTree();
-    rebuildRuntime();
+    syncRuntimeNode(nodeId, false);
+    refreshSelectionOverlay();
     refreshInspector();
     setStatus("Renamed node " + nodeId + " to " + name);
 }
@@ -1140,14 +1104,34 @@ void EditorShell::createChildNode(const NodeTypeDescriptor& descriptor, const st
     setStatus("Created " + descriptor.displayName + " '" + nodeName + "' under " + parentId);
 }
 
-void EditorShell::refreshInspector() {
+void EditorShell::refreshInspector(bool force) {
     if (!m_inspectorPanel)
         return;
+    auto properties = m_session->model().inspectSelected();
+    std::ostringstream signature;
+    for (const auto& nodeId :
+         m_session->model().selection().nodeIds) {
+        signature << "node:" << nodeId << '\n';
+    }
+    for (const auto& property : properties) {
+        signature << property.name << '\x1f'
+                  << property.type << '\x1f'
+                  << (property.mixed ? '1' : '0') << '\n';
+    }
+    const std::string schemaSignature = signature.str();
+    if (!force &&
+        schemaSignature == m_lastInspectorSchemaSignature &&
+        !m_inspectorBindings.empty()) {
+        updateInspectorValues(properties);
+        return;
+    }
+    m_lastInspectorSchemaSignature = schemaSignature;
+
     while (m_inspectorPanel->m_children.size() > 1) {
         m_inspectorPanel->m_children.pop_back();
     }
     m_inspectorEditConnections.clear();
-    auto properties = m_session->model().inspectSelected();
+    m_inspectorBindings.clear();
     if (properties.empty())
         return;
 
@@ -1184,15 +1168,23 @@ void EditorShell::refreshInspector() {
             8.0f, y, fieldWidth, 22.0f);
         y += 24.0f;
         if (property.type == "bool" && !property.mixed) {
-            addButton(
+            auto button = addButton(
                 m_inspectorPanel,
                 property.value == "true" ? L"[x] true" : L"[ ] false",
                 8.0f, y, fieldWidth, 30.0f,
-                [this, property] {
+                [this, propertyName = property.name] {
+                    const auto current =
+                        m_session->model().inspectSelected();
+                    const auto* value =
+                        findInspectorProperty(current, propertyName);
+                    if (!value)
+                        return;
                     applyInspectorValue(
-                        property.name,
-                        property.value == "true" ? "false" : "true");
+                        propertyName,
+                        value->value == "true" ? "false" : "true");
                 });
+            m_inspectorBindings[property.name] = {
+                property.name, property.type, {}, button};
         } else if (property.type == "TextureAsset") {
             std::string display = "<empty>";
             if (!property.value.empty()) {
@@ -1243,6 +1235,8 @@ void EditorShell::refreshInspector() {
                             source.getScreenSpaceAABB());
                     }));
             m_inspectorPanel->addChild(button);
+            m_inspectorBindings[property.name] = {
+                property.name, property.type, {}, button};
         } else if ((property.type == "Vector2" ||
                     property.type == "Vector3") &&
                    !property.mixed) {
@@ -1275,12 +1269,27 @@ void EditorShell::refreshInspector() {
                     8.0f + static_cast<float>(index) * (width + 6.0f),
                     y, 0.0f);
                 edit->getTransform()->setSize(width, 30.0f);
-                const auto original = components;
                 m_inspectorEditConnections.emplace_back(
                     edit->events().onSubmitted.connect(
-                        [this, property, index, original](
+                        [this, propertyName = property.name,
+                         propertyType = property.type, index](
                             MRTextEdit&, const std::wstring& text) {
-                            auto updated = original;
+                            const auto current =
+                                m_session->model().inspectSelected();
+                            const auto* currentProperty =
+                                findInspectorProperty(
+                                    current, propertyName);
+                            if (!currentProperty)
+                                return;
+                            std::vector<std::string> updated;
+                            if (!parseTypedComponents(
+                                    currentProperty->value,
+                                    propertyType, updated) ||
+                                index >= updated.size()) {
+                                setStatus(
+                                    "Current vector value is invalid");
+                                return;
+                            }
                             updated[index] =
                                 std::string(text.begin(), text.end());
                             try {
@@ -1294,15 +1303,19 @@ void EditorShell::refreshInspector() {
                                 return;
                             }
                             const std::string value =
-                                typedComponents(property.type, updated);
+                                typedComponents(propertyType, updated);
                             m_engine->mainThreadDispatcher().post(
-                                [this, propertyName = property.name,
-                                 value] {
+                                [this, propertyName, value] {
                                     applyInspectorValue(
                                         propertyName, value);
                                 });
                         }));
                 m_inspectorPanel->addChild(edit);
+                m_inspectorBindings[property.name].property =
+                    property.name;
+                m_inspectorBindings[property.name].type =
+                    property.type;
+                m_inspectorBindings[property.name].edits.push_back(edit);
             }
         } else {
             auto edit = MRLineEdit::create();
@@ -1344,8 +1357,68 @@ void EditorShell::refreshInspector() {
                             });
                     }));
             m_inspectorPanel->addChild(edit);
+            m_inspectorBindings[property.name] = {
+                property.name, property.type, {edit}, {}};
         }
         y += 36.0f;
+    }
+}
+
+void EditorShell::updateInspectorValues(
+    const std::vector<InspectorProperty>& properties) {
+    for (auto& [name, binding] : m_inspectorBindings) {
+        const auto* property =
+            findInspectorProperty(properties, name);
+        if (!property)
+            continue;
+        if (binding.type == "bool" && binding.button) {
+            binding.button->setText(
+                property->value == "true"
+                    ? L"[x] true"
+                    : L"[ ] false",
+                "default");
+            continue;
+        }
+        if (binding.type == "TextureAsset" && binding.button) {
+            std::string display = "<empty>";
+            if (!property->value.empty()) {
+                display = property->value;
+                if (const auto* asset =
+                        m_assets.findById(property->value)) {
+                    display = asset->sourcePath.generic_string();
+                }
+            }
+            binding.button->setText(
+                std::wstring(display.begin(), display.end()),
+                "default");
+            continue;
+        }
+        if (binding.type == "Vector2" ||
+            binding.type == "Vector3") {
+            std::vector<std::string> components;
+            if (!parseTypedComponents(
+                    property->value, binding.type, components)) {
+                continue;
+            }
+            for (size_t index = 0;
+                 index < binding.edits.size() &&
+                 index < components.size();
+                 ++index) {
+                binding.edits[index]->setText(
+                    std::wstring(
+                        components[index].begin(),
+                        components[index].end()));
+            }
+            continue;
+        }
+        if (!binding.edits.empty()) {
+            const std::string value =
+                property->mixed ? std::string{} : property->value;
+            binding.edits.front()->setText(
+                std::wstring(value.begin(), value.end()));
+            binding.edits.front()->setPlaceholder(
+                property->mixed ? L"<mixed>" : L"");
+        }
     }
 }
 
@@ -1367,7 +1440,12 @@ void EditorShell::applyInspectorValue(
             setStatus(error);
         return;
     }
-    rebuildRuntime();
+    const bool transformOnly =
+        property == "position" || property == "size" ||
+        property == "scale" || property == "rotation" ||
+        property == "visible" || property == "display_layer";
+    syncSelectedRuntimeNodes(transformOnly);
+    refreshSelectionOverlay();
     refreshInspector();
     setStatus("Applied " + property + " = " + value);
 }
@@ -1389,7 +1467,15 @@ void EditorShell::commitPropertyEdit() {
         changed = true;
     }
     if (changed) {
-        rebuildRuntime();
+        const bool transformOnly =
+            m_editProperty == "position" ||
+            m_editProperty == "size" ||
+            m_editProperty == "scale" ||
+            m_editProperty == "rotation" ||
+            m_editProperty == "visible" ||
+            m_editProperty == "display_layer";
+        syncSelectedRuntimeNodes(transformOnly);
+        refreshSelectionOverlay();
         refreshInspector();
         setStatus("Applied " + m_editProperty + " = " + m_editValue);
     } else if (!error.empty()) {
@@ -1409,36 +1495,157 @@ void EditorShell::handleChar(unsigned int codepoint) {
 void EditorShell::rebuildRuntime() {
     if (!m_previewRoot)
         return;
+    for (const auto& border : m_selectionBorders)
+        m_previewRoot->removeChild(border);
+    for (const auto& handle : m_selectionHandles)
+        m_previewRoot->removeChild(handle);
     m_previewRoot->m_children.clear();
+    m_runtimeNodes.clear();
     refreshViewportGuides();
     std::string error;
-    const bool runtimeInstantiated = SceneInstantiator::instantiate(m_session->document(), m_previewRoot, &m_assets, error);
+    const bool runtimeInstantiated = SceneInstantiator::instantiate(
+        m_session->document(), m_previewRoot, &m_assets,
+        error, &m_runtimeNodes);
     if (!runtimeInstantiated) {
         setStatus(error);
     }
+    refreshSelectionOverlay();
+    if (runtimeInstantiated) {
+        m_events.onRuntimeRebuilt.notify();
+    }
+}
+
+void EditorShell::refreshSelectionOverlay() {
+    if (!m_previewRoot)
+        return;
+
     float x = 0.0f;
     float y = 0.0f;
     float width = 0.0f;
     float height = 0.0f;
-    if (m_session->model().selectedRect(x, y, width, height)) {
-        auto frame = makeGuide(morrow::Math::Vector4(0.35f, 0.78f, 1.0f, 0.95f));
-        std::vector<morrow::Math::Vector3> vertices;
-        std::vector<int16_t> indices;
-        constexpr float thickness = 2.0f;
-        addQuad(vertices, indices, -width * 0.5f, -height * 0.5f, width * 0.5f, -height * 0.5f + thickness);
-        addQuad(vertices, indices, -width * 0.5f, height * 0.5f, width * 0.5f, height * 0.5f - thickness);
-        addQuad(vertices, indices, -width * 0.5f, height * 0.5f, -width * 0.5f + thickness, -height * 0.5f);
-        addQuad(vertices, indices, width * 0.5f - thickness, height * 0.5f, width * 0.5f, -height * 0.5f);
-        frame->setDisplayLayer(10);
-        frame->setGeometry(std::move(vertices), std::move(indices), x, y, width, height);
-        m_selectionFrame = frame;
-        m_previewRoot->addChild(frame);
-    } else {
-        m_selectionFrame.reset();
+    if (!m_session->model().selectedRect(x, y, width, height)) {
+        for (const auto& border : m_selectionBorders)
+            border->setVisible(false);
+        for (const auto& handle : m_selectionHandles)
+            handle->setVisible(false);
+        return;
     }
-    if (runtimeInstantiated) {
-        m_events.onRuntimeRebuilt.notify();
+
+    const Vector4 borderColor(1.0f, 0.34f, 0.18f, 1.0f);
+    while (m_selectionBorders.size() < 4) {
+            auto border = MRColor::create();
+            border->setColor(borderColor);
+            border->setDisplayLayer(10);
+            m_selectionBorders.push_back(border);
     }
+    while (m_selectionHandles.size() < 8) {
+        auto handle = MRColor::create();
+        handle->setColor(
+            Vector4(1.0f, 0.23f, 0.16f, 1.0f));
+        handle->setDisplayLayer(10);
+        m_selectionHandles.push_back(handle);
+    }
+    for (const auto& border : m_selectionBorders) {
+        if (border->m_parent != m_previewRoot)
+            m_previewRoot->addChild(border);
+        border->setVisible(true);
+    }
+    for (const auto& handle : m_selectionHandles) {
+        if (handle->m_parent != m_previewRoot)
+            m_previewRoot->addChild(handle);
+        handle->setVisible(true);
+    }
+
+    const float thickness = 2.0f / std::max(0.2f, m_viewZoom);
+    const std::vector<Math::Rect> borders = {
+        {x, y, x + width, y + thickness},
+        {x, y + height - thickness, x + width, y + height},
+        {x, y, x + thickness, y + height},
+        {x + width - thickness, y, x + width, y + height},
+    };
+    for (size_t index = 0; index < borders.size(); ++index) {
+        m_selectionBorders[index]->getTransform()->setPosition(
+            borders[index].Min.x, borders[index].Min.y, 0.0f);
+        m_selectionBorders[index]->getTransform()->setSize(
+            borders[index].GetWidth(), borders[index].GetHeight());
+    }
+
+    const float handleSize =
+        10.0f / std::max(0.2f, m_viewZoom);
+    const std::vector<Vector2> points = {
+        {x, y},
+        {x + width * 0.5f, y},
+        {x + width, y},
+        {x + width, y + height * 0.5f},
+        {x + width, y + height},
+        {x + width * 0.5f, y + height},
+        {x, y + height},
+        {x, y + height * 0.5f},
+    };
+    for (size_t index = 0; index < points.size(); ++index) {
+        auto handle =
+            std::dynamic_pointer_cast<MRColor>(
+                m_selectionHandles[index]);
+        if (handle)
+            handle->setRounding(handleSize * 0.5f);
+        m_selectionHandles[index]->getTransform()->setPosition(
+            points[index].x - handleSize * 0.5f,
+            points[index].y - handleSize * 0.5f,
+            0.0f);
+        m_selectionHandles[index]->getTransform()->setSize(
+            handleSize, handleSize);
+    }
+}
+
+bool EditorShell::syncRuntimeNode(
+    const std::string& nodeId,
+    bool transformOnly) {
+    const auto* record = m_session->document().findNode(nodeId);
+    const auto instance = m_runtimeNodes.find(nodeId);
+    if (!record || instance == m_runtimeNodes.end())
+        return false;
+    std::string error;
+    const bool updated =
+        transformOnly
+            ? SceneInstantiator::updateNodeTransform(
+                  *record, instance->second, error)
+            : SceneInstantiator::updateNode(
+                  m_session->document(), *record, instance->second,
+                  &m_assets, error);
+    if (!updated && !error.empty())
+        setStatus(error);
+    return updated;
+}
+
+void EditorShell::syncSelectedRuntimeNodes(bool transformOnly) {
+    for (const auto& nodeId :
+         m_session->model().selection().nodeIds) {
+        syncRuntimeNode(nodeId, transformOnly);
+    }
+}
+
+ResizeHandle EditorShell::resizeHandleAt(
+    float x, float y,
+    float nodeX, float nodeY,
+    float width, float height) const {
+    const float radius = 9.0f / std::max(0.2f, m_viewZoom);
+    const std::vector<std::pair<ResizeHandle, Vector2>> handles = {
+        {ResizeHandle::TopLeft, {nodeX, nodeY}},
+        {ResizeHandle::Top, {nodeX + width * 0.5f, nodeY}},
+        {ResizeHandle::TopRight, {nodeX + width, nodeY}},
+        {ResizeHandle::Right, {nodeX + width, nodeY + height * 0.5f}},
+        {ResizeHandle::BottomRight, {nodeX + width, nodeY + height}},
+        {ResizeHandle::Bottom, {nodeX + width * 0.5f, nodeY + height}},
+        {ResizeHandle::BottomLeft, {nodeX, nodeY + height}},
+        {ResizeHandle::Left, {nodeX, nodeY + height * 0.5f}},
+    };
+    for (const auto& [handle, point] : handles) {
+        const float dx = x - point.x;
+        const float dy = y - point.y;
+        if (dx * dx + dy * dy <= radius * radius)
+            return handle;
+    }
+    return ResizeHandle::None;
 }
 
 void EditorShell::refreshViewportGuides() {
@@ -1474,6 +1681,7 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
         m_viewPanY = panelY - 32.0f - y * m_viewZoom;
         m_previewRoot->getTransform()->setPosition(m_viewPanX, 32.0f + m_viewPanY, 0.0f);
         m_previewRoot->getTransform()->setScale(m_viewZoom, m_viewZoom, 1.0f);
+        refreshSelectionOverlay();
         setStatus("Viewport zoom " + std::to_string(m_viewZoom) + " (was " + std::to_string(oldZoom) + ")");
         return;
     }
@@ -1492,47 +1700,116 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
         return;
     }
     if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_LEFT) {
+        float selectedX = 0.0f;
+        float selectedY = 0.0f;
+        float selectedWidth = 0.0f;
+        float selectedHeight = 0.0f;
+        if (!m_selectedNodeId.empty() &&
+            m_session->model().selectedRect(
+                selectedX, selectedY, selectedWidth, selectedHeight)) {
+            const ResizeHandle handle = resizeHandleAt(
+                x, y, selectedX, selectedY,
+                selectedWidth, selectedHeight);
+            if (handle != ResizeHandle::None) {
+                if (m_session->model().selectedLocalRect(
+                        m_resizeNodeStartX, m_resizeNodeStartY,
+                        m_resizeNodeStartZ, m_resizeNodeStartWidth,
+                        m_resizeNodeStartHeight)) {
+                    m_resizeHandle = handle;
+                    m_resizing = true;
+                    m_dragging = false;
+                    m_viewportTransformChanged = false;
+                    m_resizePointerStartX = x;
+                    m_resizePointerStartY = y;
+                    return;
+                }
+            }
+        }
         std::string error;
         const bool additive = (event.modifiers & TOUCH_MODIFIER_CTRL) != 0;
         if (m_session->selectAt(x, y, error, additive)) {
             notifySelectionChanged();
-            float nodeX = 0.0f;
-            float nodeY = 0.0f;
-            float nodeWidth = 0.0f;
-            float nodeHeight = 0.0f;
-            m_resizing = m_session->model().selectedRect(nodeX, nodeY, nodeWidth, nodeHeight) && x >= nodeX + nodeWidth - 12.0f && y >= nodeY + nodeHeight - 12.0f;
-            m_dragging = !m_resizing;
+            m_resizing = false;
+            m_resizeHandle = ResizeHandle::None;
+            m_dragging = true;
+            m_viewportTransformChanged = false;
             m_lastPointerX = panelX;
             m_lastPointerY = panelY;
         }
     } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && m_resizing && !m_selectedNodeId.empty()) {
-        float nodeX = 0.0f;
-        float nodeY = 0.0f;
-        float nodeWidth = 0.0f;
-        float nodeHeight = 0.0f;
-        if (!m_session->model().selectedRect(nodeX, nodeY, nodeWidth, nodeHeight))
-            return;
-        const float dx = (panelX - m_lastPointerX) / m_viewZoom;
-        const float dy = (panelY - m_lastPointerY) / m_viewZoom;
+        const float dx = x - m_resizePointerStartX;
+        const float dy = y - m_resizePointerStartY;
+        float nodeX = m_resizeNodeStartX;
+        float nodeY = m_resizeNodeStartY;
+        float nodeWidth = m_resizeNodeStartWidth;
+        float nodeHeight = m_resizeNodeStartHeight;
+        const bool left =
+            m_resizeHandle == ResizeHandle::Left ||
+            m_resizeHandle == ResizeHandle::TopLeft ||
+            m_resizeHandle == ResizeHandle::BottomLeft;
+        const bool right =
+            m_resizeHandle == ResizeHandle::Right ||
+            m_resizeHandle == ResizeHandle::TopRight ||
+            m_resizeHandle == ResizeHandle::BottomRight;
+        const bool top =
+            m_resizeHandle == ResizeHandle::Top ||
+            m_resizeHandle == ResizeHandle::TopLeft ||
+            m_resizeHandle == ResizeHandle::TopRight;
+        const bool bottom =
+            m_resizeHandle == ResizeHandle::Bottom ||
+            m_resizeHandle == ResizeHandle::BottomLeft ||
+            m_resizeHandle == ResizeHandle::BottomRight;
+        if (left) {
+            nodeX += dx;
+            nodeWidth -= dx;
+        } else if (right) {
+            nodeWidth += dx;
+        }
+        if (top) {
+            nodeY += dy;
+            nodeHeight -= dy;
+        } else if (bottom) {
+            nodeHeight += dy;
+        }
+        if (nodeWidth < 1.0f) {
+            if (left)
+                nodeX -= 1.0f - nodeWidth;
+            nodeWidth = 1.0f;
+        }
+        if (nodeHeight < 1.0f) {
+            if (top)
+                nodeY -= 1.0f - nodeHeight;
+            nodeHeight = 1.0f;
+        }
         std::string error;
-        if (m_session->resizeGizmo(m_selectedNodeId, std::max(1.0f, nodeWidth + dx), std::max(1.0f, nodeHeight + dy), true, error)) {
-            rebuildRuntime();
-            m_lastPointerX = panelX;
-            m_lastPointerY = panelY;
+        if (m_session->setNodeRect(
+                m_selectedNodeId,
+                nodeX, nodeY, m_resizeNodeStartZ,
+                nodeWidth, nodeHeight, true, error)) {
+            syncRuntimeNode(m_selectedNodeId, true);
+            refreshSelectionOverlay();
+            m_viewportTransformChanged = true;
         }
     } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && m_dragging && !m_selectedNodeId.empty()) {
         float dx = (panelX - m_lastPointerX) / m_viewZoom;
         float dy = (panelY - m_lastPointerY) / m_viewZoom;
         std::string error;
         if (m_session->moveSelection(dx, dy, true, error)) {
-            rebuildRuntime();
+            syncSelectedRuntimeNodes(true);
+            refreshSelectionOverlay();
+            m_viewportTransformChanged = true;
             m_lastPointerX = panelX;
             m_lastPointerY = panelY;
         }
     } else if (event.eventType == TOUCH_EVENT_TYPE_RELEASE) {
+        const bool transformChanged = m_viewportTransformChanged;
         m_dragging = false;
         m_resizing = false;
+        m_resizeHandle = ResizeHandle::None;
         m_panning = false;
+        m_viewportTransformChanged = false;
+        if (transformChanged)
+            refreshInspector();
     }
 }
 
@@ -1560,16 +1837,19 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
             continue;
         if (handleDockDrag(event))
             continue;
-        auto target = event.target;
-        bool viewportTarget = false;
-        while (target) {
-            if (target == m_viewportPanel) {
-                viewportTarget = true;
-                break;
-            }
-            target = target->m_parent;
-        }
-        if (viewportTarget) {
+        const bool pointerEvent =
+            event.eventType == TOUCH_EVENT_TYPE_TOUCH ||
+            event.eventType == TOUCH_EVENT_TYPE_MOVE ||
+            event.eventType == TOUCH_EVENT_TYPE_RELEASE ||
+            event.eventType == TOUCH_EVENT_TYPE_WHEEL;
+        const bool activeViewportGesture =
+            m_dragging || m_resizing || m_panning;
+        const bool insideViewport =
+            m_viewportPanel &&
+            m_viewportPanel->getScreenSpaceAABB().Contains(
+                event.positionX, event.positionY);
+        if (pointerEvent &&
+            (activeViewportGesture || insideViewport)) {
             handleViewportPointer(event);
         }
     }

@@ -84,7 +84,17 @@ const SelectionState& SceneEditorModel::selection() const {
 bool SceneEditorModel::selectedRect(float& x, float& y, float& width, float& height) const {
     if (m_selection.nodeIds.empty())
         return false;
-    const auto node = m_document.findNode(m_selection.nodeIds.front());
+    float z = 0.0f;
+    return nodeWorldRect(
+        m_selection.nodeIds.front(), x, y, z, width, height);
+}
+
+bool SceneEditorModel::selectedLocalRect(
+    float& x, float& y, float& z,
+    float& width, float& height) const {
+    if (m_selection.nodeIds.empty())
+        return false;
+    const auto* node = m_document.findNode(m_selection.nodeIds.front());
     if (!node)
         return false;
     std::vector<float> position;
@@ -97,8 +107,54 @@ bool SceneEditorModel::selectedRect(float& x, float& y, float& width, float& hei
         return false;
     x = position[0];
     y = position[1];
+    z = position[2];
     width = size[0];
     height = size[1];
+    return true;
+}
+
+bool SceneEditorModel::nodeWorldRect(
+    const std::string& nodeId,
+    float& x, float& y, float& z,
+    float& width, float& height) const {
+    const auto* node = m_document.findNode(nodeId);
+    if (!node)
+        return false;
+    std::vector<float> position;
+    std::vector<float> size;
+    const auto positionIt = node->properties.find("position");
+    const auto sizeIt = node->properties.find("size");
+    if (positionIt == node->properties.end() ||
+        sizeIt == node->properties.end() ||
+        !parseComponents(positionIt->second, "Vector3", position) ||
+        !parseComponents(sizeIt->second, "Vector2", size) ||
+        position.size() != 3 || size.size() != 2) {
+        return false;
+    }
+    x = position[0];
+    y = position[1];
+    z = position[2];
+    width = size[0];
+    height = size[1];
+    for (auto* parent = node->parentId.empty()
+                            ? nullptr
+                            : m_document.findNode(node->parentId);
+         parent;
+         parent = parent->parentId.empty()
+                      ? nullptr
+                      : m_document.findNode(parent->parentId)) {
+        const auto parentPosition =
+            parent->properties.find("position");
+        std::vector<float> parentValues;
+        if (parentPosition != parent->properties.end() &&
+            parseComponents(
+                parentPosition->second, "Vector3", parentValues) &&
+            parentValues.size() == 3) {
+            x += parentValues[0];
+            y += parentValues[1];
+            z += parentValues[2];
+        }
+    }
     return true;
 }
 

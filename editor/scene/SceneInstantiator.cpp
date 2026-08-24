@@ -399,7 +399,8 @@ namespace morrow::editor {
 bool SceneInstantiator::instantiate(const SceneDocument& document,
                                     const std::shared_ptr<Widget>& stage,
                                     const AssetDatabase* assets,
-                                    std::string& error) {
+                                    std::string& error,
+                                    SceneInstanceMap* instancesOut) {
     if (!stage) {
         error = "cannot instantiate scene without a stage widget";
         return false;
@@ -414,12 +415,10 @@ bool SceneInstantiator::instantiate(const SceneDocument& document,
             return false;
         }
         instance->setWidgetName(record.name);
-        for (const auto& [key, value] : record.properties) {
-            if (!applyProperty(record, instance, key, value,
-                               document, assets, error)) {
-                error = "line " + std::to_string(record.line) + ": " + error;
-                return false;
-            }
+        if (!updateNode(
+                document, record, instance, assets, error)) {
+            error = "line " + std::to_string(record.line) + ": " + error;
+            return false;
         }
         instances.emplace(record.id, std::move(instance));
     }
@@ -436,6 +435,54 @@ bool SceneInstantiator::instantiate(const SceneDocument& document,
             return false;
         }
         parent->second->addChild(instance);
+    }
+    if (instancesOut)
+        *instancesOut = instances;
+    return true;
+}
+
+bool SceneInstantiator::updateNode(
+    const SceneDocument& document,
+    const SceneNodeRecord& record,
+    const std::shared_ptr<Widget>& instance,
+    const AssetDatabase* assets,
+    std::string& error) {
+    if (!instance) {
+        error = "cannot update a null scene instance";
+        return false;
+    }
+    instance->setWidgetName(record.name);
+    for (const auto& [key, value] : record.properties) {
+        if (!applyProperty(
+                record, instance, key, value,
+                document, assets, error)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool SceneInstantiator::updateNodeTransform(
+    const SceneNodeRecord& record,
+    const std::shared_ptr<Widget>& instance,
+    std::string& error) {
+    if (!instance) {
+        error = "cannot update a null scene instance";
+        return false;
+    }
+    static const std::vector<std::string> properties = {
+        "position", "size", "scale", "rotation",
+        "visible", "display_layer"};
+    SceneDocument emptyDocument;
+    for (const auto& key : properties) {
+        const auto value = record.properties.find(key);
+        if (value == record.properties.end())
+            continue;
+        if (!applyProperty(
+                record, instance, key, value->second,
+                emptyDocument, nullptr, error)) {
+            return false;
+        }
     }
     return true;
 }

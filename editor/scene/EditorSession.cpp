@@ -85,18 +85,18 @@ bool EditorSession::selectNode(const std::string& nodeId, bool additive, std::st
 bool EditorSession::selectAt(float x, float y, std::string& error, bool additive) {
     const auto& nodes = m_document.nodes();
     for (auto iterator = nodes.rbegin(); iterator != nodes.rend(); ++iterator) {
-        const auto position = iterator->properties.find("position");
-        const auto size = iterator->properties.find("size");
-        if (position == iterator->properties.end() || size == iterator->properties.end()) {
+        float nodeX = 0.0f;
+        float nodeY = 0.0f;
+        float nodeZ = 0.0f;
+        float nodeWidth = 0.0f;
+        float nodeHeight = 0.0f;
+        if (!m_model.nodeWorldRect(
+                iterator->id, nodeX, nodeY, nodeZ,
+                nodeWidth, nodeHeight)) {
             continue;
         }
-        std::vector<float> positionValues;
-        std::vector<float> sizeValues;
-        if (!parseVector(position->second, "Vector3", positionValues) || !parseVector(size->second, "Vector2", sizeValues) || positionValues.size() != 3 ||
-            sizeValues.size() != 2) {
-            continue;
-        }
-        if (x >= positionValues[0] && y >= positionValues[1] && x <= positionValues[0] + sizeValues[0] && y <= positionValues[1] + sizeValues[1]) {
+        if (x >= nodeX && y >= nodeY &&
+            x <= nodeX + nodeWidth && y <= nodeY + nodeHeight) {
             return m_model.selectNode(iterator->id, additive, error);
         }
     }
@@ -177,6 +177,24 @@ bool EditorSession::moveGizmo(const std::string& nodeId, float x, float y, float
 
 bool EditorSession::resizeGizmo(const std::string& nodeId, float width, float height, bool continuous, std::string& error) {
     return setProperty(nodeId, "size", vector2(width, height), continuous, error);
+}
+
+bool EditorSession::setNodeRect(
+    const std::string& nodeId,
+    float x, float y, float z,
+    float width, float height,
+    bool continuous,
+    std::string& error) {
+    auto command = std::make_unique<SetNodeRectCommand>(
+        nodeId, vector3(x, y, z), vector2(width, height));
+    const bool changed =
+        continuous
+            ? m_history.executeOrMerge(
+                  std::move(command), m_document, error)
+            : m_history.execute(std::move(command), m_document, error);
+    if (changed)
+        m_dirty = true;
+    return changed;
 }
 
 bool EditorSession::undo(std::string& error) {
