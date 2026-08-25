@@ -725,9 +725,26 @@ void EditorShell::runBuild(BuildTaskKind kind) {
         setStatus("A build process is already running");
         return;
     }
-    const auto projectRoot = m_project.projectRoot();
+    if ((kind == BuildTaskKind::BuildAndRun ||
+         kind == BuildTaskKind::Run) &&
+        m_session->isDirty()) {
+        std::string saveError;
+        if (!m_session->save(saveError)) {
+            setStatus("Cannot run unsaved scene: " + saveError);
+            return;
+        }
+        setStatus("Scene saved for runtime");
+    }
+    const auto projectRoot =
+        m_project.pathValue("cmake_root", m_project.projectRoot());
     const auto buildRoot = m_project.pathValue("build_root", "build");
     const auto target = m_project.value("preview_target", "MorrowEditor");
+    const auto generator =
+        m_project.value("build_generator", "MinGW Makefiles");
+    const std::vector<std::string> runtimeArguments = {
+        "--project", m_projectPath.string(),
+        "--scene", m_scenePath.string(),
+    };
     const auto configuredExecutable = buildRoot / (target + ".exe");
     if (m_lastSuccessfulExecutable.empty()) {
         std::error_code searchError;
@@ -751,15 +768,23 @@ void EditorShell::runBuild(BuildTaskKind kind) {
     m_pendingBuildKind = kind;
     if (kind == BuildTaskKind::Run || kind == BuildTaskKind::BuildAndRun)
         setPreviewState(PreviewState::Starting);
-    m_buildFuture = std::async(std::launch::async, [this, kind, projectRoot, buildRoot, target] {
+    m_buildFuture = std::async(
+        std::launch::async,
+        [this, kind, projectRoot, buildRoot, target, generator,
+         runtimeArguments] {
         if (kind == BuildTaskKind::Configure)
-            return m_buildQueue.configure(projectRoot, buildRoot);
+            return m_buildQueue.configure(
+                projectRoot, buildRoot, generator);
         if (kind == BuildTaskKind::Build)
-            return m_buildQueue.build(projectRoot, buildRoot, target);
+            return m_buildQueue.build(
+                projectRoot, buildRoot, target, generator);
         if (kind == BuildTaskKind::BuildAndRun)
-            return m_buildQueue.buildAndRun(projectRoot, buildRoot, target);
+            return m_buildQueue.buildAndRun(
+                projectRoot, buildRoot, target, generator,
+                runtimeArguments);
         auto executable = m_lastSuccessfulExecutable.empty() ? buildRoot / (target + ".exe") : m_lastSuccessfulExecutable;
-        return m_buildQueue.runTarget(executable, executable.parent_path());
+        return m_buildQueue.runTarget(
+            executable, executable.parent_path(), runtimeArguments);
     });
 }
 

@@ -14,7 +14,7 @@ property size = Vector2(446.000, 155.000)
 property style = sub_resource("button_style")
 property text = "MorrowEditor Scene"
 
-[node id="node_0005" type="MRImage" parent="node_0001" name="Image"]
+[node id="node_0005" type="MRImage" parent="node_0001" name="ImageTest"]
 property position = Vector3(674.000, 67.000, 0.000)
 property size = Vector2(179.000, 127.000)
 property texture_asset = "asset_box_wood"

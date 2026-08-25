@@ -90,13 +90,10 @@ bool EditorSession::selectAt(float x, float y, std::string& error, bool additive
         float nodeZ = 0.0f;
         float nodeWidth = 0.0f;
         float nodeHeight = 0.0f;
-        if (!m_model.nodeWorldRect(
-                iterator->id, nodeX, nodeY, nodeZ,
-                nodeWidth, nodeHeight)) {
+        if (!m_model.nodeWorldRect(iterator->id, nodeX, nodeY, nodeZ, nodeWidth, nodeHeight)) {
             continue;
         }
-        if (x >= nodeX && y >= nodeY &&
-            x <= nodeX + nodeWidth && y <= nodeY + nodeHeight) {
+        if (x >= nodeX && y >= nodeY && x <= nodeX + nodeWidth && y <= nodeY + nodeHeight) {
             return m_model.selectNode(iterator->id, additive, error);
         }
     }
@@ -158,14 +155,8 @@ bool EditorSession::reparentNode(const std::string& nodeId, const std::string& p
     return changed;
 }
 
-bool EditorSession::renameNode(
-    const std::string& nodeId,
-    std::string name,
-    std::string& error) {
-    const bool changed = m_history.execute(
-        std::make_unique<RenameNodeCommand>(
-            nodeId, std::move(name)),
-        m_document, error);
+bool EditorSession::renameNode(const std::string& nodeId, std::string name, std::string& error) {
+    const bool changed = m_history.execute(std::make_unique<RenameNodeCommand>(nodeId, std::move(name)), m_document, error);
     if (changed)
         m_dirty = true;
     return changed;
@@ -179,19 +170,9 @@ bool EditorSession::resizeGizmo(const std::string& nodeId, float width, float he
     return setProperty(nodeId, "size", vector2(width, height), continuous, error);
 }
 
-bool EditorSession::setNodeRect(
-    const std::string& nodeId,
-    float x, float y, float z,
-    float width, float height,
-    bool continuous,
-    std::string& error) {
-    auto command = std::make_unique<SetNodeRectCommand>(
-        nodeId, vector3(x, y, z), vector2(width, height));
-    const bool changed =
-        continuous
-            ? m_history.executeOrMerge(
-                  std::move(command), m_document, error)
-            : m_history.execute(std::move(command), m_document, error);
+bool EditorSession::setNodeRect(const std::string& nodeId, float x, float y, float z, float width, float height, bool continuous, std::string& error) {
+    auto command = std::make_unique<SetNodeRectCommand>(nodeId, vector3(x, y, z), vector2(width, height));
+    const bool changed = continuous ? m_history.executeOrMerge(std::move(command), m_document, error) : m_history.execute(std::move(command), m_document, error);
     if (changed)
         m_dirty = true;
     return changed;

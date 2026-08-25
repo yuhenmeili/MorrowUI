@@ -102,15 +102,13 @@ bool DockLayout::load(const std::filesystem::path& path, std::string& error) {
             DockTabState tabs;
             size_t panelCount = 0;
             if (!(row >> tabs.id >> tabs.active >> panelCount)) {
-                error = "invalid tab layout at line " +
-                        std::to_string(lineNumber);
+                error = "invalid tab layout at line " + std::to_string(lineNumber);
                 return false;
             }
             for (size_t index = 0; index < panelCount; ++index) {
                 std::string panelId;
                 if (!(row >> panelId)) {
-                    error = "invalid tab panel list at line " +
-                            std::to_string(lineNumber);
+                    error = "invalid tab panel list at line " + std::to_string(lineNumber);
                     return false;
                 }
                 tabs.panels.push_back(std::move(panelId));
@@ -149,11 +147,9 @@ bool DockLayout::load(const std::filesystem::path& path, std::string& error) {
         if (scene)
             m_splits.push_back({"left", scene->width / std::max(1.0f, totalWidth)});
         if (viewport && inspector)
-            m_splits.push_back(
-                {"center", viewport->width / std::max(1.0f, viewport->width + inspector->width)});
+            m_splits.push_back({"center", viewport->width / std::max(1.0f, viewport->width + inspector->width)});
         if (output)
-            m_splits.push_back(
-                {"workspace", (output->y - 40.0f) / std::max(1.0f, totalHeight - 40.0f)});
+            m_splits.push_back({"workspace", (output->y - 40.0f) / std::max(1.0f, totalHeight - 40.0f)});
     }
     return true;
 }
@@ -175,8 +171,7 @@ bool DockLayout::save(const std::filesystem::path& path, std::string& error) con
         output << "split " << split.id << ' ' << split.ratio << '\n';
     }
     for (const auto& tabs : m_tabs) {
-        output << "tabs " << tabs.id << ' ' << tabs.active << ' '
-               << tabs.panels.size();
+        output << "tabs " << tabs.id << ' ' << tabs.active << ' ' << tabs.panels.size();
         for (const auto& panel : tabs.panels)
             output << ' ' << panel;
         output << '\n';

@@ -24,8 +24,7 @@ bool parseComponents(const std::string& value, const std::string& type, std::vec
     return true;
 }
 
-std::map<std::string, std::string> effectiveProperties(
-    const SceneNodeRecord& node) {
+std::map<std::string, std::string> effectiveProperties(const SceneNodeRecord& node) {
     std::map<std::string, std::string> properties = node.properties;
     if (node.type != "SceneNode") {
         properties.emplace("position", "Vector3(0.0, 0.0, 0.0)");
@@ -85,13 +84,10 @@ bool SceneEditorModel::selectedRect(float& x, float& y, float& width, float& hei
     if (m_selection.nodeIds.empty())
         return false;
     float z = 0.0f;
-    return nodeWorldRect(
-        m_selection.nodeIds.front(), x, y, z, width, height);
+    return nodeWorldRect(m_selection.nodeIds.front(), x, y, z, width, height);
 }
 
-bool SceneEditorModel::selectedLocalRect(
-    float& x, float& y, float& z,
-    float& width, float& height) const {
+bool SceneEditorModel::selectedLocalRect(float& x, float& y, float& z, float& width, float& height) const {
     if (m_selection.nodeIds.empty())
         return false;
     const auto* node = m_document.findNode(m_selection.nodeIds.front());
@@ -101,9 +97,8 @@ bool SceneEditorModel::selectedLocalRect(
     std::vector<float> size;
     const auto positionIt = node->properties.find("position");
     const auto sizeIt = node->properties.find("size");
-    if (positionIt == node->properties.end() || sizeIt == node->properties.end() ||
-        !parseComponents(positionIt->second, "Vector3", position) || !parseComponents(sizeIt->second, "Vector2", size) ||
-        position.size() != 3 || size.size() != 2)
+    if (positionIt == node->properties.end() || sizeIt == node->properties.end() || !parseComponents(positionIt->second, "Vector3", position) ||
+        !parseComponents(sizeIt->second, "Vector2", size) || position.size() != 3 || size.size() != 2)
         return false;
     x = position[0];
     y = position[1];
@@ -113,10 +108,7 @@ bool SceneEditorModel::selectedLocalRect(
     return true;
 }
 
-bool SceneEditorModel::nodeWorldRect(
-    const std::string& nodeId,
-    float& x, float& y, float& z,
-    float& width, float& height) const {
+bool SceneEditorModel::nodeWorldRect(const std::string& nodeId, float& x, float& y, float& z, float& width, float& height) const {
     const auto* node = m_document.findNode(nodeId);
     if (!node)
         return false;
@@ -124,11 +116,8 @@ bool SceneEditorModel::nodeWorldRect(
     std::vector<float> size;
     const auto positionIt = node->properties.find("position");
     const auto sizeIt = node->properties.find("size");
-    if (positionIt == node->properties.end() ||
-        sizeIt == node->properties.end() ||
-        !parseComponents(positionIt->second, "Vector3", position) ||
-        !parseComponents(sizeIt->second, "Vector2", size) ||
-        position.size() != 3 || size.size() != 2) {
+    if (positionIt == node->properties.end() || sizeIt == node->properties.end() || !parseComponents(positionIt->second, "Vector3", position) ||
+        !parseComponents(sizeIt->second, "Vector2", size) || position.size() != 3 || size.size() != 2) {
         return false;
     }
     x = position[0];
@@ -136,20 +125,11 @@ bool SceneEditorModel::nodeWorldRect(
     z = position[2];
     width = size[0];
     height = size[1];
-    for (auto* parent = node->parentId.empty()
-                            ? nullptr
-                            : m_document.findNode(node->parentId);
-         parent;
-         parent = parent->parentId.empty()
-                      ? nullptr
-                      : m_document.findNode(parent->parentId)) {
-        const auto parentPosition =
-            parent->properties.find("position");
+    for (auto* parent = node->parentId.empty() ? nullptr : m_document.findNode(node->parentId); parent;
+         parent = parent->parentId.empty() ? nullptr : m_document.findNode(parent->parentId)) {
+        const auto parentPosition = parent->properties.find("position");
         std::vector<float> parentValues;
-        if (parentPosition != parent->properties.end() &&
-            parseComponents(
-                parentPosition->second, "Vector3", parentValues) &&
-            parentValues.size() == 3) {
+        if (parentPosition != parent->properties.end() && parseComponents(parentPosition->second, "Vector3", parentValues) && parentValues.size() == 3) {
             x += parentValues[0];
             y += parentValues[1];
             z += parentValues[2];
@@ -191,8 +171,7 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
             }
             const auto selectedProperties = effectiveProperties(*selected);
             const auto selectedProperty = selectedProperties.find(name);
-            if (selectedProperty == selectedProperties.end() ||
-                selectedProperty->second != value) {
+            if (selectedProperty == selectedProperties.end() || selectedProperty->second != value) {
                 mixed = true;
                 break;
             }

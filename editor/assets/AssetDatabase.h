@@ -46,7 +46,9 @@ public:
 
     bool validateAssetReference(const std::string& assetId, std::string& error) const;
 
-    static constexpr int currentImporterVersion() { return 1; }
+    static constexpr int currentImporterVersion() {
+        return 1;
+    }
 
 private:
     bool loadImportFile(const std::filesystem::path& importPath, ImportMetadata& metadata, std::string& error) const;

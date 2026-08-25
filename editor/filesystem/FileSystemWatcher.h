@@ -48,6 +48,7 @@ private:
     using Snapshot = std::map<std::string, FileStamp>;
 
     Snapshot captureSnapshot() const;
+
     void run();
 
     std::filesystem::path m_root;

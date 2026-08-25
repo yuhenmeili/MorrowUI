@@ -13,22 +13,19 @@ class MRButton;
 class MRLabel;
 class MRLineEdit;
 class MRTextEdit;
-}
+}  // namespace morrow
 
 namespace morrow::editor {
 
 class RenameNodeDialog : public UIWidget {
 public:
     struct Events {
-        Observable<RenameNodeDialog&, const std::string&, const std::string&>
-            onConfirmed;
+        Observable<RenameNodeDialog&, const std::string&, const std::string&> onConfirmed;
     };
 
     static std::shared_ptr<RenameNodeDialog> create();
 
-    void show(
-        const std::string& nodeId,
-        const std::string& currentName);
+    void show(const std::string& nodeId, const std::string& currentName);
 
     void hideDialog();
 
@@ -51,8 +48,7 @@ private:
     std::shared_ptr<MRLineEdit> m_nameEdit;
     std::shared_ptr<MRButton> m_confirmButton;
     std::shared_ptr<MRButton> m_cancelButton;
-    Observable<MRTextEdit&, const std::wstring&>::Connection
-        m_submitConnection;
+    Observable<MRTextEdit&, const std::wstring&>::Connection m_submitConnection;
     Observable<BaseButton&>::Connection m_confirmConnection;
     Observable<BaseButton&>::Connection m_cancelConnection;
     std::string m_nodeId;

@@ -44,14 +44,9 @@ public:
 
     bool selectedRect(float& x, float& y, float& width, float& height) const;
 
-    bool selectedLocalRect(
-        float& x, float& y, float& z,
-        float& width, float& height) const;
+    bool selectedLocalRect(float& x, float& y, float& z, float& width, float& height) const;
 
-    bool nodeWorldRect(
-        const std::string& nodeId,
-        float& x, float& y, float& z,
-        float& width, float& height) const;
+    bool nodeWorldRect(const std::string& nodeId, float& x, float& y, float& z, float& width, float& height) const;
 
     std::vector<InspectorProperty> inspectSelected() const;
 

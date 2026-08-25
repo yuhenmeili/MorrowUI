@@ -27,18 +27,14 @@ namespace morrow::editor {
 
 class FileSystemPanel : public UIWidget {
 public:
-    static std::shared_ptr<FileSystemPanel> create(
-        ProjectFileSystemModel& model,
-        std::function<void(const std::string&)> statusCallback = {});
+    static std::shared_ptr<FileSystemPanel> create(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback = {});
 
     void refreshView();
 
     void update(FrameStateSharedPtr frameState) override;
 
 private:
-    FileSystemPanel(
-        ProjectFileSystemModel& model,
-        std::function<void(const std::string&)> statusCallback);
+    FileSystemPanel(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback);
 
     void initializeControls();
     void layoutControls();
@@ -71,14 +67,11 @@ private:
     Observable<BaseButton&>::Connection m_sortConnection;
     Observable<BaseButton&>::Connection m_viewConnection;
     Observable<BaseButton&>::Connection m_backConnection;
-    Observable<MRTextEdit&, const std::wstring&>::Connection
-        m_searchConnection;
-    Observable<MRTree&, int, const std::wstring&>::Connection
-        m_selectionConnection;
+    Observable<MRTextEdit&, const std::wstring&>::Connection m_searchConnection;
+    Observable<MRTree&, int, const std::wstring&>::Connection m_selectionConnection;
     std::vector<EventConnection> m_gridConnections;
     std::vector<std::pair<int, std::shared_ptr<MRButton>>> m_gridCards;
-    std::vector<std::pair<std::filesystem::path, std::shared_ptr<MRImage>>>
-        m_gridImages;
+    std::vector<std::pair<std::filesystem::path, std::shared_ptr<MRImage>>> m_gridImages;
     FileSystemWatcher m_watcher;
     ThumbnailService m_thumbnails;
     std::filesystem::path m_currentDirectory = ".";

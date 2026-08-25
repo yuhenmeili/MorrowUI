@@ -2,9 +2,9 @@
 
 #include <cctype>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <unordered_set>
-#include <iomanip>
 
 namespace {
 
@@ -135,8 +135,7 @@ bool AssetDatabase::scan(const std::filesystem::path& projectRoot, const std::fi
         }
         if (asset.imported) {
             const auto sourceHash = fileHash(entry.path());
-            asset.needsImport = sourceHash.empty() || sourceHash != asset.import.sourceHash ||
-                                asset.import.importerVersion != currentImporterVersion();
+            asset.needsImport = sourceHash.empty() || sourceHash != asset.import.sourceHash || asset.import.importerVersion != currentImporterVersion();
         }
         m_assets.push_back(std::move(asset));
     }

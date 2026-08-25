@@ -5,11 +5,61 @@
 #endif
 #include <windows.h>
 
-#include <thread>
 #include <regex>
 #include <sstream>
+#include <thread>
 
 namespace {
+std::string quoteWindowsArgument(const std::string& argument) {
+    if (!argument.empty() && argument.find_first_of(" \t\n\v\"") == std::string::npos) {
+        return argument;
+    }
+
+    std::string quoted{"\""};
+    size_t backslashes = 0;
+    for (const char character : argument) {
+        if (character == '\\') {
+            ++backslashes;
+            continue;
+        }
+        if (character == '"') {
+            quoted.append(backslashes * 2 + 1, '\\');
+            quoted.push_back('"');
+        } else {
+            quoted.append(backslashes, '\\');
+            quoted.push_back(character);
+        }
+        backslashes = 0;
+    }
+    quoted.append(backslashes * 2, '\\');
+    quoted.push_back('"');
+    return quoted;
+}
+
+std::filesystem::path resolveExecutable(const std::filesystem::path& executable) {
+    if (executable.has_parent_path())
+        return executable;
+
+    std::vector<char> buffer(MAX_PATH);
+    while (true) {
+        const DWORD length = SearchPathA(nullptr, executable.string().c_str(), ".exe", static_cast<DWORD>(buffer.size()), buffer.data(), nullptr);
+        if (length == 0)
+            return executable;
+        if (length < buffer.size())
+            return std::filesystem::path(std::string(buffer.data(), length));
+        buffer.resize(static_cast<size_t>(length) + 1);
+    }
+}
+
+std::string makeCommandLine(const std::filesystem::path& executable, const std::vector<std::string>& arguments) {
+    std::string commandLine = quoteWindowsArgument(executable.string());
+    for (const auto& argument : arguments) {
+        commandLine.push_back(' ');
+        commandLine += quoteWindowsArgument(argument);
+    }
+    return commandLine;
+}
+
 std::filesystem::path findExecutable(const std::filesystem::path& buildRoot, const std::string& target) {
     const auto direct = buildRoot / (target + ".exe");
     if (std::filesystem::exists(direct))
@@ -65,7 +115,10 @@ std::vector<BuildOutputChunk> BuildQueue::drainOutput() const {
     return result;
 }
 
-BuildTaskResult BuildQueue::run(BuildTaskKind kind, const std::string& command, const std::filesystem::path& workingDirectory) const {
+BuildTaskResult BuildQueue::run(BuildTaskKind kind, const std::filesystem::path& executable, const std::vector<std::string>& arguments,
+                                const std::filesystem::path& workingDirectory, bool showChildWindows) const {
+    const auto resolvedExecutable = resolveExecutable(executable);
+    const auto command = makeCommandLine(resolvedExecutable, arguments);
     BuildTaskResult result{kind, false, -1, command, {}, {}, {}};
     m_cancelRequested.store(false);
     m_state.store(BuildProcessState::Running);
@@ -94,15 +147,19 @@ BuildTaskResult BuildQueue::run(BuildTaskKind kind, const std::string& command, 
 
     STARTUPINFOA startup{};
     startup.cb = sizeof(startup);
-    startup.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-    startup.wShowWindow = SW_HIDE;
+    startup.dwFlags = STARTF_USESTDHANDLES;
+    if (!showChildWindows) {
+        startup.dwFlags |= STARTF_USESHOWWINDOW;
+        startup.wShowWindow = SW_HIDE;
+    }
     startup.hStdOutput = stdoutWrite;
     startup.hStdError = stderrWrite;
     startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     PROCESS_INFORMATION process{};
-    std::string commandLine = "cmd.exe /D /S /C \"" + command + "\"";
-    const BOOL started = CreateProcessA(nullptr, commandLine.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr,
-                                        workingDirectory.string().c_str(), &startup, &process);
+    std::string commandLine = command;
+    const DWORD creationFlags = showChildWindows ? 0 : CREATE_NO_WINDOW;
+    const BOOL started = CreateProcessA(resolvedExecutable.string().c_str(), commandLine.data(), nullptr, nullptr, TRUE, creationFlags, nullptr, workingDirectory.string().c_str(),
+                                        &startup, &process);
     CloseHandle(stdoutWrite);
     CloseHandle(stderrWrite);
     if (!started) {
@@ -111,6 +168,13 @@ BuildTaskResult BuildQueue::run(BuildTaskKind kind, const std::string& command, 
         result.output = "failed to start process, error=" + std::to_string(GetLastError());
         m_state.store(BuildProcessState::Failed);
         return result;
+    }
+    HANDLE job = CreateJobObjectA(nullptr, nullptr);
+    if (job) {
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits));
+        AssignProcessToJobObject(job, process.hProcess);
     }
     const auto reader = [this](HANDLE pipe, bool stderrStream, std::string& output) {
         char buffer[1024];
@@ -125,7 +189,10 @@ BuildTaskResult BuildQueue::run(BuildTaskKind kind, const std::string& command, 
     while (WaitForSingleObject(process.hProcess, 20) == WAIT_TIMEOUT) {
         if (m_cancelRequested.load()) {
             result.cancelled = true;
-            TerminateProcess(process.hProcess, ERROR_CANCELLED);
+            if (job)
+                TerminateJobObject(job, ERROR_CANCELLED);
+            else
+                TerminateProcess(process.hProcess, ERROR_CANCELLED);
             break;
         }
     }
@@ -135,6 +202,8 @@ BuildTaskResult BuildQueue::run(BuildTaskKind kind, const std::string& command, 
     result.exitCode = static_cast<int>(exitCode);
     CloseHandle(process.hThread);
     CloseHandle(process.hProcess);
+    if (job)
+        CloseHandle(job);
     stdoutThread.join();
     stderrThread.join();
     CloseHandle(stdoutRead);
@@ -147,22 +216,46 @@ BuildTaskResult BuildQueue::run(BuildTaskKind kind, const std::string& command, 
 }
 
 BuildTaskResult BuildQueue::configure(const std::filesystem::path& projectRoot, const std::filesystem::path& buildRoot, const std::string& generator) const {
-    const auto command = "cmake -S \"" + projectRoot.string() + "\" -B \"" + buildRoot.string() + "\" -G \"" + generator + "\"";
-    return run(BuildTaskKind::Configure, command, projectRoot);
+    std::vector<std::string> arguments{
+        "-S",
+        projectRoot.string(),
+        "-B",
+        buildRoot.string(),
+    };
+    if (!std::filesystem::exists(buildRoot / "CMakeCache.txt") && !generator.empty()) {
+        arguments.emplace_back("-G");
+        arguments.push_back(generator);
+    }
+    return run(BuildTaskKind::Configure, "cmake.exe", arguments, projectRoot);
 }
 
-BuildTaskResult BuildQueue::build(const std::filesystem::path& projectRoot, const std::filesystem::path& buildRoot, const std::string& target) const {
-    const auto command = "cmake --build \"" + buildRoot.string() + "\" --target \"" + target + "\"";
-    return run(BuildTaskKind::Build, command, projectRoot);
+BuildTaskResult BuildQueue::build(const std::filesystem::path& projectRoot, const std::filesystem::path& buildRoot, const std::string& target, const std::string& generator) const {
+    auto configureResult = configure(projectRoot, buildRoot, generator);
+    configureResult.kind = BuildTaskKind::Build;
+    if (!configureResult.success || configureResult.cancelled)
+        return configureResult;
+    const std::vector<std::string> arguments{
+        "--build",
+        buildRoot.string(),
+        "--target",
+        target,
+    };
+    auto result = run(BuildTaskKind::Build, "cmake.exe", arguments, projectRoot);
+    result.stdoutText = configureResult.stdoutText + result.stdoutText;
+    result.stderrText = configureResult.stderrText + result.stderrText;
+    result.output = result.stdoutText + result.stderrText;
+    result.diagnostics.insert(result.diagnostics.begin(), configureResult.diagnostics.begin(), configureResult.diagnostics.end());
+    return result;
 }
 
-BuildTaskResult BuildQueue::buildAndRun(const std::filesystem::path& projectRoot, const std::filesystem::path& buildRoot, const std::string& target) const {
-    auto result = build(projectRoot, buildRoot, target);
+BuildTaskResult BuildQueue::buildAndRun(const std::filesystem::path& projectRoot, const std::filesystem::path& buildRoot, const std::string& target, const std::string& generator,
+                                        const std::vector<std::string>& arguments) const {
+    auto result = build(projectRoot, buildRoot, target, generator);
     result.kind = BuildTaskKind::BuildAndRun;
     if (!result.success || result.cancelled)
         return result;
     const auto executable = findExecutable(buildRoot, target);
-    auto runResult = runTarget(executable, executable.parent_path());
+    auto runResult = runTarget(executable, executable.parent_path(), arguments);
     result.success = runResult.success;
     result.exitCode = runResult.exitCode;
     result.stdoutText += runResult.stdoutText;
@@ -172,12 +265,8 @@ BuildTaskResult BuildQueue::buildAndRun(const std::filesystem::path& projectRoot
     return result;
 }
 
-BuildTaskResult BuildQueue::runTarget(const std::filesystem::path& executable, const std::filesystem::path& workingDirectory,
-                                      const std::vector<std::string>& arguments) const {
-    std::string command = "\"" + executable.string() + "\"";
-    for (const auto& argument : arguments)
-        command += " \"" + argument + "\"";
-    return run(BuildTaskKind::Run, command, workingDirectory);
+BuildTaskResult BuildQueue::runTarget(const std::filesystem::path& executable, const std::filesystem::path& workingDirectory, const std::vector<std::string>& arguments) const {
+    return run(BuildTaskKind::Run, executable, arguments, workingDirectory, true);
 }
 
 void BuildQueue::cancel() const {

@@ -6,16 +6,16 @@
 #include <vector>
 
 #include "SceneDocument.h"
-#include "assets/AssetDatabase.h"
 #include "Vector3.h"
 #include "Vector4.h"
+#include "assets/AssetDatabase.h"
 #include "base/Transform.h"
 #include "base/UIWidget.h"
-#include "elements/MRButton.h"
 #include "elements/MR3DSceneView.h"
 #include "elements/MRAnchorPointScale.h"
 #include "elements/MRBounce.h"
 #include "elements/MRBrakePedal.h"
+#include "elements/MRButton.h"
 #include "elements/MRCanvasModulate.h"
 #include "elements/MRCheckBox.h"
 #include "elements/MRCheckButton.h"
@@ -53,9 +53,9 @@
 #include "elements/MRVideoStreamPlayer.h"
 #include "layout/CenterContainer.h"
 #include "layout/HBoxContainer.h"
-#include "layout/MarginContainer.h"
 #include "layout/MRSplitContainer.h"
 #include "layout/MRTabContainer.h"
+#include "layout/MarginContainer.h"
 #include "layout/VBoxContainer.h"
 
 namespace {
@@ -72,8 +72,7 @@ public:
 
 class CatalogPlaceholderWidget final : public morrow::UIWidget {
 public:
-    explicit CatalogPlaceholderWidget(const std::string& type)
-        : UIWidget(false) {
+    explicit CatalogPlaceholderWidget(const std::string& type) : UIWidget(false) {
         setWidgetType(type);
     }
 };
@@ -134,72 +133,114 @@ std::shared_ptr<morrow::Widget> createNode(const morrow::editor::SceneNodeRecord
     if (record.type == "MRImage") {
         return morrow::MRImage::create();
     }
-    if (record.type == "MRColor") return morrow::MRColor::create();
-    if (record.type == "MRCheckBox") return morrow::MRCheckBox::create();
-    if (record.type == "MRCheckButton") return morrow::MRCheckButton::create();
-    if (record.type == "MRRadioButton") return morrow::MRRadioButton::create();
-    if (record.type == "MRToggle") return morrow::MRToggle::create();
-    if (record.type == "MRLineEdit") return morrow::MRLineEdit::create();
-    if (record.type == "MRTextEdit") return morrow::MRTextEdit::create();
-    if (record.type == "MRSpinBox") return morrow::MRSpinBox::create();
-    if (record.type == "MRSlider") return morrow::MRSlider::create();
-    if (record.type == "MRMenuButton") return morrow::MRMenuButton::create();
-    if (record.type == "MROptionButton") return morrow::MROptionButton::create();
-    if (record.type == "MRTextureButton") return morrow::MRTextureButton::create();
-    if (record.type == "MRProgressBar") return morrow::MRProgressBar::create();
-    if (record.type == "MRItemList") return morrow::MRItemList::create();
-    if (record.type == "MRTree") return morrow::MRTree::create();
-    if (record.type == "MRRichTextLabel") return morrow::MRRichTextLabel::create();
-    if (record.type == "MRScrollBar") return morrow::MRScrollBar::create();
-    if (record.type == "MRScrollContainer") return morrow::MRScrollContainer::create();
-    if (record.type == "MRSpacer") return morrow::MRSpacer::create();
-    if (record.type == "MRHSeparator") return morrow::MRHSeparator::create();
-    if (record.type == "MRVSeparator") return morrow::MRVSeparator::create();
-    if (record.type == "CenterContainer") return std::make_shared<morrow::CenterContainer>();
-    if (record.type == "HBoxContainer") return std::make_shared<morrow::HBoxContainer>();
-    if (record.type == "VBoxContainer") return std::make_shared<morrow::VBoxContainer>();
-    if (record.type == "MarginContainer") return std::make_shared<morrow::MarginContainer>();
-    if (record.type == "MRSplitContainer") return morrow::MRSplitContainer::create();
-    if (record.type == "MRTabContainer") return morrow::MRTabContainer::create();
-    if (record.type == "MRPopup") return morrow::MRPopup::create();
-    if (record.type == "MRPopupPanel") return morrow::MRPopupPanel::create();
-    if (record.type == "MRWindow") return morrow::MRWindow::create();
-    if (record.type == "MRDialog") return morrow::MRDialog::create();
-    if (record.type == "MRTooltip") return morrow::MRTooltip::create();
-    if (record.type == "MRPopupMenu") return morrow::MRPopupMenu::create();
-    if (record.type == "MR3DSceneView") return morrow::MR3DSceneView::create();
-    if (record.type == "MRCanvasModulate") return morrow::MRCanvasModulate::create();
-    if (record.type == "MRParallax2D") return morrow::MRParallax2D::create();
-    if (record.type == "MRParallaxBackground") return morrow::MRParallaxBackground::create();
-    if (record.type == "MRCPUParticles2D") return morrow::MRCPUParticles2D::create();
-    if (record.type == "MRGPUParticles2D") return morrow::MRGPUParticles2D::create();
-    if (record.type == "MRFrameAnimation") return morrow::MRFrameAnimation::create();
-    if (record.type == "MRBounce") return morrow::MRBounce::create();
-    if (record.type == "MRFlowingLight") return morrow::MRFlowingLight::create();
-    if (record.type == "MRAnchorPointScale") return morrow::MRAnchorPointScale::create();
-    if (record.type == "MRBrakePedal") return morrow::MRBrakePedal::create();
-    if (record.type == "MRGearsIris") return morrow::MRGearsIris::create();
-    if (record.type == "MRGearsOpening") return morrow::MRGearsOpening::create();
-    if (record.type == "MRGearsSelect") return morrow::MRGearsSelect::create();
-    if (record.type == "MRGearsShine") return morrow::MRGearsShine::create();
+    if (record.type == "MRColor")
+        return morrow::MRColor::create();
+    if (record.type == "MRCheckBox")
+        return morrow::MRCheckBox::create();
+    if (record.type == "MRCheckButton")
+        return morrow::MRCheckButton::create();
+    if (record.type == "MRRadioButton")
+        return morrow::MRRadioButton::create();
+    if (record.type == "MRToggle")
+        return morrow::MRToggle::create();
+    if (record.type == "MRLineEdit")
+        return morrow::MRLineEdit::create();
+    if (record.type == "MRTextEdit")
+        return morrow::MRTextEdit::create();
+    if (record.type == "MRSpinBox")
+        return morrow::MRSpinBox::create();
+    if (record.type == "MRSlider")
+        return morrow::MRSlider::create();
+    if (record.type == "MRMenuButton")
+        return morrow::MRMenuButton::create();
+    if (record.type == "MROptionButton")
+        return morrow::MROptionButton::create();
+    if (record.type == "MRTextureButton")
+        return morrow::MRTextureButton::create();
+    if (record.type == "MRProgressBar")
+        return morrow::MRProgressBar::create();
+    if (record.type == "MRItemList")
+        return morrow::MRItemList::create();
+    if (record.type == "MRTree")
+        return morrow::MRTree::create();
+    if (record.type == "MRRichTextLabel")
+        return morrow::MRRichTextLabel::create();
+    if (record.type == "MRScrollBar")
+        return morrow::MRScrollBar::create();
+    if (record.type == "MRScrollContainer")
+        return morrow::MRScrollContainer::create();
+    if (record.type == "MRSpacer")
+        return morrow::MRSpacer::create();
+    if (record.type == "MRHSeparator")
+        return morrow::MRHSeparator::create();
+    if (record.type == "MRVSeparator")
+        return morrow::MRVSeparator::create();
+    if (record.type == "CenterContainer")
+        return std::make_shared<morrow::CenterContainer>();
+    if (record.type == "HBoxContainer")
+        return std::make_shared<morrow::HBoxContainer>();
+    if (record.type == "VBoxContainer")
+        return std::make_shared<morrow::VBoxContainer>();
+    if (record.type == "MarginContainer")
+        return std::make_shared<morrow::MarginContainer>();
+    if (record.type == "MRSplitContainer")
+        return morrow::MRSplitContainer::create();
+    if (record.type == "MRTabContainer")
+        return morrow::MRTabContainer::create();
+    if (record.type == "MRPopup")
+        return morrow::MRPopup::create();
+    if (record.type == "MRPopupPanel")
+        return morrow::MRPopupPanel::create();
+    if (record.type == "MRWindow")
+        return morrow::MRWindow::create();
+    if (record.type == "MRDialog")
+        return morrow::MRDialog::create();
+    if (record.type == "MRTooltip")
+        return morrow::MRTooltip::create();
+    if (record.type == "MRPopupMenu")
+        return morrow::MRPopupMenu::create();
+    if (record.type == "MR3DSceneView")
+        return morrow::MR3DSceneView::create();
+    if (record.type == "MRCanvasModulate")
+        return morrow::MRCanvasModulate::create();
+    if (record.type == "MRParallax2D")
+        return morrow::MRParallax2D::create();
+    if (record.type == "MRParallaxBackground")
+        return morrow::MRParallaxBackground::create();
+    if (record.type == "MRCPUParticles2D")
+        return morrow::MRCPUParticles2D::create();
+    if (record.type == "MRGPUParticles2D")
+        return morrow::MRGPUParticles2D::create();
+    if (record.type == "MRFrameAnimation")
+        return morrow::MRFrameAnimation::create();
+    if (record.type == "MRBounce")
+        return morrow::MRBounce::create();
+    if (record.type == "MRFlowingLight")
+        return morrow::MRFlowingLight::create();
+    if (record.type == "MRAnchorPointScale")
+        return morrow::MRAnchorPointScale::create();
+    if (record.type == "MRBrakePedal")
+        return morrow::MRBrakePedal::create();
+    if (record.type == "MRGearsIris")
+        return morrow::MRGearsIris::create();
+    if (record.type == "MRGearsOpening")
+        return morrow::MRGearsOpening::create();
+    if (record.type == "MRGearsSelect")
+        return morrow::MRGearsSelect::create();
+    if (record.type == "MRGearsShine")
+        return morrow::MRGearsShine::create();
     if (record.type == "MRVideoStreamPlayer") {
         return morrow::MRVideoStreamPlayer::create(320, 180, 30.0f, 1);
     }
-    if (record.type.rfind("MR", 0) == 0 ||
-        record.type.find("Container") != std::string::npos) {
+    if (record.type.rfind("MR", 0) == 0 || record.type.find("Container") != std::string::npos) {
         return std::make_shared<CatalogPlaceholderWidget>(record.type);
     }
     error = "unsupported scene node type '" + record.type + "'";
     return nullptr;
 }
 
-bool applyProperty(const morrow::editor::SceneNodeRecord& record,
-                   const std::shared_ptr<morrow::Widget>& widget,
-                   const std::string& key,
-                   const std::string& value,
-                   const morrow::editor::SceneDocument& document,
-                   const morrow::editor::AssetDatabase* assets,
-                   std::string& error) {
+bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::shared_ptr<morrow::Widget>& widget, const std::string& key, const std::string& value,
+                   const morrow::editor::SceneDocument& document, const morrow::editor::AssetDatabase* assets, std::string& error) {
     if (key == "visible") {
         bool visible = true;
         if (!parseBool(value, visible)) {
@@ -241,25 +282,20 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record,
         }
         if (key == "scale") {
             std::vector<float> components;
-            if (!parseVector(value, "Vector3", components) ||
-                components.size() != 3) {
+            if (!parseVector(value, "Vector3", components) || components.size() != 3) {
                 error = "property 'scale' must be Vector3(x, y, z)";
                 return false;
             }
-            transform->setScale(
-                components[0], components[1], components[2]);
+            transform->setScale(components[0], components[1], components[2]);
             return true;
         }
         if (key == "rotation") {
             std::vector<float> components;
-            if (!parseVector(value, "Vector3", components) ||
-                components.size() != 3) {
+            if (!parseVector(value, "Vector3", components) || components.size() != 3) {
                 error = "property 'rotation' must be Vector3(x, y, z)";
                 return false;
             }
-            transform->setRotation(
-                Vector3(0.0f, 0.0f, 1.0f),
-                components[2] * 3.14159265359f / 180.0f);
+            transform->setRotation(Vector3(0.0f, 0.0f, 1.0f), components[2] * 3.14159265359f / 180.0f);
             return true;
         }
     }
@@ -289,22 +325,18 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record,
         }
         if (key == "background_texture") {
             constexpr const char* prefix = "resource(\"";
-            if (value.compare(0, std::strlen(prefix), prefix) != 0 ||
-                value.size() <= std::strlen(prefix) + 2 ||
-                value.back() != ')') {
+            if (value.compare(0, std::strlen(prefix), prefix) != 0 || value.size() <= std::strlen(prefix) + 2 || value.back() != ')') {
                 error = "property 'background_texture' must reference resource(\"id\")";
                 return false;
             }
-            const auto localId = value.substr(
-                std::strlen(prefix), value.size() - std::strlen(prefix) - 2);
+            const auto localId = value.substr(std::strlen(prefix), value.size() - std::strlen(prefix) - 2);
             const auto resource = document.findExternalResource(localId);
             if (!resource) {
                 error = "external resource '" + localId + "' was not found";
                 return false;
             }
             if (!assets || resource->assetId.empty()) {
-                error = "external resource '" + localId +
-                        "' has no resolvable asset_id";
+                error = "external resource '" + localId + "' has no resolvable asset_id";
                 return false;
             }
             const auto asset = assets->findById(resource->assetId);
@@ -319,14 +351,11 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record,
         }
         if (key == "style") {
             constexpr const char* prefix = "sub_resource(\"";
-            if (value.compare(0, std::strlen(prefix), prefix) != 0 ||
-                value.size() <= std::strlen(prefix) + 2 ||
-                value.back() != ')') {
+            if (value.compare(0, std::strlen(prefix), prefix) != 0 || value.size() <= std::strlen(prefix) + 2 || value.back() != ')') {
                 error = "property 'style' must reference sub_resource(\"id\")";
                 return false;
             }
-            const auto styleId = value.substr(
-                std::strlen(prefix), value.size() - std::strlen(prefix) - 2);
+            const auto styleId = value.substr(std::strlen(prefix), value.size() - std::strlen(prefix) - 2);
             const auto style = document.findSubResource(styleId);
             if (!style) {
                 error = "sub_resource '" + styleId + "' was not found";
@@ -337,14 +366,11 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record,
                     button->setCornerRadius(std::stof(styleValue));
                 } else if (styleKey == "background_color") {
                     std::vector<float> components;
-                    if (!parseVector(styleValue, "Color", components) ||
-                        components.size() != 4) {
+                    if (!parseVector(styleValue, "Color", components) || components.size() != 4) {
                         error = "style background_color must be Color(r, g, b, a)";
                         return false;
                     }
-                    button->setBackgroundColor(Vector4(
-                        components[0], components[1],
-                        components[2], components[3]));
+                    button->setBackgroundColor(Vector4(components[0], components[1], components[2], components[3]));
                 }
             }
             return true;
@@ -365,8 +391,7 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record,
                 return false;
             }
             auto texture = morrow::Texture::create();
-            texture->setImageUrl(
-                assets->resolveSourcePath(value).string());
+            texture->setImageUrl(assets->resolveSourcePath(value).string());
             image->setTexture(texture);
             return true;
         }
@@ -396,10 +421,7 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record,
 
 namespace morrow::editor {
 
-bool SceneInstantiator::instantiate(const SceneDocument& document,
-                                    const std::shared_ptr<Widget>& stage,
-                                    const AssetDatabase* assets,
-                                    std::string& error,
+bool SceneInstantiator::instantiate(const SceneDocument& document, const std::shared_ptr<Widget>& stage, const AssetDatabase* assets, std::string& error,
                                     SceneInstanceMap* instancesOut) {
     if (!stage) {
         error = "cannot instantiate scene without a stage widget";
@@ -415,8 +437,7 @@ bool SceneInstantiator::instantiate(const SceneDocument& document,
             return false;
         }
         instance->setWidgetName(record.name);
-        if (!updateNode(
-                document, record, instance, assets, error)) {
+        if (!updateNode(document, record, instance, assets, error)) {
             error = "line " + std::to_string(record.line) + ": " + error;
             return false;
         }
@@ -441,46 +462,33 @@ bool SceneInstantiator::instantiate(const SceneDocument& document,
     return true;
 }
 
-bool SceneInstantiator::updateNode(
-    const SceneDocument& document,
-    const SceneNodeRecord& record,
-    const std::shared_ptr<Widget>& instance,
-    const AssetDatabase* assets,
-    std::string& error) {
+bool SceneInstantiator::updateNode(const SceneDocument& document, const SceneNodeRecord& record, const std::shared_ptr<Widget>& instance, const AssetDatabase* assets,
+                                   std::string& error) {
     if (!instance) {
         error = "cannot update a null scene instance";
         return false;
     }
     instance->setWidgetName(record.name);
     for (const auto& [key, value] : record.properties) {
-        if (!applyProperty(
-                record, instance, key, value,
-                document, assets, error)) {
+        if (!applyProperty(record, instance, key, value, document, assets, error)) {
             return false;
         }
     }
     return true;
 }
 
-bool SceneInstantiator::updateNodeTransform(
-    const SceneNodeRecord& record,
-    const std::shared_ptr<Widget>& instance,
-    std::string& error) {
+bool SceneInstantiator::updateNodeTransform(const SceneNodeRecord& record, const std::shared_ptr<Widget>& instance, std::string& error) {
     if (!instance) {
         error = "cannot update a null scene instance";
         return false;
     }
-    static const std::vector<std::string> properties = {
-        "position", "size", "scale", "rotation",
-        "visible", "display_layer"};
+    static const std::vector<std::string> properties = {"position", "size", "scale", "rotation", "visible", "display_layer"};
     SceneDocument emptyDocument;
     for (const auto& key : properties) {
         const auto value = record.properties.find(key);
         if (value == record.properties.end())
             continue;
-        if (!applyProperty(
-                record, instance, key, value->second,
-                emptyDocument, nullptr, error)) {
+        if (!applyProperty(record, instance, key, value->second, emptyDocument, nullptr, error)) {
             return false;
         }
     }

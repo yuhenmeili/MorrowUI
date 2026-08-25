@@ -46,12 +46,7 @@ public:
 
     bool resizeGizmo(const std::string& nodeId, float width, float height, bool continuous, std::string& error);
 
-    bool setNodeRect(
-        const std::string& nodeId,
-        float x, float y, float z,
-        float width, float height,
-        bool continuous,
-        std::string& error);
+    bool setNodeRect(const std::string& nodeId, float x, float y, float z, float width, float height, bool continuous, std::string& error);
 
     bool moveSelection(float dx, float dy, bool continuous, std::string& error);
 

@@ -17,9 +17,13 @@ public:
 
     virtual bool undo(SceneDocument& document, std::string& error) = 0;
 
-    virtual bool canMergeWith(const SceneCommand& other) const { return false; }
+    virtual bool canMergeWith(const SceneCommand& other) const {
+        return false;
+    }
 
-    virtual bool mergeFrom(const SceneCommand& other) { return false; }
+    virtual bool mergeFrom(const SceneCommand& other) {
+        return false;
+    }
 };
 
 class SetNodePropertyCommand final : public SceneCommand {
@@ -75,10 +79,7 @@ private:
 
 class SetNodeRectCommand final : public SceneCommand {
 public:
-    SetNodeRectCommand(
-        std::string nodeId,
-        std::string position,
-        std::string size);
+    SetNodeRectCommand(std::string nodeId, std::string position, std::string size);
 
     bool execute(SceneDocument& document, std::string& error) override;
 
@@ -100,8 +101,11 @@ private:
 class AddNodeCommand final : public SceneCommand {
 public:
     explicit AddNodeCommand(SceneNodeRecord node);
+
     bool execute(SceneDocument& document, std::string& error) override;
+
     bool undo(SceneDocument& document, std::string& error) override;
+
 private:
     SceneNodeRecord m_node;
 };
@@ -109,8 +113,11 @@ private:
 class DeleteNodeCommand final : public SceneCommand {
 public:
     explicit DeleteNodeCommand(std::string nodeId);
+
     bool execute(SceneDocument& document, std::string& error) override;
+
     bool undo(SceneDocument& document, std::string& error) override;
+
 private:
     std::string m_nodeId;
     std::vector<SceneNodeRecord> m_removed;
@@ -120,8 +127,11 @@ private:
 class DuplicateNodeCommand final : public SceneCommand {
 public:
     DuplicateNodeCommand(std::string sourceId, std::string duplicateId);
+
     bool execute(SceneDocument& document, std::string& error) override;
+
     bool undo(SceneDocument& document, std::string& error) override;
+
 private:
     std::string m_sourceId;
     std::string m_duplicateId;
@@ -132,9 +142,7 @@ class CommandHistory {
 public:
     bool execute(std::unique_ptr<SceneCommand> command, SceneDocument& document, std::string& error);
 
-    bool executeOrMerge(std::unique_ptr<SceneCommand> command,
-                        SceneDocument& document,
-                        std::string& error);
+    bool executeOrMerge(std::unique_ptr<SceneCommand> command, SceneDocument& document, std::string& error);
 
     bool undo(SceneDocument& document, std::string& error);
 

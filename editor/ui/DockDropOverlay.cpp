@@ -2,14 +2,13 @@
 
 #include <algorithm>
 
-#include "base/Transform.h"
 #include "base/MeshRenderer.h"
+#include "base/Transform.h"
 #include "elements/MRButton.h"
 
 namespace {
 
-std::shared_ptr<morrow::UIWidget> makeZone(
-    const morrow::Math::Vector4& color) {
+std::shared_ptr<morrow::UIWidget> makeZone(const morrow::Math::Vector4& color) {
     auto zone = morrow::MRButton::create();
     zone->setInteractive(false);
     zone->setCornerRadius(2.0f);
@@ -57,16 +56,11 @@ void DockDropOverlay::setZone(DockDropZone zone) {
     m_zone = zone;
     const Vector4 active(0.30f, 0.68f, 1.0f, 0.80f);
     const Vector4 normal(0.16f, 0.38f, 0.72f, 0.55f);
-    m_center->getComponent<MeshRenderer>()->getMaterial()->setVector(
-        "color", zone == DockDropZone::Center ? active : normal);
-    m_left->getComponent<MeshRenderer>()->getMaterial()->setVector(
-        "color", zone == DockDropZone::Left ? active : normal);
-    m_right->getComponent<MeshRenderer>()->getMaterial()->setVector(
-        "color", zone == DockDropZone::Right ? active : normal);
-    m_top->getComponent<MeshRenderer>()->getMaterial()->setVector(
-        "color", zone == DockDropZone::Top ? active : normal);
-    m_bottom->getComponent<MeshRenderer>()->getMaterial()->setVector(
-        "color", zone == DockDropZone::Bottom ? active : normal);
+    m_center->getComponent<MeshRenderer>()->getMaterial()->setVector("color", zone == DockDropZone::Center ? active : normal);
+    m_left->getComponent<MeshRenderer>()->getMaterial()->setVector("color", zone == DockDropZone::Left ? active : normal);
+    m_right->getComponent<MeshRenderer>()->getMaterial()->setVector("color", zone == DockDropZone::Right ? active : normal);
+    m_top->getComponent<MeshRenderer>()->getMaterial()->setVector("color", zone == DockDropZone::Top ? active : normal);
+    m_bottom->getComponent<MeshRenderer>()->getMaterial()->setVector("color", zone == DockDropZone::Bottom ? active : normal);
 }
 
 DockDropZone DockDropOverlay::zone() const {
@@ -79,22 +73,15 @@ void DockDropOverlay::layoutZones() {
     const float edgeHeight = std::max(55.0f, size.y * 0.22f);
     const float centerWidth = std::max(100.0f, size.x * 0.36f);
     const float centerHeight = std::max(80.0f, size.y * 0.36f);
-    m_center->getTransform()->setPosition(
-        (size.x - centerWidth) * 0.5f,
-        (size.y - centerHeight) * 0.5f,
-        0.0f);
+    m_center->getTransform()->setPosition((size.x - centerWidth) * 0.5f, (size.y - centerHeight) * 0.5f, 0.0f);
     m_center->getTransform()->setSize(centerWidth, centerHeight);
     m_left->getTransform()->setPosition(10.0f, (size.y - edgeHeight) * 0.5f, 0.0f);
     m_left->getTransform()->setSize(edgeWidth, edgeHeight);
-    m_right->getTransform()->setPosition(
-        size.x - edgeWidth - 10.0f, (size.y - edgeHeight) * 0.5f, 0.0f);
+    m_right->getTransform()->setPosition(size.x - edgeWidth - 10.0f, (size.y - edgeHeight) * 0.5f, 0.0f);
     m_right->getTransform()->setSize(edgeWidth, edgeHeight);
     m_top->getTransform()->setPosition((size.x - centerWidth) * 0.5f, 10.0f, 0.0f);
     m_top->getTransform()->setSize(centerWidth, edgeHeight);
-    m_bottom->getTransform()->setPosition(
-        (size.x - centerWidth) * 0.5f,
-        size.y - edgeHeight - 10.0f,
-        0.0f);
+    m_bottom->getTransform()->setPosition((size.x - centerWidth) * 0.5f, size.y - edgeHeight - 10.0f, 0.0f);
     m_bottom->getTransform()->setSize(centerWidth, edgeHeight);
 }
 

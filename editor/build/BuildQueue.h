@@ -1,11 +1,11 @@
 #ifndef MORROW_EDITOR_BUILD_QUEUE_H
 #define MORROW_EDITOR_BUILD_QUEUE_H
 
-#include <filesystem>
 #include <atomic>
+#include <filesystem>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <mutex>
 
 namespace morrow::editor {
 
@@ -42,20 +42,26 @@ class BuildQueue {
 public:
     BuildTaskResult configure(const std::filesystem::path& projectRoot, const std::filesystem::path& buildRoot, const std::string& generator = "Ninja") const;
 
-    BuildTaskResult build(const std::filesystem::path& projectRoot, const std::filesystem::path& buildRoot, const std::string& target) const;
+    BuildTaskResult build(const std::filesystem::path& projectRoot, const std::filesystem::path& buildRoot, const std::string& target,
+                          const std::string& generator = "Ninja") const;
 
-    BuildTaskResult buildAndRun(const std::filesystem::path& projectRoot, const std::filesystem::path& buildRoot, const std::string& target) const;
+    BuildTaskResult buildAndRun(const std::filesystem::path& projectRoot, const std::filesystem::path& buildRoot, const std::string& target, const std::string& generator,
+                                const std::vector<std::string>& arguments = {}) const;
 
-    BuildTaskResult runTarget(const std::filesystem::path& executable, const std::filesystem::path& workingDirectory,
-                              const std::vector<std::string>& arguments = {}) const;
+    BuildTaskResult runTarget(const std::filesystem::path& executable, const std::filesystem::path& workingDirectory, const std::vector<std::string>& arguments = {}) const;
 
     void cancel() const;
+
     BuildProcessState state() const;
+
     std::vector<BuildOutputChunk> drainOutput() const;
 
 private:
-    BuildTaskResult run(BuildTaskKind kind, const std::string& command, const std::filesystem::path& workingDirectory) const;
+    BuildTaskResult run(BuildTaskKind kind, const std::filesystem::path& executable, const std::vector<std::string>& arguments, const std::filesystem::path& workingDirectory,
+                        bool showChildWindows = false) const;
+
     void pushOutput(bool stderrStream, const char* data, size_t size) const;
+
     mutable std::atomic<bool> m_cancelRequested{false};
     mutable std::atomic<BuildProcessState> m_state{BuildProcessState::Idle};
     mutable std::mutex m_outputMutex;

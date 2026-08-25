@@ -212,10 +212,8 @@ bool SceneDocument::loadFromFile(const std::filesystem::path& path, SceneDocumen
                 resource.assetId = attributes["asset_id"];
                 resource.type = attributes["type"];
                 resource.path = attributes["path"];
-                if (resource.id.empty() || resource.type.empty() ||
-                    (resource.assetId.empty() && resource.path.empty())) {
-                    error = "line " + std::to_string(lineNumber) +
-                            ": external_resource requires id, type and asset_id or path";
+                if (resource.id.empty() || resource.type.empty() || (resource.assetId.empty() && resource.path.empty())) {
+                    error = "line " + std::to_string(lineNumber) + ": external_resource requires id, type and asset_id or path";
                     return false;
                 }
                 parsed.m_externalResources.push_back(std::move(resource));
@@ -311,8 +309,7 @@ bool SceneDocument::saveToFile(const std::filesystem::path& path, std::string& e
 
     output << "[morrow_scene format=1]\n";
     for (const auto& resource : m_externalResources) {
-        output << "\n[external_resource id=" << quote(resource.id)
-               << " type=" << quote(resource.type);
+        output << "\n[external_resource id=" << quote(resource.id) << " type=" << quote(resource.type);
         if (!resource.assetId.empty()) {
             output << " asset_id=" << quote(resource.assetId);
         }
@@ -355,16 +352,12 @@ const SceneNodeRecord* SceneDocument::findNode(const std::string& id) const {
 }
 
 const SceneResourceRecord* SceneDocument::findExternalResource(const std::string& id) const {
-    const auto iterator = std::find_if(
-        m_externalResources.begin(), m_externalResources.end(),
-        [&id](const SceneResourceRecord& resource) { return resource.id == id; });
+    const auto iterator = std::find_if(m_externalResources.begin(), m_externalResources.end(), [&id](const SceneResourceRecord& resource) { return resource.id == id; });
     return iterator == m_externalResources.end() ? nullptr : &*iterator;
 }
 
 const SceneSubResourceRecord* SceneDocument::findSubResource(const std::string& id) const {
-    const auto iterator = std::find_if(
-        m_subResources.begin(), m_subResources.end(),
-        [&id](const SceneSubResourceRecord& resource) { return resource.id == id; });
+    const auto iterator = std::find_if(m_subResources.begin(), m_subResources.end(), [&id](const SceneSubResourceRecord& resource) { return resource.id == id; });
     return iterator == m_subResources.end() ? nullptr : &*iterator;
 }
 
@@ -417,10 +410,7 @@ bool SceneDocument::reparentNode(const std::string& nodeId, const std::string& p
     return true;
 }
 
-bool SceneDocument::renameNode(
-    const std::string& nodeId,
-    std::string name,
-    std::string& error) {
+bool SceneDocument::renameNode(const std::string& nodeId, std::string name, std::string& error) {
     auto node = findNode(nodeId);
     if (!node) {
         error = "node '" + nodeId + "' was not found";
@@ -430,13 +420,9 @@ bool SceneDocument::renameNode(
         error = "node name cannot be empty";
         return false;
     }
-    const bool duplicate = std::any_of(
-        m_nodes.begin(), m_nodes.end(),
-        [&nodeId, &name, &node](const SceneNodeRecord& existing) {
-            return existing.id != nodeId &&
-                   existing.parentId == node->parentId &&
-                   existing.name == name;
-        });
+    const bool duplicate = std::any_of(m_nodes.begin(), m_nodes.end(), [&nodeId, &name, &node](const SceneNodeRecord& existing) {
+        return existing.id != nodeId && existing.parentId == node->parentId && existing.name == name;
+    });
     if (duplicate) {
         error = "a sibling node named '" + name + "' already exists";
         return false;
@@ -462,9 +448,7 @@ bool SceneDocument::addNode(SceneNodeRecord node, std::string& error) {
     return true;
 }
 
-bool SceneDocument::removeNodeSubtree(const std::string& nodeId,
-                                      std::vector<SceneNodeRecord>& removed,
-                                      std::string& error) {
+bool SceneDocument::removeNodeSubtree(const std::string& nodeId, std::vector<SceneNodeRecord>& removed, std::string& error) {
     if (!findNode(nodeId)) {
         error = "node '" + nodeId + "' was not found";
         return false;
@@ -472,19 +456,17 @@ bool SceneDocument::removeNodeSubtree(const std::string& nodeId,
     std::vector<std::string> ids{nodeId};
     for (size_t index = 0; index < ids.size(); ++index) {
         for (const auto& node : m_nodes) {
-            if (node.parentId == ids[index]) ids.push_back(node.id);
+            if (node.parentId == ids[index])
+                ids.push_back(node.id);
         }
     }
     for (const auto& id : ids) {
         const auto node = findNode(id);
-        if (node) removed.push_back(*node);
+        if (node)
+            removed.push_back(*node);
     }
-    m_nodes.erase(
-        std::remove_if(m_nodes.begin(), m_nodes.end(),
-                       [&ids](const SceneNodeRecord& node) {
-                           return std::find(ids.begin(), ids.end(), node.id) != ids.end();
-                       }),
-        m_nodes.end());
+    m_nodes.erase(std::remove_if(m_nodes.begin(), m_nodes.end(), [&ids](const SceneNodeRecord& node) { return std::find(ids.begin(), ids.end(), node.id) != ids.end(); }),
+                  m_nodes.end());
     return true;
 }
 

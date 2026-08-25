@@ -55,9 +55,7 @@ public:
 
     bool addNode(SceneNodeRecord node, std::string& error);
 
-    bool removeNodeSubtree(const std::string& nodeId,
-                           std::vector<SceneNodeRecord>& removed,
-                           std::string& error);
+    bool removeNodeSubtree(const std::string& nodeId, std::vector<SceneNodeRecord>& removed, std::string& error);
 
     const std::vector<SceneResourceRecord>& externalResources() const;
 

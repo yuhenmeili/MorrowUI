@@ -36,8 +36,14 @@ target_include_directories(morrow_editor_runtime PUBLIC ${CMAKE_CURRENT_SOURCE_D
 add_executable(MorrowEditor Editor.cpp)
 target_link_libraries(MorrowEditor PRIVATE morrow_editor_runtime)
 
+add_executable(MorrowSceneRuntime SceneRuntime.cpp)
+target_link_libraries(MorrowSceneRuntime PRIVATE morrow_editor_runtime)
+
 target_compile_definitions(MorrowEditor PRIVATE
     MORROW_EDITOR_TEST_PROJECT="${CMAKE_SOURCE_DIR}/editor/morrow.gui/MorrowUI.morrow"
+)
+target_compile_definitions(MorrowSceneRuntime PRIVATE
+    MORROW_RUNTIME_TEST_PROJECT="${CMAKE_SOURCE_DIR}/editor/morrow.gui/MorrowUI.morrow"
 )
 
 add_custom_command(TARGET MorrowEditor POST_BUILD
@@ -45,6 +51,13 @@ add_custom_command(TARGET MorrowEditor POST_BUILD
     "${CMAKE_SOURCE_DIR}/assets"
     "$<TARGET_FILE_DIR:MorrowEditor>/assets"
     COMMENT "Copying assets to $<TARGET_FILE_DIR:MorrowEditor>/assets"
+)
+
+add_custom_command(TARGET MorrowSceneRuntime POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/assets"
+    "$<TARGET_FILE_DIR:MorrowSceneRuntime>/assets"
+    COMMENT "Copying runtime assets to $<TARGET_FILE_DIR:MorrowSceneRuntime>/assets"
 )
 
 if(BUILD_TESTING)
@@ -71,4 +84,10 @@ if(BUILD_TESTING)
     )
     target_link_libraries(FileSystemEnhancementTests PRIVATE morrow_editor_document)
     add_test(NAME FileSystemEnhancementTests COMMAND FileSystemEnhancementTests)
+
+    add_executable(BuildQueueTests
+        ${CMAKE_SOURCE_DIR}/tests/BuildQueueTests.cpp
+    )
+    target_link_libraries(BuildQueueTests PRIVATE morrow_editor_document)
+    add_test(NAME BuildQueueTests COMMAND BuildQueueTests)
 endif()

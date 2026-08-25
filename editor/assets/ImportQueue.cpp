@@ -95,8 +95,8 @@ bool ImportQueue::importOne(const AssetRecord& asset, const std::filesystem::pat
     return true;
 }
 
-bool ImportQueue::retry(const AssetRecord& asset, const std::filesystem::path& projectRoot, const std::string& platform, ImportTaskResult& result,
-                        std::string& error, int maxAttempts) const {
+bool ImportQueue::retry(const AssetRecord& asset, const std::filesystem::path& projectRoot, const std::string& platform, ImportTaskResult& result, std::string& error,
+                        int maxAttempts) const {
     result = {};
     for (int attempt = 0; attempt < maxAttempts; ++attempt) {
         if (importOne(asset, projectRoot, platform, result, error))
