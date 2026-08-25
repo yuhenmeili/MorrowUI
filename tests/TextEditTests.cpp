@@ -27,11 +27,15 @@ void typeCharacter(const std::shared_ptr<Widget>& widget, wchar_t character) {
     widget->dispatchTouchEvent(event);
 }
 
-void pressKey(const std::shared_ptr<Widget>& widget, TouchKeyCode keyCode) {
+void pressKey(
+    const std::shared_ptr<Widget>& widget,
+    TouchKeyCode keyCode,
+    uint32_t modifiers = TOUCH_MODIFIER_NONE) {
     TouchEvent event;
     event.eventType = TOUCH_EVENT_TYPE_KEY_DOWN;
     event.deviceType = TOUCH_DEVICE_TYPE_KEYBOARD;
     event.keyCode = keyCode;
+    event.modifiers = modifiers;
     widget->dispatchTouchEvent(event);
 }
 
@@ -84,11 +88,40 @@ void testLineEditSubmissionAndPasswordMode() {
     expect(edit->getText() == L"firstsecond", "line edit should remove newline characters from assigned text");
 }
 
+void testSelectionCopyAndReplacement() {
+    auto edit = MRTextEdit::create();
+    edit->setText(L"build output");
+    edit->setReadOnly(true);
+
+    std::wstring copied;
+    auto copyConnection = edit->events().onCopyRequested.connect(
+        [&copied](MRTextEdit&, const std::wstring& text) {
+            copied = text;
+        });
+    pressKey(edit, TOUCH_KEY_A, TOUCH_MODIFIER_CTRL);
+    expect(edit->hasSelection(), "Ctrl+A should select text in a read-only edit");
+    expect(
+        edit->getSelectedText() == L"build output",
+        "read-only selection should expose the selected log text");
+    pressKey(edit, TOUCH_KEY_C, TOUCH_MODIFIER_CTRL);
+    expect(
+        copied == L"build output",
+        "Ctrl+C should request a copy of the selected text");
+
+    edit->setReadOnly(false);
+    typeCharacter(edit, L'X');
+    expect(
+        edit->getText() == L"X",
+        "typing should replace the active selection");
+    expect(!edit->hasSelection(), "replacement should clear the selection");
+}
+
 }  // namespace
 
 int main() {
     testMultilineEditing();
     testLineEditSubmissionAndPasswordMode();
+    testSelectionCopyAndReplacement();
 
     if (g_failures != 0) {
         std::cerr << g_failures << " text edit test(s) failed\n";

@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "MRColor.h"
 #include "MRLabel.h"
@@ -17,6 +18,7 @@ public:
     struct Events {
         Observable<MRTextEdit&, const std::wstring&> onTextChanged;
         Observable<MRTextEdit&, const std::wstring&> onSubmitted;
+        Observable<MRTextEdit&, const std::wstring&> onCopyRequested;
     };
 
     /// 创建一个支持多行输入的文本编辑框。
@@ -43,6 +45,8 @@ public:
 
     /// 设置输入文本和占位文字的字号。
     void setFontSize(float fontSize);
+
+    void setAutoWrap(bool enabled);
 
     /// 设置正常输入文本的颜色。
     void setTextColor(const Vector4& color);
@@ -87,6 +91,14 @@ public:
         return m_focused;
     }
 
+    void selectAll();
+
+    void clearSelection();
+
+    bool hasSelection() const;
+
+    std::wstring getSelectedText() const;
+
     /// 由输入系统通知键盘焦点变化，并同步背景与光标显示。
     void onFocusChanged(bool focused) override;
 
@@ -110,7 +122,13 @@ protected:
 private:
     void handleCharacter(uint32_t codepoint);
 
-    void handleKeyDown(TouchKeyCode keyCode);
+    void handleKeyDown(const TouchEvent& event);
+
+    void handlePointerDown(const TouchEvent& event);
+
+    void handlePointerMove(const TouchEvent& event);
+
+    void handlePointerRelease(const TouchEvent& event);
 
     void insertCharacter(wchar_t character);
 
@@ -118,12 +136,19 @@ private:
 
     void eraseAtCursor();
 
+    void eraseSelection();
+
+    size_t textPositionAt(float screenX, float screenY) const;
+
     void layoutChildren();
 
     void updateCursorVisual();
 
+    void updateSelectionVisuals();
+
 protected:
     MRColorSharedPtr m_background;
+    std::vector<MRColorSharedPtr> m_selectionRects;
     std::shared_ptr<MRLabel> m_label;
     MRColorSharedPtr m_cursor;
     std::wstring m_text;
@@ -136,12 +161,18 @@ protected:
     Events m_events;
     EventConnection m_characterConnection;
     EventConnection m_keyDownConnection;
+    EventConnection m_pointerDownConnection;
+    EventConnection m_pointerMoveConnection;
+    EventConnection m_pointerReleaseConnection;
     size_t m_cursorPosition = 0;
+    size_t m_selectionAnchor = 0;
+    size_t m_selectionPosition = 0;
     size_t m_maxLength = 0;
     float m_fontSize = 22.0f;
     bool m_multiline = true;
     bool m_readOnly = false;
     bool m_focused = false;
+    bool m_selectingWithPointer = false;
 };
 
 using MRTextEditSharedPtr = std::shared_ptr<MRTextEdit>;

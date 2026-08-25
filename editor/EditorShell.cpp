@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <codecvt>
 #include <fstream>
 #include <iomanip>
+#include <locale>
 #include <sstream>
 #include <utility>
 
@@ -48,9 +50,7 @@ std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float
     return panel;
 }
 
-bool isDescendantOf(
-    std::shared_ptr<morrow::Widget> widget,
-    const std::shared_ptr<morrow::Widget>& ancestor) {
+bool isDescendantOf(std::shared_ptr<morrow::Widget> widget, const std::shared_ptr<morrow::Widget>& ancestor) {
     while (widget) {
         if (widget == ancestor)
             return true;
@@ -59,31 +59,21 @@ bool isDescendantOf(
     return false;
 }
 
-bool parseTypedComponents(
-    const std::string& value,
-    const std::string& type,
-    std::vector<std::string>& components) {
-    if (value.rfind(type + "(", 0) != 0 || value.empty() ||
-        value.back() != ')') {
+bool parseTypedComponents(const std::string& value, const std::string& type, std::vector<std::string>& components) {
+    if (value.rfind(type + "(", 0) != 0 || value.empty() || value.back() != ')') {
         return false;
     }
-    std::istringstream stream(
-        value.substr(type.size() + 1, value.size() - type.size() - 2));
+    std::istringstream stream(value.substr(type.size() + 1, value.size() - type.size() - 2));
     std::string component;
     while (std::getline(stream, component, ',')) {
         const auto first = component.find_first_not_of(" \t");
         const auto last = component.find_last_not_of(" \t");
-        components.push_back(
-            first == std::string::npos
-                ? std::string{}
-                : component.substr(first, last - first + 1));
+        components.push_back(first == std::string::npos ? std::string{} : component.substr(first, last - first + 1));
     }
     return !components.empty();
 }
 
-std::string typedComponents(
-    const std::string& type,
-    const std::vector<std::string>& components) {
+std::string typedComponents(const std::string& type, const std::vector<std::string>& components) {
     std::ostringstream output;
     output << type << '(';
     for (size_t index = 0; index < components.size(); ++index) {
@@ -95,15 +85,27 @@ std::string typedComponents(
     return output.str();
 }
 
-const morrow::editor::InspectorProperty* findInspectorProperty(
-    const std::vector<morrow::editor::InspectorProperty>& properties,
-    const std::string& name) {
-    const auto iterator = std::find_if(
-        properties.begin(), properties.end(),
-        [&name](const morrow::editor::InspectorProperty& property) {
-            return property.name == name;
-        });
+const morrow::editor::InspectorProperty* findInspectorProperty(const std::vector<morrow::editor::InspectorProperty>& properties, const std::string& name) {
+    const auto iterator = std::find_if(properties.begin(), properties.end(), [&name](const morrow::editor::InspectorProperty& property) { return property.name == name; });
     return iterator == properties.end() ? nullptr : &*iterator;
+}
+
+std::wstring wide(const std::string& text) {
+    try {
+        std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+        return converter.from_bytes(text);
+    } catch (...) {
+        return std::wstring(text.begin(), text.end());
+    }
+}
+
+std::string narrow(const std::wstring& text) {
+    try {
+        std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+        return converter.to_bytes(text);
+    } catch (...) {
+        return std::string(text.begin(), text.end());
+    }
 }
 
 }  // namespace
@@ -336,13 +338,6 @@ void EditorShell::buildLayout() {
     m_createNodeDialog = CreateNodeDialog::create(m_nodeTypeCatalog);
     m_createNodeConnection = m_createNodeDialog->events().onConfirmed.connect(
         [this](CreateNodeDialog&, const NodeTypeDescriptor& descriptor, const std::string& parentId) { createChildNode(descriptor, parentId); });
-    m_renameNodeDialog = RenameNodeDialog::create();
-    m_renameNodeConnection =
-        m_renameNodeDialog->events().onConfirmed.connect(
-            [this](RenameNodeDialog&, const std::string& nodeId,
-                   const std::string& name) {
-                renameSceneNode(nodeId, name);
-            });
     m_sceneContextMenu = MRPopupMenu::create();
     m_sceneContextMenu->setMenuWidth(220.0f);
     m_sceneContextMenu->addItem(L"Add Child Node...", 1);
@@ -352,40 +347,33 @@ void EditorShell::buildLayout() {
         if (id == 1)
             showCreateNodeDialog(m_sceneContextParentId);
         else if (id == 2)
-            showRenameNodeDialog(m_sceneContextParentId);
+            beginSceneNodeRename(m_sceneContextParentId);
         else if (id == 3)
             deleteSelectedSceneNode();
     });
     m_textureAssetMenu = MRPopupMenu::create();
     m_textureAssetMenu->setMenuWidth(320.0f);
-    m_textureAssetMenuConnection =
-        m_textureAssetMenu->events().onItemSelected.connect(
-            [this](MRPopupMenu&, int id, const std::wstring&) {
-                const auto iterator = m_textureAssetMenuIds.find(id);
-                if (iterator == m_textureAssetMenuIds.end())
-                    return;
-                std::string error;
-                bool changed = false;
-                for (const auto& nodeId : m_textureEditNodeIds) {
-                    if (!m_session->setProperty(
-                            nodeId, m_textureEditProperty,
-                            iterator->second, false, error)) {
-                        break;
-                    }
-                    changed = true;
-                }
-                if (changed) {
-                    syncSelectedRuntimeNodes(false);
-                    refreshSelectionOverlay();
-                    refreshInspector();
-                    setStatus(
-                        iterator->second.empty()
-                            ? "Cleared texture resource"
-                            : "Assigned texture asset " + iterator->second);
-                } else if (!error.empty()) {
-                    setStatus(error);
-                }
-            });
+    m_textureAssetMenuConnection = m_textureAssetMenu->events().onItemSelected.connect([this](MRPopupMenu&, int id, const std::wstring&) {
+        const auto iterator = m_textureAssetMenuIds.find(id);
+        if (iterator == m_textureAssetMenuIds.end())
+            return;
+        std::string error;
+        bool changed = false;
+        for (const auto& nodeId : m_textureEditNodeIds) {
+            if (!m_session->setProperty(nodeId, m_textureEditProperty, iterator->second, false, error)) {
+                break;
+            }
+            changed = true;
+        }
+        if (changed) {
+            syncSelectedRuntimeNodes(false);
+            refreshSelectionOverlay();
+            refreshInspector();
+            setStatus(iterator->second.empty() ? "Cleared texture resource" : "Assigned texture asset " + iterator->second);
+        } else if (!error.empty()) {
+            setStatus(error);
+        }
+    });
 
     m_centerSplit = MRSplitContainer::create();
     m_centerSplit->setOrientation(SplitOrientation::Horizontal);
@@ -404,7 +392,6 @@ void EditorShell::buildLayout() {
     m_shellRoot->addChild(m_workspaceSplit);
     m_shellRoot->addChild(m_dockDropOverlay);
     m_shellRoot->addChild(m_createNodeDialog);
-    m_shellRoot->addChild(m_renameNodeDialog);
     m_viewportPanel->addChild(m_previewRoot);
     m_window->addChild(m_shellRoot);
 
@@ -483,8 +470,29 @@ void EditorShell::buildLayout() {
     addButton(m_sceneTreePanel, L"+", 196.0f, 4.0f, 34.0f, 28.0f, [this] { showCreateNodeDialog(); });
     addLabel(m_viewportPanel, "2D Viewport", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_inspectorPanel, "Inspector", 8.0f, 6.0f, 260.0f, 28.0f);
-    addLabel(m_buildPanel, "Build / Run", 8.0f, 3.0f, 260.0f, 24.0f);
-    addLabel(m_buildPanel, "Use the toolbar commands to configure, build, run, or stop.", 8.0f, 30.0f, 620.0f, 22.0f);
+    addLabel(m_statusPanel, "Output / Assets / Build", 8.0f, 2.0f, 360.0f, 22.0f);
+    addLabel(m_buildPanel, "Build / Run", 8.0f, 2.0f, 260.0f, 22.0f);
+    const auto makeLogEdit = [this](const std::shared_ptr<UIWidget>& panel) {
+        auto edit = MRTextEdit::create();
+        edit->setReadOnly(true);
+        edit->setFontSize(15.0f);
+        edit->setAutoWrap(false);
+        edit->setTextColor(Vector4(0.92f, 0.94f, 0.97f, 1.0f));
+        edit->setBackgroundColor(Vector4(0.08f, 0.10f, 0.13f, 1.0f));
+        edit->setFocusedBackgroundColor(Vector4(0.09f, 0.12f, 0.16f, 1.0f));
+        if (auto interaction = edit->getComponent<Interaction>())
+            interaction->setClickEnabled(false);
+        m_copyConnections.emplace_back(edit->events().onCopyRequested.connect([this](MRTextEdit&, const std::wstring& selected) {
+            if (!m_window || !m_window->getSurface())
+                return;
+            const auto utf8 = narrow(selected);
+            glfwSetClipboardString(static_cast<GLFWwindow*>(m_window->getSurface()), utf8.c_str());
+        }));
+        panel->addChild(edit);
+        return edit;
+    };
+    m_outputLogEdit = makeLogEdit(m_statusPanel);
+    m_buildLogEdit = makeLogEdit(m_buildPanel);
     applyDockLayout();
     refreshOutput();
 }
@@ -520,10 +528,6 @@ void EditorShell::applyDockLayout() {
         m_dockDropOverlay->setWorkspaceBounds(m_workspaceSplit->getScreenSpaceAABB());
     if (m_createNodeDialog && m_shellRoot)
         m_createNodeDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
-    if (m_renameNodeDialog && m_shellRoot)
-        m_renameNodeDialog->getTransform()->setSize(
-            m_shellRoot->getTransform()->getSize());
-
     const Vector3 viewportSize = m_viewportPanel->getTransform()->getSize();
     m_viewportWidth = viewportSize.x;
     m_viewportHeight = viewportSize.y;
@@ -708,16 +712,41 @@ void EditorShell::handleFramebufferResize(const Vector2& size) {
 }
 
 void EditorShell::refreshOutput() {
-    if (!m_statusPanel)
+    if (!m_statusPanel || !m_buildPanel)
         return;
-    m_statusPanel->m_children.clear();
-    addLabel(m_statusPanel, "Output / Assets / Build", 8.0f, 2.0f, 360.0f, 22.0f);
-    float y = 26.0f;
-    const float contentWidth = std::max(1.0f, m_statusPanel->getTransform()->getSize().x - 16.0f);
-    for (const auto& line : m_outputLines) {
-        addLabel(m_statusPanel, line, 8.0f, y, contentWidth, 20.0f);
-        y += 21.0f;
+    std::wstring text;
+    for (size_t index = 0; index < m_outputLines.size(); ++index) {
+        if (index > 0)
+            text.push_back(L'\n');
+        text += wide(m_outputLines[index]);
     }
+    const auto updateLog = [&text](const std::shared_ptr<MRTextEdit>& edit, const std::shared_ptr<UIWidget>& panel) {
+        if (!edit || !panel)
+            return;
+        const Vector3 panelSize = panel->getTransform()->getSize();
+        edit->getTransform()->setPosition(6.0f, 25.0f, 0.0f);
+        edit->getTransform()->setSize(std::max(1.0f, panelSize.x - 12.0f), std::max(1.0f, panelSize.y - 31.0f));
+        if (edit->getText() != text)
+            edit->setText(text);
+    };
+    updateLog(m_outputLogEdit, m_statusPanel);
+    updateLog(m_buildLogEdit, m_buildPanel);
+}
+
+void EditorShell::cancelSceneNodeRename() {
+    if (!m_sceneRenameEdit)
+        return;
+    m_sceneRenameEdit->onFocusChanged(false);
+    if (m_sceneTreePanel)
+        m_sceneTreePanel->removeChild(m_sceneRenameEdit);
+    for (auto& row : m_sceneTreeRows) {
+        if (row.nodeId == m_sceneRenameNodeId && row.button) {
+            row.button->setVisible(true);
+            break;
+        }
+    }
+    m_sceneRenameEdit.reset();
+    m_sceneRenameNodeId.clear();
 }
 
 void EditorShell::runBuild(BuildTaskKind kind) {
@@ -725,9 +754,7 @@ void EditorShell::runBuild(BuildTaskKind kind) {
         setStatus("A build process is already running");
         return;
     }
-    if ((kind == BuildTaskKind::BuildAndRun ||
-         kind == BuildTaskKind::Run) &&
-        m_session->isDirty()) {
+    if ((kind == BuildTaskKind::BuildAndRun || kind == BuildTaskKind::Run) && m_session->isDirty()) {
         std::string saveError;
         if (!m_session->save(saveError)) {
             setStatus("Cannot run unsaved scene: " + saveError);
@@ -735,15 +762,15 @@ void EditorShell::runBuild(BuildTaskKind kind) {
         }
         setStatus("Scene saved for runtime");
     }
-    const auto projectRoot =
-        m_project.pathValue("cmake_root", m_project.projectRoot());
+    const auto projectRoot = m_project.pathValue("cmake_root", m_project.projectRoot());
     const auto buildRoot = m_project.pathValue("build_root", "build");
     const auto target = m_project.value("preview_target", "MorrowEditor");
-    const auto generator =
-        m_project.value("build_generator", "MinGW Makefiles");
+    const auto generator = m_project.value("build_generator", "MinGW Makefiles");
     const std::vector<std::string> runtimeArguments = {
-        "--project", m_projectPath.string(),
-        "--scene", m_scenePath.string(),
+        "--project",
+        m_projectPath.string(),
+        "--scene",
+        m_scenePath.string(),
     };
     const auto configuredExecutable = buildRoot / (target + ".exe");
     if (m_lastSuccessfulExecutable.empty()) {
@@ -768,23 +795,15 @@ void EditorShell::runBuild(BuildTaskKind kind) {
     m_pendingBuildKind = kind;
     if (kind == BuildTaskKind::Run || kind == BuildTaskKind::BuildAndRun)
         setPreviewState(PreviewState::Starting);
-    m_buildFuture = std::async(
-        std::launch::async,
-        [this, kind, projectRoot, buildRoot, target, generator,
-         runtimeArguments] {
+    m_buildFuture = std::async(std::launch::async, [this, kind, projectRoot, buildRoot, target, generator, runtimeArguments] {
         if (kind == BuildTaskKind::Configure)
-            return m_buildQueue.configure(
-                projectRoot, buildRoot, generator);
+            return m_buildQueue.configure(projectRoot, buildRoot, generator);
         if (kind == BuildTaskKind::Build)
-            return m_buildQueue.build(
-                projectRoot, buildRoot, target, generator);
+            return m_buildQueue.build(projectRoot, buildRoot, target, generator);
         if (kind == BuildTaskKind::BuildAndRun)
-            return m_buildQueue.buildAndRun(
-                projectRoot, buildRoot, target, generator,
-                runtimeArguments);
+            return m_buildQueue.buildAndRun(projectRoot, buildRoot, target, generator, runtimeArguments);
         auto executable = m_lastSuccessfulExecutable.empty() ? buildRoot / (target + ".exe") : m_lastSuccessfulExecutable;
-        return m_buildQueue.runTarget(
-            executable, executable.parent_path(), runtimeArguments);
+        return m_buildQueue.runTarget(executable, executable.parent_path(), runtimeArguments);
     });
 }
 
@@ -875,6 +894,7 @@ void EditorShell::showAssetBrowser() {
 void EditorShell::refreshSceneTree() {
     if (!m_sceneTreePanel)
         return;
+    cancelSceneNodeRename();
     while (m_sceneTreePanel->m_children.size() > 2) {
         m_sceneTreePanel->m_children.pop_back();
     }
@@ -884,7 +904,7 @@ void EditorShell::refreshSceneTree() {
     const float panelWidth = std::max(80.0f, m_sceneTreePanel->getTransform()->getSize().x);
     for (const auto& item : m_session->model().buildSceneTree()) {
         const auto id = item.id;
-        auto button = addButton(m_sceneTreePanel, std::wstring(item.depth * 2, L' ') + std::wstring(item.name.begin(), item.name.end()), 8.0f + item.depth * 12.0f, y,
+        auto button = addButton(m_sceneTreePanel, std::wstring(item.depth * 2, L' ') + wide(item.name), 8.0f + item.depth * 12.0f, y,
                                 std::max(40.0f, panelWidth - 16.0f - item.depth * 12.0f), 30.0f, [this, id] {
                                     std::string error;
                                     if (m_session->selectNode(id, false, error)) {
@@ -1059,10 +1079,9 @@ void EditorShell::deleteSelectedSceneNode() {
     setStatus("Deleted node " + nodeId);
 }
 
-void EditorShell::showRenameNodeDialog(const std::string& nodeId) {
+void EditorShell::beginSceneNodeRename(const std::string& nodeId) {
     std::string resolved = nodeId;
-    if (resolved.empty() &&
-        !m_session->model().selection().nodeIds.empty()) {
+    if (resolved.empty() && !m_session->model().selection().nodeIds.empty()) {
         resolved = m_session->model().selection().nodeIds.back();
     }
     const auto* node = m_session->document().findNode(resolved);
@@ -1070,12 +1089,46 @@ void EditorShell::showRenameNodeDialog(const std::string& nodeId) {
         setStatus("Select a scene node to rename");
         return;
     }
-    m_renameNodeDialog->show(node->id, node->name);
+    cancelSceneNodeRename();
+    const auto row = std::find_if(m_sceneTreeRows.begin(), m_sceneTreeRows.end(), [&resolved](const SceneTreeRow& candidate) { return candidate.nodeId == resolved; });
+    if (row == m_sceneTreeRows.end() || !row->button) {
+        setStatus("Scene node row is not available");
+        return;
+    }
+
+    const Vector3 position = row->button->getTransform()->getPosition();
+    const Vector3 size = row->button->getTransform()->getSize();
+    row->button->setVisible(false);
+    m_sceneRenameNodeId = resolved;
+    m_sceneRenameEdit = MRLineEdit::create();
+    m_sceneRenameEdit->setText(wide(node->name));
+    m_sceneRenameEdit->setFontSize(16.0f);
+    m_sceneRenameEdit->setTextColor(Vector4(0.98f, 0.99f, 1.0f, 1.0f));
+    m_sceneRenameEdit->setBackgroundColor(Vector4(0.08f, 0.18f, 0.34f, 1.0f));
+    m_sceneRenameEdit->setFocusedBackgroundColor(Vector4(0.10f, 0.24f, 0.46f, 1.0f));
+    if (auto interaction = m_sceneRenameEdit->getComponent<Interaction>()) {
+        interaction->setKeyboardFocusable(false);
+    }
+    m_sceneRenameEdit->getTransform()->setPosition(position);
+    m_sceneRenameEdit->getTransform()->setSize(size);
+    m_sceneTreePanel->addChild(m_sceneRenameEdit);
+    m_sceneRenameEdit->onFocusChanged(true);
+    m_sceneRenameEdit->selectAll();
 }
 
-void EditorShell::renameSceneNode(
-    const std::string& nodeId,
-    const std::string& name) {
+void EditorShell::commitSceneNodeRename() {
+    if (!m_sceneRenameEdit || m_sceneRenameNodeId.empty())
+        return;
+    const std::string nodeId = m_sceneRenameNodeId;
+    const std::string name = narrow(m_sceneRenameEdit->getText());
+    if (name.empty()) {
+        setStatus("Node name cannot be empty");
+        return;
+    }
+    renameSceneNode(nodeId, name);
+}
+
+void EditorShell::renameSceneNode(const std::string& nodeId, const std::string& name) {
     std::string error;
     if (!m_session->renameNode(nodeId, name, error)) {
         setStatus("Failed to rename node: " + error);
@@ -1134,19 +1187,14 @@ void EditorShell::refreshInspector(bool force) {
         return;
     auto properties = m_session->model().inspectSelected();
     std::ostringstream signature;
-    for (const auto& nodeId :
-         m_session->model().selection().nodeIds) {
+    for (const auto& nodeId : m_session->model().selection().nodeIds) {
         signature << "node:" << nodeId << '\n';
     }
     for (const auto& property : properties) {
-        signature << property.name << '\x1f'
-                  << property.type << '\x1f'
-                  << (property.mixed ? '1' : '0') << '\n';
+        signature << property.name << '\x1f' << property.type << '\x1f' << (property.mixed ? '1' : '0') << '\n';
     }
     const std::string schemaSignature = signature.str();
-    if (!force &&
-        schemaSignature == m_lastInspectorSchemaSignature &&
-        !m_inspectorBindings.empty()) {
+    if (!force && schemaSignature == m_lastInspectorSchemaSignature && !m_inspectorBindings.empty()) {
         updateInspectorValues(properties);
         return;
     }
@@ -1160,302 +1208,191 @@ void EditorShell::refreshInspector(bool force) {
     if (properties.empty())
         return;
 
-    const float panelWidth =
-        std::max(180.0f, m_inspectorPanel->getTransform()->getSize().x);
+    const float panelWidth = std::max(180.0f, m_inspectorPanel->getTransform()->getSize().x);
     const float fieldWidth = panelWidth - 16.0f;
     float y = 38.0f;
-    const std::vector<std::string> priority = {
-        "position", "rotation", "scale", "size", "visible",
-        "display_layer", "texture_asset"};
-    std::stable_sort(
-        properties.begin(), properties.end(),
-        [&priority](const InspectorProperty& left,
-                    const InspectorProperty& right) {
-            const auto order = [&priority](const std::string& name) {
-                const auto iterator =
-                    std::find(priority.begin(), priority.end(), name);
-                return iterator == priority.end()
-                           ? priority.size()
-                           : static_cast<size_t>(
-                                 std::distance(priority.begin(), iterator));
-            };
-            return order(left.name) < order(right.name);
-        });
+    const std::vector<std::string> priority = {"position", "rotation", "scale", "size", "visible", "display_layer", "texture_asset"};
+    std::stable_sort(properties.begin(), properties.end(), [&priority](const InspectorProperty& left, const InspectorProperty& right) {
+        const auto order = [&priority](const std::string& name) {
+            const auto iterator = std::find(priority.begin(), priority.end(), name);
+            return iterator == priority.end() ? priority.size() : static_cast<size_t>(std::distance(priority.begin(), iterator));
+        };
+        return order(left.name) < order(right.name);
+    });
 
-    addLabel(
-        m_inspectorPanel, "Transform / Properties",
-        8.0f, y, fieldWidth, 24.0f);
+    addLabel(m_inspectorPanel, "Transform / Properties", 8.0f, y, fieldWidth, 24.0f);
     y += 28.0f;
 
     for (const auto& property : properties) {
-        addLabel(
-            m_inspectorPanel, property.name,
-            8.0f, y, fieldWidth, 22.0f);
+        addLabel(m_inspectorPanel, property.name, 8.0f, y, fieldWidth, 22.0f);
         y += 24.0f;
         if (property.type == "bool" && !property.mixed) {
-            auto button = addButton(
-                m_inspectorPanel,
-                property.value == "true" ? L"[x] true" : L"[ ] false",
-                8.0f, y, fieldWidth, 30.0f,
-                [this, propertyName = property.name] {
-                    const auto current =
-                        m_session->model().inspectSelected();
-                    const auto* value =
-                        findInspectorProperty(current, propertyName);
-                    if (!value)
-                        return;
-                    applyInspectorValue(
-                        propertyName,
-                        value->value == "true" ? "false" : "true");
-                });
-            m_inspectorBindings[property.name] = {
-                property.name, property.type, {}, button};
+            auto button = addButton(m_inspectorPanel, property.value == "true" ? L"[x] true" : L"[ ] false", 8.0f, y, fieldWidth, 30.0f, [this, propertyName = property.name] {
+                const auto current = m_session->model().inspectSelected();
+                const auto* value = findInspectorProperty(current, propertyName);
+                if (!value)
+                    return;
+                applyInspectorValue(propertyName, value->value == "true" ? "false" : "true");
+            });
+            m_inspectorBindings[property.name] = {property.name, property.type, {}, button};
         } else if (property.type == "TextureAsset") {
             std::string display = "<empty>";
             if (!property.value.empty()) {
                 display = property.value;
-                if (const auto* asset =
-                        m_assets.findById(property.value)) {
+                if (const auto* asset = m_assets.findById(property.value)) {
                     display = asset->sourcePath.generic_string();
                 }
             }
             auto button = MRButton::create();
-            button->setText(
-                std::wstring(display.begin(), display.end()), "default");
+            button->setText(std::wstring(display.begin(), display.end()), "default");
             button->setTextFontSize(14.0f);
-            button->setBackgroundColor(
-                Vector4(0.075f, 0.085f, 0.105f, 1.0f));
-            button->setHoverColor(
-                Vector4(0.14f, 0.20f, 0.29f, 1.0f));
-            button->setTextColor(
-                Vector4(0.86f, 0.89f, 0.94f, 1.0f));
+            button->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+            button->setHoverColor(Vector4(0.14f, 0.20f, 0.29f, 1.0f));
+            button->setTextColor(Vector4(0.86f, 0.89f, 0.94f, 1.0f));
             button->getTransform()->setPosition(8.0f, y, 0.0f);
             button->getTransform()->setSize(fieldWidth, 30.0f);
-            m_buttonConnections.emplace_back(
-                button->events().onClicked.connect(
-                    [this, property](BaseButton& source) {
-                        m_textureAssetMenu->clear();
-                        m_textureAssetMenuIds.clear();
-                        m_textureAssetMenu->addItem(L"<empty>", 0);
-                        m_textureAssetMenuIds[0] = "";
-                        int itemId = 1;
-                        for (const auto& asset : m_assets.assets()) {
-                            if (asset.type != "Texture" ||
-                                !asset.error.empty())
-                                continue;
-                            const std::string pathText =
-                                asset.sourcePath.generic_string();
-                            m_textureAssetMenu->addItem(
-                                std::wstring(
-                                    pathText.begin(), pathText.end()),
-                                itemId);
-                            m_textureAssetMenuIds[itemId] = asset.assetId;
-                            ++itemId;
-                        }
-                        m_textureEditProperty = property.name;
-                        m_textureEditNodeIds =
-                            m_session->model().selection().nodeIds;
-                        m_textureAssetMenu->attachTo(m_shellRoot);
-                        m_textureAssetMenu->popupBelow(
-                            source.getScreenSpaceAABB());
-                    }));
+            m_buttonConnections.emplace_back(button->events().onClicked.connect([this, property](BaseButton& source) {
+                m_textureAssetMenu->clear();
+                m_textureAssetMenuIds.clear();
+                m_textureAssetMenu->addItem(L"<empty>", 0);
+                m_textureAssetMenuIds[0] = "";
+                int itemId = 1;
+                for (const auto& asset : m_assets.assets()) {
+                    if (asset.type != "Texture" || !asset.error.empty())
+                        continue;
+                    const std::string pathText = asset.sourcePath.generic_string();
+                    m_textureAssetMenu->addItem(std::wstring(pathText.begin(), pathText.end()), itemId);
+                    m_textureAssetMenuIds[itemId] = asset.assetId;
+                    ++itemId;
+                }
+                m_textureEditProperty = property.name;
+                m_textureEditNodeIds = m_session->model().selection().nodeIds;
+                m_textureAssetMenu->attachTo(m_shellRoot);
+                m_textureAssetMenu->popupBelow(source.getScreenSpaceAABB());
+            }));
             m_inspectorPanel->addChild(button);
-            m_inspectorBindings[property.name] = {
-                property.name, property.type, {}, button};
-        } else if ((property.type == "Vector2" ||
-                    property.type == "Vector3") &&
-                   !property.mixed) {
+            m_inspectorBindings[property.name] = {property.name, property.type, {}, button};
+        } else if ((property.type == "Vector2" || property.type == "Vector3") && !property.mixed) {
             std::vector<std::string> components;
-            if (!parseTypedComponents(
-                    property.value, property.type, components)) {
-                components.assign(
-                    property.type == "Vector2" ? 2 : 3, "0.0");
+            if (!parseTypedComponents(property.value, property.type, components)) {
+                components.assign(property.type == "Vector2" ? 2 : 3, "0.0");
             }
-            const float width =
-                (fieldWidth -
-                 6.0f * static_cast<float>(components.size() - 1)) /
-                static_cast<float>(components.size());
+            const float width = (fieldWidth - 6.0f * static_cast<float>(components.size() - 1)) / static_cast<float>(components.size());
             for (size_t index = 0; index < components.size(); ++index) {
                 auto edit = MRLineEdit::create();
                 edit->setFontSize(14.0f);
-                edit->setText(std::wstring(
-                    components[index].begin(), components[index].end()));
-                edit->setBackgroundColor(
-                    Vector4(0.075f, 0.085f, 0.105f, 1.0f));
-                edit->setFocusedBackgroundColor(
-                    Vector4(0.10f, 0.13f, 0.18f, 1.0f));
-                edit->setTextColor(
-                    index == 0
-                        ? Vector4(0.82f, 0.38f, 0.43f, 1.0f)
-                        : (index == 1
-                               ? Vector4(0.55f, 0.78f, 0.32f, 1.0f)
-                               : Vector4(0.35f, 0.62f, 0.88f, 1.0f)));
-                edit->getTransform()->setPosition(
-                    8.0f + static_cast<float>(index) * (width + 6.0f),
-                    y, 0.0f);
+                edit->setText(std::wstring(components[index].begin(), components[index].end()));
+                edit->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+                edit->setFocusedBackgroundColor(Vector4(0.10f, 0.13f, 0.18f, 1.0f));
+                edit->setTextColor(index == 0 ? Vector4(0.82f, 0.38f, 0.43f, 1.0f) : (index == 1 ? Vector4(0.55f, 0.78f, 0.32f, 1.0f) : Vector4(0.35f, 0.62f, 0.88f, 1.0f)));
+                edit->getTransform()->setPosition(8.0f + static_cast<float>(index) * (width + 6.0f), y, 0.0f);
                 edit->getTransform()->setSize(width, 30.0f);
                 m_inspectorEditConnections.emplace_back(
-                    edit->events().onSubmitted.connect(
-                        [this, propertyName = property.name,
-                         propertyType = property.type, index](
-                            MRTextEdit&, const std::wstring& text) {
-                            const auto current =
-                                m_session->model().inspectSelected();
-                            const auto* currentProperty =
-                                findInspectorProperty(
-                                    current, propertyName);
-                            if (!currentProperty)
-                                return;
-                            std::vector<std::string> updated;
-                            if (!parseTypedComponents(
-                                    currentProperty->value,
-                                    propertyType, updated) ||
-                                index >= updated.size()) {
-                                setStatus(
-                                    "Current vector value is invalid");
-                                return;
-                            }
-                            updated[index] =
-                                std::string(text.begin(), text.end());
-                            try {
-                                size_t consumed = 0;
-                                std::stof(updated[index], &consumed);
-                                if (consumed != updated[index].size())
-                                    throw std::invalid_argument("number");
-                            } catch (...) {
-                                setStatus(
-                                    "Vector component must be numeric");
-                                return;
-                            }
-                            const std::string value =
-                                typedComponents(propertyType, updated);
-                            m_engine->mainThreadDispatcher().post(
-                                [this, propertyName, value] {
-                                    applyInspectorValue(
-                                        propertyName, value);
-                                });
-                        }));
+                    edit->events().onSubmitted.connect([this, propertyName = property.name, propertyType = property.type, index](MRTextEdit&, const std::wstring& text) {
+                        const auto current = m_session->model().inspectSelected();
+                        const auto* currentProperty = findInspectorProperty(current, propertyName);
+                        if (!currentProperty)
+                            return;
+                        std::vector<std::string> updated;
+                        if (!parseTypedComponents(currentProperty->value, propertyType, updated) || index >= updated.size()) {
+                            setStatus("Current vector value is invalid");
+                            return;
+                        }
+                        updated[index] = std::string(text.begin(), text.end());
+                        try {
+                            size_t consumed = 0;
+                            std::stof(updated[index], &consumed);
+                            if (consumed != updated[index].size())
+                                throw std::invalid_argument("number");
+                        } catch (...) {
+                            setStatus("Vector component must be numeric");
+                            return;
+                        }
+                        const std::string value = typedComponents(propertyType, updated);
+                        m_engine->mainThreadDispatcher().post([this, propertyName, value] { applyInspectorValue(propertyName, value); });
+                    }));
                 m_inspectorPanel->addChild(edit);
-                m_inspectorBindings[property.name].property =
-                    property.name;
-                m_inspectorBindings[property.name].type =
-                    property.type;
+                m_inspectorBindings[property.name].property = property.name;
+                m_inspectorBindings[property.name].type = property.type;
                 m_inspectorBindings[property.name].edits.push_back(edit);
             }
         } else {
             auto edit = MRLineEdit::create();
             edit->setFontSize(14.0f);
-            const std::string initial =
-                property.mixed ? std::string{} : property.value;
-            edit->setText(
-                std::wstring(initial.begin(), initial.end()));
+            const std::string initial = property.mixed ? std::string{} : property.value;
+            edit->setText(std::wstring(initial.begin(), initial.end()));
             if (property.mixed)
                 edit->setPlaceholder(L"<mixed>");
-            edit->setBackgroundColor(
-                Vector4(0.075f, 0.085f, 0.105f, 1.0f));
-            edit->setFocusedBackgroundColor(
-                Vector4(0.10f, 0.13f, 0.18f, 1.0f));
-            edit->setTextColor(
-                Vector4(0.88f, 0.90f, 0.94f, 1.0f));
+            edit->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+            edit->setFocusedBackgroundColor(Vector4(0.10f, 0.13f, 0.18f, 1.0f));
+            edit->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
             edit->getTransform()->setPosition(8.0f, y, 0.0f);
             edit->getTransform()->setSize(fieldWidth, 30.0f);
-            m_inspectorEditConnections.emplace_back(
-                edit->events().onSubmitted.connect(
-                    [this, property](
-                        MRTextEdit&, const std::wstring& text) {
-                        const std::string value(
-                            text.begin(), text.end());
-                        if (property.type == "number") {
-                            try {
-                                size_t consumed = 0;
-                                std::stof(value, &consumed);
-                                if (consumed != value.size())
-                                    throw std::invalid_argument("number");
-                            } catch (...) {
-                                setStatus("Property must be numeric");
-                                return;
-                            }
-                        }
-                        m_engine->mainThreadDispatcher().post(
-                            [this, propertyName = property.name, value] {
-                                applyInspectorValue(propertyName, value);
-                            });
-                    }));
+            m_inspectorEditConnections.emplace_back(edit->events().onSubmitted.connect([this, property](MRTextEdit&, const std::wstring& text) {
+                const std::string value(text.begin(), text.end());
+                if (property.type == "number") {
+                    try {
+                        size_t consumed = 0;
+                        std::stof(value, &consumed);
+                        if (consumed != value.size())
+                            throw std::invalid_argument("number");
+                    } catch (...) {
+                        setStatus("Property must be numeric");
+                        return;
+                    }
+                }
+                m_engine->mainThreadDispatcher().post([this, propertyName = property.name, value] { applyInspectorValue(propertyName, value); });
+            }));
             m_inspectorPanel->addChild(edit);
-            m_inspectorBindings[property.name] = {
-                property.name, property.type, {edit}, {}};
+            m_inspectorBindings[property.name] = {property.name, property.type, {edit}, {}};
         }
         y += 36.0f;
     }
 }
 
-void EditorShell::updateInspectorValues(
-    const std::vector<InspectorProperty>& properties) {
+void EditorShell::updateInspectorValues(const std::vector<InspectorProperty>& properties) {
     for (auto& [name, binding] : m_inspectorBindings) {
-        const auto* property =
-            findInspectorProperty(properties, name);
+        const auto* property = findInspectorProperty(properties, name);
         if (!property)
             continue;
         if (binding.type == "bool" && binding.button) {
-            binding.button->setText(
-                property->value == "true"
-                    ? L"[x] true"
-                    : L"[ ] false",
-                "default");
+            binding.button->setText(property->value == "true" ? L"[x] true" : L"[ ] false", "default");
             continue;
         }
         if (binding.type == "TextureAsset" && binding.button) {
             std::string display = "<empty>";
             if (!property->value.empty()) {
                 display = property->value;
-                if (const auto* asset =
-                        m_assets.findById(property->value)) {
+                if (const auto* asset = m_assets.findById(property->value)) {
                     display = asset->sourcePath.generic_string();
                 }
             }
-            binding.button->setText(
-                std::wstring(display.begin(), display.end()),
-                "default");
+            binding.button->setText(std::wstring(display.begin(), display.end()), "default");
             continue;
         }
-        if (binding.type == "Vector2" ||
-            binding.type == "Vector3") {
+        if (binding.type == "Vector2" || binding.type == "Vector3") {
             std::vector<std::string> components;
-            if (!parseTypedComponents(
-                    property->value, binding.type, components)) {
+            if (!parseTypedComponents(property->value, binding.type, components)) {
                 continue;
             }
-            for (size_t index = 0;
-                 index < binding.edits.size() &&
-                 index < components.size();
-                 ++index) {
-                binding.edits[index]->setText(
-                    std::wstring(
-                        components[index].begin(),
-                        components[index].end()));
+            for (size_t index = 0; index < binding.edits.size() && index < components.size(); ++index) {
+                binding.edits[index]->setText(std::wstring(components[index].begin(), components[index].end()));
             }
             continue;
         }
         if (!binding.edits.empty()) {
-            const std::string value =
-                property->mixed ? std::string{} : property->value;
-            binding.edits.front()->setText(
-                std::wstring(value.begin(), value.end()));
-            binding.edits.front()->setPlaceholder(
-                property->mixed ? L"<mixed>" : L"");
+            const std::string value = property->mixed ? std::string{} : property->value;
+            binding.edits.front()->setText(std::wstring(value.begin(), value.end()));
+            binding.edits.front()->setPlaceholder(property->mixed ? L"<mixed>" : L"");
         }
     }
 }
 
-void EditorShell::applyInspectorValue(
-    const std::string& property,
-    const std::string& value) {
+void EditorShell::applyInspectorValue(const std::string& property, const std::string& value) {
     std::string error;
     bool changed = false;
-    for (const auto& nodeId :
-         m_session->model().selection().nodeIds) {
-        if (!m_session->setProperty(
-                nodeId, property, value, false, error)) {
+    for (const auto& nodeId : m_session->model().selection().nodeIds) {
+        if (!m_session->setProperty(nodeId, property, value, false, error)) {
             break;
         }
         changed = true;
@@ -1466,9 +1403,7 @@ void EditorShell::applyInspectorValue(
         return;
     }
     const bool transformOnly =
-        property == "position" || property == "size" ||
-        property == "scale" || property == "rotation" ||
-        property == "visible" || property == "display_layer";
+        property == "position" || property == "size" || property == "scale" || property == "rotation" || property == "visible" || property == "display_layer";
     syncSelectedRuntimeNodes(transformOnly);
     refreshSelectionOverlay();
     refreshInspector();
@@ -1492,13 +1427,8 @@ void EditorShell::commitPropertyEdit() {
         changed = true;
     }
     if (changed) {
-        const bool transformOnly =
-            m_editProperty == "position" ||
-            m_editProperty == "size" ||
-            m_editProperty == "scale" ||
-            m_editProperty == "rotation" ||
-            m_editProperty == "visible" ||
-            m_editProperty == "display_layer";
+        const bool transformOnly = m_editProperty == "position" || m_editProperty == "size" || m_editProperty == "scale" || m_editProperty == "rotation" ||
+                                   m_editProperty == "visible" || m_editProperty == "display_layer";
         syncSelectedRuntimeNodes(transformOnly);
         refreshSelectionOverlay();
         refreshInspector();
@@ -1511,6 +1441,14 @@ void EditorShell::commitPropertyEdit() {
 }
 
 void EditorShell::handleChar(unsigned int codepoint) {
+    if (m_sceneRenameEdit && codepoint >= 32 && codepoint <= 0x10FFFF) {
+        TouchEvent event;
+        event.eventType = TOUCH_EVENT_TYPE_CHARACTER;
+        event.deviceType = TOUCH_DEVICE_TYPE_KEYBOARD;
+        event.unicodeCodepoint = codepoint;
+        m_sceneRenameEdit->dispatchTouchEvent(event);
+        return;
+    }
     if (m_editProperty.empty() || codepoint < 32 || codepoint > 126)
         return;
     m_editValue.push_back(static_cast<char>(codepoint));
@@ -1528,9 +1466,7 @@ void EditorShell::rebuildRuntime() {
     m_runtimeNodes.clear();
     refreshViewportGuides();
     std::string error;
-    const bool runtimeInstantiated = SceneInstantiator::instantiate(
-        m_session->document(), m_previewRoot, &m_assets,
-        error, &m_runtimeNodes);
+    const bool runtimeInstantiated = SceneInstantiator::instantiate(m_session->document(), m_previewRoot, &m_assets, error, &m_runtimeNodes);
     if (!runtimeInstantiated) {
         setStatus(error);
     }
@@ -1558,15 +1494,14 @@ void EditorShell::refreshSelectionOverlay() {
 
     const Vector4 borderColor(1.0f, 0.34f, 0.18f, 1.0f);
     while (m_selectionBorders.size() < 4) {
-            auto border = MRColor::create();
-            border->setColor(borderColor);
-            border->setDisplayLayer(10);
-            m_selectionBorders.push_back(border);
+        auto border = MRColor::create();
+        border->setColor(borderColor);
+        border->setDisplayLayer(10);
+        m_selectionBorders.push_back(border);
     }
     while (m_selectionHandles.size() < 8) {
         auto handle = MRColor::create();
-        handle->setColor(
-            Vector4(1.0f, 0.23f, 0.16f, 1.0f));
+        handle->setColor(Vector4(1.0f, 0.23f, 0.16f, 1.0f));
         handle->setDisplayLayer(10);
         m_selectionHandles.push_back(handle);
     }
@@ -1589,70 +1524,44 @@ void EditorShell::refreshSelectionOverlay() {
         {x + width - thickness, y, x + width, y + height},
     };
     for (size_t index = 0; index < borders.size(); ++index) {
-        m_selectionBorders[index]->getTransform()->setPosition(
-            borders[index].Min.x, borders[index].Min.y, 0.0f);
-        m_selectionBorders[index]->getTransform()->setSize(
-            borders[index].GetWidth(), borders[index].GetHeight());
+        m_selectionBorders[index]->getTransform()->setPosition(borders[index].Min.x, borders[index].Min.y, 0.0f);
+        m_selectionBorders[index]->getTransform()->setSize(borders[index].GetWidth(), borders[index].GetHeight());
     }
 
-    const float handleSize =
-        10.0f / std::max(0.2f, m_viewZoom);
+    const float handleSize = 10.0f / std::max(0.2f, m_viewZoom);
     const std::vector<Vector2> points = {
-        {x, y},
-        {x + width * 0.5f, y},
-        {x + width, y},
-        {x + width, y + height * 0.5f},
-        {x + width, y + height},
-        {x + width * 0.5f, y + height},
-        {x, y + height},
-        {x, y + height * 0.5f},
+        {x, y},          {x + width * 0.5f, y},  {x + width, y}, {x + width, y + height * 0.5f}, {x + width, y + height}, {x + width * 0.5f, y + height},
+        {x, y + height}, {x, y + height * 0.5f},
     };
     for (size_t index = 0; index < points.size(); ++index) {
-        auto handle =
-            std::dynamic_pointer_cast<MRColor>(
-                m_selectionHandles[index]);
+        auto handle = std::dynamic_pointer_cast<MRColor>(m_selectionHandles[index]);
         if (handle)
             handle->setRounding(handleSize * 0.5f);
-        m_selectionHandles[index]->getTransform()->setPosition(
-            points[index].x - handleSize * 0.5f,
-            points[index].y - handleSize * 0.5f,
-            0.0f);
-        m_selectionHandles[index]->getTransform()->setSize(
-            handleSize, handleSize);
+        m_selectionHandles[index]->getTransform()->setPosition(points[index].x - handleSize * 0.5f, points[index].y - handleSize * 0.5f, 0.0f);
+        m_selectionHandles[index]->getTransform()->setSize(handleSize, handleSize);
     }
 }
 
-bool EditorShell::syncRuntimeNode(
-    const std::string& nodeId,
-    bool transformOnly) {
+bool EditorShell::syncRuntimeNode(const std::string& nodeId, bool transformOnly) {
     const auto* record = m_session->document().findNode(nodeId);
     const auto instance = m_runtimeNodes.find(nodeId);
     if (!record || instance == m_runtimeNodes.end())
         return false;
     std::string error;
-    const bool updated =
-        transformOnly
-            ? SceneInstantiator::updateNodeTransform(
-                  *record, instance->second, error)
-            : SceneInstantiator::updateNode(
-                  m_session->document(), *record, instance->second,
-                  &m_assets, error);
+    const bool updated = transformOnly ? SceneInstantiator::updateNodeTransform(*record, instance->second, error)
+                                       : SceneInstantiator::updateNode(m_session->document(), *record, instance->second, &m_assets, error);
     if (!updated && !error.empty())
         setStatus(error);
     return updated;
 }
 
 void EditorShell::syncSelectedRuntimeNodes(bool transformOnly) {
-    for (const auto& nodeId :
-         m_session->model().selection().nodeIds) {
+    for (const auto& nodeId : m_session->model().selection().nodeIds) {
         syncRuntimeNode(nodeId, transformOnly);
     }
 }
 
-ResizeHandle EditorShell::resizeHandleAt(
-    float x, float y,
-    float nodeX, float nodeY,
-    float width, float height) const {
+ResizeHandle EditorShell::resizeHandleAt(float x, float y, float nodeX, float nodeY, float width, float height) const {
     const float radius = 9.0f / std::max(0.2f, m_viewZoom);
     const std::vector<std::pair<ResizeHandle, Vector2>> handles = {
         {ResizeHandle::TopLeft, {nodeX, nodeY}},
@@ -1729,17 +1638,10 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
         float selectedY = 0.0f;
         float selectedWidth = 0.0f;
         float selectedHeight = 0.0f;
-        if (!m_selectedNodeId.empty() &&
-            m_session->model().selectedRect(
-                selectedX, selectedY, selectedWidth, selectedHeight)) {
-            const ResizeHandle handle = resizeHandleAt(
-                x, y, selectedX, selectedY,
-                selectedWidth, selectedHeight);
+        if (!m_selectedNodeId.empty() && m_session->model().selectedRect(selectedX, selectedY, selectedWidth, selectedHeight)) {
+            const ResizeHandle handle = resizeHandleAt(x, y, selectedX, selectedY, selectedWidth, selectedHeight);
             if (handle != ResizeHandle::None) {
-                if (m_session->model().selectedLocalRect(
-                        m_resizeNodeStartX, m_resizeNodeStartY,
-                        m_resizeNodeStartZ, m_resizeNodeStartWidth,
-                        m_resizeNodeStartHeight)) {
+                if (m_session->model().selectedLocalRect(m_resizeNodeStartX, m_resizeNodeStartY, m_resizeNodeStartZ, m_resizeNodeStartWidth, m_resizeNodeStartHeight)) {
                     m_resizeHandle = handle;
                     m_resizing = true;
                     m_dragging = false;
@@ -1768,22 +1670,10 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
         float nodeY = m_resizeNodeStartY;
         float nodeWidth = m_resizeNodeStartWidth;
         float nodeHeight = m_resizeNodeStartHeight;
-        const bool left =
-            m_resizeHandle == ResizeHandle::Left ||
-            m_resizeHandle == ResizeHandle::TopLeft ||
-            m_resizeHandle == ResizeHandle::BottomLeft;
-        const bool right =
-            m_resizeHandle == ResizeHandle::Right ||
-            m_resizeHandle == ResizeHandle::TopRight ||
-            m_resizeHandle == ResizeHandle::BottomRight;
-        const bool top =
-            m_resizeHandle == ResizeHandle::Top ||
-            m_resizeHandle == ResizeHandle::TopLeft ||
-            m_resizeHandle == ResizeHandle::TopRight;
-        const bool bottom =
-            m_resizeHandle == ResizeHandle::Bottom ||
-            m_resizeHandle == ResizeHandle::BottomLeft ||
-            m_resizeHandle == ResizeHandle::BottomRight;
+        const bool left = m_resizeHandle == ResizeHandle::Left || m_resizeHandle == ResizeHandle::TopLeft || m_resizeHandle == ResizeHandle::BottomLeft;
+        const bool right = m_resizeHandle == ResizeHandle::Right || m_resizeHandle == ResizeHandle::TopRight || m_resizeHandle == ResizeHandle::BottomRight;
+        const bool top = m_resizeHandle == ResizeHandle::Top || m_resizeHandle == ResizeHandle::TopLeft || m_resizeHandle == ResizeHandle::TopRight;
+        const bool bottom = m_resizeHandle == ResizeHandle::Bottom || m_resizeHandle == ResizeHandle::BottomLeft || m_resizeHandle == ResizeHandle::BottomRight;
         if (left) {
             nodeX += dx;
             nodeWidth -= dx;
@@ -1807,10 +1697,7 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
             nodeHeight = 1.0f;
         }
         std::string error;
-        if (m_session->setNodeRect(
-                m_selectedNodeId,
-                nodeX, nodeY, m_resizeNodeStartZ,
-                nodeWidth, nodeHeight, true, error)) {
+        if (m_session->setNodeRect(m_selectedNodeId, nodeX, nodeY, m_resizeNodeStartZ, nodeWidth, nodeHeight, true, error)) {
             syncRuntimeNode(m_selectedNodeId, true);
             refreshSelectionOverlay();
             m_viewportTransformChanged = true;
@@ -1842,19 +1729,19 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
     pollBuild();
     for (const auto& event : events) {
         if (event.eventType == TOUCH_EVENT_TYPE_TOUCH) {
-            if (m_sceneContextMenu && m_sceneContextMenu->isOpen() &&
-                !isDescendantOf(event.target, m_sceneContextMenu)) {
+            if (m_sceneRenameEdit && !isDescendantOf(event.target, m_sceneRenameEdit)) {
+                commitSceneNodeRename();
+                continue;
+            }
+            if (m_sceneContextMenu && m_sceneContextMenu->isOpen() && !isDescendantOf(event.target, m_sceneContextMenu)) {
                 m_sceneContextMenu->hide();
             }
-            if (m_textureAssetMenu && m_textureAssetMenu->isOpen() &&
-                !isDescendantOf(event.target, m_textureAssetMenu)) {
+            if (m_textureAssetMenu && m_textureAssetMenu->isOpen() && !isDescendantOf(event.target, m_textureAssetMenu)) {
                 m_textureAssetMenu->hide();
             }
         }
-        if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN &&
-            event.keyCode == TOUCH_KEY_DELETE && !event.target &&
-            (!m_createNodeDialog || !m_createNodeDialog->isOpen()) &&
-            (!m_renameNodeDialog || !m_renameNodeDialog->isOpen())) {
+        if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN && event.keyCode == TOUCH_KEY_DELETE && !event.target && (!m_createNodeDialog || !m_createNodeDialog->isOpen()) &&
+            !m_sceneRenameEdit) {
             deleteSelectedSceneNode();
             continue;
         }
@@ -1862,30 +1749,17 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
             continue;
         if (handleDockDrag(event))
             continue;
-        const bool pointerEvent =
-            event.eventType == TOUCH_EVENT_TYPE_TOUCH ||
-            event.eventType == TOUCH_EVENT_TYPE_MOVE ||
-            event.eventType == TOUCH_EVENT_TYPE_RELEASE ||
-            event.eventType == TOUCH_EVENT_TYPE_WHEEL;
-        const bool activeViewportGesture =
-            m_dragging || m_resizing || m_panning;
-        const bool insideViewport =
-            m_viewportPanel &&
-            m_viewportPanel->getScreenSpaceAABB().Contains(
-                event.positionX, event.positionY);
-        if (pointerEvent &&
-            (activeViewportGesture || insideViewport)) {
+        const bool pointerEvent = event.eventType == TOUCH_EVENT_TYPE_TOUCH || event.eventType == TOUCH_EVENT_TYPE_MOVE || event.eventType == TOUCH_EVENT_TYPE_RELEASE ||
+                                  event.eventType == TOUCH_EVENT_TYPE_WHEEL;
+        const bool activeViewportGesture = m_dragging || m_resizing || m_panning;
+        const bool insideViewport = m_viewportPanel && m_viewportPanel->getScreenSpaceAABB().Contains(event.positionX, event.positionY);
+        if (pointerEvent && (activeViewportGesture || insideViewport)) {
             handleViewportPointer(event);
         }
     }
 }
 
 void EditorShell::handleKey(int key, int action, int mods) {
-    if (m_renameNodeDialog && m_renameNodeDialog->isOpen() &&
-        key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-        m_renameNodeDialog->hideDialog();
-        return;
-    }
     if (m_createNodeDialog && m_createNodeDialog->isOpen() && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         m_createNodeDialog->hideDialog();
         return;
@@ -1899,6 +1773,47 @@ void EditorShell::handleKey(int key, int action, int mods) {
 
     if (action != GLFW_PRESS && action != GLFW_REPEAT)
         return;
+    if (m_sceneRenameEdit) {
+        if (key == GLFW_KEY_ESCAPE) {
+            cancelSceneNodeRename();
+            return;
+        }
+        if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
+            commitSceneNodeRename();
+            return;
+        }
+        TouchKeyCode mappedKey = TOUCH_KEY_UNKNOWN;
+        if (key == GLFW_KEY_BACKSPACE)
+            mappedKey = TOUCH_KEY_BACKSPACE;
+        else if (key == GLFW_KEY_DELETE)
+            mappedKey = TOUCH_KEY_DELETE;
+        else if (key == GLFW_KEY_LEFT)
+            mappedKey = TOUCH_KEY_LEFT;
+        else if (key == GLFW_KEY_RIGHT)
+            mappedKey = TOUCH_KEY_RIGHT;
+        else if (key == GLFW_KEY_HOME)
+            mappedKey = TOUCH_KEY_HOME;
+        else if (key == GLFW_KEY_END)
+            mappedKey = TOUCH_KEY_END;
+        else if (key == GLFW_KEY_A)
+            mappedKey = TOUCH_KEY_A;
+        else if (key == GLFW_KEY_C)
+            mappedKey = TOUCH_KEY_C;
+        if (mappedKey != TOUCH_KEY_UNKNOWN) {
+            TouchEvent event;
+            event.eventType = TOUCH_EVENT_TYPE_KEY_DOWN;
+            event.deviceType = TOUCH_DEVICE_TYPE_KEYBOARD;
+            event.keyCode = mappedKey;
+            if ((mods & GLFW_MOD_SHIFT) != 0)
+                event.modifiers |= TOUCH_MODIFIER_SHIFT;
+            if ((mods & GLFW_MOD_CONTROL) != 0)
+                event.modifiers |= TOUCH_MODIFIER_CTRL;
+            if ((mods & GLFW_MOD_ALT) != 0)
+                event.modifiers |= TOUCH_MODIFIER_ALT;
+            m_sceneRenameEdit->dispatchTouchEvent(event);
+        }
+        return;
+    }
     if (!m_editProperty.empty()) {
         if (key == GLFW_KEY_ENTER) {
             commitPropertyEdit();

@@ -30,6 +30,8 @@ enum TouchKeyCode : int32_t {
     TOUCH_KEY_END,
     TOUCH_KEY_TAB,
     TOUCH_KEY_F3,
+    TOUCH_KEY_A,
+    TOUCH_KEY_C,
 };
 
 enum TouchMouseButton : int32_t {

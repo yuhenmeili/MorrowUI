@@ -4,30 +4,29 @@
 #include <filesystem>
 #include <functional>
 #include <future>
-#include <memory>
 #include <map>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "EditorEvents.h"
+#include "ProjectSettings.h"
 #include "assets/AssetDatabase.h"
 #include "assets/ImportQueue.h"
 #include "base/UIWidget.h"
 #include "build/BuildQueue.h"
 #include "core/Observable.h"
-#include "EditorEvents.h"
 #include "filesystem/ProjectFileSystemModel.h"
-#include "ProjectSettings.h"
+#include "layout/DragDropManager.h"
+#include "layout/MRSplitContainer.h"
+#include "layout/MRTabContainer.h"
 #include "scene/EditorSession.h"
 #include "scene/NodeTypeCatalog.h"
 #include "ui/CreateNodeDialog.h"
-#include "ui/RenameNodeDialog.h"
+#include "ui/DockDropOverlay.h"
 #include "ui/DockLayout.h"
 #include "ui/FileSystemPanel.h"
-#include "ui/DockDropOverlay.h"
-#include "layout/MRSplitContainer.h"
-#include "layout/MRTabContainer.h"
-#include "layout/DragDropManager.h"
 #include "wgl/OpenglHeader.h"
 
 namespace morrow {
@@ -83,48 +82,35 @@ private:
     void buildLayout();
     void rebuildRuntime();
     void refreshSelectionOverlay();
-    bool syncRuntimeNode(
-        const std::string& nodeId,
-        bool transformOnly);
+    bool syncRuntimeNode(const std::string& nodeId, bool transformOnly);
     void syncSelectedRuntimeNodes(bool transformOnly);
     void refreshViewportGuides();
     void refreshSceneTree();
     void refreshSceneTreeSelectionStyles();
     bool handleSceneTreeDrag(const TouchEvent& event);
     std::string sceneTreeNodeAt(float x, float y) const;
-    std::string sceneTreeNodeForWidget(
-        const std::shared_ptr<Widget>& widget) const;
+    std::string sceneTreeNodeForWidget(const std::shared_ptr<Widget>& widget) const;
     void deleteSelectedSceneNode();
-    void showRenameNodeDialog(const std::string& nodeId = {});
-    void renameSceneNode(
-        const std::string& nodeId,
-        const std::string& name);
+    void beginSceneNodeRename(const std::string& nodeId = {});
+    void commitSceneNodeRename();
+    void cancelSceneNodeRename();
+    void renameSceneNode(const std::string& nodeId, const std::string& name);
     void showCreateNodeDialog(const std::string& parentId = {});
-    void createChildNode(
-        const NodeTypeDescriptor& descriptor,
-        const std::string& parentId);
+    void createChildNode(const NodeTypeDescriptor& descriptor, const std::string& parentId);
     void refreshInspector(bool force = false);
-    void updateInspectorValues(
-        const std::vector<InspectorProperty>& properties);
-    void applyInspectorValue(
-        const std::string& property,
-        const std::string& value);
+    void updateInspectorValues(const std::vector<InspectorProperty>& properties);
+    void applyInspectorValue(const std::string& property, const std::string& value);
     void handleInput(std::vector<TouchEvent>& events);
     void handleKey(int key, int action, int mods);
     void handleViewportPointer(const TouchEvent& event);
-    ResizeHandle resizeHandleAt(
-        float x, float y,
-        float nodeX, float nodeY,
-        float width, float height) const;
+    ResizeHandle resizeHandleAt(float x, float y, float nodeX, float nodeY, float width, float height) const;
     bool handleDockDrag(const TouchEvent& event);
     void applyDockLayout();
     void saveDockLayout();
     void syncDockTabs();
     DockDropZone dropZoneAt(float x, float y) const;
-    std::shared_ptr<MRTabContainer> tabContainerForId(
-        const std::string& id) const;
-    std::string tabGroupForWidget(
-        const std::shared_ptr<Widget>& widget) const;
+    std::shared_ptr<MRTabContainer> tabContainerForId(const std::string& id) const;
+    std::string tabGroupForWidget(const std::shared_ptr<Widget>& widget) const;
     void completeDockDrop(float x, float y);
     void handleFramebufferResize(const Vector2& size);
     void refreshOutput();
@@ -175,12 +161,13 @@ private:
     std::shared_ptr<MRTabContainer> m_bottomTabs;
     std::shared_ptr<DockDropOverlay> m_dockDropOverlay;
     std::shared_ptr<CreateNodeDialog> m_createNodeDialog;
-    std::shared_ptr<RenameNodeDialog> m_renameNodeDialog;
+    std::shared_ptr<MRLineEdit> m_sceneRenameEdit;
+    std::shared_ptr<MRTextEdit> m_outputLogEdit;
+    std::shared_ptr<MRTextEdit> m_buildLogEdit;
     std::shared_ptr<MRPopupMenu> m_sceneContextMenu;
     std::shared_ptr<MRPopupMenu> m_textureAssetMenu;
     std::shared_ptr<EditorSession> m_session;
-    std::unordered_map<std::string, std::shared_ptr<Widget>>
-        m_runtimeNodes;
+    std::unordered_map<std::string, std::shared_ptr<Widget>> m_runtimeNodes;
     AssetDatabase m_assets;
     ProjectFileSystemModel m_fileSystem;
     NodeTypeCatalog m_nodeTypeCatalog;
@@ -199,24 +186,16 @@ private:
     Observable<std::vector<TouchEvent>&>::Connection m_inputConnection;
     Observable<const Vector2&>::Connection m_framebufferSizeConnection;
     std::vector<Observable<MRSplitContainer&, float>::Connection> m_splitConnections;
-    std::vector<Observable<MRTabContainer&, const std::string&>::Connection>
-        m_tabConnections;
-    std::vector<Observable<MRTabContainer&>::Connection>
-        m_tabOrderConnections;
+    std::vector<Observable<MRTabContainer&, const std::string&>::Connection> m_tabConnections;
+    std::vector<Observable<MRTabContainer&>::Connection> m_tabOrderConnections;
     std::vector<Observable<BaseButton&>::Connection> m_buttonConnections;
     std::vector<EventConnection> m_sceneTreeContextConnections;
     std::vector<SceneTreeRow> m_sceneTreeRows;
-    Observable<MRPopupMenu&, int, const std::wstring&>::Connection
-        m_sceneContextMenuConnection;
-    Observable<CreateNodeDialog&, const NodeTypeDescriptor&,
-               const std::string&>::Connection
-        m_createNodeConnection;
-    Observable<RenameNodeDialog&, const std::string&, const std::string&>::Connection
-        m_renameNodeConnection;
-    Observable<MRPopupMenu&, int, const std::wstring&>::Connection
-        m_textureAssetMenuConnection;
-    std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection>
-        m_inspectorEditConnections;
+    Observable<MRPopupMenu&, int, const std::wstring&>::Connection m_sceneContextMenuConnection;
+    Observable<CreateNodeDialog&, const NodeTypeDescriptor&, const std::string&>::Connection m_createNodeConnection;
+    Observable<MRPopupMenu&, int, const std::wstring&>::Connection m_textureAssetMenuConnection;
+    std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> m_copyConnections;
+    std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> m_inspectorEditConnections;
     std::map<std::string, InspectorBinding> m_inspectorBindings;
     std::map<int, std::string> m_textureAssetMenuIds;
     std::string m_textureEditProperty;
@@ -224,6 +203,7 @@ private:
     std::string m_status;
     std::string m_selectedNodeId;
     std::string m_sceneContextParentId;
+    std::string m_sceneRenameNodeId;
     std::string m_pendingSceneDragNode;
     std::string m_sceneDragNode;
     std::string m_sceneDropTarget;

@@ -1,6 +1,7 @@
 #include "MRTextEdit.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "base/Interaction.h"
 #include "base/TouchEvent.h"
@@ -37,12 +38,11 @@ void MRTextEdit::initializeChildren() {
     interaction->setKeyboardFocusable(true);
     interaction->setClickEnabled(false);
     interaction->setLongPressEnabled(false);
-    m_characterConnection = interaction->addEventListener(
-        TOUCH_EVENT_TYPE_CHARACTER,
-        [this](TouchEvent& event) { handleCharacter(event.unicodeCodepoint); });
-    m_keyDownConnection = interaction->addEventListener(
-        TOUCH_EVENT_TYPE_KEY_DOWN,
-        [this](TouchEvent& event) { handleKeyDown(event.keyCode); });
+    m_characterConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_CHARACTER, [this](TouchEvent& event) { handleCharacter(event.unicodeCodepoint); });
+    m_keyDownConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_KEY_DOWN, [this](TouchEvent& event) { handleKeyDown(event); });
+    m_pointerDownConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_TOUCH, [this](TouchEvent& event) { handlePointerDown(event); });
+    m_pointerMoveConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_MOVE, [this](TouchEvent& event) { handlePointerMove(event); });
+    m_pointerReleaseConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_RELEASE, [this](TouchEvent& event) { handlePointerRelease(event); });
 
     layoutChildren();
     refreshVisuals();
@@ -63,6 +63,8 @@ void MRTextEdit::setText(const std::wstring& text) {
     }
     m_text = std::move(sanitized);
     m_cursorPosition = m_text.size();
+    m_selectionAnchor = m_cursorPosition;
+    m_selectionPosition = m_cursorPosition;
     refreshVisuals();
     notifyTextChanged();
 }
@@ -81,6 +83,10 @@ void MRTextEdit::setFontSize(float fontSize) {
     m_fontSize = std::max(1.0f, fontSize);
     m_label->setFontSize(m_fontSize);
     updateCursorVisual();
+}
+
+void MRTextEdit::setAutoWrap(bool enabled) {
+    m_label->setAutoWrap(enabled);
 }
 
 void MRTextEdit::setTextColor(const Vector4& color) {
@@ -121,7 +127,34 @@ MRTextEdit::Events& MRTextEdit::events() {
 
 void MRTextEdit::setCursorPosition(size_t position) {
     m_cursorPosition = std::min(position, m_text.size());
+    m_selectionAnchor = m_cursorPosition;
+    m_selectionPosition = m_cursorPosition;
+    updateSelectionVisuals();
     updateCursorVisual();
+}
+
+void MRTextEdit::selectAll() {
+    m_selectionAnchor = 0;
+    m_selectionPosition = m_text.size();
+    m_cursorPosition = m_selectionPosition;
+    updateSelectionVisuals();
+    updateCursorVisual();
+}
+
+void MRTextEdit::clearSelection() {
+    m_selectionAnchor = m_cursorPosition;
+    m_selectionPosition = m_cursorPosition;
+    updateSelectionVisuals();
+}
+
+bool MRTextEdit::hasSelection() const {
+    return m_selectionAnchor != m_selectionPosition;
+}
+
+std::wstring MRTextEdit::getSelectedText() const {
+    const size_t start = std::min(m_selectionAnchor, m_selectionPosition);
+    const size_t end = std::max(m_selectionAnchor, m_selectionPosition);
+    return m_text.substr(start, end - start);
 }
 
 void MRTextEdit::onFocusChanged(bool focused) {
@@ -148,6 +181,7 @@ void MRTextEdit::refreshVisuals() {
     m_label->setText(showPlaceholder ? m_placeholder : buildDisplayText(), m_fontName);
     m_label->setFontColor(showPlaceholder ? m_placeholderColor : m_textColor);
     m_background->setColor(m_focused ? m_focusedBackgroundColor : m_backgroundColor);
+    updateSelectionVisuals();
     updateCursorVisual();
 }
 
@@ -167,8 +201,29 @@ void MRTextEdit::handleCharacter(uint32_t codepoint) {
         insertCharacter(character);
 }
 
-void MRTextEdit::handleKeyDown(TouchKeyCode keyCode) {
-    switch (keyCode) {
+void MRTextEdit::handleKeyDown(const TouchEvent& event) {
+    const bool control = (event.modifiers & TOUCH_MODIFIER_CTRL) != 0;
+    const bool shift = (event.modifiers & TOUCH_MODIFIER_SHIFT) != 0;
+    if (control && event.keyCode == TOUCH_KEY_A) {
+        selectAll();
+        return;
+    }
+    if (control && event.keyCode == TOUCH_KEY_C) {
+        const auto selected = getSelectedText();
+        if (!selected.empty())
+            m_events.onCopyRequested.notify(*this, selected);
+        return;
+    }
+
+    const auto moveCursor = [this, shift](size_t position) {
+        if (!shift)
+            m_selectionAnchor = position;
+        m_cursorPosition = position;
+        m_selectionPosition = position;
+        updateSelectionVisuals();
+        updateCursorVisual();
+    };
+    switch (event.keyCode) {
         case TOUCH_KEY_BACKSPACE:
             if (!m_readOnly)
                 eraseBeforeCursor();
@@ -181,52 +236,127 @@ void MRTextEdit::handleKeyDown(TouchKeyCode keyCode) {
             handleEnter();
             break;
         case TOUCH_KEY_LEFT:
-            if (m_cursorPosition > 0)
-                --m_cursorPosition;
-            updateCursorVisual();
+            moveCursor(m_cursorPosition > 0 ? m_cursorPosition - 1 : 0);
             break;
         case TOUCH_KEY_RIGHT:
-            if (m_cursorPosition < m_text.size())
-                ++m_cursorPosition;
-            updateCursorVisual();
+            moveCursor(m_cursorPosition < m_text.size() ? m_cursorPosition + 1 : m_text.size());
             break;
         case TOUCH_KEY_HOME:
-            m_cursorPosition = 0;
-            updateCursorVisual();
+            moveCursor(0);
             break;
         case TOUCH_KEY_END:
-            m_cursorPosition = m_text.size();
-            updateCursorVisual();
+            moveCursor(m_text.size());
             break;
         default:
             break;
     }
 }
 
+void MRTextEdit::handlePointerDown(const TouchEvent& event) {
+    if (event.button != TOUCH_MOUSE_BUTTON_LEFT)
+        return;
+    const size_t position = textPositionAt(event.positionX, event.positionY);
+    m_cursorPosition = position;
+    m_selectionAnchor = position;
+    m_selectionPosition = position;
+    m_selectingWithPointer = true;
+    updateSelectionVisuals();
+    updateCursorVisual();
+}
+
+void MRTextEdit::handlePointerMove(const TouchEvent& event) {
+    if (!m_selectingWithPointer || (event.buttonsMask & TOUCH_BUTTON_FLAG_LEFT) == 0) {
+        return;
+    }
+    m_cursorPosition = textPositionAt(event.positionX, event.positionY);
+    m_selectionPosition = m_cursorPosition;
+    updateSelectionVisuals();
+    updateCursorVisual();
+}
+
+void MRTextEdit::handlePointerRelease(const TouchEvent& event) {
+    if (!m_selectingWithPointer)
+        return;
+    m_cursorPosition = textPositionAt(event.positionX, event.positionY);
+    m_selectionPosition = m_cursorPosition;
+    m_selectingWithPointer = false;
+    updateSelectionVisuals();
+    updateCursorVisual();
+}
+
 void MRTextEdit::insertCharacter(wchar_t character) {
+    eraseSelection();
     if (m_maxLength > 0 && m_text.size() >= m_maxLength)
         return;
     m_text.insert(m_text.begin() + static_cast<std::ptrdiff_t>(m_cursorPosition), character);
     ++m_cursorPosition;
+    clearSelection();
     refreshVisuals();
     notifyTextChanged();
 }
 
 void MRTextEdit::eraseBeforeCursor() {
+    if (hasSelection()) {
+        eraseSelection();
+        refreshVisuals();
+        notifyTextChanged();
+        return;
+    }
     if (m_cursorPosition == 0 || m_text.empty())
         return;
     m_text.erase(m_cursorPosition - 1, 1);
     --m_cursorPosition;
+    clearSelection();
     refreshVisuals();
     notifyTextChanged();
 }
 
 void MRTextEdit::eraseAtCursor() {
+    if (hasSelection()) {
+        eraseSelection();
+        refreshVisuals();
+        notifyTextChanged();
+        return;
+    }
     if (m_cursorPosition >= m_text.size())
         return;
     m_text.erase(m_cursorPosition, 1);
     refreshVisuals();
     notifyTextChanged();
+}
+
+void MRTextEdit::eraseSelection() {
+    if (!hasSelection())
+        return;
+    const size_t start = std::min(m_selectionAnchor, m_selectionPosition);
+    const size_t end = std::max(m_selectionAnchor, m_selectionPosition);
+    m_text.erase(start, end - start);
+    m_cursorPosition = start;
+    m_selectionAnchor = start;
+    m_selectionPosition = start;
+    updateSelectionVisuals();
+}
+
+size_t MRTextEdit::textPositionAt(float screenX, float screenY) const {
+    const auto bounds = getScreenSpaceAABB();
+    constexpr float padding = 12.0f;
+    const float characterWidth = std::max(1.0f, m_fontSize * 0.58f);
+    const float lineHeight = std::max(1.0f, m_fontSize * 1.2f);
+    const size_t requestedLine = m_multiline ? static_cast<size_t>(std::max(0.0f, std::floor((screenY - bounds.Min.y - 6.0f) / lineHeight))) : 0;
+    const size_t requestedColumn = static_cast<size_t>(std::max(0.0f, std::floor((screenX - bounds.Min.x - padding + characterWidth * 0.5f) / characterWidth)));
+
+    size_t line = 0;
+    size_t lineStart = 0;
+    while (line < requestedLine && lineStart < m_text.size()) {
+        const size_t newline = m_text.find(L'\n', lineStart);
+        if (newline == std::wstring::npos)
+            return m_text.size();
+        lineStart = newline + 1;
+        ++line;
+    }
+    const size_t newline = m_text.find(L'\n', lineStart);
+    const size_t lineEnd = newline == std::wstring::npos ? m_text.size() : newline;
+    return std::min(lineStart + requestedColumn, lineEnd);
 }
 
 void MRTextEdit::layoutChildren() {
@@ -238,7 +368,65 @@ void MRTextEdit::layoutChildren() {
     m_background->getComponent<Transform>()->setSize(size.x, size.y);
     m_label->getComponent<Transform>()->setPosition(padding, 6.0f, 0.1f);
     m_label->getComponent<Transform>()->setSize(std::max(0.0f, size.x - padding * 2.0f), std::max(0.0f, size.y - 12.0f));
+    updateSelectionVisuals();
     updateCursorVisual();
+}
+
+void MRTextEdit::updateSelectionVisuals() {
+    const size_t selectionStart = std::min(m_selectionAnchor, m_selectionPosition);
+    const size_t selectionEnd = std::max(m_selectionAnchor, m_selectionPosition);
+    if (selectionStart == selectionEnd) {
+        for (const auto& rectangle : m_selectionRects)
+            rectangle->setVisible(false);
+        return;
+    }
+
+    std::vector<std::pair<size_t, size_t>> ranges;
+    size_t lineStart = 0;
+    while (lineStart <= m_text.size()) {
+        const size_t newline = m_text.find(L'\n', lineStart);
+        const size_t lineEnd = newline == std::wstring::npos ? m_text.size() : newline;
+        const size_t start = std::max(selectionStart, lineStart);
+        const size_t end = std::min(selectionEnd, lineEnd);
+        if (start < end || (newline != std::wstring::npos && selectionStart <= newline && selectionEnd > newline)) {
+            ranges.emplace_back(start, std::max(start, end));
+        }
+        if (newline == std::wstring::npos)
+            break;
+        lineStart = newline + 1;
+    }
+
+    while (m_selectionRects.size() < ranges.size()) {
+        auto rectangle = MRColor::create();
+        rectangle->setColor(0.18f, 0.45f, 0.78f, 0.62f);
+        addChild(rectangle);
+        m_selectionRects.push_back(rectangle);
+    }
+
+    const float characterWidth = m_fontSize * 0.58f;
+    const float lineHeight = m_fontSize * 1.2f;
+    size_t rangeIndex = 0;
+    size_t currentLineStart = 0;
+    for (size_t line = 0; line < ranges.size(); ++line) {
+        const auto [start, end] = ranges[line];
+        while (currentLineStart < start) {
+            const size_t newline = m_text.find(L'\n', currentLineStart);
+            if (newline == std::wstring::npos || newline >= start)
+                break;
+            currentLineStart = newline + 1;
+            ++rangeIndex;
+        }
+        auto& rectangle = m_selectionRects[line];
+        const float x = 12.0f + static_cast<float>(start - currentLineStart) * characterWidth;
+        const float y = m_multiline ? 6.0f + static_cast<float>(rangeIndex) * lineHeight : std::max(0.0f, (getComponent<Transform>()->getSize().y - m_fontSize) * 0.5f);
+        const float width = std::max(characterWidth * 0.4f, static_cast<float>(end - start) * characterWidth);
+        rectangle->getComponent<Transform>()->setPosition(x, y, 0.05f);
+        rectangle->getComponent<Transform>()->setSize(width, lineHeight);
+        rectangle->setVisible(true);
+    }
+    for (size_t index = ranges.size(); index < m_selectionRects.size(); ++index) {
+        m_selectionRects[index]->setVisible(false);
+    }
 }
 
 void MRTextEdit::updateCursorVisual() {
