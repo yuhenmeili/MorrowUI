@@ -1,0 +1,11 @@
+[import]
+format = 1
+asset_id = "asset_assets_textures_img"
+importer = "morrow.texture"
+source_hash = "6a8139b17b519854"
+importer_version = 1
+
+[options]
+
+[platform.windows]
+artifact = ".morrow/imported/asset_assets_textures_img/windows/img.jpg.artifact"

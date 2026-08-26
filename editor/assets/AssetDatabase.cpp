@@ -85,6 +85,35 @@ bool isImportable(const std::filesystem::path& path) {
     return extensionType(path) != "Unknown";
 }
 
+std::string importerName(const std::string& type) {
+    if (type == "Texture")
+        return "morrow.texture";
+    if (type == "Font")
+        return "morrow.font";
+    if (type == "GLTF")
+        return "morrow.gltf";
+    if (type == "Shader")
+        return "morrow.shader";
+    if (type == "Audio")
+        return "morrow.audio";
+    return "morrow.asset";
+}
+
+std::string generatedAssetId(const std::filesystem::path& relativePath) {
+    std::string id = "asset_";
+    auto pathWithoutExtension = relativePath;
+    pathWithoutExtension.replace_extension("");
+    for (const auto character : pathWithoutExtension.generic_string()) {
+        if (std::isalnum(static_cast<unsigned char>(character)))
+            id.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(character))));
+        else
+            id.push_back('_');
+    }
+    while (id.size() > 1 && id.back() == '_')
+        id.pop_back();
+    return id;
+}
+
 }  // namespace
 
 namespace morrow::editor {
@@ -187,6 +216,70 @@ bool AssetDatabase::loadImportFile(const std::filesystem::path& importPath, Impo
         }
     }
     metadata.line = lineNumber;
+    return true;
+}
+
+bool AssetDatabase::ensureImportMetadata(std::string& error) const {
+    if (m_assetRoot.empty() || m_projectRoot.empty()) {
+        error = "asset database has not been scanned";
+        return false;
+    }
+
+    std::unordered_set<std::string> usedIds;
+    for (const auto& asset : m_assets) {
+        if (!asset.assetId.empty())
+            usedIds.insert(asset.assetId);
+    }
+
+    std::error_code filesystemError;
+    for (std::filesystem::recursive_directory_iterator iterator(m_assetRoot, std::filesystem::directory_options::skip_permission_denied, filesystemError);
+         !filesystemError && iterator != std::filesystem::recursive_directory_iterator(); iterator.increment(filesystemError)) {
+        const auto& entry = *iterator;
+        if (!entry.is_regular_file(filesystemError) || !isImportable(entry.path()))
+            continue;
+
+        const auto relativePath = std::filesystem::relative(entry.path(), m_projectRoot, filesystemError);
+        if (filesystemError)
+            continue;
+        const auto importPath = m_projectRoot / (relativePath.string() + ".import");
+        if (std::filesystem::exists(importPath, filesystemError))
+            continue;
+
+        const std::string type = extensionType(entry.path());
+        std::string assetId = generatedAssetId(relativePath);
+        if (usedIds.count(assetId) != 0) {
+            size_t suffix = 2;
+            const std::string base = assetId;
+            do {
+                assetId = base + "_" + std::to_string(suffix++);
+            } while (usedIds.count(assetId) != 0);
+        }
+        usedIds.insert(assetId);
+
+        std::filesystem::create_directories(importPath.parent_path(), filesystemError);
+        if (filesystemError) {
+            error = "failed to create import metadata directory: " + filesystemError.message();
+            return false;
+        }
+        std::ofstream output(importPath);
+        if (!output.is_open()) {
+            error = "failed to create import metadata: " + importPath.string();
+            return false;
+        }
+        output << "[import]\n"
+               << "format = 1\n"
+               << "asset_id = \"" << assetId << "\"\n"
+               << "importer = \"" << importerName(type) << "\"\n"
+               << "source_hash = \"\"\n"
+               << "importer_version = " << currentImporterVersion() << "\n\n"
+               << "[options]\n\n"
+               << "[platform.windows]\n"
+               << "artifact = \".morrow/imported/" << assetId << "/windows/" << entry.path().filename().string() << ".artifact\"\n";
+        if (!output.good()) {
+            error = "failed to write import metadata: " + importPath.string();
+            return false;
+        }
+    }
     return true;
 }
 

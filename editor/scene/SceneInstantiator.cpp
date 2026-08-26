@@ -386,13 +386,13 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
                 return true;
             }
             if (!assets) {
-                error = "texture_asset requires an asset database";
-                return false;
+                image->setTexture(nullptr);
+                return true;
             }
             const auto* asset = assets->findById(value);
-            if (!asset || asset->type != "Texture") {
-                error = "texture asset '" + value + "' was not found";
-                return false;
+            if (!asset || asset->type != "Texture" || !asset->error.empty()) {
+                image->setTexture(nullptr);
+                return true;
             }
             auto texture = morrow::Texture::create();
             texture->setImageUrl(assets->resolveSourcePath(value).string());

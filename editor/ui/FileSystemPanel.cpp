@@ -57,15 +57,16 @@ int pathDepth(const std::filesystem::path& path) {
 
 namespace morrow::editor {
 
-std::shared_ptr<FileSystemPanel> FileSystemPanel::create(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback) {
-    auto panel = std::shared_ptr<FileSystemPanel>(new FileSystemPanel(model, std::move(statusCallback)));
+std::shared_ptr<FileSystemPanel> FileSystemPanel::create(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback,
+                                                         std::function<void()> assetChangeCallback) {
+    auto panel = std::shared_ptr<FileSystemPanel>(new FileSystemPanel(model, std::move(statusCallback), std::move(assetChangeCallback)));
     panel->initializeControls();
     panel->refreshView();
     return panel;
 }
 
-FileSystemPanel::FileSystemPanel(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback) :
-    UIWidget(false), m_model(model), m_statusCallback(std::move(statusCallback)) {
+FileSystemPanel::FileSystemPanel(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback, std::function<void()> assetChangeCallback) :
+    UIWidget(false), m_model(model), m_statusCallback(std::move(statusCallback)), m_assetChangeCallback(std::move(assetChangeCallback)) {
     setWidgetType("EditorFileSystemPanel");
     setWidgetName("FileSystem");
     setClipChildren(true);
@@ -191,6 +192,8 @@ void FileSystemPanel::update(FrameStateSharedPtr frameState) {
         } else if (m_statusCallback) {
             m_statusCallback(error);
         }
+        if (m_assetChangeCallback)
+            m_assetChangeCallback();
     }
     if (m_thumbnails.poll() > 0 && m_gridMode)
         rebuildGrid();

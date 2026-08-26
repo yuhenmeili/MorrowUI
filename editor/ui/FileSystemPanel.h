@@ -26,7 +26,8 @@ class MRTextEdit;
 namespace morrow::editor {
 class FileSystemPanel : public UIWidget {
 public:
-    static std::shared_ptr<FileSystemPanel> create(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback = {});
+    static std::shared_ptr<FileSystemPanel> create(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback = {},
+                                                   std::function<void()> assetChangeCallback = {});
 
     void refreshView();
 
@@ -35,7 +36,7 @@ public:
     void update(FrameStateSharedPtr frameState) override;
 
 private:
-    FileSystemPanel(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback);
+    FileSystemPanel(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback, std::function<void()> assetChangeCallback);
 
     void initializeControls();
 
@@ -65,6 +66,7 @@ private:
 
     ProjectFileSystemModel& m_model;
     std::function<void(const std::string&)> m_statusCallback;
+    std::function<void()> m_assetChangeCallback;
     std::shared_ptr<MRLabel> m_titleLabel;
     std::shared_ptr<MRButton> m_refreshButton;
     std::shared_ptr<MRButton> m_sortButton;

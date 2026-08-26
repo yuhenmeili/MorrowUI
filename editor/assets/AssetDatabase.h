@@ -33,6 +33,8 @@ class AssetDatabase {
 public:
     bool scan(const std::filesystem::path& projectRoot, const std::filesystem::path& assetRoot, std::string& error);
 
+    bool ensureImportMetadata(std::string& error) const;
+
     const AssetRecord* findById(const std::string& assetId) const;
 
     const AssetRecord* findBySourcePath(const std::filesystem::path& sourcePath) const;

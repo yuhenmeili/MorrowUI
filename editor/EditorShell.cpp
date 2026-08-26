@@ -190,6 +190,18 @@ void EditorShell::stopPreview() {
 }
 
 void EditorShell::runImportQueue() {
+    std::string metadataError;
+    if (!m_assets.ensureImportMetadata(metadataError)) {
+        setStatus("Import metadata generation failed: " + metadataError);
+        return;
+    }
+
+    std::string scanError;
+    if (!m_assets.scan(m_projectPath.parent_path(), m_assetRoot, scanError)) {
+        setStatus("Asset rescan failed: " + scanError);
+        return;
+    }
+
     std::vector<ImportTaskResult> results;
     std::string error;
     const bool success = m_importQueue.importAll(m_assets, m_projectPath.parent_path(), "windows", results, error);
@@ -207,7 +219,6 @@ void EditorShell::runImportQueue() {
     setStatus("Assets: imported=" + std::to_string(imported) + " unchanged=" + std::to_string(skipped) + " failed=" + std::to_string(failed));
     if (!success && !error.empty())
         setStatus("Import failed: " + error);
-    std::string scanError;
     if (!m_assets.scan(m_projectPath.parent_path(), m_assetRoot, scanError)) {
         setStatus("Asset rescan failed: " + scanError);
     }
@@ -309,7 +320,10 @@ void EditorShell::buildLayout() {
     m_inspectorPanel = makePanel(0.0f, 0.0f, 300.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
     m_statusPanel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
     m_buildPanel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
-    m_fileSystemPanel = FileSystemPanel::create(m_fileSystem, [this](const std::string& status) { setStatus(status); });
+    m_fileSystemPanel = FileSystemPanel::create(
+        m_fileSystem,
+        [this](const std::string& status) { setStatus(status); },
+        [this]() { runImportQueue(); });
     m_previewRoot = makePanel(0.0f, 32.0f, 740.0f, 538.0f);
     m_previewRoot->setWidgetName("PreviewRoot");
 

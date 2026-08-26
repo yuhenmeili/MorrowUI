@@ -17,7 +17,7 @@ property text = "button"
 [node id="node_0005" type="MRImage" parent="node_0001" name="ImageTest"]
 property position = Vector3(57.000, 163.000, 0.000)
 property size = Vector2(179.000, 127.000)
-property texture_asset = "asset_box_wood"
+property texture_asset = "asset_assets_textures_brickwall"
 
 [node id="node_0003" type="MRLabel" parent="node_0001" name="Label"]
 property font_size = 22
