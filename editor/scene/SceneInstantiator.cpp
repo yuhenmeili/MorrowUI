@@ -381,8 +381,10 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
 
     if (auto image = std::dynamic_pointer_cast<morrow::MRImage>(widget)) {
         if (key == "texture_asset") {
-            if (value.empty())
+            if (value.empty()) {
+                image->setTexture(nullptr);
                 return true;
+            }
             if (!assets) {
                 error = "texture_asset requires an asset database";
                 return false;

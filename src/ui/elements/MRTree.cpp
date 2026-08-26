@@ -104,6 +104,16 @@ int MRTree::getSelectedId() const {
     return m_nodes[static_cast<size_t>(m_selectedIndex)].id;
 }
 
+int MRTree::nodeIdForWidget(const std::shared_ptr<Widget>& widget) const {
+    for (auto current = widget; current && current.get() != this; current = current->m_parent) {
+        for (size_t rowIndex = 0; rowIndex < m_rows.size() && rowIndex < m_visibleNodes.size(); ++rowIndex) {
+            if (m_rows[rowIndex] == current)
+                return m_nodes[m_visibleNodes[rowIndex].nodeIndex].id;
+        }
+    }
+    return -1;
+}
+
 MRTree::Events& MRTree::events() {
     return m_events;
 }

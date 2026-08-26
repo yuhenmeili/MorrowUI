@@ -67,6 +67,8 @@ public:
     /// 获取当前选中节点 id；未选中时返回 -1。
     int getSelectedId() const;
 
+    int nodeIdForWidget(const std::shared_ptr<Widget>& widget) const;
+
     Events& events();
     /// 获取只读树节点数据。
     const std::vector<Node>& getNodes() const;

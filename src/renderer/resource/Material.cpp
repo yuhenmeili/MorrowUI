@@ -30,6 +30,13 @@ Material::Material(const std::string& shaderName) : m_shaderName(shaderName) {
 void Material::setTexture(const std::string& name, const TextureSharedPtr& texture) {
     const std::string key = m_attributePrefix + name;
     auto current = m_textureMap.find(key);
+    if (!texture) {
+        if (current == m_textureMap.end())
+            return;
+        m_textureMap.erase(current);
+        ++m_batchCompatibilityRevision;
+        return;
+    }
     if (current != m_textureMap.end() && current->second == texture) {
         return;
     }
@@ -330,6 +337,8 @@ void Material::apply(HwGPUProgram shader) {
     int textureIndex = 0;
     for (const auto& pair : m_textureMap) {
         auto texture = pair.second;
+        if (!texture)
+            continue;
         texture->render(nullptr);
         texture->bindTexture(textureIndex);
         RENDERINGTHREAD->setGPUProgramParamAsInt(targetShader, pair.first, textureIndex);

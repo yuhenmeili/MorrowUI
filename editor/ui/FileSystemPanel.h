@@ -30,6 +30,8 @@ public:
 
     void refreshView();
 
+    const ProjectFileEntry* entryForWidget(const std::shared_ptr<Widget>& widget) const;
+
     void update(FrameStateSharedPtr frameState) override;
 
 private:

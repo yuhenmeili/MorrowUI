@@ -159,6 +159,25 @@ void FileSystemPanel::refreshView() {
     layoutControls();
 }
 
+const ProjectFileEntry* FileSystemPanel::entryForWidget(const std::shared_ptr<Widget>& widget) const {
+    if (!widget)
+        return nullptr;
+
+    if (m_tree) {
+        const int treeId = m_tree->nodeIdForWidget(widget);
+        if (treeId >= 0)
+            return m_model.findById(treeId);
+    }
+
+    for (auto current = widget; current && current.get() != this; current = current->m_parent) {
+        for (const auto& [entryId, card] : m_gridCards) {
+            if (card == current)
+                return m_model.findById(entryId);
+        }
+    }
+    return nullptr;
+}
+
 void FileSystemPanel::update(FrameStateSharedPtr frameState) {
     const auto changes = m_watcher.poll();
     if (!changes.empty()) {

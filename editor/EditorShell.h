@@ -104,6 +104,12 @@ private:
 
     bool handleSceneTreeDrag(const TouchEvent& event);
 
+    bool handleAssetDrag(const TouchEvent& event);
+
+    std::string inspectorAssetPropertyAt(float x, float y, const AssetRecord& asset) const;
+
+    void setInspectorAssetDropTarget(const std::string& property);
+
     std::string sceneTreeNodeAt(float x, float y) const;
 
     std::string sceneTreeNodeForWidget(const std::shared_ptr<Widget>& widget) const;
@@ -266,6 +272,12 @@ private:
     float m_sceneDragStartX = 0.0f;
     float m_sceneDragStartY = 0.0f;
     bool m_sceneDragging = false;
+    std::string m_pendingAssetId;
+    std::shared_ptr<Widget> m_pendingAssetSource;
+    std::shared_ptr<MRButton> m_assetDragPreview;
+    std::string m_assetDropProperty;
+    float m_assetDragStartX = 0.0f;
+    float m_assetDragStartY = 0.0f;
     std::vector<std::string> m_lastNotifiedSelection;
     bool m_dragging = false;
     bool m_resizing = false;

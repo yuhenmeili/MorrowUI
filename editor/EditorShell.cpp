@@ -592,6 +592,123 @@ DockDropZone EditorShell::dropZoneAt(float x, float y) const {
     return DockDropZone::Center;
 }
 
+std::string EditorShell::inspectorAssetPropertyAt(float x, float y, const AssetRecord& asset) const {
+    for (const auto& [property, binding] : m_inspectorBindings) {
+        if (!binding.button || !binding.button->getScreenSpaceAABB().Contains(x, y))
+            continue;
+        if (binding.type == "TextureAsset" && asset.type == "Texture")
+            return property;
+    }
+    return {};
+}
+
+void EditorShell::setInspectorAssetDropTarget(const std::string& property) {
+    if (m_assetDropProperty == property)
+        return;
+    m_assetDropProperty = property;
+    for (auto& [name, binding] : m_inspectorBindings) {
+        if (binding.type != "TextureAsset" || !binding.button)
+            continue;
+        const bool active = name == property;
+        binding.button->setBackgroundColor(active ? Vector4(0.10f, 0.38f, 0.28f, 1.0f) : Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+        binding.button->setHoverColor(active ? Vector4(0.15f, 0.52f, 0.38f, 1.0f) : Vector4(0.14f, 0.20f, 0.29f, 1.0f));
+    }
+}
+
+bool EditorShell::handleAssetDrag(const TouchEvent& event) {
+    if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_LEFT) {
+        const auto* entry = m_fileSystemPanel ? m_fileSystemPanel->entryForWidget(event.target) : nullptr;
+        if (!entry || entry->directory || entry->assetId.empty())
+            return false;
+        const auto* asset = m_assets.findById(entry->assetId);
+        if (!asset || !asset->error.empty())
+            return false;
+        m_pendingAssetId = asset->assetId;
+        m_pendingAssetSource = event.target;
+        m_assetDragStartX = event.positionX;
+        m_assetDragStartY = event.positionY;
+        return false;
+    }
+
+    if (event.eventType == TOUCH_EVENT_TYPE_MOVE) {
+        if (m_dragDrop.isActive() && m_dragDrop.state().payload.type == "editor/asset") {
+            m_dragDrop.update(event.positionX, event.positionY);
+            if (m_assetDragPreview)
+                m_assetDragPreview->getTransform()->setPosition(event.positionX + 12.0f, event.positionY + 12.0f, 0.0f);
+            const auto* asset = m_assets.findById(m_dragDrop.state().payload.id);
+            setInspectorAssetDropTarget(asset ? inspectorAssetPropertyAt(event.positionX, event.positionY, *asset) : std::string{});
+            return true;
+        }
+        if (!m_pendingAssetId.empty()) {
+            const float dx = event.positionX - m_assetDragStartX;
+            const float dy = event.positionY - m_assetDragStartY;
+            if (dx * dx + dy * dy >= 36.0f) {
+                DragPayload payload;
+                payload.type = "editor/asset";
+                payload.id = m_pendingAssetId;
+                payload.source = m_pendingAssetSource;
+                if (!m_dragDrop.begin(payload, event.positionX, event.positionY))
+                    return false;
+                const auto* asset = m_assets.findById(m_pendingAssetId);
+                if (asset && m_shellRoot) {
+                    m_assetDragPreview = MRButton::create();
+                    m_assetDragPreview->setText(std::wstring(asset->sourcePath.filename().wstring()), "default");
+                    m_assetDragPreview->setTextFontSize(13.0f);
+                    m_assetDragPreview->setTextAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
+                    m_assetDragPreview->setTextColor(Vector4(0.94f, 0.96f, 0.99f, 1.0f));
+                    m_assetDragPreview->setBackgroundColor(Vector4(0.08f, 0.12f, 0.18f, 0.94f));
+                    m_assetDragPreview->setHoverColor(Vector4(0.08f, 0.12f, 0.18f, 0.94f));
+                    m_assetDragPreview->setPressedColor(Vector4(0.08f, 0.12f, 0.18f, 0.94f));
+                    m_assetDragPreview->setCornerRadius(3.0f);
+                    m_assetDragPreview->setDisplayLayer(10);
+                    m_assetDragPreview->getTransform()->setPosition(event.positionX + 12.0f, event.positionY + 12.0f, 0.0f);
+                    m_assetDragPreview->getTransform()->setSize(240.0f, 28.0f);
+                    if (auto interaction = m_assetDragPreview->getComponent<Interaction>())
+                        interaction->setInteractionEnabled(false);
+                    m_shellRoot->addChild(m_assetDragPreview);
+                }
+                setInspectorAssetDropTarget(asset ? inspectorAssetPropertyAt(event.positionX, event.positionY, *asset) : std::string{});
+                if (asset)
+                    setStatus("Dragging asset " + asset->sourcePath.generic_string());
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (event.eventType == TOUCH_EVENT_TYPE_RELEASE) {
+        if (m_dragDrop.isActive() && m_dragDrop.state().payload.type == "editor/asset") {
+            const DragState state = m_dragDrop.state();
+            const auto* asset = m_assets.findById(state.payload.id);
+            const std::string property = asset ? inspectorAssetPropertyAt(event.positionX, event.positionY, *asset) : std::string{};
+            m_dragDrop.drop(event.positionX, event.positionY);
+            if (m_assetDragPreview && m_shellRoot) {
+                m_shellRoot->removeChild(m_assetDragPreview);
+                m_assetDragPreview.reset();
+            }
+            setInspectorAssetDropTarget({});
+            m_pendingAssetId.clear();
+            m_pendingAssetSource.reset();
+            if (!asset) {
+                setStatus("Dropped asset is no longer available");
+            } else if (property.empty()) {
+                setStatus("Asset cannot be assigned to this Inspector field");
+            } else {
+                applyInspectorValue(property, asset->assetId);
+            }
+            return true;
+        }
+        m_pendingAssetId.clear();
+        m_pendingAssetSource.reset();
+        if (m_assetDragPreview && m_shellRoot) {
+            m_shellRoot->removeChild(m_assetDragPreview);
+            m_assetDragPreview.reset();
+        }
+        setInspectorAssetDropTarget({});
+    }
+    return false;
+}
+
 bool EditorShell::handleDockDrag(const TouchEvent& event) {
     if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_LEFT) {
         const auto target = event.target;
@@ -616,7 +733,7 @@ bool EditorShell::handleDockDrag(const TouchEvent& event) {
     }
 
     if (event.eventType == TOUCH_EVENT_TYPE_MOVE) {
-        if (m_dragDrop.isActive()) {
+        if (m_dragDrop.isActive() && m_dragDrop.state().payload.type == "editor/dock-panel") {
             m_dragDrop.update(event.positionX, event.positionY);
             if (m_dockDropOverlay) {
                 m_dockDropOverlay->setVisible(true);
@@ -644,7 +761,7 @@ bool EditorShell::handleDockDrag(const TouchEvent& event) {
     }
 
     if (event.eventType == TOUCH_EVENT_TYPE_RELEASE) {
-        if (m_dragDrop.isActive()) {
+        if (m_dragDrop.isActive() && m_dragDrop.state().payload.type == "editor/dock-panel") {
             completeDockDrop(event.positionX, event.positionY);
             m_pendingDockTab.clear();
             m_pendingDockGroup.clear();
@@ -1836,6 +1953,8 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
             deleteSelectedSceneNode();
             continue;
         }
+        if (handleAssetDrag(event))
+            continue;
         if (handleSceneTreeDrag(event))
             continue;
         if (handleDockDrag(event))

@@ -3,10 +3,28 @@
 //
 
 #include "MRImage.h"
+
+#include <vector>
+
 #include "base/Transform.h"
 #include "renderer/resource/ssbo/layouts/ImageSSBOLayout.h"
 
 namespace morrow {
+namespace {
+
+TextureSharedPtr defaultWhiteTexture() {
+    static const TextureSharedPtr texture = [] {
+        auto result = Texture::create(ImageType::IMAGE);
+        auto pixels = std::make_shared<std::vector<unsigned char>>(4, 255);
+        result->setTextureData(pixels, 1, 1, PixelDataFormat::RGBA);
+        result->setTextureName("morrow_default_white");
+        return result;
+    }();
+    return texture;
+}
+
+}  // namespace
+
 MRImageSharedPtr MRImage::create() {
     return std::shared_ptr<MRImage>(new MRImage());
 }
@@ -23,6 +41,7 @@ MRImage::MRImage() {
         m_material->setVector("displaySize", transform->getSize());
         requestRender("transformSizeChanged");
     });
+    setTexture(defaultWhiteTexture());
 }
 
 void MRImage::setRounding(float rounding) {
@@ -44,11 +63,10 @@ void MRImage::setScissor(float x, float y, float width, float height) {
 }
 
 void MRImage::setTexture(TextureSharedPtr texture) {
-    m_texture = texture;
-    if (!m_texture) {
-        LOG_W("MRImage::setTexture received null texture");
-        return;
-    }
+    m_texture = texture ? std::move(texture) : defaultWhiteTexture();
+    m_textureAtlas.reset();
+    m_atlasRegion.reset();
+    m_atlasRegionName.clear();
 
     if (m_texture->getImageType() == ImageType::OES) {
         m_material->setShader("image_oes");
@@ -59,7 +77,7 @@ void MRImage::setTexture(TextureSharedPtr texture) {
     } else {
         m_material->setShader("image_normal");
     }
-    m_material->setTexture("texture", texture);
+    m_material->setTexture("texture", m_texture);
     requestRender("setTexture");
 }
 
