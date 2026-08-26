@@ -10,7 +10,6 @@
 #include <vector>
 
 namespace morrow::editor {
-
 enum class FileChangeKind {
     Added,
     Removed,
@@ -25,9 +24,11 @@ struct FileChange {
 class FileSystemWatcher {
 public:
     FileSystemWatcher() = default;
+
     ~FileSystemWatcher();
 
     FileSystemWatcher(const FileSystemWatcher&) = delete;
+
     FileSystemWatcher& operator=(const FileSystemWatcher&) = delete;
 
     bool start(const std::filesystem::path& projectRoot, std::string& error);
@@ -58,7 +59,6 @@ private:
     std::vector<FileChange> m_pendingChanges;
     Snapshot m_snapshot;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_FILE_SYSTEM_WATCHER_H

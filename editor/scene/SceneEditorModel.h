@@ -7,7 +7,6 @@
 #include "SceneDocument.h"
 
 namespace morrow::editor {
-
 struct SceneTreeItem {
     std::string id;
     std::string parentId;
@@ -60,7 +59,6 @@ private:
     SceneDocument& m_document;
     SelectionState m_selection;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_SCENE_EDITOR_MODEL_H

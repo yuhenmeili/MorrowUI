@@ -8,7 +8,6 @@
 #include "AssetDatabase.h"
 
 namespace morrow::editor {
-
 struct ImportTaskResult {
     std::string assetId;
     bool success = false;
@@ -28,7 +27,6 @@ public:
     bool retry(const AssetRecord& asset, const std::filesystem::path& projectRoot, const std::string& platform, ImportTaskResult& result, std::string& error,
                int maxAttempts = 2) const;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_IMPORT_QUEUE_H

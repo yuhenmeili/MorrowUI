@@ -8,7 +8,6 @@
 #include <vector>
 
 namespace morrow::editor {
-
 class AssetDatabase;
 
 enum class FileImportState {
@@ -85,8 +84,8 @@ private:
 };
 
 const char* fileImportStateName(FileImportState state);
-const char* fileSortModeName(FileSortMode mode);
 
-}  // namespace morrow::editor
+const char* fileSortModeName(FileSortMode mode);
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_PROJECT_FILE_SYSTEM_MODEL_H

@@ -39,11 +39,11 @@ class MRLineEdit;
 class MRTextEdit;
 class MRPopupMenu;
 class TouchEvent;
-}  // namespace morrow
+} // namespace morrow
 
 namespace morrow::editor {
-
 enum class PreviewState { Stopped, Starting, Running, Outdated, Failed };
+
 enum class ResizeHandle {
     None,
     TopLeft,
@@ -60,6 +60,7 @@ class EditorShell {
 public:
     EditorShell(const std::shared_ptr<Window>& window, const std::shared_ptr<Engine>& engine, std::filesystem::path projectPath, std::filesystem::path scenePath,
                 std::filesystem::path assetRoot);
+
     ~EditorShell();
 
     bool initialize(std::string& error);
@@ -80,57 +81,106 @@ private:
     };
 
     void buildLayout();
+
     void rebuildRuntime();
+
     void refreshSelectionOverlay();
+
     bool syncRuntimeNode(const std::string& nodeId, bool transformOnly);
+
     void syncSelectedRuntimeNodes(bool transformOnly);
+
     void refreshViewportGuides();
+
     void refreshSceneTree();
+
     void refreshSceneTreeSelectionStyles();
+
     bool handleSceneTreeDrag(const TouchEvent& event);
+
     std::string sceneTreeNodeAt(float x, float y) const;
+
     std::string sceneTreeNodeForWidget(const std::shared_ptr<Widget>& widget) const;
+
     void deleteSelectedSceneNode();
+
     void beginSceneNodeRename(const std::string& nodeId = {});
+
     void commitSceneNodeRename();
+
     void cancelSceneNodeRename();
+
     void renameSceneNode(const std::string& nodeId, const std::string& name);
+
     void showCreateNodeDialog(const std::string& parentId = {});
+
     void createChildNode(const NodeTypeDescriptor& descriptor, const std::string& parentId);
+
     void refreshInspector(bool force = false);
+
     void updateInspectorValues(const std::vector<InspectorProperty>& properties);
+
     void applyInspectorValue(const std::string& property, const std::string& value);
+
     void handleInput(std::vector<TouchEvent>& events);
+
     void handleKey(int key, int action, int mods);
+
     void handleViewportPointer(const TouchEvent& event);
+
     ResizeHandle resizeHandleAt(float x, float y, float nodeX, float nodeY, float width, float height) const;
+
     bool handleDockDrag(const TouchEvent& event);
+
     void applyDockLayout();
+
     void saveDockLayout();
+
     void syncDockTabs();
+
     DockDropZone dropZoneAt(float x, float y) const;
+
     std::shared_ptr<MRTabContainer> tabContainerForId(const std::string& id) const;
+
     std::string tabGroupForWidget(const std::shared_ptr<Widget>& widget) const;
+
     void completeDockDrop(float x, float y);
+
     void handleFramebufferResize(const Vector2& size);
+
     void refreshOutput();
+
     void runBuild(BuildTaskKind kind);
+
     void pollBuild();
+
     void stopPreview();
+
     void setPreviewState(PreviewState state);
+
     void appendBuildResult(const BuildTaskResult& result);
+
     void showAssetBrowser();
+
     void beginPropertyEdit(const std::string& property, const std::string& value);
+
     void commitPropertyEdit();
+
     void handleChar(unsigned int codepoint);
+
     void setStatus(const std::string& text);
+
     void runImportQueue();
+
     void notifySelectionChanged();
+
     void addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height);
+
     std::shared_ptr<MRButton> addButton(const std::shared_ptr<UIWidget>& parent, const std::wstring& text, float x, float y, float width, float height,
                                         std::function<void()> callback);
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
     static void charCallback(GLFWwindow* window, unsigned int codepoint);
 
     std::shared_ptr<Window> m_window;
@@ -241,7 +291,6 @@ private:
     float m_pendingDockX = 0.0f;
     float m_pendingDockY = 0.0f;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_SHELL_H

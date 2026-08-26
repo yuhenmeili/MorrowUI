@@ -24,8 +24,7 @@ public:
 
     static bool updateNodeTransform(const SceneNodeRecord& record, const std::shared_ptr<Widget>& instance, std::string& error);
 };
-
-}  // namespace editor
-}  // namespace morrow
+} // namespace editor
+} // namespace morrow
 
 #endif  // MORROW_EDITOR_SCENE_INSTANTIATOR_H

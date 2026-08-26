@@ -8,7 +8,6 @@
 #include "SceneDocument.h"
 
 namespace morrow::editor {
-
 struct NodeTypeDescriptor {
     std::string type;
     std::string displayName;
@@ -32,7 +31,6 @@ public:
 private:
     std::vector<NodeTypeDescriptor> m_types;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_NODE_TYPE_CATALOG_H

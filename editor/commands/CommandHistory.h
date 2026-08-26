@@ -8,7 +8,6 @@
 #include "scene/SceneDocument.h"
 
 namespace morrow::editor {
-
 class SceneCommand {
 public:
     virtual ~SceneCommand() = default;
@@ -158,7 +157,6 @@ private:
     std::vector<std::unique_ptr<SceneCommand>> m_undoStack;
     std::vector<std::unique_ptr<SceneCommand>> m_redoStack;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_COMMAND_HISTORY_H

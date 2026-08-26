@@ -9,7 +9,6 @@
 #include "scene/SceneEditorModel.h"
 
 namespace morrow::editor {
-
 class EditorSession {
 public:
     explicit EditorSession(std::filesystem::path scenePath);
@@ -63,7 +62,6 @@ private:
     CommandHistory m_history;
     bool m_dirty = false;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_SESSION_H

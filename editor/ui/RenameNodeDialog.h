@@ -13,10 +13,9 @@ class MRButton;
 class MRLabel;
 class MRLineEdit;
 class MRTextEdit;
-}  // namespace morrow
+} // namespace morrow
 
 namespace morrow::editor {
-
 class RenameNodeDialog : public UIWidget {
 public:
     struct Events {
@@ -37,8 +36,11 @@ public:
 
 private:
     RenameNodeDialog();
+
     void initializeControls();
+
     void layoutControls();
+
     void confirm();
 
     Events m_events;
@@ -54,7 +56,6 @@ private:
     std::string m_nodeId;
     bool m_open = false;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif

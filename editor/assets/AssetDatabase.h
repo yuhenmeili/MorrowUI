@@ -7,7 +7,6 @@
 #include <vector>
 
 namespace morrow::editor {
-
 struct ImportMetadata {
     int format = 1;
     std::string assetId;
@@ -57,7 +56,6 @@ private:
     std::filesystem::path m_projectRoot;
     std::filesystem::path m_assetRoot;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_ASSET_DATABASE_H

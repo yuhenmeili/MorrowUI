@@ -9,10 +9,9 @@
 namespace morrow {
 class Texture;
 using TextureSharedPtr = std::shared_ptr<Texture>;
-}  // namespace morrow
+} // namespace morrow
 
 namespace morrow::editor {
-
 enum class ThumbnailState {
     Missing,
     Pending,
@@ -63,7 +62,6 @@ private:
     uint64_t m_accessCounter = 0;
     std::map<std::filesystem::path, Entry> m_entries;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_THUMBNAIL_SERVICE_H

@@ -21,10 +21,9 @@ class MRLineEdit;
 class MRImage;
 class MRScrollContainer;
 class MRTextEdit;
-}  // namespace morrow
+} // namespace morrow
 
 namespace morrow::editor {
-
 class FileSystemPanel : public UIWidget {
 public:
     static std::shared_ptr<FileSystemPanel> create(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback = {});
@@ -37,17 +36,29 @@ private:
     FileSystemPanel(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback);
 
     void initializeControls();
+
     void layoutControls();
+
     void rebuildTree();
+
     void rebuildGrid();
+
     void refreshModel();
+
     void handleSelection(int id);
+
     void handleGridClick(int id, uint32_t modifiers);
+
     void cycleSort();
+
     void toggleView();
+
     void navigateBack();
+
     void updateCardStyles();
+
     std::wstring entryText(const ProjectFileEntry& entry) const;
+
     void setPanelStatus(const std::string& status);
 
     ProjectFileSystemModel& m_model;
@@ -79,7 +90,6 @@ private:
     std::string m_filter;
     std::string m_status = "Ready";
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_FILE_SYSTEM_PANEL_H

@@ -6,7 +6,6 @@
 #include <vector>
 
 namespace morrow::editor {
-
 struct DockPanelState {
     std::string id;
     float x = 0.0f;
@@ -65,7 +64,6 @@ private:
     std::vector<DockSplitState> m_splits;
     std::vector<DockTabState> m_tabs;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif

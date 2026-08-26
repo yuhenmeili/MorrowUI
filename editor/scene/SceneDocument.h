@@ -7,7 +7,6 @@
 #include <vector>
 
 namespace morrow::editor {
-
 struct SceneResourceRecord {
     std::string id;
     std::string assetId;
@@ -68,7 +67,6 @@ private:
     std::vector<SceneSubResourceRecord> m_subResources;
     std::vector<SceneNodeRecord> m_nodes;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_SCENE_DOCUMENT_H

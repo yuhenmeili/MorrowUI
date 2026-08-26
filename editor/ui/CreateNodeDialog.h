@@ -16,10 +16,9 @@ class MRLabel;
 class MRLineEdit;
 class MRTextEdit;
 class MRTree;
-}  // namespace morrow
+} // namespace morrow
 
 namespace morrow::editor {
-
 class CreateNodeDialog : public UIWidget {
 public:
     struct Events {
@@ -43,9 +42,13 @@ private:
     explicit CreateNodeDialog(const NodeTypeCatalog& catalog);
 
     void initializeControls();
+
     void layoutControls();
+
     void rebuildTypes();
+
     void selectType(const std::string& type);
+
     void confirm();
 
     const NodeTypeCatalog& m_catalog;
@@ -71,7 +74,6 @@ private:
     std::string m_selectedType;
     bool m_open = false;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_CREATE_NODE_DIALOG_H

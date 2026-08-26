@@ -8,7 +8,6 @@
 #include <vector>
 
 namespace morrow::editor {
-
 enum class BuildTaskKind { Configure, Build, BuildAndRun, Run };
 
 struct BuildDiagnostic {
@@ -67,7 +66,6 @@ private:
     mutable std::mutex m_outputMutex;
     mutable std::vector<BuildOutputChunk> m_liveOutput;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_BUILD_QUEUE_H

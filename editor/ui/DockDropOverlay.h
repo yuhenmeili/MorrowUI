@@ -6,7 +6,6 @@
 #include "base/UIWidget.h"
 
 namespace morrow::editor {
-
 enum class DockDropZone {
     None,
     Center,
@@ -21,11 +20,14 @@ public:
     static std::shared_ptr<DockDropOverlay> create();
 
     void setWorkspaceBounds(const Math::Rect& bounds);
+
     void setZone(DockDropZone zone);
+
     DockDropZone zone() const;
 
 private:
     DockDropOverlay();
+
     void initializeZones();
 
     void layoutZones();
@@ -38,7 +40,6 @@ private:
     std::shared_ptr<UIWidget> m_top;
     std::shared_ptr<UIWidget> m_bottom;
 };
-
-}  // namespace morrow::editor
+} // namespace morrow::editor
 
 #endif  // MORROW_EDITOR_DOCK_DROP_OVERLAY_H
