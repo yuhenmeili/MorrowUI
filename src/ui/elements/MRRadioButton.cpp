@@ -6,6 +6,14 @@
 
 namespace morrow {
 
+std::shared_ptr<MRRadioGroup> MRRadioGroup::create() {
+    return std::make_shared<MRRadioGroup>();
+}
+
+MRRadioGroup::MRRadioGroup() : UIWidget(false) {
+    setWidgetType("MRRadioGroup");
+}
+
 void MRRadioGroup::add(const std::shared_ptr<MRRadioButton>& button) {
     if (!button)
         return;
@@ -38,6 +46,21 @@ std::shared_ptr<MRRadioButton> MRRadioGroup::getSelected() const {
     return nullptr;
 }
 
+void MRRadioGroup::addChild(std::shared_ptr<Widget> widget) {
+    UIWidget::addChild(widget);
+    if (auto button = std::dynamic_pointer_cast<MRRadioButton>(widget))
+        button->setGroup(std::static_pointer_cast<MRRadioGroup>(shared_from_this()));
+}
+
+bool MRRadioGroup::removeChild(std::shared_ptr<Widget> widget) {
+    const bool removed = UIWidget::removeChild(widget);
+    if (removed) {
+        if (auto button = std::dynamic_pointer_cast<MRRadioButton>(widget))
+            button->setGroup(nullptr);
+    }
+    return removed;
+}
+
 std::shared_ptr<MRRadioButton> MRRadioButton::create() {
     auto button = std::shared_ptr<MRRadioButton>(new MRRadioButton());
     button->initializeIndicator();
@@ -51,22 +74,23 @@ MRRadioButton::MRRadioButton() {
 }
 
 void MRRadioButton::setGroup(const MRRadioGroupSharedPtr& group) {
-    if (m_group == group)
+    const auto currentGroup = m_group.lock();
+    if (currentGroup == group)
         return;
-    if (m_group)
-        m_group->remove(std::static_pointer_cast<MRRadioButton>(shared_from_this()));
+    if (currentGroup)
+        currentGroup->remove(std::static_pointer_cast<MRRadioButton>(shared_from_this()));
     m_group = group;
-    if (m_group) {
+    if (group) {
         auto self = std::static_pointer_cast<MRRadioButton>(shared_from_this());
-        m_group->add(self);
+        group->add(self);
         if (isChecked())
-            m_group->select(self);
+            group->select(self);
     }
 }
 
 void MRRadioButton::onCheckedChanged(bool checked) {
-    if (checked && m_group) {
-        m_group->select(std::static_pointer_cast<MRRadioButton>(shared_from_this()));
+    if (const auto group = m_group.lock(); checked && group) {
+        group->select(std::static_pointer_cast<MRRadioButton>(shared_from_this()));
     }
     MRSelectableButton::onCheckedChanged(checked);
 }
@@ -74,13 +98,20 @@ void MRRadioButton::onCheckedChanged(bool checked) {
 void MRRadioButton::updateVisualState() {
     MRSelectableButton::updateVisualState();
     if (m_indicator) {
-        m_indicator->setColor(isChecked() ? Vector4(0.08f, 0.42f, 0.32f, 1.0f) : Vector4(0.68f, 0.72f, 0.78f, 1.0f));
+        m_indicator->setColor(Vector4(0.68f, 0.72f, 0.78f, 1.0f));
+    }
+    if (m_indicatorFill) {
+        m_indicatorFill->setColor(Vector4(0.08f, 0.62f, 0.42f, 1.0f));
+        m_indicatorFill->setVisible(isChecked());
     }
 }
 
 void MRRadioButton::initializeIndicator() {
     m_indicator = MRColor::create();
     m_indicator->setRounding(12.0f);
+    m_indicatorFill = MRColor::create();
+    m_indicatorFill->setRounding(6.0f);
+    m_indicator->addChild(m_indicatorFill);
     addChild(m_indicator);
     layoutIndicator();
     updateVisualState();
@@ -95,6 +126,8 @@ void MRRadioButton::layoutIndicator() {
     constexpr float textOffset = 48.0f;
     m_indicator->getComponent<Transform>()->setSize(indicatorSize, indicatorSize);
     m_indicator->getComponent<Transform>()->setPosition(leftPadding, (size.y - indicatorSize) * 0.5f, 0.0f);
+    m_indicatorFill->getComponent<Transform>()->setSize(12.0f, 12.0f);
+    m_indicatorFill->getComponent<Transform>()->setPosition(6.0f, 6.0f, 0.0f);
     if (m_label) {
         m_label->getComponent<Transform>()->setPosition(textOffset, 0.0f, 0.0f);
         m_label->getComponent<Transform>()->setSize(std::max(0.0f, size.x - textOffset - 8.0f), size.y);

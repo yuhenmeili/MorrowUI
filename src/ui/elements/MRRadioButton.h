@@ -6,13 +6,18 @@
 
 #include "MRColor.h"
 #include "MRSelectableButton.h"
+#include "base/UIWidget.h"
 
 namespace morrow {
 
 class MRRadioButton;
 
-class MRRadioGroup {
+class MRRadioGroup : public UIWidget {
 public:
+    static std::shared_ptr<MRRadioGroup> create();
+
+    MRRadioGroup();
+
     /// 将单选按钮加入当前互斥组。
     void add(const std::shared_ptr<MRRadioButton>& button);
 
@@ -24,6 +29,10 @@ public:
 
     /// 获取当前选中的单选按钮；没有选中项时返回空指针。
     std::shared_ptr<MRRadioButton> getSelected() const;
+
+    void addChild(std::shared_ptr<Widget> widget) override;
+
+    bool removeChild(std::shared_ptr<Widget> widget) override;
 
 private:
     std::vector<std::weak_ptr<MRRadioButton>> m_buttons;
@@ -47,7 +56,7 @@ public:
 
     /// 获取按钮当前所属的互斥单选组。
     MRRadioGroupSharedPtr getGroup() const {
-        return m_group;
+        return m_group.lock();
     }
 
 protected:
@@ -65,8 +74,9 @@ private:
 
     void layoutIndicator();
 
-    MRRadioGroupSharedPtr m_group;
+    std::weak_ptr<MRRadioGroup> m_group;
     MRColorSharedPtr m_indicator;
+    MRColorSharedPtr m_indicatorFill;
 };
 
 using MRRadioButtonSharedPtr = std::shared_ptr<MRRadioButton>;

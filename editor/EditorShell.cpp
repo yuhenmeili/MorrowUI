@@ -1,12 +1,15 @@
 #include "EditorShell.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <codecvt>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <locale>
 #include <sstream>
+#include <stdexcept>
 #include <utility>
 
 #include "Engine.h"
@@ -1484,7 +1487,7 @@ void EditorShell::refreshSelectionOverlay() {
     float y = 0.0f;
     float width = 0.0f;
     float height = 0.0f;
-    if (!m_session->model().selectedRect(x, y, width, height)) {
+    if (!selectedRuntimeRect(x, y, width, height)) {
         for (const auto& border : m_selectionBorders)
             border->setVisible(false);
         for (const auto& handle : m_selectionHandles)
@@ -1540,6 +1543,80 @@ void EditorShell::refreshSelectionOverlay() {
         m_selectionHandles[index]->getTransform()->setPosition(points[index].x - handleSize * 0.5f, points[index].y - handleSize * 0.5f, 0.0f);
         m_selectionHandles[index]->getTransform()->setSize(handleSize, handleSize);
     }
+}
+
+bool EditorShell::runtimeNodeRect(const std::string& nodeId, float& x, float& y, float& width, float& height) const {
+    if (!m_previewRoot || nodeId.empty())
+        return false;
+
+    const auto runtimeNode = m_runtimeNodes.find(nodeId);
+    if (runtimeNode == m_runtimeNodes.end())
+        return false;
+
+    const auto widget = std::dynamic_pointer_cast<UIWidget>(runtimeNode->second);
+    const auto nodeTransform = widget ? widget->getTransform() : nullptr;
+    const auto previewTransform = m_previewRoot->getTransform();
+    if (!nodeTransform || !previewTransform)
+        return false;
+
+    Matrix4 relativeMatrix;
+    try {
+        relativeMatrix.multiplyMatrices(previewTransform->getWorldMatrix().inverted(), nodeTransform->getWorldMatrix());
+    } catch (const std::invalid_argument&) {
+        return false;
+    }
+
+    const Vector3 nodeSize = nodeTransform->getSize();
+    const Vector3 previewSize = previewTransform->getSize();
+    const float halfWidth = nodeSize.x * 0.5f;
+    const float halfHeight = nodeSize.y * 0.5f;
+    std::array<Vector3, 4> corners = {
+        Vector3(-halfWidth, -halfHeight, 0.0f),
+        Vector3(-halfWidth, halfHeight, 0.0f),
+        Vector3(halfWidth, -halfHeight, 0.0f),
+        Vector3(halfWidth, halfHeight, 0.0f),
+    };
+
+    float minX = std::numeric_limits<float>::max();
+    float minY = std::numeric_limits<float>::max();
+    float maxX = std::numeric_limits<float>::lowest();
+    float maxY = std::numeric_limits<float>::lowest();
+    for (auto& corner : corners) {
+        corner.apply(relativeMatrix);
+        const float localX = corner.x + previewSize.x * 0.5f;
+        const float localY = previewSize.y * 0.5f - corner.y;
+        minX = std::min(minX, localX);
+        minY = std::min(minY, localY);
+        maxX = std::max(maxX, localX);
+        maxY = std::max(maxY, localY);
+    }
+
+    x = minX;
+    y = minY;
+    width = maxX - minX;
+    height = maxY - minY;
+    return width >= 0.0f && height >= 0.0f;
+}
+
+bool EditorShell::selectedRuntimeRect(float& x, float& y, float& width, float& height) const {
+    return runtimeNodeRect(m_selectedNodeId, x, y, width, height);
+}
+
+std::string EditorShell::runtimeNodeAt(float x, float y) const {
+    const auto& nodes = m_session->document().nodes();
+    for (auto node = nodes.rbegin(); node != nodes.rend(); ++node) {
+        const auto runtimeNode = m_runtimeNodes.find(node->id);
+        if (runtimeNode == m_runtimeNodes.end() || !runtimeNode->second || !runtimeNode->second->getVisible())
+            continue;
+
+        float nodeX = 0.0f;
+        float nodeY = 0.0f;
+        float nodeWidth = 0.0f;
+        float nodeHeight = 0.0f;
+        if (runtimeNodeRect(node->id, nodeX, nodeY, nodeWidth, nodeHeight) && x >= nodeX && y >= nodeY && x <= nodeX + nodeWidth && y <= nodeY + nodeHeight)
+            return node->id;
+    }
+    return {};
 }
 
 bool EditorShell::syncRuntimeNode(const std::string& nodeId, bool transformOnly) {
@@ -1638,7 +1715,7 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
         float selectedY = 0.0f;
         float selectedWidth = 0.0f;
         float selectedHeight = 0.0f;
-        if (!m_selectedNodeId.empty() && m_session->model().selectedRect(selectedX, selectedY, selectedWidth, selectedHeight)) {
+        if (selectedRuntimeRect(selectedX, selectedY, selectedWidth, selectedHeight)) {
             const ResizeHandle handle = resizeHandleAt(x, y, selectedX, selectedY, selectedWidth, selectedHeight);
             if (handle != ResizeHandle::None) {
                 if (m_session->model().selectedLocalRect(m_resizeNodeStartX, m_resizeNodeStartY, m_resizeNodeStartZ, m_resizeNodeStartWidth, m_resizeNodeStartHeight)) {
@@ -1652,16 +1729,20 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
                 }
             }
         }
-        std::string error;
         const bool additive = (event.modifiers & TOUCH_MODIFIER_CTRL) != 0;
-        if (m_session->selectAt(x, y, error, additive)) {
+        const std::string targetNodeId = runtimeNodeAt(x, y);
+        std::string error;
+        if (!targetNodeId.empty() && m_session->selectNode(targetNodeId, additive, error)) {
             notifySelectionChanged();
+            if (m_leftTabs)
+                m_leftTabs->selectTab("scene_tree");
             m_resizing = false;
             m_resizeHandle = ResizeHandle::None;
             m_dragging = true;
             m_viewportTransformChanged = false;
             m_lastPointerX = panelX;
             m_lastPointerY = panelY;
+            setStatus("Selected " + targetNodeId);
         }
     } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && m_resizing && !m_selectedNodeId.empty()) {
         const float dx = x - m_resizePointerStartX;
@@ -1728,6 +1809,16 @@ void EditorShell::handleViewportPointer(const TouchEvent& event) {
 void EditorShell::handleInput(std::vector<TouchEvent>& events) {
     pollBuild();
     for (const auto& event : events) {
+        const bool pointerEvent = event.eventType == TOUCH_EVENT_TYPE_TOUCH || event.eventType == TOUCH_EVENT_TYPE_MOVE || event.eventType == TOUCH_EVENT_TYPE_RELEASE ||
+                                  event.eventType == TOUCH_EVENT_TYPE_WHEEL;
+        if (pointerEvent && m_createNodeDialog && m_createNodeDialog->isOpen()) {
+            m_dragging = false;
+            m_resizing = false;
+            m_resizeHandle = ResizeHandle::None;
+            m_panning = false;
+            m_viewportTransformChanged = false;
+            continue;
+        }
         if (event.eventType == TOUCH_EVENT_TYPE_TOUCH) {
             if (m_sceneRenameEdit && !isDescendantOf(event.target, m_sceneRenameEdit)) {
                 commitSceneNodeRename();
@@ -1749,8 +1840,6 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
             continue;
         if (handleDockDrag(event))
             continue;
-        const bool pointerEvent = event.eventType == TOUCH_EVENT_TYPE_TOUCH || event.eventType == TOUCH_EVENT_TYPE_MOVE || event.eventType == TOUCH_EVENT_TYPE_RELEASE ||
-                                  event.eventType == TOUCH_EVENT_TYPE_WHEEL;
         const bool activeViewportGesture = m_dragging || m_resizing || m_panning;
         const bool insideViewport = m_viewportPanel && m_viewportPanel->getScreenSpaceAABB().Contains(event.positionX, event.positionY);
         if (pointerEvent && (activeViewportGesture || insideViewport)) {

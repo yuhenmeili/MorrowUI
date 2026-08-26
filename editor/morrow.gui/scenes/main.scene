@@ -9,12 +9,79 @@ property corner_radius = 8.0
 [node id="node_0001" type="SceneNode" name="Main"]
 
 [node id="node_0002" type="MRButton" parent="node_0001" name="StartButton"]
-property position = Vector3(80.000, 80.000, 0.000)
-property size = Vector2(446.000, 155.000)
+property position = Vector3(66.000, 48.000, 0.000)
+property size = Vector2(152.000, 65.000)
 property style = sub_resource("button_style")
-property text = "MorrowEditor Scene"
+property text = "button"
 
 [node id="node_0005" type="MRImage" parent="node_0001" name="ImageTest"]
-property position = Vector3(674.000, 67.000, 0.000)
+property position = Vector3(57.000, 163.000, 0.000)
 property size = Vector2(179.000, 127.000)
 property texture_asset = "asset_box_wood"
+
+[node id="node_0003" type="MRLabel" parent="node_0001" name="Label"]
+property font_size = 22
+property position = Vector3(459.312, 12.066, 0.000)
+property rotation = Vector3(0.0, 0.0, 0.0)
+property scale = Vector3(1.0, 1.0, 1.0)
+property size = Vector2(180.0, 40.0)
+property text = "RadioGroup"
+property visible = true
+
+[node id="node_0004" type="MRColor" parent="node_0001" name="Color"]
+property position = Vector3(62.000, 326.005, 0.000)
+property rotation = Vector3(0.0, 0.0, 0.0)
+property scale = Vector3(1.0, 1.0, 1.0)
+property size = Vector2(180.0, 80.0)
+property visible = true
+
+[node id="node_0006" type="MRCheckBox" parent="node_0009" name="CheckBox"]
+property position = Vector3(529.973, 52.131, 0.000)
+property rotation = Vector3(0.0, 0.0, 0.0)
+property scale = Vector3(1.0, 1.0, 1.0)
+property size = Vector2(180.000, 43.167)
+property visible = true
+
+[node id="node_0007" type="MRCheckButton" parent="node_0009" name="CheckButton"]
+property position = Vector3(527.755, 133.332, 0.000)
+property rotation = Vector3(0.0, 0.0, 0.0)
+property scale = Vector3(1.0, 1.0, 1.0)
+property size = Vector2(180.000, 42.171)
+property visible = true
+
+[node id="node_0009" type="HBoxContainer" parent="node_0001" name="HBoxContainer"]
+property position = Vector3(534.037, 300.592, 0.000)
+property rotation = Vector3(0.0, 0.0, 0.0)
+property scale = Vector3(1.0, 1.0, 1.0)
+property size = Vector2(88.000, 110.000)
+property visible = true
+
+[node id="node_0010" type="MRRadioGroup" parent="node_0001" name="RadioGroup"]
+property position = Vector3(599.000, 16.000, 0.000)
+property rotation = Vector3(0.0, 0.0, 0.0)
+property scale = Vector3(1.0, 1.0, 1.0)
+property size = Vector2(458.000, 169.000)
+property visible = true
+
+[node id="node_0011" type="MRRadioButton" parent="node_0010" name="RadioButton"]
+property position = Vector3(175.000, 54.000, 0.000)
+property rotation = Vector3(0.0, 0.0, 0.0)
+property scale = Vector3(1.0, 1.0, 1.0)
+property size = Vector2(138.000, 43.000)
+property visible = true
+
+[node id="node_0012" type="MRRadioButton" parent="node_0010" name="RadioButton2"]
+property position = Vector3(7.000, 54.000, 0.000)
+property rotation = Vector3(0.0, 0.0, 0.0)
+property scale = Vector3(1.0, 1.0, 1.0)
+property size = Vector2(163.000, 44.000)
+property visible = true
+
+[node id="node_0008" type="MRLabel" parent="node_0001" name="Label"]
+property font_size = 22
+property position = Vector3(459.000, 201.000, 0.000)
+property rotation = Vector3(0.0, 0.0, 0.0)
+property scale = Vector3(1.0, 1.0, 1.0)
+property size = Vector2(180.0, 40.0)
+property text = "HBoxContainer"
+property visible = true

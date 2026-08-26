@@ -28,6 +28,7 @@ private:
     void layoutIndicator();
 
     MRColorSharedPtr m_indicator;
+    MRColorSharedPtr m_indicatorFill;
 };
 
 using MRCheckBoxSharedPtr = std::shared_ptr<MRCheckBox>;

@@ -86,6 +86,12 @@ private:
 
     void refreshSelectionOverlay();
 
+    bool runtimeNodeRect(const std::string& nodeId, float& x, float& y, float& width, float& height) const;
+
+    bool selectedRuntimeRect(float& x, float& y, float& width, float& height) const;
+
+    std::string runtimeNodeAt(float x, float y) const;
+
     bool syncRuntimeNode(const std::string& nodeId, bool transformOnly);
 
     void syncSelectedRuntimeNodes(bool transformOnly);

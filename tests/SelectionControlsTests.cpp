@@ -23,16 +23,34 @@ void click(const MRSelectableButtonSharedPtr& button) {
     button->onMouseUp();
 }
 
+MRColorSharedPtr indicatorFill(const MRSelectableButtonSharedPtr& button) {
+    for (const auto& child : button->m_children) {
+        const auto indicator = std::dynamic_pointer_cast<MRColor>(child);
+        if (!indicator)
+            continue;
+        for (const auto& indicatorChild : indicator->m_children) {
+            if (const auto fill = std::dynamic_pointer_cast<MRColor>(indicatorChild))
+                return fill;
+        }
+    }
+    return nullptr;
+}
+
 void testIndependentSelection() {
     auto first = MRCheckBox::create();
     auto second = MRCheckBox::create();
+    const auto fill = indicatorFill(first);
+
+    expect(fill && !fill->getVisible(), "an unchecked checkbox should hide its inner fill");
 
     click(first);
     expect(first->isChecked(), "clicking a checkbox should select it");
     expect(!second->isChecked(), "checkboxes should not affect each other");
+    expect(fill && fill->getVisible(), "a checked checkbox should show its inner fill");
 
     click(first);
     expect(!first->isChecked(), "clicking a selected checkbox should clear it");
+    expect(fill && !fill->getVisible(), "clearing a checkbox should hide its inner fill");
 }
 
 void testToggleUpdatesBeforeClickCallback() {
@@ -67,18 +85,39 @@ void testRadioGroupIsExclusive() {
     auto group = std::make_shared<MRRadioGroup>();
     auto first = MRRadioButton::create();
     auto second = MRRadioButton::create();
+    const auto firstFill = indicatorFill(first);
     first->setGroup(group);
     second->setGroup(group);
 
     click(first);
     expect(first->isChecked() && !second->isChecked(), "selecting the first radio button should clear its peers");
+    expect(firstFill && firstFill->getVisible(), "a selected radio button should show its inner fill");
 
     click(second);
     expect(!first->isChecked() && second->isChecked(), "selecting another radio button should move the group selection");
     expect(group->getSelected() == second, "the radio group should report its selected button");
+    expect(firstFill && !firstFill->getVisible(), "a cleared radio button should hide its inner fill");
 
     click(second);
     expect(second->isChecked(), "clicking the selected radio button should not clear the group");
+}
+
+void testRadioGroupContainerTracksChildren() {
+    auto group = MRRadioGroup::create();
+    auto first = MRRadioButton::create();
+    auto second = MRRadioButton::create();
+    group->addChild(first);
+    group->addChild(second);
+
+    expect(first->getGroup() == group && second->getGroup() == group, "a radio group node should automatically group direct radio button children");
+
+    click(first);
+    click(second);
+    expect(!first->isChecked() && second->isChecked(), "radio button children should remain mutually exclusive");
+
+    auto otherParent = std::make_shared<UIWidget>(false);
+    otherParent->addChild(second);
+    expect(!second->getGroup(), "moving a radio button out of a group node should detach it from the group");
 }
 
 }  // namespace
@@ -88,6 +127,7 @@ int main() {
     testToggleUpdatesBeforeClickCallback();
     testButtonSupportsMultipleObserversAndRemoval();
     testRadioGroupIsExclusive();
+    testRadioGroupContainerTracksChildren();
 
     if (g_failures != 0) {
         std::cerr << g_failures << " selection control test(s) failed\n";

@@ -52,6 +52,7 @@ NodeTypeCatalog::NodeTypeCatalog() {
     add("MRCheckBox", "Check Box", "Input Controls", "A selectable check box control.");
     add("MRCheckButton", "Check Button", "Input Controls", "A compact selectable check button.");
     add("MRRadioButton", "Radio Button", "Input Controls", "A mutually-exclusive selectable button.");
+    add("MRRadioGroup", "Radio Group", "Input Controls", "A non-rendering container that groups child radio buttons.", {{"size", "Vector2(240.0, 160.0)"}});
     add("MRToggle", "Toggle", "Input Controls", "An on/off toggle control.");
     add("MRLineEdit", "Line Edit", "Input Controls", "A single-line text editor.");
     add("MRTextEdit", "Text Edit", "Input Controls", "A multi-line text editor.");

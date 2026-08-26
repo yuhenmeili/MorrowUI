@@ -57,9 +57,9 @@ public:
     /// 将触摸事件派发到本 Widget 的 Interaction 组件（由事件系统调用）
     void dispatchTouchEvent(TouchEvent& event);
 
-    void addChild(std::shared_ptr<Widget> widget);
+    virtual void addChild(std::shared_ptr<Widget> widget);
 
-    bool removeChild(std::shared_ptr<Widget> widget);
+    virtual bool removeChild(std::shared_ptr<Widget> widget);
 
     void removeFromStage();
 

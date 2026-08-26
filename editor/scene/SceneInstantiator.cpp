@@ -141,6 +141,8 @@ std::shared_ptr<morrow::Widget> createNode(const morrow::editor::SceneNodeRecord
         return morrow::MRCheckButton::create();
     if (record.type == "MRRadioButton")
         return morrow::MRRadioButton::create();
+    if (record.type == "MRRadioGroup")
+        return morrow::MRRadioGroup::create();
     if (record.type == "MRToggle")
         return morrow::MRToggle::create();
     if (record.type == "MRLineEdit")
