@@ -30,6 +30,8 @@ add_library(morrow_editor_runtime STATIC
     panels/AssetBrowserPanel.cpp
     panels/OutputPanel.cpp
     panels/BuildPanel.cpp
+    layout/EditorLayoutController.cpp
+    panels/EditorPanel.cpp
     EditorShell.cpp
 )
 

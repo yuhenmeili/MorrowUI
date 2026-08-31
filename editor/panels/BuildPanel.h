@@ -6,6 +6,7 @@
 #include <string>
 
 #include "build/BuildQueue.h"
+#include "panels/EditorPanel.h"
 
 namespace morrow {
 class MRTextEdit;
@@ -16,7 +17,7 @@ namespace morrow::editor {
 class EditorShell;
 enum class PreviewState;
 
-class BuildPanel {
+class BuildPanel : public EditorPanel {
 public:
     explicit BuildPanel(EditorShell& shell);
 
@@ -32,7 +33,7 @@ public:
 
     void resize();
 
-    std::shared_ptr<UIWidget> panel;
+    std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<MRTextEdit> log;
 
 private:

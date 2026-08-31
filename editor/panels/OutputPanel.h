@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "panels/EditorPanel.h"
 
 namespace morrow {
 class MRTextEdit;
@@ -13,7 +14,7 @@ class UIWidget;
 namespace morrow::editor {
 class EditorShell;
 
-class OutputPanel {
+class OutputPanel : public EditorPanel {
 public:
     explicit OutputPanel(EditorShell& shell);
 
@@ -23,7 +24,7 @@ public:
 
     void resize();
 
-    std::shared_ptr<UIWidget> panel;
+    std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<MRTextEdit> log;
     std::vector<std::string> lines;
 

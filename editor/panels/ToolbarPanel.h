@@ -2,6 +2,7 @@
 #define MORROW_EDITOR_TOOLBAR_PANEL_H
 
 #include <memory>
+#include "panels/EditorPanel.h"
 
 namespace morrow {
 class UIWidget;
@@ -10,7 +11,7 @@ class UIWidget;
 namespace morrow::editor {
 class EditorShell;
 
-class ToolbarPanel {
+class ToolbarPanel : public EditorPanel {
 public:
     explicit ToolbarPanel(EditorShell& shell);
 
@@ -20,7 +21,7 @@ private:
     EditorShell& m_shell;
 
 public:
-    std::shared_ptr<UIWidget> panel;
+    std::shared_ptr<UIWidget>& panel = m_root;
 };
 } // namespace morrow::editor
 

@@ -49,6 +49,7 @@ class ToolbarPanel;
 class AssetBrowserPanel;
 class OutputPanel;
 class BuildPanel;
+class EditorLayoutController;
 
 class EditorShell {
 public:
@@ -69,6 +70,7 @@ private:
     friend class AssetBrowserPanel;
     friend class OutputPanel;
     friend class BuildPanel;
+    friend class EditorLayoutController;
 
     void buildLayout();
 
@@ -126,6 +128,7 @@ private:
     std::unique_ptr<AssetBrowserPanel> m_assetsPanel;
     std::unique_ptr<OutputPanel> m_output;
     std::unique_ptr<BuildPanel> m_build;
+    std::unique_ptr<EditorLayoutController> m_layout;
     std::shared_ptr<MRSplitContainer> m_workspaceSplit;
     std::shared_ptr<MRSplitContainer> m_mainSplit;
     std::shared_ptr<MRSplitContainer> m_centerSplit;

@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "panels/EditorPanel.h"
 
 namespace morrow {
 class TouchEvent;
@@ -27,7 +28,7 @@ enum class ResizeHandle {
     Left,
 };
 
-class ViewportPanel {
+class ViewportPanel : public EditorPanel {
 public:
     explicit ViewportPanel(EditorShell& shell);
 
@@ -46,7 +47,7 @@ public:
 private:
     friend class EditorShell;
 
-    std::shared_ptr<UIWidget> panel;
+    std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<UIWidget> previewRoot;
     std::shared_ptr<UIWidget> previewCanvas;
     std::shared_ptr<UIWidget> previewGrid;

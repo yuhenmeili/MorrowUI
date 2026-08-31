@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "core/Observable.h"
+#include "panels/EditorPanel.h"
 
 namespace morrow {
 class BaseButton;
@@ -30,7 +31,7 @@ struct InspectorBinding {
     std::shared_ptr<MRButton> button;
 };
 
-class InspectorPanel {
+class InspectorPanel : public EditorPanel {
 public:
     explicit InspectorPanel(EditorShell& shell);
 
@@ -51,7 +52,7 @@ public:
 private:
     friend class EditorShell;
 
-    std::shared_ptr<UIWidget> panel;
+    std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<MRPopupMenu> assetMenu;
     std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> editConnections;
     std::map<std::string, InspectorBinding> bindings;

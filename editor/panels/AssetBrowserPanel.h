@@ -5,6 +5,7 @@
 #include <string>
 
 #include "filesystem/ProjectFileSystemModel.h"
+#include "panels/EditorPanel.h"
 
 namespace morrow {
 class UIWidget;
@@ -14,7 +15,7 @@ namespace morrow::editor {
 class EditorShell;
 class FileSystemPanel;
 
-class AssetBrowserPanel {
+class AssetBrowserPanel : public EditorPanel {
 public:
     explicit AssetBrowserPanel(EditorShell& shell);
 

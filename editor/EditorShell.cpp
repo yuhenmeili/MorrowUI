@@ -16,13 +16,14 @@
 #include "elements/MRLabel.h"
 #include "elements/MRLineEdit.h"
 #include "elements/MRPopupMenu.h"
-#include "panels/InspectorPanel.h"
-#include "panels/SceneTreePanel.h"
-#include "panels/ViewportPanel.h"
-#include "panels/ToolbarPanel.h"
+#include "layout/EditorLayoutController.h"
 #include "panels/AssetBrowserPanel.h"
-#include "panels/OutputPanel.h"
 #include "panels/BuildPanel.h"
+#include "panels/InspectorPanel.h"
+#include "panels/OutputPanel.h"
+#include "panels/SceneTreePanel.h"
+#include "panels/ToolbarPanel.h"
+#include "panels/ViewportPanel.h"
 #include "platform/Window.h"
 #include "wgl/OpenglHeader.h"
 
@@ -89,9 +90,9 @@ EditorShell::EditorShell(const std::shared_ptr<Window>& window, const std::share
                          std::filesystem::path assetRoot) :
     m_window(window), m_engine(engine), m_projectPath(std::move(projectPath)), m_scenePath(std::move(scenePath)), m_assetRoot(std::move(assetRoot)),
     m_inspector(std::make_unique<InspectorPanel>(*this)), m_sceneTree(std::make_unique<SceneTreePanel>(*this)), m_viewport(std::make_unique<ViewportPanel>(*this)),
-    m_toolbar(std::make_unique<ToolbarPanel>(*this)), m_assetsPanel(std::make_unique<AssetBrowserPanel>(*this)),
-    m_output(std::make_unique<OutputPanel>(*this)), m_build(std::make_unique<BuildPanel>(*this)),
-    m_session(std::make_shared<EditorSession>(m_scenePath)), m_dockLayoutPath(m_projectPath.parent_path() / ".morrow" / "editor.layout") {
+    m_toolbar(std::make_unique<ToolbarPanel>(*this)), m_assetsPanel(std::make_unique<AssetBrowserPanel>(*this)), m_output(std::make_unique<OutputPanel>(*this)),
+    m_build(std::make_unique<BuildPanel>(*this)), m_layout(std::make_unique<EditorLayoutController>(*this)), m_session(std::make_shared<EditorSession>(m_scenePath)),
+    m_dockLayoutPath(m_projectPath.parent_path() / ".morrow" / "editor.layout") {
     m_selectionChangedConnection = m_events.onSelectionChanged.connect([this](const SelectionState& selection) {
         m_selectedNodeId = selection.nodeIds.empty() ? std::string{} : selection.nodeIds.back();
         m_viewport->refreshSelectionOverlay();
@@ -303,6 +304,7 @@ void EditorShell::buildLayout() {
     m_mainSplit->setSecond(m_centerSplit);
     m_workspaceSplit->setFirst(m_mainSplit);
     m_workspaceSplit->setSecond(m_bottomTabs);
+    m_layout->attach(m_dockLayout, m_dockLayoutPath, m_workspaceSplit, m_mainSplit, m_centerSplit, m_leftTabs, m_centerTabs, m_bottomTabs, m_dockDropOverlay);
 
     m_shellRoot->addChild(m_toolbar->panel);
     m_shellRoot->addChild(m_workspaceSplit);
@@ -377,105 +379,26 @@ void EditorShell::buildLayout() {
     };
     m_output->log = makeLogEdit(m_output->panel);
     m_build->log = makeLogEdit(m_build->panel);
-    m_output->log = m_output->log;
-    m_build->log = m_build->log;
     applyDockLayout();
     m_output->lines = m_outputLines;
     m_output->refresh();
 }
 
 void EditorShell::applyDockLayout() {
-    if (const auto* split = m_dockLayout.findSplit("workspace"))
-        m_workspaceSplit->setSplitRatio(split->ratio);
-    if (const auto* split = m_dockLayout.findSplit("left"))
-        m_mainSplit->setSplitRatio(split->ratio);
-    if (const auto* split = m_dockLayout.findSplit("center"))
-        m_centerSplit->setSplitRatio(split->ratio);
-    const auto applyTabState = [](const DockTabState* state, const std::shared_ptr<MRTabContainer>& tabs) {
-        if (!state || !tabs)
-            return;
-        for (size_t target = 0; target < state->panels.size(); ++target) {
-            const auto& desired = state->panels[target];
-            size_t current = target;
-            while (current < tabs->tabs().size() && tabs->tabs()[current].id != desired) {
-                ++current;
-            }
-            if (current < tabs->tabs().size() && current != target)
-                tabs->moveTab(current, target);
-        }
-        tabs->selectTab(state->active);
-    };
-    if (const auto* tabs = m_dockLayout.findTabs("left_dock"))
-        applyTabState(tabs, m_leftTabs);
-    if (const auto* tabs = m_dockLayout.findTabs("center_dock"))
-        applyTabState(tabs, m_centerTabs);
-    if (const auto* tabs = m_dockLayout.findTabs("bottom_dock"))
-        applyTabState(tabs, m_bottomTabs);
-    if (m_dockDropOverlay)
-        m_dockDropOverlay->setWorkspaceBounds(m_workspaceSplit->getScreenSpaceAABB());
-    if (m_sceneTree->createDialog && m_shellRoot)
-        m_sceneTree->createDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
-    const Vector3 viewportSize = m_viewport->panel->getTransform()->getSize();
-    m_viewport->width = viewportSize.x;
-    m_viewport->height = viewportSize.y;
-    m_viewport->previewRoot->getTransform()->setSize(viewportSize.x, std::max(1.0f, viewportSize.y - 32.0f));
-    if (m_viewport->previewCanvas || m_viewport->previewGrid)
-        m_viewport->refreshGuides();
+    m_layout->apply();
 }
-
 void EditorShell::syncDockTabs() {
-    const auto sync = [this](const std::string& id, const std::shared_ptr<MRTabContainer>& tabs) {
-        if (auto* state = m_dockLayout.findTabs(id)) {
-            state->active = tabs->currentTabId();
-            state->panels.clear();
-            for (const auto& tab : tabs->tabs())
-                state->panels.push_back(tab.id);
-        }
-    };
-    sync("left_dock", m_leftTabs);
-    sync("center_dock", m_centerTabs);
-    sync("bottom_dock", m_bottomTabs);
+    m_layout->syncTabs();
 }
-
 std::shared_ptr<MRTabContainer> EditorShell::tabContainerForId(const std::string& id) const {
-    if (id == "left_dock")
-        return m_leftTabs;
-    if (id == "center_dock")
-        return m_centerTabs;
-    if (id == "bottom_dock")
-        return m_bottomTabs;
-    return nullptr;
+    return m_layout->tabContainerForId(id);
 }
-
 std::string EditorShell::tabGroupForWidget(const std::shared_ptr<Widget>& widget) const {
-    if (m_leftTabs && !m_leftTabs->tabIdForWidget(widget).empty())
-        return "left_dock";
-    if (m_bottomTabs && !m_bottomTabs->tabIdForWidget(widget).empty())
-        return "bottom_dock";
-    if (m_centerTabs && !m_centerTabs->tabIdForWidget(widget).empty())
-        return "center_dock";
     return {};
 }
-
 DockDropZone EditorShell::dropZoneAt(float x, float y) const {
-    if (!m_workspaceSplit)
-        return DockDropZone::None;
-    const Math::Rect bounds = m_workspaceSplit->getScreenSpaceAABB();
-    if (!bounds.Contains(x, y))
-        return DockDropZone::None;
-    const float nx = (x - bounds.Min.x) / std::max(1.0f, bounds.GetWidth());
-    const float ny = (y - bounds.Min.y) / std::max(1.0f, bounds.GetHeight());
-    if (nx < 0.20f)
-        return DockDropZone::Left;
-    if (nx > 0.80f)
-        return DockDropZone::Right;
-    if (ny < 0.20f)
-        return DockDropZone::Top;
-    if (ny > 0.80f)
-        return DockDropZone::Bottom;
-    return DockDropZone::Center;
+    return m_layout->dropZoneAt(x, y);
 }
-
 bool EditorShell::handleAssetDrag(const TouchEvent& event) {
     if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_LEFT) {
         const auto* entry = m_assetsPanel->view ? m_assetsPanel->view->entryForWidget(event.target) : nullptr;
@@ -571,116 +494,15 @@ bool EditorShell::handleAssetDrag(const TouchEvent& event) {
 }
 
 bool EditorShell::handleDockDrag(const TouchEvent& event) {
-    if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_LEFT) {
-        const auto target = event.target;
-        const std::string leftId = m_leftTabs ? m_leftTabs->tabIdForWidget(target) : std::string{};
-        const std::string bottomId = m_bottomTabs ? m_bottomTabs->tabIdForWidget(target) : std::string{};
-        const std::string centerId = m_centerTabs ? m_centerTabs->tabIdForWidget(target) : std::string{};
-        if (!leftId.empty()) {
-            m_pendingDockTab = leftId;
-            m_pendingDockGroup = "left_dock";
-        } else if (!bottomId.empty()) {
-            m_pendingDockTab = bottomId;
-            m_pendingDockGroup = "bottom_dock";
-        } else if (!centerId.empty()) {
-            m_pendingDockTab = centerId;
-            m_pendingDockGroup = "center_dock";
-        } else {
-            return false;
-        }
-        m_pendingDockX = event.positionX;
-        m_pendingDockY = event.positionY;
-        return false;
-    }
-
-    if (event.eventType == TOUCH_EVENT_TYPE_MOVE) {
-        if (m_dragDrop.isActive() && m_dragDrop.state().payload.type == "editor/dock-panel") {
-            m_dragDrop.update(event.positionX, event.positionY);
-            if (m_dockDropOverlay) {
-                m_dockDropOverlay->setVisible(true);
-                m_dockDropOverlay->setZone(dropZoneAt(event.positionX, event.positionY));
-            }
-            return true;
-        }
-        if (!m_pendingDockTab.empty()) {
-            const float dx = event.positionX - m_pendingDockX;
-            const float dy = event.positionY - m_pendingDockY;
-            if (dx * dx + dy * dy >= 36.0f) {
-                DragPayload payload;
-                payload.type = "editor/dock-panel";
-                payload.id = m_pendingDockTab;
-                payload.source = event.target;
-                m_dragDrop.begin(payload, event.positionX, event.positionY);
-                if (m_dockDropOverlay) {
-                    m_dockDropOverlay->setVisible(true);
-                    m_dockDropOverlay->setZone(dropZoneAt(event.positionX, event.positionY));
-                }
-                return true;
-            }
-        }
-        return false;
-    }
-
-    if (event.eventType == TOUCH_EVENT_TYPE_RELEASE) {
-        if (m_dragDrop.isActive() && m_dragDrop.state().payload.type == "editor/dock-panel") {
-            completeDockDrop(event.positionX, event.positionY);
-            m_pendingDockTab.clear();
-            m_pendingDockGroup.clear();
-            return true;
-        }
-        m_pendingDockTab.clear();
-        m_pendingDockGroup.clear();
-    }
-    return false;
+    return m_layout->handleDrop(event);
 }
-
 void EditorShell::completeDockDrop(float x, float y) {
-    const auto state = m_dragDrop.state();
-    const std::string panelId = state.payload.id;
-    const DockDropZone zone = dropZoneAt(x, y);
-    if (m_dockDropOverlay) {
-        m_dockDropOverlay->setVisible(false);
-        m_dockDropOverlay->setZone(DockDropZone::None);
-    }
-    m_dragDrop.drop(x, y);
-    if (zone == DockDropZone::None)
-        return;
-
-    std::shared_ptr<MRTabContainer> targetTabs;
-    if (zone == DockDropZone::Bottom) {
-        targetTabs = m_bottomTabs;
-    } else if (zone == DockDropZone::Left) {
-        targetTabs = m_leftTabs;
-    } else if (zone == DockDropZone::Right || zone == DockDropZone::Top) {
-        targetTabs = m_centerTabs;
-    } else {
-        const Math::Rect leftBounds = m_leftTabs->getScreenSpaceAABB();
-        const Math::Rect centerBounds = m_centerTabs->getScreenSpaceAABB();
-        const Math::Rect bottomBounds = m_bottomTabs->getScreenSpaceAABB();
-        targetTabs = bottomBounds.Contains(x, y) ? m_bottomTabs : (leftBounds.Contains(x, y) ? m_leftTabs : centerBounds.Contains(x, y) ? m_centerTabs : m_leftTabs);
-    }
-    if (!targetTabs)
-        return;
-
-    std::shared_ptr<MRTabContainer> sourceTabs = m_pendingDockGroup == "bottom_dock" ? m_bottomTabs : (m_pendingDockGroup == "center_dock" ? m_centerTabs : m_leftTabs);
-    MRTabContainer::DetachedTab detached;
-    if (!sourceTabs->detachTab(panelId, detached))
-        return;
-    if (!targetTabs->addTab(detached.id, detached.title, detached.content)) {
-        sourceTabs->addTab(detached.id, detached.title, detached.content);
-        return;
-    }
-    targetTabs->selectTab(detached.id);
-    syncDockTabs();
-    saveDockLayout();
+    (void)x;
+    (void)y;
 }
-
 void EditorShell::saveDockLayout() {
-    std::string error;
-    if (!m_dockLayout.save(m_dockLayoutPath, error))
-        setStatus(error);
+    m_layout->save();
 }
-
 void EditorShell::handleFramebufferResize(const Vector2& size) {
     if (!m_shellRoot || size.x <= 0.0f || size.y <= 0.0f)
         return;
@@ -873,7 +695,7 @@ bool EditorShell::initialize(std::string& error) {
     if (m_window) {
         m_framebufferSizeConnection = m_window->events().onFramebufferSizeChanged.connect([this](const Vector2& size) { handleFramebufferResize(size); });
     }
-        m_assetsPanel->importAssets();
+    m_assetsPanel->importAssets();
     m_sceneTree->refresh();
     m_viewport->rebuildRuntime();
     if (m_window) {

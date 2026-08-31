@@ -7,6 +7,7 @@
 
 #include "core/Observable.h"
 #include "ui/CreateNodeDialog.h"
+#include "panels/EditorPanel.h"
 
 namespace morrow {
 class MRButton;
@@ -25,7 +26,7 @@ struct SceneTreeRow {
     std::shared_ptr<MRButton> button;
 };
 
-class SceneTreePanel {
+class SceneTreePanel : public EditorPanel {
 public:
     explicit SceneTreePanel(EditorShell& shell);
 
@@ -50,7 +51,7 @@ public:
 private:
     friend class EditorShell;
 
-    std::shared_ptr<UIWidget> panel;
+    std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<MRLineEdit> renameEdit;
     std::shared_ptr<MRPopupMenu> contextMenu;
     std::shared_ptr<CreateNodeDialog> createDialog;
