@@ -58,8 +58,10 @@ int pathDepth(const std::filesystem::path& path) {
 namespace morrow::editor {
 
 std::shared_ptr<FileSystemPanel> FileSystemPanel::create(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback,
-                                                         std::function<void()> assetChangeCallback) {
+                                                         std::function<void()> assetChangeCallback,
+                                                         std::function<void(const ProjectFileEntry&)> selectionCallback) {
     auto panel = std::shared_ptr<FileSystemPanel>(new FileSystemPanel(model, std::move(statusCallback), std::move(assetChangeCallback)));
+    panel->m_selectionCallback = std::move(selectionCallback);
     panel->initializeControls();
     panel->refreshView();
     return panel;
@@ -71,6 +73,21 @@ FileSystemPanel::FileSystemPanel(ProjectFileSystemModel& model, std::function<vo
     setWidgetName("FileSystem");
     setClipChildren(true);
     getTransform()->addSizeChangeListener([this]() { layoutControls(); });
+}
+
+bool FileSystemPanel::selectAsset(const std::string& assetId, bool notify) {
+    for (const auto& entry : m_model.entries()) {
+        if (entry.assetId != assetId)
+            continue;
+        m_model.select(entry.id, false);
+        if (m_tree)
+            m_tree->selectNode(entry.id, notify);
+        updateCardStyles();
+        if (notify)
+            handleSelection(entry.id);
+        return true;
+    }
+    return false;
 }
 
 void FileSystemPanel::initializeControls() {
@@ -266,6 +283,11 @@ void FileSystemPanel::rebuildGrid() {
         auto interaction = card->getComponent<Interaction>();
         m_gridConnections.emplace_back(
             interaction->addEventListener(TOUCH_EVENT_TYPE_CLICK, [this, entryId](TouchEvent& event) { handleGridClick(entryId, event.modifiers); }, 10));
+        m_gridConnections.emplace_back(
+            interaction->addEventListener(TOUCH_EVENT_TYPE_TOUCH, [this, entryId](TouchEvent& event) {
+                if (event.button == TOUCH_MOUSE_BUTTON_RIGHT && m_contextMenuCallback)
+                    m_contextMenuCallback(m_model.findById(entryId), event.positionX, event.positionY);
+            }, 20));
 
         if (!entry.directory) {
             const auto absolute = m_model.projectRoot() / entry.relativePath;
@@ -338,6 +360,8 @@ void FileSystemPanel::handleSelection(int id) {
     const auto* entry = m_model.findById(id);
     if (!entry)
         return;
+    if (m_selectionCallback)
+        m_selectionCallback(*entry);
     if (entry->directory) {
         setPanelStatus("res://" + entry->relativePath.generic_string());
         return;
@@ -364,6 +388,8 @@ void FileSystemPanel::handleGridClick(int id, uint32_t modifiers) {
     m_model.select(id, (modifiers & TOUCH_MODIFIER_CTRL) != 0);
     updateCardStyles();
     const auto selected = m_model.selectedEntries();
+    if (m_selectionCallback)
+        m_selectionCallback(*entry);
     setPanelStatus(std::to_string(selected.size()) + " selected");
 }
 

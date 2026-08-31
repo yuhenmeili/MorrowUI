@@ -9,13 +9,20 @@
 
 #include "EditorShell.h"
 #include "Engine.h"
+#include "assets/MaterialAsset.h"
+#include "base/Interaction.h"
+#include "base/TouchEvent.h"
 #include "base/Transform.h"
 #include "elements/MRButton.h"
 #include "elements/MRLabel.h"
 #include "elements/MRLineEdit.h"
 #include "elements/MRPopupMenu.h"
+#include "filesystem/ProjectFileSystemModel.h"
+#include "panels/AssetBrowserPanel.h"
 #include "panels/SceneTreePanel.h"
 #include "panels/ViewportPanel.h"
+#include "ui/FileSystemPanel.h"
+#include "stb_image.h"
 
 namespace {
 bool parseTypedComponents(const std::string& value, const std::string& type, std::vector<std::string>& components) {
@@ -56,6 +63,17 @@ std::wstring wide(const std::string& text) {
         return std::wstring(text.begin(), text.end());
     }
 }
+
+void addInspectorText(morrow::editor::InspectorPanel& inspector, const std::string& text, float y) {
+    auto label = std::make_shared<morrow::MRLabel>();
+    label->setText(wide(text), "default");
+    label->setFontSize(13.0f);
+    label->setFontColor(0.82f, 0.84f, 0.88f, 1.0f);
+    label->setAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
+    label->getTransform()->setPosition(12.0f, y, 0.0f);
+    label->getTransform()->setSize(std::max(80.0f, inspector.root()->getTransform()->getSize().x * 0.34f), 28.0f);
+    inspector.root()->addChild(label);
+}
 }  // namespace
 
 namespace morrow::editor {
@@ -65,12 +83,30 @@ InspectorPanel::InspectorPanel(EditorShell& shell) : m_shell(shell) {
 
 std::string InspectorPanel::assetPropertyAt(float x, float y, const AssetRecord& asset) const {
     for (const auto& [property, binding] : bindings) {
-        if (!binding.button || !binding.button->getScreenSpaceAABB().Contains(x, y))
+        const auto target = binding.dropTarget ? binding.dropTarget : std::static_pointer_cast<Widget>(binding.button);
+        const auto targetWidget = std::dynamic_pointer_cast<UIWidget>(target);
+        if (!targetWidget || !targetWidget->getScreenSpaceAABB().Contains(x, y))
             continue;
         if (binding.type == "TextureAsset" && asset.type == "Texture")
             return property;
+        if (binding.type == "MaterialAsset" && asset.type == "Material")
+            return property;
+        if (binding.property == "material_shader" && asset.type == "Shader")
+            return property;
     }
     return {};
+}
+
+void InspectorPanel::inspectAsset(const ProjectFileEntry& entry) {
+    selectedAssetId = entry.assetId;
+    selectedAssetType = entry.assetType;
+    refresh(true);
+}
+
+void InspectorPanel::clearAsset() {
+    selectedAssetId.clear();
+    selectedAssetType.clear();
+    refresh(true);
 }
 
 void InspectorPanel::setAssetDropTarget(const std::string& property) {
@@ -89,6 +125,79 @@ void InspectorPanel::setAssetDropTarget(const std::string& property) {
 void InspectorPanel::refresh(bool force) {
     if (!panel)
         return;
+    if (!selectedAssetId.empty()) {
+        while (panel->m_children.size() > 1)
+            panel->m_children.pop_back();
+        editConnections.clear();
+        interactionConnections.clear();
+        bindings.clear();
+        const auto* asset = m_shell.m_assets.findById(selectedAssetId);
+        if (!asset) {
+            selectedAssetId.clear();
+            selectedAssetType.clear();
+        } else if (asset->type == "Material") {
+            addInspectorText(*this, "Material", 38.0f);
+            addInspectorText(*this, asset->sourcePath.generic_string(), 66.0f);
+            MaterialAsset material;
+            std::string error;
+            if (!loadMaterialAsset(m_shell.m_projectPath.parent_path() / asset->sourcePath, material, error)) {
+                addInspectorText(*this, error, 104.0f);
+                return;
+            }
+            addInspectorText(*this, "Shader", 104.0f);
+            auto shader = MRButton::create();
+            shader->setText(wide(material.shader.empty() ? "<empty>" : material.shader), "default");
+            shader->setTextAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
+            shader->setTextFontSize(13.0f);
+            shader->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+            shader->getTransform()->setPosition(124.0f, 104.0f, 0.0f);
+            shader->getTransform()->setSize(std::max(70.0f, panel->getTransform()->getSize().x - 136.0f), 28.0f);
+            panel->addChild(shader);
+            bindings["material_shader"] = {"material_shader", "ShaderAsset", {}, shader};
+            float y = 140.0f;
+            for (const auto& [key, value] : material.properties) {
+                addInspectorText(*this, key, y);
+                auto edit = MRLineEdit::create();
+                edit->setText(wide(value));
+                edit->setFontSize(13.0f);
+                edit->getTransform()->setPosition(124.0f, y, 0.0f);
+                edit->getTransform()->setSize(std::max(70.0f, panel->getTransform()->getSize().x - 136.0f), 28.0f);
+                panel->addChild(edit);
+                editConnections.emplace_back(edit->events().onSubmitted.connect([this, assetId = selectedAssetId, key](MRTextEdit&, const std::wstring& text) {
+                    const auto* selected = m_shell.m_assets.findById(assetId);
+                    if (!selected)
+                        return;
+                    MaterialAsset material;
+                    std::string error;
+                    if (!loadMaterialAsset(m_shell.m_projectPath.parent_path() / selected->sourcePath, material, error))
+                        return;
+                    material.properties[key] = std::string(text.begin(), text.end());
+                    if (!saveMaterialAsset(m_shell.m_projectPath.parent_path() / selected->sourcePath, material, error))
+                        m_shell.setStatus(error);
+                    else
+                        m_shell.setStatus("Saved material " + selected->sourcePath.generic_string());
+                }));
+                y += 32.0f;
+            }
+            return;
+        } else {
+            addInspectorText(*this, selectedAssetType.empty() ? "Asset" : selectedAssetType, 38.0f);
+            addInspectorText(*this, asset->sourcePath.generic_string(), 66.0f);
+            if (asset->type == "Texture") {
+                int imageWidth = 0;
+                int imageHeight = 0;
+                int components = 0;
+                const auto path = m_shell.m_projectPath.parent_path() / asset->sourcePath;
+                if (stbi_info(path.string().c_str(), &imageWidth, &imageHeight, &components)) {
+                    addInspectorText(*this, "Size", 104.0f);
+                    addInspectorText(*this, std::to_string(imageWidth) + " x " + std::to_string(imageHeight), 132.0f);
+                    addInspectorText(*this, "Channels", 168.0f);
+                    addInspectorText(*this, std::to_string(components), 196.0f);
+                }
+            }
+            return;
+        }
+    }
     auto properties = m_shell.m_session->model().inspectSelected();
     std::ostringstream signature;
     for (const auto& nodeId : m_shell.m_session->model().selection().nodeIds) {
@@ -172,7 +281,7 @@ void InspectorPanel::refresh(bool force) {
             button->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
             button->setHoverColor(Vector4(0.12f, 0.15f, 0.20f, 1.0f));
             bindings[property.name] = {property.name, property.type, {}, button};
-        } else if (property.type == "TextureAsset") {
+        } else if (property.type == "TextureAsset" || property.type == "MaterialAsset") {
             std::string display = "<empty>";
             if (!property.value.empty()) {
                 display = property.value;
@@ -180,15 +289,39 @@ void InspectorPanel::refresh(bool force) {
                     display = asset->sourcePath.generic_string();
                 }
             }
+            auto textField = MRLineEdit::create();
+            textField->setText(wide(display));
+            textField->setReadOnly(true);
+            textField->setFontSize(13.0f);
+            textField->setTextColor(Vector4(0.86f, 0.89f, 0.94f, 1.0f));
+            textField->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+            textField->getTransform()->setPosition(controlX, y, 0.0f);
+            textField->getTransform()->setSize(std::max(40.0f, controlWidth - 30.0f), 28.0f);
+            if (auto interaction = textField->getComponent<Interaction>()) {
+                interactionConnections.emplace_back(interaction->addEventListener(TOUCH_EVENT_TYPE_RELEASE, [this, propertyName = property.name](TouchEvent&) {
+                    const auto properties = m_shell.m_session->model().inspectSelected();
+                    const auto* inspectorProperty = findInspectorProperty(properties, propertyName);
+                    if (!inspectorProperty)
+                        return;
+                    const auto* current = m_shell.m_assets.findById(inspectorProperty->value);
+                    if (current && m_shell.m_assetsPanel->view) {
+                        if (m_shell.m_bottomTabs)
+                            m_shell.m_bottomTabs->selectTab("filesystem");
+                        m_shell.m_assetsPanel->view->selectAsset(current->assetId, false);
+                        m_shell.setStatus("Located asset " + current->sourcePath.generic_string());
+                    }
+                }));
+            }
+            panel->addChild(textField);
             auto button = MRButton::create();
-            button->setText(std::wstring(display.begin(), display.end()), "default");
-            button->setTextFontSize(14.0f);
-            button->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
-            button->setHoverColor(Vector4(0.14f, 0.20f, 0.29f, 1.0f));
-            button->setTextColor(Vector4(0.86f, 0.89f, 0.94f, 1.0f));
-            button->setTextAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
-            button->getTransform()->setPosition(controlX, y, 0.0f);
-            button->getTransform()->setSize(controlWidth, 28.0f);
+            button->setText(L"+", "default");
+            button->setTextFontSize(18.0f);
+            button->setTextColor(Vector4(0.96f, 0.98f, 1.0f, 1.0f));
+            button->setBackgroundColor(Vector4(0.16f, 0.34f, 0.62f, 1.0f));
+            button->setHoverColor(Vector4(0.24f, 0.48f, 0.80f, 1.0f));
+            button->setPressedColor(Vector4(0.10f, 0.25f, 0.50f, 1.0f));
+            button->getTransform()->setPosition(controlX + controlWidth - 28.0f, y, 0.0f);
+            button->getTransform()->setSize(28.0f, 28.0f);
             m_shell.m_buttonConnections.emplace_back(button->events().onClicked.connect([this, property](BaseButton& source) {
                 assetMenu->clear();
                 assetMenuIds.clear();
@@ -196,7 +329,8 @@ void InspectorPanel::refresh(bool force) {
                 assetMenuIds[0] = "";
                 int itemId = 1;
                 for (const auto& asset : m_shell.m_assets.assets()) {
-                    if (asset.type != "Texture" || !asset.error.empty())
+                    const bool acceptable = property.type == "TextureAsset" ? asset.type == "Texture" : asset.type == "Material";
+                    if (!acceptable || !asset.error.empty())
                         continue;
                     const std::string pathText = asset.sourcePath.generic_string();
                     assetMenu->addItem(std::wstring(pathText.begin(), pathText.end()), itemId);
@@ -210,6 +344,8 @@ void InspectorPanel::refresh(bool force) {
             }));
             panel->addChild(button);
             bindings[property.name] = {property.name, property.type, {}, button};
+            bindings[property.name].resourceField = textField;
+            bindings[property.name].dropTarget = textField;
         } else if ((property.type == "Vector2" || property.type == "Vector3" || property.type == "Color") && !property.mixed) {
             std::vector<std::string> components;
             if (!parseTypedComponents(property.value, property.type, components)) {
@@ -303,7 +439,7 @@ void InspectorPanel::updateValues(const std::vector<InspectorProperty>& properti
             binding.button->setText(property->value == "true" ? L"[x]" : L"[ ]", "default");
             continue;
         }
-        if (binding.type == "TextureAsset" && binding.button) {
+        if ((binding.type == "TextureAsset" || binding.type == "MaterialAsset") && binding.resourceField) {
             std::string display = "<empty>";
             if (!property->value.empty()) {
                 display = property->value;
@@ -311,7 +447,7 @@ void InspectorPanel::updateValues(const std::vector<InspectorProperty>& properti
                     display = asset->sourcePath.generic_string();
                 }
             }
-            binding.button->setText(std::wstring(display.begin(), display.end()), "default");
+            binding.resourceField->setText(wide(display));
             continue;
         }
         if (binding.type == "Vector2" || binding.type == "Vector3" || binding.type == "Color") {
@@ -333,6 +469,30 @@ void InspectorPanel::updateValues(const std::vector<InspectorProperty>& properti
 }
 
 void InspectorPanel::applyValue(const std::string& property, const std::string& value) {
+    if (!selectedAssetId.empty() && property == "material_shader") {
+        const auto* asset = m_shell.m_assets.findById(selectedAssetId);
+        if (!asset)
+            return;
+        MaterialAsset material;
+        std::string error;
+        if (!loadMaterialAsset(m_shell.m_projectPath.parent_path() / asset->sourcePath, material, error)) {
+            m_shell.setStatus(error);
+            return;
+        }
+        const auto* shader = m_shell.m_assets.findById(value);
+        if (!shader || shader->type != "Shader") {
+            m_shell.setStatus("Shader asset '" + value + "' was not found");
+            return;
+        }
+        material.shader = value;
+        if (saveMaterialAsset(m_shell.m_projectPath.parent_path() / asset->sourcePath, material, error)) {
+            m_shell.setStatus("Assigned shader " + value);
+            refresh(true);
+        } else {
+            m_shell.setStatus(error);
+        }
+        return;
+    }
     std::string error;
     bool changed = false;
     for (const auto& nodeId : m_shell.m_session->model().selection().nodeIds) {

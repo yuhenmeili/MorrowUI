@@ -27,11 +27,28 @@ namespace morrow::editor {
 class FileSystemPanel : public UIWidget {
 public:
     static std::shared_ptr<FileSystemPanel> create(ProjectFileSystemModel& model, std::function<void(const std::string&)> statusCallback = {},
-                                                   std::function<void()> assetChangeCallback = {});
+                                                   std::function<void()> assetChangeCallback = {},
+                                                   std::function<void(const ProjectFileEntry&)> selectionCallback = {});
 
     void refreshView();
 
     const ProjectFileEntry* entryForWidget(const std::shared_ptr<Widget>& widget) const;
+
+    bool selectAsset(const std::string& assetId, bool notify = true);
+
+    void setContextMenuCallback(std::function<void(const ProjectFileEntry*, float, float)> callback) {
+        m_contextMenuCallback = std::move(callback);
+    }
+
+    const std::filesystem::path& currentDirectory() const {
+        return m_currentDirectory;
+    }
+
+    MRTree::Events& treeEvents() {
+        return m_tree->events();
+    }
+
+    Observable<MRTree&, int, const std::wstring&, float, float>::Connection treeContextConnection;
 
     void update(FrameStateSharedPtr frameState) override;
 
@@ -67,6 +84,8 @@ private:
     ProjectFileSystemModel& m_model;
     std::function<void(const std::string&)> m_statusCallback;
     std::function<void()> m_assetChangeCallback;
+    std::function<void(const ProjectFileEntry&)> m_selectionCallback;
+    std::function<void(const ProjectFileEntry*, float, float)> m_contextMenuCallback;
     std::shared_ptr<MRLabel> m_titleLabel;
     std::shared_ptr<MRButton> m_refreshButton;
     std::shared_ptr<MRButton> m_sortButton;

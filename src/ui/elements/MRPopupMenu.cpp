@@ -76,6 +76,14 @@ MRPopupMenu::Events& MRPopupMenu::events() {
 void MRPopupMenu::popup(float x, float y) {
     if (!m_parent)
         return;
+    if (const auto parent = std::dynamic_pointer_cast<UIWidget>(m_parent)) {
+        const Math::Rect parentBounds = parent->getScreenSpaceAABB();
+        const Vector3 menuSize = getComponent<Transform>()->getSize();
+        x = std::clamp(x, parentBounds.Min.x, std::max(parentBounds.Min.x, parentBounds.Max.x - menuSize.x));
+        y = std::clamp(y, parentBounds.Min.y, std::max(parentBounds.Min.y, parentBounds.Max.y - menuSize.y));
+        x -= parentBounds.Min.x;
+        y -= parentBounds.Min.y;
+    }
     getComponent<Transform>()->setPosition(x, y, 0.0f);
     setVisible(true);
     m_open = true;
@@ -83,7 +91,14 @@ void MRPopupMenu::popup(float x, float y) {
 }
 
 void MRPopupMenu::popupBelow(const Math::Rect& anchorBounds) {
-    popup(anchorBounds.Min.x, anchorBounds.Max.y + 4.0f);
+    float y = anchorBounds.Max.y + 4.0f;
+    if (const auto parent = std::dynamic_pointer_cast<UIWidget>(m_parent)) {
+        const Math::Rect parentBounds = parent->getScreenSpaceAABB();
+        const float menuHeight = getComponent<Transform>()->getSize().y;
+        if (y + menuHeight > parentBounds.Max.y)
+            y = anchorBounds.Min.y - menuHeight - 4.0f;
+    }
+    popup(anchorBounds.Min.x, y);
 }
 
 void MRPopupMenu::attachTo(const std::shared_ptr<Widget>& root) {

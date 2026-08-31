@@ -1,15 +1,15 @@
-#include "EditorShell.h"
-#include "panels/InspectorPanel.h"
 #include "panels/ViewportPanel.h"
 
 #include <algorithm>
 #include <array>
 #include <limits>
 
+#include "EditorShell.h"
 #include "base/Interaction.h"
-#include "base/Transform.h"
 #include "base/TouchEvent.h"
+#include "base/Transform.h"
 #include "elements/MRColor.h"
+#include "panels/InspectorPanel.h"
 #include "scene/SceneInstantiator.h"
 
 namespace morrow::editor {
@@ -232,6 +232,21 @@ void ViewportPanel::refreshGuides() {
     }
 }
 
+void ViewportPanel::resizeToPanel() {
+    if (!panel)
+        return;
+    const Math::Rect bounds = panel->getScreenSpaceAABB();
+    x = bounds.Min.x;
+    y = bounds.Min.y;
+    width = std::max(1.0f, bounds.GetWidth());
+    height = std::max(1.0f, bounds.GetHeight());
+    if (previewRoot) {
+        previewRoot->getTransform()->setSize(width, std::max(1.0f, height - 32.0f));
+        refreshGuides();
+        refreshSelectionOverlay();
+    }
+}
+
 void ViewportPanel::handlePointer(const TouchEvent& event) {
     const Math::Rect viewportBounds = panel->getScreenSpaceAABB();
     x = viewportBounds.Min.x;
@@ -290,8 +305,19 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
         }
         const bool additive = (event.modifiers & TOUCH_MODIFIER_CTRL) != 0;
         const std::string targetNodeId = runtimeNodeAt(x, y);
+        std::string screenTargetNodeId = targetNodeId;
+        if (screenTargetNodeId.empty()) {
+            for (const auto& [nodeId, runtimeNode] : runtimeNodes) {
+                const auto uiNode = std::dynamic_pointer_cast<UIWidget>(runtimeNode);
+                if (uiNode && uiNode->getVisible() && uiNode->getScreenSpaceAABB().Contains(event.positionX, event.positionY)) {
+                    screenTargetNodeId = nodeId;
+                    break;
+                }
+            }
+        }
         std::string error;
-        if (!targetNodeId.empty() && m_shell.m_session->selectNode(targetNodeId, additive, error)) {
+        if (!screenTargetNodeId.empty() && m_shell.m_session->selectNode(screenTargetNodeId, additive, error)) {
+            m_shell.m_inspector->clearAsset();
             m_shell.notifySelectionChanged();
             if (m_shell.m_leftTabs)
                 m_shell.m_leftTabs->selectTab("scene_tree");
@@ -301,7 +327,7 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
             transformChanged = false;
             lastPointerX = panelX;
             lastPointerY = panelY;
-            m_shell.setStatus("Selected " + targetNodeId);
+            m_shell.setStatus("Selected " + screenTargetNodeId);
         }
     } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && resizing && !m_shell.m_selectedNodeId.empty()) {
         const float dx = x - resizePointerStartX;

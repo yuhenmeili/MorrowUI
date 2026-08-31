@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "core/Observable.h"
+#include "base/EventDispatcher.h"
 #include "ui/CreateNodeDialog.h"
 #include "panels/EditorPanel.h"
 
@@ -53,12 +54,14 @@ private:
 
     std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<MRLineEdit> renameEdit;
+    std::shared_ptr<MRButton> createButton;
     std::shared_ptr<MRPopupMenu> contextMenu;
     std::shared_ptr<CreateNodeDialog> createDialog;
     std::vector<EventConnection> contextConnections;
     std::vector<SceneTreeRow> rows;
     Observable<MRPopupMenu&, int, const std::wstring&>::Connection contextMenuConnection;
     Observable<CreateNodeDialog&, const NodeTypeDescriptor&, const std::string&>::Connection createConnection;
+    Observable<BaseButton&>::Connection createButtonConnection;
     std::string contextParentId;
     std::string renameNodeId;
     std::string pendingDragNode;

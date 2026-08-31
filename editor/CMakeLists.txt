@@ -6,6 +6,7 @@ add_library(morrow_editor_document STATIC
     scene/NodeTypeCatalog.cpp
     commands/CommandHistory.cpp
     assets/AssetDatabase.cpp
+    assets/MaterialAsset.cpp
     assets/ImportQueue.cpp
     filesystem/ProjectFileSystemModel.cpp
     filesystem/FileSystemWatcher.cpp
@@ -21,6 +22,7 @@ add_library(morrow_editor_runtime STATIC
     filesystem/ThumbnailService.cpp
     ui/DockDropOverlay.cpp
     ui/CreateNodeDialog.cpp
+    ui/CreateAssetDialog.cpp
     ui/RenameNodeDialog.cpp
     ui/FileSystemPanel.cpp
     panels/InspectorPanel.cpp

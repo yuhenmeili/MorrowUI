@@ -1,0 +1,6 @@
+[material]
+format = 1
+shader = ""
+
+[properties]
+color = Color(1.0, 1.0, 1.0, 1.0)

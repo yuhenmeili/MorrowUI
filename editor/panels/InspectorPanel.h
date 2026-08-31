@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "core/Observable.h"
+#include "base/EventDispatcher.h"
 #include "panels/EditorPanel.h"
 
 namespace morrow {
@@ -17,18 +18,22 @@ class MRPopupMenu;
 class MRTextEdit;
 class TouchEvent;
 class UIWidget;
+class Widget;
 } // namespace morrow
 
 namespace morrow::editor {
 class EditorShell;
 struct AssetRecord;
 struct InspectorProperty;
+struct ProjectFileEntry;
 
 struct InspectorBinding {
     std::string property;
     std::string type;
     std::vector<std::shared_ptr<MRLineEdit>> edits;
     std::shared_ptr<MRButton> button;
+    std::shared_ptr<MRLineEdit> resourceField;
+    std::shared_ptr<Widget> dropTarget;
 };
 
 class InspectorPanel : public EditorPanel {
@@ -49,12 +54,17 @@ public:
 
     void appendLegacyCharacter(unsigned int codepoint);
 
+    void inspectAsset(const ProjectFileEntry& entry);
+
+    void clearAsset();
+
 private:
     friend class EditorShell;
 
     std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<MRPopupMenu> assetMenu;
     std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> editConnections;
+    std::vector<EventConnection> interactionConnections;
     std::map<std::string, InspectorBinding> bindings;
     std::map<int, std::string> assetMenuIds;
     Observable<MRPopupMenu&, int, const std::wstring&>::Connection assetMenuConnection;
@@ -64,6 +74,8 @@ private:
     std::string legacyEditProperty;
     std::string legacyEditValue;
     std::string lastSchemaSignature;
+    std::string selectedAssetId;
+    std::string selectedAssetType;
 
     void updateValues(const std::vector<InspectorProperty>& properties);
 

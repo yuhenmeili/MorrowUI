@@ -25,6 +25,7 @@ public:
 
     struct Events {
         Observable<MRTree&, int, const std::wstring&> onNodeSelected;
+        Observable<MRTree&, int, const std::wstring&, float, float> onNodeContextMenu;
         Observable<MRTree&, int, bool> onNodeExpanded;
     };
 
@@ -63,7 +64,7 @@ public:
     /// 查询指定节点是否展开。
     bool isExpanded(int id) const;
     /// 选中指定节点。
-    bool selectNode(int id);
+    bool selectNode(int id, bool notify = true);
     /// 获取当前选中节点 id；未选中时返回 -1。
     int getSelectedId() const;
 

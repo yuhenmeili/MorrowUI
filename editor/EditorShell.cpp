@@ -17,6 +17,7 @@
 #include "elements/MRLineEdit.h"
 #include "elements/MRPopupMenu.h"
 #include "layout/EditorLayoutController.h"
+#include "assets/AssetTypeCatalog.h"
 #include "panels/AssetBrowserPanel.h"
 #include "panels/BuildPanel.h"
 #include "panels/InspectorPanel.h"
@@ -24,6 +25,8 @@
 #include "panels/SceneTreePanel.h"
 #include "panels/ToolbarPanel.h"
 #include "panels/ViewportPanel.h"
+#include "ui/CreateAssetDialog.h"
+#include "ui/RenameNodeDialog.h"
 #include "platform/Window.h"
 #include "wgl/OpenglHeader.h"
 
@@ -212,18 +215,32 @@ void EditorShell::buildLayout() {
             m_dockLayout = std::move(loadedLayout);
         }
     }
+    // FileSystem belongs to the bottom tool area by default. Migrate older
+    // layouts that still placed it in the left dock without changing the
+    // user's other tab ordering.
+    bool migratedFileSystemDock = false;
+    if (auto* leftTabs = m_dockLayout.findTabs("left_dock")) {
+        migratedFileSystemDock = std::find(leftTabs->panels.begin(), leftTabs->panels.end(), "filesystem") != leftTabs->panels.end();
+        leftTabs->panels.erase(std::remove(leftTabs->panels.begin(), leftTabs->panels.end(), "filesystem"), leftTabs->panels.end());
+    }
+    if (auto* bottomTabs = m_dockLayout.findTabs("bottom_dock")) {
+        if (std::find(bottomTabs->panels.begin(), bottomTabs->panels.end(), "filesystem") == bottomTabs->panels.end())
+            bottomTabs->panels.push_back("filesystem");
+        if (migratedFileSystemDock)
+            bottomTabs->active = "output";
+    }
 
     m_toolbar->panel = makePanel(0.0f, 0.0f, windowWidth, 40.0f);
-    m_toolbar->panel = m_toolbar->panel;
     m_sceneTree->panel = makePanel(0.0f, 0.0f, 240.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
     m_viewport->panel = makePanel(0.0f, 0.0f, 740.0f, 570.0f, morrow::Math::Vector4(0.10f, 0.12f, 0.15f, 1.0f));
     m_inspector->panel = makePanel(0.0f, 0.0f, 300.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
     m_output->panel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
     m_build->panel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
-    m_assetsPanel->view = FileSystemPanel::create(m_fileSystem, [this](const std::string& status) { setStatus(status); }, [this]() { m_assetsPanel->importAssets(); });
-    m_assetsPanel->view = m_assetsPanel->view;
-    m_output->panel = m_output->panel;
-    m_build->panel = m_build->panel;
+    m_assetsPanel->view = FileSystemPanel::create(
+        m_fileSystem,
+        [this](const std::string& status) { setStatus(status); },
+        [this]() { m_assetsPanel->importAssets(); },
+        [this](const ProjectFileEntry& entry) { m_inspector->inspectAsset(entry); });
     m_viewport->previewRoot = makePanel(0.0f, 32.0f, 740.0f, 538.0f);
     m_viewport->previewRoot->setWidgetName("PreviewRoot");
 
@@ -243,7 +260,6 @@ void EditorShell::buildLayout() {
 
     m_leftTabs = MRTabContainer::create();
     m_leftTabs->addTab("scene_tree", L"Scene", m_sceneTree->panel);
-    m_leftTabs->addTab("filesystem", L"FileSystem", m_assetsPanel->view);
 
     m_centerTabs = MRTabContainer::create();
     m_centerTabs->addTab("viewport", L"Viewport", m_viewport->panel);
@@ -251,6 +267,7 @@ void EditorShell::buildLayout() {
     m_bottomTabs = MRTabContainer::create();
     m_bottomTabs->addTab("output", L"Output", m_output->panel);
     m_bottomTabs->addTab("build", L"Build", m_build->panel);
+    m_bottomTabs->addTab("filesystem", L"FileSystem", m_assetsPanel->view);
     m_dockDropOverlay = DockDropOverlay::create();
     m_sceneTree->createDialog = CreateNodeDialog::create(m_nodeTypeCatalog);
     m_sceneTree->createConnection = m_sceneTree->createDialog->events().onConfirmed.connect(
@@ -267,6 +284,35 @@ void EditorShell::buildLayout() {
             m_sceneTree->beginRename(m_sceneTree->contextParentId);
         else if (id == 3)
             m_sceneTree->deleteSelected();
+    });
+    m_assetsPanel->createAssetDialog = CreateAssetDialog::create();
+    m_assetsPanel->assetCreateConnection = m_assetsPanel->createAssetDialog->events().onConfirmed.connect(
+        [this](CreateAssetDialog&, const AssetTypeDescriptor& descriptor, const std::string& name) { m_assetsPanel->createAsset(descriptor, name); });
+    m_assetsPanel->contextMenu = MRPopupMenu::create();
+    m_assetsPanel->contextMenu->addItem(L"Create New Resource...", 1);
+    m_assetsPanel->contextMenu->addItem(L"Create Folder", 2);
+    m_assetsPanel->contextMenu->addItem(L"Rename", 3);
+    m_assetsPanel->contextMenu->addItem(L"Delete", 4);
+    m_assetsPanel->contextMenuConnection = m_assetsPanel->contextMenu->events().onItemSelected.connect(
+        [this](MRPopupMenu&, int id, const std::wstring&) {
+            if (id == 1)
+                m_assetsPanel->showCreateDialog();
+            else if (id == 2)
+                m_assetsPanel->createFolder();
+            else if (id == 3)
+                m_assetsPanel->renameSelected();
+            else if (id == 4)
+                m_assetsPanel->deleteSelected();
+        });
+    m_assetsPanel->nameDialog = RenameNodeDialog::create();
+    m_assetsPanel->nameDialogConnection = m_assetsPanel->nameDialog->events().onConfirmed.connect(
+        [this](RenameNodeDialog&, const std::string& action, const std::string& name) { m_assetsPanel->applyNameDialog(action, name); });
+    m_assetsPanel->view->treeContextConnection = m_assetsPanel->view->treeEvents().onNodeContextMenu.connect(
+        [this](MRTree&, int id, const std::wstring&, float x, float y) {
+            m_assetsPanel->showContextMenu(m_fileSystem.findById(id), x, y);
+        });
+    m_assetsPanel->view->setContextMenuCallback([this](const ProjectFileEntry* entry, float x, float y) {
+        m_assetsPanel->showContextMenu(entry, x, y);
     });
     m_inspector->assetMenu = MRPopupMenu::create();
     m_inspector->assetMenu->setMenuWidth(320.0f);
@@ -310,6 +356,11 @@ void EditorShell::buildLayout() {
     m_shellRoot->addChild(m_workspaceSplit);
     m_shellRoot->addChild(m_dockDropOverlay);
     m_shellRoot->addChild(m_sceneTree->createDialog);
+    m_shellRoot->addChild(m_assetsPanel->createAssetDialog);
+    m_shellRoot->addChild(m_assetsPanel->nameDialog);
+    m_sceneTree->createDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
+    m_assetsPanel->createAssetDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
+    m_assetsPanel->nameDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
     m_viewport->panel->addChild(m_viewport->previewRoot);
     m_window->addChild(m_shellRoot);
 
@@ -353,7 +404,15 @@ void EditorShell::buildLayout() {
 
     m_toolbar->build();
     addLabel(m_sceneTree->panel, "Scene", 8.0f, 6.0f, 220.0f, 28.0f);
-    addButton(m_sceneTree->panel, L"+", 196.0f, 4.0f, 34.0f, 28.0f, [this] { m_sceneTree->showCreateDialog(); });
+    m_sceneTree->createButton = MRButton::create();
+    m_sceneTree->createButton->setText(L"+", "default");
+    m_sceneTree->createButton->setTextFontSize(16.0f);
+    m_sceneTree->createButton->setBackgroundColor(Vector4(0.16f, 0.31f, 0.55f, 1.0f));
+    m_sceneTree->createButton->setHoverColor(Vector4(0.25f, 0.48f, 0.76f, 1.0f));
+    m_sceneTree->createButton->getTransform()->setPosition(196.0f, 4.0f, 0.0f);
+    m_sceneTree->createButton->getTransform()->setSize(34.0f, 28.0f);
+    m_sceneTree->createButtonConnection = m_sceneTree->createButton->events().onClicked.connect([this](BaseButton&) { m_sceneTree->showCreateDialog(); });
+    m_sceneTree->panel->addChild(m_sceneTree->createButton);
     addLabel(m_viewport->panel, "2D Viewport", 8.0f, 6.0f, 220.0f, 28.0f);
     addLabel(m_inspector->panel, "Inspector", 8.0f, 6.0f, 260.0f, 28.0f);
     addLabel(m_output->panel, "Output / Assets / Build", 8.0f, 2.0f, 360.0f, 22.0f);
@@ -380,6 +439,7 @@ void EditorShell::buildLayout() {
     m_output->log = makeLogEdit(m_output->panel);
     m_build->log = makeLogEdit(m_build->panel);
     applyDockLayout();
+    m_viewport->resizeToPanel();
     m_output->lines = m_outputLines;
     m_output->refresh();
 }
@@ -508,9 +568,16 @@ void EditorShell::handleFramebufferResize(const Vector2& size) {
         return;
     m_shellRoot->getTransform()->setSize(size.x, size.y);
     m_toolbar->panel->getTransform()->setSize(size.x, 40.0f);
+    if (m_assetsPanel->createAssetDialog)
+        m_assetsPanel->createAssetDialog->getTransform()->setSize(size.x, size.y);
+    if (m_assetsPanel->nameDialog)
+        m_assetsPanel->nameDialog->getTransform()->setSize(size.x, size.y);
     m_workspaceSplit->getTransform()->setPosition(0.0f, 40.0f, 0.0f);
     m_workspaceSplit->getTransform()->setSize(size.x, std::max(1.0f, size.y - 40.0f));
     applyDockLayout();
+    if (m_sceneTree->createDialog)
+        m_sceneTree->createDialog->getTransform()->setSize(size.x, size.y);
+    m_viewport->resizeToPanel();
     m_output->refresh();
 }
 
@@ -538,6 +605,8 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
             if (m_inspector->assetMenu && m_inspector->assetMenu->isOpen() && !isDescendantOf(event.target, m_inspector->assetMenu)) {
                 m_inspector->assetMenu->hide();
             }
+            if (m_assetsPanel->contextMenu && m_assetsPanel->contextMenu->isOpen() && !isDescendantOf(event.target, m_assetsPanel->contextMenu))
+                m_assetsPanel->contextMenu->hide();
         }
         if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN && event.keyCode == TOUCH_KEY_DELETE && !event.target &&
             (!m_sceneTree->createDialog || !m_sceneTree->createDialog->isOpen()) && !m_sceneTree->renameEdit) {
@@ -559,6 +628,20 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
 }
 
 void EditorShell::handleKey(int key, int action, int mods) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        if (m_assetsPanel->contextMenu && m_assetsPanel->contextMenu->isOpen()) {
+            m_assetsPanel->contextMenu->hide();
+            return;
+        }
+        if (m_assetsPanel->createAssetDialog && m_assetsPanel->createAssetDialog->isOpen()) {
+            m_assetsPanel->createAssetDialog->hideDialog();
+            return;
+        }
+        if (m_assetsPanel->nameDialog && m_assetsPanel->nameDialog->isOpen()) {
+            m_assetsPanel->nameDialog->hideDialog();
+            return;
+        }
+    }
     if (m_sceneTree->createDialog && m_sceneTree->createDialog->isOpen() && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         m_sceneTree->createDialog->hideDialog();
         return;

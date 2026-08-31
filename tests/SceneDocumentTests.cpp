@@ -8,6 +8,7 @@
 #include "EditorInputRouter.h"
 #include "assets/AssetDatabase.h"
 #include "assets/ImportQueue.h"
+#include "assets/MaterialAsset.h"
 #include "ProjectSettings.h"
 #include "ui/DockLayout.h"
 #include "commands/CommandHistory.h"
@@ -181,6 +182,26 @@ int main() {
     }
     if (!require(!assets.validateAssetReference("missing_asset", error),
                  "reject missing asset reference")) {
+        return 1;
+    }
+    const auto materialPath = temporaryDirectory / "sample.mat";
+    {
+        std::ofstream material(materialPath);
+        material << "[material]\n"
+                    "format = 1\n"
+                    "shader = \"asset_test_shader\"\n\n"
+                    "[properties]\n"
+                    "color = Color(1.0, 0.5, 0.25, 1.0)\n"
+                    "alpha = 0.75\n";
+    }
+    morrow::editor::MaterialAsset parsedMaterial;
+    if (!require(morrow::editor::loadMaterialAsset(materialPath, parsedMaterial, error),
+                 "load material asset: " + error)) {
+        return 1;
+    }
+    if (!require(parsedMaterial.shader == "asset_test_shader" &&
+                     parsedMaterial.properties.at("alpha") == "0.75",
+                 "material asset properties")) {
         return 1;
     }
 

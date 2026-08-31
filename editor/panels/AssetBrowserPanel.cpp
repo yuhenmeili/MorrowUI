@@ -1,10 +1,126 @@
 #include "panels/AssetBrowserPanel.h"
 
+#include <fstream>
+
 #include "EditorShell.h"
+#include "elements/MRPopupMenu.h"
+#include "ui/CreateAssetDialog.h"
+#include "ui/RenameNodeDialog.h"
 #include "ui/FileSystemPanel.h"
 
 namespace morrow::editor {
 AssetBrowserPanel::AssetBrowserPanel(EditorShell& shell) : m_shell(shell) {
+}
+
+void AssetBrowserPanel::showCreateDialog() {
+    if (createAssetDialog)
+        createAssetDialog->show();
+}
+
+void AssetBrowserPanel::showContextMenu(const ProjectFileEntry* entry, float x, float y) {
+    contextPath = entry ? entry->relativePath : view->currentDirectory();
+    contextMenu->attachTo(m_shell.m_shellRoot);
+    contextMenu->popup(x, y);
+}
+
+void AssetBrowserPanel::createFolder() {
+    contextPath = view ? view->currentDirectory() : std::filesystem::path{"."};
+    nameDialog->show("create_folder", "NewFolder");
+}
+
+void AssetBrowserPanel::renameSelected() {
+    if (contextPath.empty() || contextPath == ".") {
+        m_shell.setStatus("Select a file or folder to rename");
+        return;
+    }
+    nameDialog->show("rename", contextPath.filename().string());
+}
+
+void AssetBrowserPanel::deleteSelected() {
+    if (contextPath.empty() || contextPath == ".") {
+        m_shell.setStatus("Select a file or folder to delete");
+        return;
+    }
+    const auto absolute = m_shell.m_fileSystem.projectRoot() / contextPath;
+    std::error_code error;
+    if (std::filesystem::is_directory(absolute, error))
+        std::filesystem::remove_all(absolute, error);
+    else {
+        std::filesystem::remove(absolute, error);
+        std::filesystem::remove(absolute.string() + ".import", error);
+    }
+    if (error) {
+        m_shell.setStatus("Delete failed: " + error.message());
+        return;
+    }
+    refresh();
+    m_shell.setStatus("Deleted " + contextPath.generic_string());
+    contextPath.clear();
+}
+
+void AssetBrowserPanel::applyNameDialog(const std::string& action, const std::string& name) {
+    if (name.empty())
+        return;
+    std::error_code error;
+    if (action == "create_folder") {
+        const auto base = m_shell.m_fileSystem.projectRoot() / (contextPath.empty() ? std::filesystem::path{"."} : contextPath);
+        std::filesystem::create_directories(base / name, error);
+        if (error)
+            m_shell.setStatus("Create folder failed: " + error.message());
+        else {
+            refresh();
+            m_shell.setStatus("Created folder " + name);
+        }
+        return;
+    }
+    if (action == "rename") {
+        const auto source = m_shell.m_fileSystem.projectRoot() / contextPath;
+        const auto target = source.parent_path() / name;
+        std::filesystem::rename(source, target, error);
+        if (!error && std::filesystem::exists(source.string() + ".import"))
+            std::filesystem::rename(source.string() + ".import", target.string() + ".import", error);
+        if (error)
+            m_shell.setStatus("Rename failed: " + error.message());
+        else {
+            contextPath = std::filesystem::relative(target, m_shell.m_fileSystem.projectRoot(), error);
+            refresh();
+            m_shell.setStatus("Renamed to " + name);
+        }
+    }
+}
+
+void AssetBrowserPanel::createAsset(const AssetTypeDescriptor& descriptor, const std::string& name) {
+    std::filesystem::path directory = m_shell.m_projectPath.parent_path() / m_shell.m_assetRoot;
+    std::error_code error;
+    std::filesystem::create_directories(directory, error);
+    if (error) {
+        m_shell.setStatus("Failed to create asset directory: " + error.message());
+        return;
+    }
+    std::filesystem::path path = directory / name;
+    path.replace_extension(descriptor.extension);
+    if (std::filesystem::exists(path)) {
+        m_shell.setStatus("Asset already exists: " + path.filename().string());
+        return;
+    }
+    std::ofstream output(path);
+    if (descriptor.type == "Material") {
+        output << "[material]\nformat = 1\nshader = \"\"\n\n[properties]\ncolor = Color(1.0, 1.0, 1.0, 1.0)\n";
+    } else if (descriptor.type == "Shader") {
+        output << "#version 330 core\n\n";
+    }
+    if (!output.good()) {
+        m_shell.setStatus("Failed to create asset: " + path.string());
+        return;
+    }
+    std::string scanError;
+    if (!m_shell.m_assets.ensureImportMetadata(scanError) || !m_shell.m_assets.scan(m_shell.m_projectPath.parent_path(), m_shell.m_assetRoot, scanError)) {
+        m_shell.setStatus("Asset created, but scan failed: " + scanError);
+        return;
+    }
+    if (view)
+        view->refreshView();
+    m_shell.setStatus("Created " + path.filename().string());
 }
 
 void AssetBrowserPanel::refresh() {

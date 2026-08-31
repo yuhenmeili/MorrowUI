@@ -1,0 +1,11 @@
+[import]
+format = 1
+asset_id = "asset_assets_firstmat"
+importer = "morrow.material"
+source_hash = "af44ece5d56eca26"
+importer_version = 1
+
+[options]
+
+[platform.windows]
+artifact = ".morrow/imported/asset_assets_firstmat/windows/firstMat.mat.artifact"

@@ -58,6 +58,8 @@ std::string extensionType(const std::filesystem::path& path) {
     if (extension == ".vert" || extension == ".frag" || extension == ".glsl") {
         return "Shader";
     }
+    if (extension == ".mat")
+        return "Material";
     if (extension == ".wav" || extension == ".mp3" || extension == ".ogg") {
         return "Audio";
     }
@@ -94,6 +96,8 @@ std::string importerName(const std::string& type) {
         return "morrow.gltf";
     if (type == "Shader")
         return "morrow.shader";
+    if (type == "Material")
+        return "morrow.material";
     if (type == "Audio")
         return "morrow.audio";
     return "morrow.asset";

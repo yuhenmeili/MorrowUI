@@ -9,6 +9,7 @@
 #include "Vector3.h"
 #include "Vector4.h"
 #include "assets/AssetDatabase.h"
+#include "assets/MaterialAsset.h"
 #include "base/Transform.h"
 #include "base/MeshRenderer.h"
 #include "base/UIWidget.h"
@@ -337,6 +338,40 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
                         material->setDoubleSided(enabled);
                 }
             }
+            return true;
+        }
+        if (key == "material") {
+            if (value.empty())
+                return true;
+            if (!assets) {
+                error = "material property requires an asset database";
+                return false;
+            }
+            const auto* asset = assets->findById(value);
+            if (!asset || asset->type != "Material") {
+                error = "material asset '" + value + "' was not found";
+                return false;
+            }
+            morrow::editor::MaterialAsset materialAsset;
+            if (!morrow::editor::loadMaterialAsset(assets->resolveSourcePath(value), materialAsset, error))
+                return false;
+            auto renderer = uiWidget->getComponent<morrow::MeshRenderer>();
+            if (!renderer)
+                return true;
+            auto material = morrow::Material::create(materialAsset.shader);
+            for (const auto& [propertyName, propertyValue] : materialAsset.properties) {
+                if (propertyValue.rfind("Color(", 0) == 0) {
+                    std::vector<float> components;
+                    if (parseVector(propertyValue, "Color", components) && components.size() == 4)
+                        material->setVector(propertyName, Vector4(components[0], components[1], components[2], components[3]));
+                } else {
+                    try {
+                        material->setFloat(propertyName, std::stof(propertyValue));
+                    } catch (...) {
+                    }
+                }
+            }
+            renderer->setMaterial(material);
             return true;
         }
     }

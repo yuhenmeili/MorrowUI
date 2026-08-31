@@ -90,11 +90,11 @@ bool MRTree::isExpanded(int id) const {
     return index >= 0 && m_nodes[static_cast<size_t>(index)].expanded;
 }
 
-bool MRTree::selectNode(int id) {
+bool MRTree::selectNode(int id, bool notify) {
     const int index = findNodeIndex(id);
     if (index < 0 || !m_nodes[static_cast<size_t>(index)].enabled)
         return false;
-    selectIndex(static_cast<size_t>(index), true);
+    selectIndex(static_cast<size_t>(index), notify);
     return true;
 }
 
@@ -172,6 +172,13 @@ void MRTree::rebuildVisibleNodes() {
                 toggleExpanded(m_nodes[nodeIndex].id);
             }
         });
+        if (auto interaction = m_rows[i]->getComponent<Interaction>()) {
+            m_wheelConnections.emplace_back(interaction->addEventListener(
+                TOUCH_EVENT_TYPE_TOUCH, [this, nodeIndex](TouchEvent& event) {
+                    if (event.button == TOUCH_MOUSE_BUTTON_RIGHT && nodeIndex < m_nodes.size())
+                        m_events.onNodeContextMenu.notify(*this, m_nodes[nodeIndex].id, m_nodes[nodeIndex].text, event.positionX, event.positionY);
+                }, 20));
+        }
     }
     m_treeDirty = false;
     layoutRows();

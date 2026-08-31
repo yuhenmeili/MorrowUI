@@ -42,6 +42,8 @@ public:
 
     void refreshGuides();
 
+    void resizeToPanel();
+
     void handlePointer(const TouchEvent& event);
 
 private:

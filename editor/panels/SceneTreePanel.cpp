@@ -1,19 +1,19 @@
-#include "EditorShell.h"
-#include "panels/InspectorPanel.h"
 #include "panels/SceneTreePanel.h"
-#include "panels/ViewportPanel.h"
 
 #include <algorithm>
 #include <codecvt>
 #include <locale>
 
+#include "EditorShell.h"
 #include "Engine.h"
 #include "base/Interaction.h"
-#include "base/Transform.h"
 #include "base/TouchEvent.h"
+#include "base/Transform.h"
 #include "elements/MRButton.h"
 #include "elements/MRLineEdit.h"
 #include "elements/MRPopupMenu.h"
+#include "panels/InspectorPanel.h"
+#include "panels/ViewportPanel.h"
 
 namespace {
 std::wstring wide(const std::string& text) {
@@ -71,13 +71,14 @@ void SceneTreePanel::refresh() {
         const auto id = item.id;
         auto button = m_shell.addButton(panel, std::wstring(item.depth * 2, L' ') + wide(item.name), 8.0f + item.depth * 12.0f, y,
                                         std::max(40.0f, panelWidth - 16.0f - item.depth * 12.0f), 30.0f, [this, id] {
-                                    std::string error;
-                                    if (m_shell.m_session->selectNode(id, false, error)) {
-                                        m_shell.notifySelectionChanged();
-                                        m_shell.setStatus("Selected " + id);
-                                    } else
-                                        m_shell.setStatus(error);
-                                });
+                                            std::string error;
+                                            if (m_shell.m_session->selectNode(id, false, error)) {
+                                                m_shell.m_inspector->clearAsset();
+                                                m_shell.notifySelectionChanged();
+                                                m_shell.setStatus("Selected " + id);
+                                            } else
+                                                m_shell.setStatus(error);
+                                        });
         button->setWidgetName("SceneTree_" + item.id);
         button->setTextAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
         rows.push_back({item.id, button});

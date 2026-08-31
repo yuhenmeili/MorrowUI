@@ -207,6 +207,8 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
             type = "Vector3";
         else if (value.find("Color(") == 0)
             type = "Color";
+        else if (name == "material")
+            type = "MaterialAsset";
         else if (name == "texture_asset")
             type = "TextureAsset";
         else if (!value.empty() && (std::isdigit(static_cast<unsigned char>(value.front())) || value.front() == '-')) {
