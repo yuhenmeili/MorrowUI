@@ -4,10 +4,8 @@
 #include <filesystem>
 #include <functional>
 #include <future>
-#include <map>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "EditorEvents.h"
@@ -44,17 +42,13 @@ class TouchEvent;
 namespace morrow::editor {
 enum class PreviewState { Stopped, Starting, Running, Outdated, Failed };
 
-enum class ResizeHandle {
-    None,
-    TopLeft,
-    Top,
-    TopRight,
-    Right,
-    BottomRight,
-    Bottom,
-    BottomLeft,
-    Left,
-};
+class InspectorPanel;
+class SceneTreePanel;
+class ViewportPanel;
+class ToolbarPanel;
+class AssetBrowserPanel;
+class OutputPanel;
+class BuildPanel;
 
 class EditorShell {
 public:
@@ -68,79 +62,21 @@ public:
     EditorEvents& events();
 
 private:
-    struct SceneTreeRow {
-        std::string nodeId;
-        std::shared_ptr<MRButton> button;
-    };
-
-    struct InspectorBinding {
-        std::string property;
-        std::string type;
-        std::vector<std::shared_ptr<MRLineEdit>> edits;
-        std::shared_ptr<MRButton> button;
-    };
+    friend class InspectorPanel;
+    friend class SceneTreePanel;
+    friend class ViewportPanel;
+    friend class ToolbarPanel;
+    friend class AssetBrowserPanel;
+    friend class OutputPanel;
+    friend class BuildPanel;
 
     void buildLayout();
 
-    void rebuildRuntime();
-
-    void refreshSelectionOverlay();
-
-    bool runtimeNodeRect(const std::string& nodeId, float& x, float& y, float& width, float& height) const;
-
-    bool selectedRuntimeRect(float& x, float& y, float& width, float& height) const;
-
-    std::string runtimeNodeAt(float x, float y) const;
-
-    bool syncRuntimeNode(const std::string& nodeId, bool transformOnly);
-
-    void syncSelectedRuntimeNodes(bool transformOnly);
-
-    void refreshViewportGuides();
-
-    void refreshSceneTree();
-
-    void refreshSceneTreeSelectionStyles();
-
-    bool handleSceneTreeDrag(const TouchEvent& event);
-
     bool handleAssetDrag(const TouchEvent& event);
-
-    std::string inspectorAssetPropertyAt(float x, float y, const AssetRecord& asset) const;
-
-    void setInspectorAssetDropTarget(const std::string& property);
-
-    std::string sceneTreeNodeAt(float x, float y) const;
-
-    std::string sceneTreeNodeForWidget(const std::shared_ptr<Widget>& widget) const;
-
-    void deleteSelectedSceneNode();
-
-    void beginSceneNodeRename(const std::string& nodeId = {});
-
-    void commitSceneNodeRename();
-
-    void cancelSceneNodeRename();
-
-    void renameSceneNode(const std::string& nodeId, const std::string& name);
-
-    void showCreateNodeDialog(const std::string& parentId = {});
-
-    void createChildNode(const NodeTypeDescriptor& descriptor, const std::string& parentId);
-
-    void refreshInspector(bool force = false);
-
-    void updateInspectorValues(const std::vector<InspectorProperty>& properties);
-
-    void applyInspectorValue(const std::string& property, const std::string& value);
 
     void handleInput(std::vector<TouchEvent>& events);
 
     void handleKey(int key, int action, int mods);
-
-    void handleViewportPointer(const TouchEvent& event);
-
-    ResizeHandle resizeHandleAt(float x, float y, float nodeX, float nodeY, float width, float height) const;
 
     bool handleDockDrag(const TouchEvent& event);
 
@@ -160,29 +96,9 @@ private:
 
     void handleFramebufferResize(const Vector2& size);
 
-    void refreshOutput();
-
-    void runBuild(BuildTaskKind kind);
-
-    void pollBuild();
-
-    void stopPreview();
-
-    void setPreviewState(PreviewState state);
-
-    void appendBuildResult(const BuildTaskResult& result);
-
-    void showAssetBrowser();
-
-    void beginPropertyEdit(const std::string& property, const std::string& value);
-
-    void commitPropertyEdit();
-
     void handleChar(unsigned int codepoint);
 
     void setStatus(const std::string& text);
-
-    void runImportQueue();
 
     void notifySelectionChanged();
 
@@ -203,18 +119,13 @@ private:
     std::filesystem::path m_scenePath;
     std::filesystem::path m_assetRoot;
     std::shared_ptr<UIWidget> m_shellRoot;
-    std::shared_ptr<UIWidget> m_toolbarPanel;
-    std::shared_ptr<UIWidget> m_previewRoot;
-    std::shared_ptr<UIWidget> m_previewCanvas;
-    std::shared_ptr<UIWidget> m_previewGrid;
-    std::vector<std::shared_ptr<UIWidget>> m_selectionBorders;
-    std::vector<std::shared_ptr<UIWidget>> m_selectionHandles;
-    std::shared_ptr<UIWidget> m_sceneTreePanel;
-    std::shared_ptr<UIWidget> m_inspectorPanel;
-    std::shared_ptr<UIWidget> m_viewportPanel;
-    std::shared_ptr<UIWidget> m_statusPanel;
-    std::shared_ptr<UIWidget> m_buildPanel;
-    std::shared_ptr<FileSystemPanel> m_fileSystemPanel;
+    std::unique_ptr<InspectorPanel> m_inspector;
+    std::unique_ptr<SceneTreePanel> m_sceneTree;
+    std::unique_ptr<ViewportPanel> m_viewport;
+    std::unique_ptr<ToolbarPanel> m_toolbar;
+    std::unique_ptr<AssetBrowserPanel> m_assetsPanel;
+    std::unique_ptr<OutputPanel> m_output;
+    std::unique_ptr<BuildPanel> m_build;
     std::shared_ptr<MRSplitContainer> m_workspaceSplit;
     std::shared_ptr<MRSplitContainer> m_mainSplit;
     std::shared_ptr<MRSplitContainer> m_centerSplit;
@@ -222,14 +133,7 @@ private:
     std::shared_ptr<MRTabContainer> m_centerTabs;
     std::shared_ptr<MRTabContainer> m_bottomTabs;
     std::shared_ptr<DockDropOverlay> m_dockDropOverlay;
-    std::shared_ptr<CreateNodeDialog> m_createNodeDialog;
-    std::shared_ptr<MRLineEdit> m_sceneRenameEdit;
-    std::shared_ptr<MRTextEdit> m_outputLogEdit;
-    std::shared_ptr<MRTextEdit> m_buildLogEdit;
-    std::shared_ptr<MRPopupMenu> m_sceneContextMenu;
-    std::shared_ptr<MRPopupMenu> m_textureAssetMenu;
     std::shared_ptr<EditorSession> m_session;
-    std::unordered_map<std::string, std::shared_ptr<Widget>> m_runtimeNodes;
     AssetDatabase m_assets;
     ProjectFileSystemModel m_fileSystem;
     NodeTypeCatalog m_nodeTypeCatalog;
@@ -251,58 +155,15 @@ private:
     std::vector<Observable<MRTabContainer&, const std::string&>::Connection> m_tabConnections;
     std::vector<Observable<MRTabContainer&>::Connection> m_tabOrderConnections;
     std::vector<Observable<BaseButton&>::Connection> m_buttonConnections;
-    std::vector<EventConnection> m_sceneTreeContextConnections;
-    std::vector<SceneTreeRow> m_sceneTreeRows;
-    Observable<MRPopupMenu&, int, const std::wstring&>::Connection m_sceneContextMenuConnection;
-    Observable<CreateNodeDialog&, const NodeTypeDescriptor&, const std::string&>::Connection m_createNodeConnection;
-    Observable<MRPopupMenu&, int, const std::wstring&>::Connection m_textureAssetMenuConnection;
     std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> m_copyConnections;
-    std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> m_inspectorEditConnections;
-    std::map<std::string, InspectorBinding> m_inspectorBindings;
-    std::map<int, std::string> m_textureAssetMenuIds;
-    std::string m_textureEditProperty;
-    std::vector<std::string> m_textureEditNodeIds;
     std::string m_status;
     std::string m_selectedNodeId;
-    std::string m_sceneContextParentId;
-    std::string m_sceneRenameNodeId;
-    std::string m_pendingSceneDragNode;
-    std::string m_sceneDragNode;
-    std::string m_sceneDropTarget;
-    float m_sceneDragStartX = 0.0f;
-    float m_sceneDragStartY = 0.0f;
-    bool m_sceneDragging = false;
     std::string m_pendingAssetId;
     std::shared_ptr<Widget> m_pendingAssetSource;
     std::shared_ptr<MRButton> m_assetDragPreview;
-    std::string m_assetDropProperty;
     float m_assetDragStartX = 0.0f;
     float m_assetDragStartY = 0.0f;
     std::vector<std::string> m_lastNotifiedSelection;
-    bool m_dragging = false;
-    bool m_resizing = false;
-    bool m_panning = false;
-    bool m_viewportTransformChanged = false;
-    ResizeHandle m_resizeHandle = ResizeHandle::None;
-    float m_resizePointerStartX = 0.0f;
-    float m_resizePointerStartY = 0.0f;
-    float m_resizeNodeStartX = 0.0f;
-    float m_resizeNodeStartY = 0.0f;
-    float m_resizeNodeStartZ = 0.0f;
-    float m_resizeNodeStartWidth = 0.0f;
-    float m_resizeNodeStartHeight = 0.0f;
-    float m_lastPointerX = 0.0f;
-    float m_lastPointerY = 0.0f;
-    float m_viewPanX = 0.0f;
-    float m_viewPanY = 0.0f;
-    float m_viewZoom = 1.0f;
-    std::string m_editProperty;
-    std::string m_editValue;
-    std::string m_lastInspectorSchemaSignature;
-    float m_viewportX = 240.0f;
-    float m_viewportY = 40.0f;
-    float m_viewportWidth = 740.0f;
-    float m_viewportHeight = 580.0f;
     DragDropManager m_dragDrop;
     std::string m_pendingDockTab;
     std::string m_pendingDockGroup;
