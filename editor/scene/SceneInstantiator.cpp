@@ -10,6 +10,7 @@
 #include "Vector4.h"
 #include "assets/AssetDatabase.h"
 #include "base/Transform.h"
+#include "base/MeshRenderer.h"
 #include "base/UIWidget.h"
 #include "elements/MR3DSceneView.h"
 #include "elements/MRAnchorPointScale.h"
@@ -298,6 +299,44 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
                 return false;
             }
             transform->setRotation(Vector3(0.0f, 0.0f, 1.0f), components[2] * 3.14159265359f / 180.0f);
+            return true;
+        }
+        if (key == "renderer_enabled") {
+            bool enabled = true;
+            if (!parseBool(value, enabled)) {
+                error = "property 'renderer_enabled' must be true or false";
+                return false;
+            }
+            if (auto renderer = uiWidget->getComponent<morrow::MeshRenderer>())
+                renderer->setEnabled(enabled);
+            return true;
+        }
+        if (key == "material_color") {
+            std::vector<float> components;
+            if (!parseVector(value, "Color", components) || components.size() != 4) {
+                error = "property 'material_color' must be Color(r, g, b, a)";
+                return false;
+            }
+            if (auto renderer = uiWidget->getComponent<morrow::MeshRenderer>()) {
+                if (auto material = renderer->getMaterial())
+                    material->setVector("color", Vector4(components[0], components[1], components[2], components[3]));
+            }
+            return true;
+        }
+        if (key == "blend_enabled" || key == "double_sided") {
+            bool enabled = false;
+            if (!parseBool(value, enabled)) {
+                error = "property '" + key + "' must be true or false";
+                return false;
+            }
+            if (auto renderer = uiWidget->getComponent<morrow::MeshRenderer>()) {
+                if (auto material = renderer->getMaterial()) {
+                    if (key == "blend_enabled")
+                        material->setBlendEnabled(enabled);
+                    else
+                        material->setDoubleSided(enabled);
+                }
+            }
             return true;
         }
     }

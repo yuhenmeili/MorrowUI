@@ -1,6 +1,6 @@
 # MorrowEditor dock layout v3
 split left 0.204439
-split center 0.688838
+split center 0.632861
 split workspace 0.759489
 split left_stack 0.48
 tabs left_dock scene_tree 2 scene_tree filesystem

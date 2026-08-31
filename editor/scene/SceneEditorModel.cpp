@@ -26,16 +26,66 @@ bool parseComponents(const std::string& value, const std::string& type, std::vec
 
 std::map<std::string, std::string> effectiveProperties(const SceneNodeRecord& node) {
     std::map<std::string, std::string> properties = node.properties;
+    properties.emplace("position", "Vector3(0.0, 0.0, 0.0)");
+    properties.emplace("rotation", "Vector3(0.0, 0.0, 0.0)");
+    properties.emplace("scale", "Vector3(1.0, 1.0, 1.0)");
+    properties.emplace("size", "Vector2(100.0, 40.0)");
+    properties.emplace("visible", "true");
     if (node.type != "SceneNode") {
-        properties.emplace("position", "Vector3(0.0, 0.0, 0.0)");
-        properties.emplace("rotation", "Vector3(0.0, 0.0, 0.0)");
-        properties.emplace("scale", "Vector3(1.0, 1.0, 1.0)");
-        properties.emplace("size", "Vector2(100.0, 40.0)");
-        properties.emplace("visible", "true");
+        properties.emplace("mesh", "Generated UI Quad");
+        properties.emplace("renderer_enabled", "true");
+        properties.emplace("material", "Default UI Material");
+        properties.emplace("material_color", "Color(1.0, 1.0, 1.0, 1.0)");
+        properties.emplace("blend_enabled", "true");
+        properties.emplace("double_sided", "false");
     }
     if (node.type == "MRImage")
         properties.emplace("texture_asset", "");
     return properties;
+}
+
+std::string inspectorComponent(const std::string& name) {
+    if (name == "position" || name == "rotation" || name == "scale" || name == "size")
+        return "Transform";
+    if (name == "mesh")
+        return "Mesh Filter";
+    if (name == "renderer_enabled" || name == "material" || name == "material_color" || name == "blend_enabled" || name == "double_sided")
+        return "Mesh Renderer";
+    return "Properties";
+}
+
+std::string inspectorDisplayName(const std::string& name) {
+    static const std::map<std::string, std::string> displayNames = {
+        {"position", "Position"},
+        {"rotation", "Rotation"},
+        {"scale", "Scale"},
+        {"size", "Size"},
+        {"mesh", "Mesh"},
+        {"renderer_enabled", "Enabled"},
+        {"material", "Material"},
+        {"material_color", "Color"},
+        {"blend_enabled", "Blend"},
+        {"double_sided", "Double Sided"},
+        {"visible", "Visible"},
+        {"display_layer", "Display Layer"},
+        {"texture_asset", "Source Image"},
+    };
+    const auto iterator = displayNames.find(name);
+    if (iterator != displayNames.end())
+        return iterator->second;
+
+    std::string result;
+    bool capitalize = true;
+    for (const char character : name) {
+        if (character == '_') {
+            result.push_back(' ');
+            capitalize = true;
+        } else {
+            result.push_back(capitalize ? static_cast<char>(std::toupper(static_cast<unsigned char>(character))) : character);
+            capitalize = false;
+        }
+    }
+    return result;
 }
 }  // namespace
 
@@ -176,7 +226,8 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
                 break;
             }
         }
-        result.push_back({name, mixed ? "<mixed>" : value, type, true, mixed});
+        const bool editable = name != "mesh" && name != "material";
+        result.push_back({name, mixed ? "<mixed>" : value, type, editable, mixed, inspectorComponent(name), inspectorDisplayName(name)});
     }
     return result;
 }

@@ -21,6 +21,8 @@ struct InspectorProperty {
     std::string type;
     bool editable = true;
     bool mixed = false;
+    std::string component;
+    std::string displayName;
 };
 
 struct SelectionState {

@@ -441,12 +441,25 @@ int main() {
                     return property.name == name;
                 });
         };
+    const auto hasComponent =
+        [&imageProperties](const std::string& component) {
+            return std::any_of(
+                imageProperties.begin(), imageProperties.end(),
+                [&component](const morrow::editor::InspectorProperty& property) {
+                    return property.component == component;
+                });
+        };
     if (!require(
             hasProperty("position") && hasProperty("rotation") &&
                 hasProperty("scale") && hasProperty("size") &&
                 hasProperty("visible") &&
-                hasProperty("texture_asset"),
-            "image inspector exposes transform and texture properties")) {
+                hasProperty("texture_asset") && hasProperty("mesh") &&
+                hasProperty("renderer_enabled") &&
+                hasProperty("material") && hasProperty("material_color") &&
+                hasComponent("Transform") &&
+                hasComponent("Mesh Filter") &&
+                hasComponent("Mesh Renderer"),
+            "image inspector exposes component panels and properties")) {
         return 1;
     }
     if (!require(

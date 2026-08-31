@@ -20,16 +20,12 @@ struct RuntimeOptions {
 };
 
 void printUsage(const char* executable) {
-    std::cout << "Usage: " << executable
-              << " --project <project.morrow>"
+    std::cout << "Usage: " << executable << " --project <project.morrow>"
               << " [--scene <scene.scene>]"
               << " [--max-frames <count>]\n";
 }
 
-bool parseArguments(
-    int argc,
-    char** argv,
-    RuntimeOptions& options) {
+bool parseArguments(int argc, char** argv, RuntimeOptions& options) {
 #ifdef MORROW_RUNTIME_TEST_PROJECT
     options.projectPath = MORROW_RUNTIME_TEST_PROJECT;
 #endif
@@ -40,8 +36,7 @@ bool parseArguments(
             printUsage(argv[0]);
             return false;
         }
-        if (argument == "--project" || argument == "--scene" ||
-            argument == "--max-frames") {
+        if (argument == "--project" || argument == "--scene" || argument == "--max-frames") {
             if (index + 1 >= argc) {
                 std::cerr << "Missing value for " << argument << '\n';
                 return false;
@@ -52,8 +47,7 @@ bool parseArguments(
             else if (argument == "--scene")
                 options.scenePath = value;
             else
-                options.maxFrames =
-                    static_cast<uint32_t>(std::stoul(value));
+                options.maxFrames = static_cast<uint32_t>(std::stoul(value));
             continue;
         }
         std::cerr << "Unknown argument: " << argument << '\n';
@@ -66,10 +60,7 @@ bool parseArguments(
     return true;
 }
 
-int integerSetting(
-    const morrow::editor::ProjectSettings& project,
-    const std::string& name,
-    int fallback) {
+int integerSetting(const morrow::editor::ProjectSettings& project, const std::string& name, int fallback) {
     try {
         return std::stoi(project.value(name, std::to_string(fallback)));
     } catch (...) {
@@ -91,25 +82,19 @@ int main(int argc, char** argv) {
         return 3;
     }
     if (options.scenePath.empty()) {
-        options.scenePath = project.pathValue(
-            "default_scene", "scenes/main.scene");
+        options.scenePath = project.pathValue("default_scene", "scenes/main.scene");
     } else if (options.scenePath.is_relative()) {
-        options.scenePath =
-            (project.projectRoot() / options.scenePath).lexically_normal();
+        options.scenePath = (project.projectRoot() / options.scenePath).lexically_normal();
     }
 
     morrow::editor::SceneDocument document;
-    if (!morrow::editor::SceneDocument::loadFromFile(
-            options.scenePath, document, error)) {
+    if (!morrow::editor::SceneDocument::loadFromFile(options.scenePath, document, error)) {
         std::cerr << "Failed to load scene: " << error << '\n';
         return 4;
     }
 
     morrow::editor::AssetDatabase assets;
-    if (!assets.scan(
-            project.projectRoot(),
-            project.value("asset_root", "assets"),
-            error)) {
+    if (!assets.scan(project.projectRoot(), project.value("asset_root", "assets"), error)) {
         std::cerr << "Failed to scan assets: " << error << '\n';
         return 5;
     }
@@ -118,23 +103,18 @@ int main(int argc, char** argv) {
     engineOptions.multithread = false;
     engineOptions.enableRequestRender = false;
     engineOptions.maxFrames = options.maxFrames;
-    engineOptions.windowInfo.name =
-        project.value("name", "Morrow Scene");
-    engineOptions.windowInfo.width =
-        integerSetting(project, "runtime_width", 1280);
-    engineOptions.windowInfo.height =
-        integerSetting(project, "runtime_height", 720);
+    engineOptions.windowInfo.name = project.value("name", "Morrow Scene");
+    engineOptions.windowInfo.width = integerSetting(project, "runtime_width", 1280);
+    engineOptions.windowInfo.height = integerSetting(project, "runtime_height", 720);
 
     auto engine = std::make_shared<morrow::Engine>(engineOptions);
     auto window = engine->getWindow();
     window->setClearColor(0.12f, 0.14f, 0.17f, 1.0f);
     engine->addFonts({
-        {.name = "default",
-         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"},
+        {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"},
     });
 
-    if (!morrow::editor::SceneInstantiator::instantiate(
-            document, window, &assets, error)) {
+    if (!morrow::editor::SceneInstantiator::instantiate(document, window, &assets, error)) {
         std::cerr << "Failed to instantiate scene: " << error << '\n';
         return 6;
     }
