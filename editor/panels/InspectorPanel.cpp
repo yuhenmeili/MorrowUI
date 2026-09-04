@@ -105,6 +105,8 @@ void InspectorPanel::inspectAsset(const ProjectFileEntry& entry) {
 }
 
 void InspectorPanel::clearAsset() {
+    if (selectedAssetId.empty())
+        return;
     selectedAssetId.clear();
     selectedAssetType.clear();
     refresh(true);

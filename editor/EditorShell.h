@@ -102,7 +102,7 @@ private:
 
     void setStatus(const std::string& text);
 
-    void notifySelectionChanged();
+    bool notifySelectionChanged();
 
     void addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height);
 

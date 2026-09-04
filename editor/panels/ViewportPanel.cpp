@@ -318,7 +318,7 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
         std::string error;
         if (!screenTargetNodeId.empty() && m_shell.m_session->selectNode(screenTargetNodeId, additive, error)) {
             m_shell.m_inspector->clearAsset();
-            m_shell.notifySelectionChanged();
+            const bool selectionChanged = m_shell.notifySelectionChanged();
             if (m_shell.m_leftTabs)
                 m_shell.m_leftTabs->selectTab("scene_tree");
             resizing = false;
@@ -327,7 +327,8 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
             transformChanged = false;
             lastPointerX = panelX;
             lastPointerY = panelY;
-            m_shell.setStatus("Selected " + screenTargetNodeId);
+            if (selectionChanged)
+                m_shell.setStatus("Selected " + screenTargetNodeId);
         }
     } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && resizing && !m_shell.m_selectedNodeId.empty()) {
         const float dx = x - resizePointerStartX;

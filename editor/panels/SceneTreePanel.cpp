@@ -74,8 +74,8 @@ void SceneTreePanel::refresh() {
                                             std::string error;
                                             if (m_shell.m_session->selectNode(id, false, error)) {
                                                 m_shell.m_inspector->clearAsset();
-                                                m_shell.notifySelectionChanged();
-                                                m_shell.setStatus("Selected " + id);
+                                                if (m_shell.notifySelectionChanged())
+                                                    m_shell.setStatus("Selected " + id);
                                             } else
                                                 m_shell.setStatus(error);
                                         });

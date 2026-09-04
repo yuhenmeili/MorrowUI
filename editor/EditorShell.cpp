@@ -136,14 +136,15 @@ void EditorShell::setStatus(const std::string& text) {
     m_output->refresh();
 }
 
-void EditorShell::notifySelectionChanged() {
+bool EditorShell::notifySelectionChanged() {
     const auto& selection = m_session->model().selection();
     if (selection.nodeIds == m_lastNotifiedSelection) {
-        return;
+        return false;
     }
     m_lastNotifiedSelection = selection.nodeIds;
     m_events.onSelectionChanged.notify(selection);
     m_sceneTree->refreshSelectionStyles();
+    return true;
 }
 
 void EditorShell::addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height) {
