@@ -24,7 +24,7 @@
 #include "ui/CreateNodeDialog.h"
 #include "ui/DockDropOverlay.h"
 #include "ui/DockLayout.h"
-#include "ui/FileSystemPanel.h"
+#include "panels/FileSystemPanel.h"
 #include "wgl/OpenglHeader.h"
 
 namespace morrow {

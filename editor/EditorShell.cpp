@@ -611,6 +611,20 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
         }
         if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN && event.keyCode == TOUCH_KEY_DELETE && !event.target &&
             (!m_sceneTree->createDialog || !m_sceneTree->createDialog->isOpen()) && !m_sceneTree->renameEdit) {
+            const bool fileSystemActive = m_bottomTabs && m_bottomTabs->currentTabId() == "filesystem" &&
+                                          (!m_assetsPanel->createAssetDialog || !m_assetsPanel->createAssetDialog->isOpen()) &&
+                                          (!m_assetsPanel->nameDialog || !m_assetsPanel->nameDialog->isOpen());
+            if (fileSystemActive && m_assetsPanel->view) {
+                const auto selected = m_assetsPanel->view->selectedEntries();
+                if (!selected.empty()) {
+                    std::vector<std::filesystem::path> paths;
+                    paths.reserve(selected.size());
+                    for (const auto* entry : selected)
+                        paths.push_back(entry->relativePath);
+                    m_assetsPanel->deletePaths(paths);
+                    continue;
+                }
+            }
             m_sceneTree->deleteSelected();
             continue;
         }

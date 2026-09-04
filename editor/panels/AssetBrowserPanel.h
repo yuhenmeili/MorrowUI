@@ -1,8 +1,10 @@
 #ifndef MORROW_EDITOR_ASSET_BROWSER_PANEL_H
 #define MORROW_EDITOR_ASSET_BROWSER_PANEL_H
 
+#include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "filesystem/ProjectFileSystemModel.h"
 #include "panels/EditorPanel.h"
@@ -27,12 +29,21 @@ public:
     void refresh();
 
     void importAssets();
+
     void showCreateDialog();
+
     void createAsset(const AssetTypeDescriptor& descriptor, const std::string& name);
+
     void showContextMenu(const ProjectFileEntry* entry, float x, float y);
+
     void createFolder();
+
     void renameSelected();
+
     void deleteSelected();
+
+    void deletePaths(const std::vector<std::filesystem::path>& relativePaths);
+
     void applyNameDialog(const std::string& action, const std::string& name);
 
     std::shared_ptr<FileSystemPanel> view;

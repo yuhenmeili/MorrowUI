@@ -36,6 +36,8 @@ public:
 
     bool selectAsset(const std::string& assetId, bool notify = true);
 
+    std::vector<const ProjectFileEntry*> selectedEntries() const;
+
     void setContextMenuCallback(std::function<void(const ProjectFileEntry*, float, float)> callback) {
         m_contextMenuCallback = std::move(callback);
     }

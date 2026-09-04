@@ -90,6 +90,17 @@ bool FileSystemPanel::selectAsset(const std::string& assetId, bool notify) {
     return false;
 }
 
+std::vector<const ProjectFileEntry*> FileSystemPanel::selectedEntries() const {
+    if (m_gridMode)
+        return m_model.selectedEntries();
+    std::vector<const ProjectFileEntry*> result;
+    if (m_tree) {
+        if (const auto* entry = m_model.findById(m_tree->getSelectedId()))
+            result.push_back(entry);
+    }
+    return result;
+}
+
 void FileSystemPanel::initializeControls() {
     m_titleLabel = makeLabel("FileSystem", 16.0f, Vector4(0.93f, 0.95f, 0.98f, 1.0f));
     addChild(m_titleLabel);

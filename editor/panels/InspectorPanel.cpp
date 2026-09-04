@@ -22,7 +22,7 @@
 #include "panels/AssetBrowserPanel.h"
 #include "panels/SceneTreePanel.h"
 #include "panels/ViewportPanel.h"
-#include "ui/FileSystemPanel.h"
+#include "FileSystemPanel.h"
 #include "stb_image.h"
 
 namespace {

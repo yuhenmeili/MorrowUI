@@ -6,7 +6,7 @@
 #include "elements/MRPopupMenu.h"
 #include "ui/CreateAssetDialog.h"
 #include "ui/RenameNodeDialog.h"
-#include "ui/FileSystemPanel.h"
+#include "FileSystemPanel.h"
 
 namespace morrow::editor {
 AssetBrowserPanel::AssetBrowserPanel(EditorShell& shell) : m_shell(shell) {
@@ -37,24 +37,37 @@ void AssetBrowserPanel::renameSelected() {
 }
 
 void AssetBrowserPanel::deleteSelected() {
-    if (contextPath.empty() || contextPath == ".") {
+    deletePaths({contextPath});
+}
+
+void AssetBrowserPanel::deletePaths(const std::vector<std::filesystem::path>& relativePaths) {
+    std::vector<std::filesystem::path> targets;
+    for (const auto& relativePath : relativePaths) {
+        if (!relativePath.empty() && relativePath != ".")
+            targets.push_back(relativePath);
+    }
+    if (targets.empty()) {
         m_shell.setStatus("Select a file or folder to delete");
         return;
     }
-    const auto absolute = m_shell.m_fileSystem.projectRoot() / contextPath;
     std::error_code error;
-    if (std::filesystem::is_directory(absolute, error))
-        std::filesystem::remove_all(absolute, error);
-    else {
-        std::filesystem::remove(absolute, error);
-        std::filesystem::remove(absolute.string() + ".import", error);
+    for (const auto& relativePath : targets) {
+        const auto absolute = m_shell.m_fileSystem.projectRoot() / relativePath;
+        if (std::filesystem::is_directory(absolute, error))
+            std::filesystem::remove_all(absolute, error);
+        else {
+            std::filesystem::remove(absolute, error);
+            std::filesystem::remove(absolute.string() + ".import", error);
+        }
+        if (error)
+            break;
     }
     if (error) {
         m_shell.setStatus("Delete failed: " + error.message());
         return;
     }
     refresh();
-    m_shell.setStatus("Deleted " + contextPath.generic_string());
+    m_shell.setStatus(targets.size() == 1 ? "Deleted " + targets.front().generic_string() : "Deleted " + std::to_string(targets.size()) + " entries");
     contextPath.clear();
 }
 
