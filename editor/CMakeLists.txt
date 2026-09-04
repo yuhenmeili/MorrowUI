@@ -24,7 +24,7 @@ add_library(morrow_editor_runtime STATIC
     ui/CreateNodeDialog.cpp
     ui/CreateAssetDialog.cpp
     ui/RenameNodeDialog.cpp
-    ui/FileSystemPanel.cpp
+    panels/FileSystemPanel.cpp
     panels/InspectorPanel.cpp
     panels/SceneTreePanel.cpp
     panels/ViewportPanel.cpp

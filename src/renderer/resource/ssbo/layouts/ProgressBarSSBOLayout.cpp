@@ -6,18 +6,19 @@
 
 namespace morrow {
 
+// color0 = trackColor，color1 = fillColor，
+// geomAttr = (displaySize.x, displaySize.y, rounding, alpha)，
+// stateAttr = (progress, direction, useTrackTexture, useFillTexture)。
 ProgressBarSSBOLayout::ProgressBarSSBOLayout() {
-    m_layout = makeLayout<DefaultBatchData<4>>("progress_bar");
+    m_layout = makeLayout<UIInstanceData>("progress_bar");
     m_layout.fields = {
-        makeWorldMatrixField("model", offsetof(DefaultBatchData<4>, model)),
-        makeMaterialVectorField("trackColor", defaultBatchAttributeOffset<DefaultBatchData<4>>(0), SSBOValueSource::MaterialVector4, "trackColor"),
-        makeMaterialVectorField("fillColor", defaultBatchAttributeOffset<DefaultBatchData<4>>(1), SSBOValueSource::MaterialVector4, "fillColor"),
-        makePackedVector4Field("defaultAttr", defaultBatchAttributeOffset<DefaultBatchData<4>>(2),
-                               {materialVectorComponent("displaySize", 0), materialVectorComponent("displaySize", 1),
-                                materialFloat("rounding"), materialFloat("alpha")}),
-        makePackedVector4Field("stateAttr", defaultBatchAttributeOffset<DefaultBatchData<4>>(3),
-                               {materialFloat("progress"), materialFloat("direction"),
-                                materialFloat("useTrackTexture"), materialFloat("useFillTexture")})};
+        makeWorldMatrixField("model", offsetof(UIInstanceData, model)),
+        makeMaterialVectorField("color0", offsetof(UIInstanceData, color0), SSBOValueSource::MaterialVector4, "trackColor"),
+        makeMaterialVectorField("color1", offsetof(UIInstanceData, color1), SSBOValueSource::MaterialVector4, "fillColor"),
+        uiSlotField("geomAttr", offsetof(UIInstanceData, geomAttr), displayGeomSlot()),
+        uiSlotField("stateAttr", offsetof(UIInstanceData, stateAttr),
+                    {materialFloat("progress"), materialFloat("direction"), materialFloat("useTrackTexture"), materialFloat("useFillTexture")}),
+        uiSlotField("extraAttr", offsetof(UIInstanceData, extraAttr), zeroSlot())};
 }
 
 }  // namespace morrow

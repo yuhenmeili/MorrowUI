@@ -1,6 +1,3 @@
-#version 460
-precision mediump float;
-precision mediump int;
 
 // uniform sampler2D u_texture;
 uniform float u_timeDelta;

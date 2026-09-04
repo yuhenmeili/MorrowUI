@@ -1,6 +1,3 @@
-#version 320 es
-precision mediump float;
-precision mediump int;
 layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec4 a_color;
 layout(location = 2) in vec2 a_texCoord;

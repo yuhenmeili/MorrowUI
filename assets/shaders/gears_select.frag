@@ -1,6 +1,3 @@
-#version 460
-precision mediump float;
-precision mediump int;
 
 layout (location = 0) in vec4 v_color;
 

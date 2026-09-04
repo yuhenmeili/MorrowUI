@@ -7,24 +7,29 @@
 #include <cstring>
 
 #include "Material.h"
+#include "SSBOLayoutComponent.h"
 #include "ShaderStorageBuffer.h"
 #include "base/Transform.h"
 
 namespace morrow {
 namespace {
-float evalComponent(const SSBOComponentSource& component, const RenderBatch& batch, size_t index) {
+float evalComponentFromMaterial(const SSBOComponentSource& component, const Material& material) {
     switch (component.source) {
         case SSBOValueSource::MaterialFloat:
-            return batch.materials[index]->getFloatOr(component.materialProperty, 0.0f);
+            return material.getFloatOr(component.materialProperty, 0.0f);
         case SSBOValueSource::MaterialVectorComponent: {
             float value = 0.0f;
-            batch.materials[index]->tryGetVectorComponent(component.materialProperty, component.sourceComponent, value);
+            material.tryGetVectorComponent(component.materialProperty, component.sourceComponent, value);
             return value;
         }
         case SSBOValueSource::ConstantFloat:
         default:
             return component.constant;
     }
+}
+
+float evalComponent(const SSBOComponentSource& component, const RenderBatch& batch, size_t index) {
+    return evalComponentFromMaterial(component, *batch.materials[index]);
 }
 }  // namespace
 
@@ -83,5 +88,34 @@ bool fillSSBOInstance(const SSBOLayout& layout, void* destination, const RenderB
         layout.filler(destination, batch, static_cast<int>(index));
     }
     return ok;
+}
+
+void packSSBOLayoutUniforms(Material& material) {
+    const auto layoutComponent = material.getSSBOLayout();
+    if (!layoutComponent) {
+        return;
+    }
+    const auto& layout = layoutComponent->getLayout();
+    for (const auto& field : layout.fields) {
+        switch (field.kind) {
+            case SSBOFieldKind::WorldMatrix:
+                continue;  // u_model 由 BatchManager 按实例世界矩阵设置
+            case SSBOFieldKind::MaterialVector:
+                material.setVector(field.shaderField, material.getVector4Or(field.materialProperty, Vector4::ZERO));
+                break;
+            case SSBOFieldKind::PackedVector4: {
+                Vector4 value;
+                value.x = evalComponentFromMaterial(field.components[0], material);
+                value.y = evalComponentFromMaterial(field.components[1], material);
+                value.z = evalComponentFromMaterial(field.components[2], material);
+                value.w = evalComponentFromMaterial(field.components[3], material);
+                material.setVector(field.shaderField, value);
+                break;
+            }
+            case SSBOFieldKind::Custom:
+            default:
+                break;
+        }
+    }
 }
 }  // namespace morrow

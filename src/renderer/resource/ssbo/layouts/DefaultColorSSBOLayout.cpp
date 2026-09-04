@@ -6,14 +6,16 @@
 
 namespace morrow {
 
+// color0 = color，geomAttr = (displaySize.x, displaySize.y, rounding, alpha)。
 DefaultColorSSBOLayout::DefaultColorSSBOLayout() {
-    m_layout = makeLayout<DefaultBatchData2Attr>("default_color");
+    m_layout = makeLayout<UIInstanceData>("default_color");
     m_layout.fields = {
-        makeWorldMatrixField("model", offsetof(DefaultBatchData2Attr, model)),
-        makeMaterialVectorField("defaultColor", defaultBatchAttributeOffset<DefaultBatchData2Attr>(0), SSBOValueSource::MaterialVector4, "color"),
-        makePackedVector4Field("defaultAttr", defaultBatchAttributeOffset<DefaultBatchData2Attr>(1),
-                               {materialVectorComponent("displaySize", 0), materialVectorComponent("displaySize", 1),
-                                materialFloat("rounding"), materialFloat("alpha")})};
+        makeWorldMatrixField("model", offsetof(UIInstanceData, model)),
+        makeMaterialVectorField("color0", offsetof(UIInstanceData, color0), SSBOValueSource::MaterialVector4, "color"),
+        uiSlotField("color1", offsetof(UIInstanceData, color1), defaultColorSlot()),
+        uiSlotField("geomAttr", offsetof(UIInstanceData, geomAttr), displayGeomSlot()),
+        uiSlotField("stateAttr", offsetof(UIInstanceData, stateAttr), zeroSlot()),
+        uiSlotField("extraAttr", offsetof(UIInstanceData, extraAttr), zeroSlot())};
 }
 
 }  // namespace morrow

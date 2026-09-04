@@ -139,6 +139,13 @@ struct SSBOLayout;
 
 bool fillSSBOInstance(const SSBOLayout& layout, void* destination, const RenderBatch& batch, size_t index);
 
+class Material;
+
+// 非 SSBO 路径的统一 uniform 打包：按 material 的 SSBO 绑定表把属性值打包为
+// u_color0 / u_geomAttr / ... 通用槽位 uniform（与 GLSL instance.frag.glsl 的
+// 非 SSBO 分支一一对应）。u_model 由 BatchManager 单独设置。无 layout 时无操作。
+void packSSBOLayoutUniforms(Material& material);
+
 // 布局校验辅助（P3 复用）
 size_t shaderDataTypeSize(ShaderDataType type);
 }  // namespace morrow

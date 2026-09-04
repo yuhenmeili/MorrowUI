@@ -11,6 +11,7 @@ set(MORROW_SHADER_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 file(GLOB MORROW_SHADER_FILES
     ${MORROW_SHADER_DIR}/*.vert
     ${MORROW_SHADER_DIR}/*.frag
+    ${MORROW_SHADER_DIR}/common/*.glsl
 )
 
 add_custom_command(

@@ -1,6 +1,3 @@
-#version 460
-precision mediump float;
-precision mediump int;
 
 layout(location = 0) in vec3 a_position;
 

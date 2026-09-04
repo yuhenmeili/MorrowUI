@@ -1,6 +1,3 @@
-#version 320 es
-precision mediump float;
-precision mediump int;
 in vec2 v_texCoord;
 in vec4 v_color;
 

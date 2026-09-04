@@ -8,6 +8,7 @@ file(GLOB SHADER_FILES
     LIST_DIRECTORIES false
     "${SHADER_DIR}/*.vert"
     "${SHADER_DIR}/*.frag"
+    "${SHADER_DIR}/common/*.glsl"
 )
 list(SORT SHADER_FILES)
 

@@ -11,6 +11,7 @@
 #include "Material.h"
 #include "OrthographicCamera.h"
 #include "RenderBatchPool.h"
+#include "ssbo/SSBOFieldBinding.h"
 #include "ssbo/SSBOManager.h"
 #include "UniformBuffer.h"
 #include "VertexArray.h"
@@ -212,6 +213,9 @@ void BatchManager::renderStandardBatch(std::shared_ptr<FrameState> frameState, R
         Matrix4 modelMatrix = batch.transforms[index]->getWorldMatrix();
         if (batch.isSSBOShader) {
             material->setMatrix4("model", modelMatrix);
+            // 统一槽位 uniform（u_color0 / u_geomAttr / ...）由绑定表打包，
+            // 与 SSBO 填充共用同一份声明，两条路径不会分叉。
+            packSSBOLayoutUniforms(*material);
         } else {
             material->setMatrix4("mvp", projectionMatrix * modelMatrix);
         }

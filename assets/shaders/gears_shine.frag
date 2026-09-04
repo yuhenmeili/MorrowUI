@@ -1,4 +1,3 @@
-#version 460
 precision highp float;
 precision highp int;
 

@@ -512,6 +512,10 @@ uint64_t Material::getRevision() const {
 }
 
 bool Material::isSSBOShader() const {
+    // 显式标记优先；ENABLE_SSBO 文本回退兼容 setShaderFromMemory 的自定义 shader
+    if (m_vertexShaderResource.find("#pragma morrow ssbo") != std::string::npos) {
+        return true;
+    }
     return m_vertexShaderResource.find("ENABLE_SSBO") != std::string::npos;
 }
 
@@ -529,30 +533,58 @@ SSBOLayoutComponentSharedPtr Material::getSSBOLayout() const {
     return m_ssboLayout;
 }
 
+namespace {
+// chunk 加载：embedded 优先，assets/shaders 文件回退（与主 shader 相同的查找顺序）。
+bool loadShaderChunk(const std::string& fileName, std::string& source) {
+    if (embedded_shaders::get(fileName, source)) {
+        return true;
+    }
+    std::ifstream chunkFile("assets/shaders/" + fileName);
+    if (!chunkFile) {
+        return false;
+    }
+    source.assign(std::istreambuf_iterator<char>(chunkFile), std::istreambuf_iterator<char>());
+    return true;
+}
+}  // namespace
+
 void Material::loadShader() {
     const std::string vertexShaderName = m_shaderName + ".vert";
     const std::string fragmentShaderName = m_shaderName + ".frag";
 
+    std::string vertexShaderResource;
+    std::string fragmentShaderResource;
+
     // Packaged builds load shaders directly from the shared library.
-    if (embedded_shaders::get(vertexShaderName, m_vertexShaderResource) && embedded_shaders::get(fragmentShaderName, m_fragmentShaderResource)) {
-        return;
+    if (embedded_shaders::get(vertexShaderName, vertexShaderResource) && embedded_shaders::get(fragmentShaderName, fragmentShaderResource)) {
+        // loaded
+    } else {
+        // Keep external files as a fallback for custom shaders and development.
+        const std::string vertexShaderPath = "assets/shaders/" + vertexShaderName;
+        const std::string fragmentShaderPath = "assets/shaders/" + fragmentShaderName;
+
+        std::ifstream vertexShaderFile(vertexShaderPath);
+        std::ifstream fragmentShaderFile(fragmentShaderPath);
+        if (!vertexShaderFile || !fragmentShaderFile) {
+            LOG_E("Failed to load shader '{}' from embedded resources or assets/shaders", m_shaderName);
+            m_vertexShaderResource.clear();
+            m_fragmentShaderResource.clear();
+            return;
+        }
+
+        vertexShaderResource.assign(std::istreambuf_iterator<char>(vertexShaderFile), std::istreambuf_iterator<char>());
+        fragmentShaderResource.assign(std::istreambuf_iterator<char>(fragmentShaderFile), std::istreambuf_iterator<char>());
     }
 
-    // Keep external files as a fallback for custom shaders and development.
-    const std::string vertexShaderPath = "assets/shaders/" + vertexShaderName;
-    const std::string fragmentShaderPath = "assets/shaders/" + fragmentShaderName;
-
-    std::ifstream vertexShaderFile(vertexShaderPath);
-    std::ifstream fragmentShaderFile(fragmentShaderPath);
-    if (!vertexShaderFile || !fragmentShaderFile) {
-        LOG_E("Failed to load shader '{}' from embedded resources or assets/shaders", m_shaderName);
+    // include 解析（common/ 公共块）：任一阶段失败则 fail-fast，清空源码。
+    const MaterialUtil::ShaderChunkLoader chunkLoader = loadShaderChunk;
+    std::string includeError;
+    if (!MaterialUtil::resolveIncludes(vertexShaderResource, chunkLoader, m_vertexShaderResource, includeError) ||
+        !MaterialUtil::resolveIncludes(fragmentShaderResource, chunkLoader, m_fragmentShaderResource, includeError)) {
+        LOG_E("Failed to resolve includes for shader '{}': {}", m_shaderName, includeError);
         m_vertexShaderResource.clear();
         m_fragmentShaderResource.clear();
-        return;
     }
-
-    m_vertexShaderResource.assign(std::istreambuf_iterator<char>(vertexShaderFile), std::istreambuf_iterator<char>());
-    m_fragmentShaderResource.assign(std::istreambuf_iterator<char>(fragmentShaderFile), std::istreambuf_iterator<char>());
 }
 
 HwGPUProgram Material::buildShader(bool enableSSBO) {
@@ -563,10 +595,13 @@ HwGPUProgram Material::buildShader(bool enableSSBO) {
     MaterialUtil::appendDefaultPrecisionIfNeeded(vertexSource, vertexHead);
     MaterialUtil::appendDefaultPrecisionIfNeeded(fragmentSource, fragmentHead);
     if (enableSSBO) {
-        for (const auto& define : m_defines) {
-            vertexHead += "#define " + define + "\n";
-            fragmentHead += "#define " + define + "\n";
-        }
+        vertexHead += "#define ENABLE_SSBO\n";
+        fragmentHead += "#define ENABLE_SSBO\n";
+    }
+    // 业务宏对两个变体一致注入，避免 SSBO/非 SSBO 路径行为分叉
+    for (const auto& define : m_defines) {
+        vertexHead += "#define " + define + "\n";
+        fragmentHead += "#define " + define + "\n";
     }
     return RENDERINGTHREAD->createGPUProgram(m_shaderName, MaterialUtil::buildShaderSource(vertexSource, vertexHead), MaterialUtil::buildShaderSource(fragmentSource, fragmentHead));
 }

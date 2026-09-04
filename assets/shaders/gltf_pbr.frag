@@ -1,4 +1,3 @@
-#version 460
 precision mediump float;
 
 in vec3 v_worldPos;

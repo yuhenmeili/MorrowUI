@@ -175,7 +175,8 @@ private:
     HwUBO m_scene3DMaterialUbo{0};
     Scene3DMaterialUBO m_scene3DMaterialData{};
     bool m_scene3DMaterialDirty = true;
-    std::vector<std::string> m_defines = {"ENABLE_SSBO"};
+    // 业务宏（两个变体一致注入）；ENABLE_SSBO 由 buildShader(enableSSBO) 参数管理
+    std::vector<std::string> m_defines;
     std::string m_vertexShaderResource;
     std::string m_fragmentShaderResource;
     uint64_t m_batchCompatibilityRevision = 1;
