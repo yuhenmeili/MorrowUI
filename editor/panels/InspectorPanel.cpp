@@ -14,6 +14,7 @@
 #include "base/TouchEvent.h"
 #include "base/Transform.h"
 #include "elements/MRButton.h"
+#include "elements/MRCheckBox.h"
 #include "elements/MRLabel.h"
 #include "elements/MRLineEdit.h"
 #include "elements/MRPopupMenu.h"
@@ -129,6 +130,7 @@ void InspectorPanel::refresh(bool force) {
         while (panel->m_children.size() > 1)
             panel->m_children.pop_back();
         editConnections.clear();
+        checkConnections.clear();
         interactionConnections.clear();
         bindings.clear();
         const auto* asset = m_shell.m_assets.findById(selectedAssetId);
@@ -149,6 +151,7 @@ void InspectorPanel::refresh(bool force) {
             shader->setText(wide(material.shader.empty() ? "<empty>" : material.shader), "default");
             shader->setTextAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
             shader->setTextFontSize(13.0f);
+            shader->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
             shader->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
             shader->getTransform()->setPosition(124.0f, 104.0f, 0.0f);
             shader->getTransform()->setSize(std::max(70.0f, panel->getTransform()->getSize().x - 136.0f), 28.0f);
@@ -160,6 +163,9 @@ void InspectorPanel::refresh(bool force) {
                 auto edit = MRLineEdit::create();
                 edit->setText(wide(value));
                 edit->setFontSize(13.0f);
+                edit->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
+                edit->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+                edit->setFocusedBackgroundColor(Vector4(0.10f, 0.13f, 0.18f, 1.0f));
                 edit->getTransform()->setPosition(124.0f, y, 0.0f);
                 edit->getTransform()->setSize(std::max(70.0f, panel->getTransform()->getSize().x - 136.0f), 28.0f);
                 panel->addChild(edit);
@@ -218,6 +224,7 @@ void InspectorPanel::refresh(bool force) {
         panel->m_children.pop_back();
     }
     editConnections.clear();
+    checkConnections.clear();
     bindings.clear();
     if (properties.empty())
         return;
@@ -269,18 +276,32 @@ void InspectorPanel::refresh(bool force) {
         panel->addChild(propertyLabel);
 
         if (property.type == "bool" && !property.mixed) {
-            auto button = m_shell.addButton(panel, property.value == "true" ? L"[x]" : L"[ ]", controlX, y, controlWidth, 28.0f, [this, propertyName = property.name] {
-                const auto current = m_shell.m_session->model().inspectSelected();
-                const auto* value = findInspectorProperty(current, propertyName);
-                if (!value)
+            auto checkBox = MRCheckBox::create();
+            checkBox->setChecked(property.value == "true");
+            checkBox->setTextFontSize(14.0f);
+            checkBox->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
+            checkBox->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+            checkBox->setHoverColor(Vector4(0.12f, 0.15f, 0.20f, 1.0f));
+            checkBox->setCheckedColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+            checkBox->setCheckedHoverColor(Vector4(0.12f, 0.15f, 0.20f, 1.0f));
+            checkBox->setCheckedPressedColor(Vector4(0.12f, 0.15f, 0.20f, 1.0f));
+            checkBox->getTransform()->setPosition(controlX, y, 0.0f);
+            checkBox->getTransform()->setSize(controlWidth, 28.0f);
+            checkConnections.emplace_back(checkBox->selectionEvents().onCheckedChanged.connect([this, propertyName = property.name](MRSelectableButton& source, bool checked) {
+                if (m_applyingInspectorValue)
                     return;
-                applyValue(propertyName, value->value == "true" ? "false" : "true");
-            });
-            button->setTextAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
-            button->setTextFontSize(14.0f);
-            button->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
-            button->setHoverColor(Vector4(0.12f, 0.15f, 0.20f, 1.0f));
-            bindings[property.name] = {property.name, property.type, {}, button};
+                m_applyingInspectorValue = true;
+                applyValue(propertyName, checked ? "true" : "false");
+                const auto current = m_shell.m_session->model().inspectSelected();
+                if (const auto* value = findInspectorProperty(current, propertyName); value && value->value != (checked ? "true" : "false"))
+                    source.setChecked(value->value == "true");
+                m_applyingInspectorValue = false;
+            }));
+            panel->addChild(checkBox);
+            InspectorBinding& binding = bindings[property.name];
+            binding.property = property.name;
+            binding.type = property.type;
+            binding.checkBox = std::move(checkBox);
         } else if (property.type == "TextureAsset" || property.type == "MaterialAsset") {
             std::string display = "<empty>";
             if (!property.value.empty()) {
@@ -435,8 +456,12 @@ void InspectorPanel::updateValues(const std::vector<InspectorProperty>& properti
         const auto* property = findInspectorProperty(properties, name);
         if (!property)
             continue;
-        if (binding.type == "bool" && binding.button) {
-            binding.button->setText(property->value == "true" ? L"[x]" : L"[ ]", "default");
+        if (binding.type == "bool") {
+            if (binding.checkBox) {
+                m_applyingInspectorValue = true;
+                binding.checkBox->setChecked(property->value == "true");
+                m_applyingInspectorValue = false;
+            }
             continue;
         }
         if ((binding.type == "TextureAsset" || binding.type == "MaterialAsset") && binding.resourceField) {

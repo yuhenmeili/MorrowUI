@@ -13,8 +13,10 @@
 namespace morrow {
 class BaseButton;
 class MRButton;
+class MRCheckBox;
 class MRLineEdit;
 class MRPopupMenu;
+class MRSelectableButton;
 class MRTextEdit;
 class TouchEvent;
 class UIWidget;
@@ -34,6 +36,7 @@ struct InspectorBinding {
     std::shared_ptr<MRButton> button;
     std::shared_ptr<MRLineEdit> resourceField;
     std::shared_ptr<Widget> dropTarget;
+    std::shared_ptr<MRCheckBox> checkBox;
 };
 
 class InspectorPanel : public EditorPanel {
@@ -64,6 +67,7 @@ private:
     std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<MRPopupMenu> assetMenu;
     std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> editConnections;
+    std::vector<Observable<MRSelectableButton&, bool>::Connection> checkConnections;
     std::vector<EventConnection> interactionConnections;
     std::map<std::string, InspectorBinding> bindings;
     std::map<int, std::string> assetMenuIds;
@@ -76,6 +80,7 @@ private:
     std::string lastSchemaSignature;
     std::string selectedAssetId;
     std::string selectedAssetType;
+    bool m_applyingInspectorValue = false;
 
     void updateValues(const std::vector<InspectorProperty>& properties);
 

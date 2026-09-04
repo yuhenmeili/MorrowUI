@@ -1,6 +1,6 @@
 [material]
 format = 1
-shader = ""
+shader = "asset_assets_myfirst"
 
 [properties]
 color = Color(1.0, 1.0, 1.0, 1.0)

@@ -2,7 +2,7 @@
 format = 1
 asset_id = "asset_assets_firstmat"
 importer = "morrow.material"
-source_hash = "af44ece5d56eca26"
+source_hash = "c6f715b08cfb204d"
 importer_version = 1
 
 [options]

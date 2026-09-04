@@ -41,12 +41,13 @@ void CreateAssetDialog::initializeControls() {
     for (const auto& type : assetTypes()) {
         m_types->addNode(id, std::wstring(type.displayName.begin(), type.displayName.end()) + L"  [" + std::wstring(type.extension.begin(), type.extension.end()) + L"]", -1, false,
                          true);
-        m_typeIds[id++] = id - 1;
+        m_typeIds[id] = static_cast<int>(m_typeIds.size());
+        ++id;
     }
     m_typeConnection = m_types->events().onNodeSelected.connect([this](MRTree&, int selected, const std::wstring&) {
         const auto iterator = m_typeIds.find(selected);
         if (iterator != m_typeIds.end())
-            m_selectedType = assetTypes()[static_cast<size_t>(iterator->second - 1)].type;
+            m_selectedType = assetTypes()[static_cast<size_t>(iterator->second)].type;
     });
     m_types->getTransform()->setPosition(20.0f, 58.0f, 0.0f);
     m_types->getTransform()->setSize(360.0f, 180.0f);
