@@ -21,19 +21,35 @@ MRCheckBox::MRCheckBox() {
 void MRCheckBox::updateVisualState() {
     MRSelectableButton::updateVisualState();
     if (m_indicator) {
-        m_indicator->setColor(Vector4(0.68f, 0.72f, 0.78f, 1.0f));
+        m_indicator->setColor(m_indicatorColor);
     }
     if (m_indicatorFill) {
-        m_indicatorFill->setColor(Vector4(0.08f, 0.62f, 0.42f, 1.0f));
+        m_indicatorFill->setColor(m_indicatorCheckedColor);
         m_indicatorFill->setVisible(isChecked());
     }
 }
 
+void MRCheckBox::setIndicatorColor(const Vector4& color) {
+    m_indicatorColor = color;
+    updateVisualState();
+}
+
+void MRCheckBox::setIndicatorColor(float r, float g, float b, float a) {
+    setIndicatorColor(Vector4(r, g, b, a));
+}
+
+void MRCheckBox::setIndicatorCheckedColor(const Vector4& color) {
+    m_indicatorCheckedColor = color;
+    updateVisualState();
+}
+
+void MRCheckBox::setIndicatorCheckedColor(float r, float g, float b, float a) {
+    setIndicatorCheckedColor(Vector4(r, g, b, a));
+}
+
 void MRCheckBox::initializeIndicator() {
     m_indicator = MRColor::create();
-    m_indicator->setRounding(4.0f);
     m_indicatorFill = MRColor::create();
-    m_indicatorFill->setRounding(2.0f);
     m_indicator->addChild(m_indicatorFill);
     addChild(m_indicator);
     layoutIndicator();

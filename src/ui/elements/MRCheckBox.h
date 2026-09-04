@@ -17,6 +17,18 @@ public:
         layoutIndicator();
     }
 
+    /// 设置指示器方块的颜色。
+    void setIndicatorColor(const Vector4& color);
+
+    /// 使用 RGBA 分量设置指示器方块的颜色。
+    void setIndicatorColor(float r, float g, float b, float a);
+
+    /// 设置选中时指示器填充的颜色。
+    void setIndicatorCheckedColor(const Vector4& color);
+
+    /// 使用 RGBA 分量设置选中时指示器填充的颜色。
+    void setIndicatorCheckedColor(float r, float g, float b, float a);
+
 protected:
     MRCheckBox();
 
@@ -29,6 +41,8 @@ private:
 
     MRColorSharedPtr m_indicator;
     MRColorSharedPtr m_indicatorFill;
+    Vector4 m_indicatorColor = Vector4(0.68f, 0.72f, 0.78f, 1.0f);
+    Vector4 m_indicatorCheckedColor = Vector4(0.08f, 0.62f, 0.42f, 1.0f);
 };
 
 using MRCheckBoxSharedPtr = std::shared_ptr<MRCheckBox>;
