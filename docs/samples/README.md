@@ -8,10 +8,11 @@
 |---|---|---|
 | AnimationEffectsDemo | [AnimationEffectsDemo.md](AnimationEffectsDemo.md) | 动画组件全家桶：AnchorPointScale / Bounce / BrakePedal / FlowingLight / FrameAnimation + Tween |
 | ControlsDemo | [ControlsDemo.md](ControlsDemo.md) | 交互控件全家桶：Button / TextureButton / CheckBox / Toggle / Radio / Menu / SpinBox / 布局辅助 |
+| DebugDemo | [DebugDemo.md](DebugDemo.md) | 调试设施：批渲染统计验收（--report-json）、帧数限制、按需渲染、F3 overlay、对象快照 |
 | GLTFDemo | [GLTFDemo.md](GLTFDemo.md) | GLTF 异步加载、MR3DSceneView、IBL 光照、轨道相机 |
 | GearsDemo | [GearsDemo.md](GearsDemo.md) | 齿轮特效全家桶：GearsIris / Opening / Shine / Select |
 | IBLPrecomputeDemo | [IBLPrecomputeDemo.md](IBLPrecomputeDemo.md) | HDR → IBL 离线烘焙命令行工具 |
-| ImageDemo | [ImageDemo.md](ImageDemo.md) | MRImage 与 SSBO 合批验证、Shadow 组件、CI 验收参数 |
+| ImageDemo | [ImageDemo.md](ImageDemo.md) | Image 六卡片展示：圆角 / UV 裁剪 / 合批动画 / 阴影 / 图集区域 / 程序化纹理 |
 | ListNavigationDemo | [ListNavigationDemo.md](ListNavigationDemo.md) | ItemList / Tree / ScrollContainer 导航控件 |
 | PMemoryDemo | [PMemoryDemo.md](PMemoryDemo.md) | QNX pmem → OES 纹理零拷贝渲染（仅 QNX 生效） |
 | Particles2DDemo | [Particles2DDemo.md](Particles2DDemo.md) | CPU / GPU 两种 2D 粒子系统对比 |
@@ -35,11 +36,11 @@
 | GearsIrisDemo.md、GearsOpeningDemo.md、GearsSelectDemo.md、GearsShineDemo.md | GearsDemo.md |
 | MRSliderDemo.md、MRProgressBarDemo.md | RangeControlsDemo.md |
 | AlignmentDemo.md | TextDemo.md |
-| ShadowDemo.md | ImageDemo.md |
+| ShadowDemo.md | ImageDemo.md（验收部分拆分至 DebugDemo.md） |
 | GLTFDemo.md、IBLPrecomputeDemo.md、ImageDemo.md、PMemoryDemo.md、TextDemo.md | 同名更新 |
 
-无旧文档、后新增的 demo：ListNavigationDemo、Particles2DDemo、Safe* 四件套、
-SceneEffectsDemo、VideoStreamPlayerDemo。
+无旧文档、后新增的 demo：DebugDemo、ListNavigationDemo、Particles2DDemo、
+Safe* 四件套、SceneEffectsDemo、VideoStreamPlayerDemo。
 
 ## 运行方式（通用）
 

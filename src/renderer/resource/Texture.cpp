@@ -270,6 +270,7 @@ void Texture::startLoadImage() {
 
     m_textureInfo->bytes = m_textureInfo->imageWidth * m_textureInfo->imageHeight * re_comp;
     m_textureInfo->compressedTexture = false;
+    m_onLoaded.notify();
 }
 
 void Texture::startLoadBasis() {
@@ -281,6 +282,7 @@ void Texture::startLoadBasis() {
     m_textureInfo->imageHeight = imageInfo.m_height;
     m_textureInfo->compressedTexture = true;
     m_textureInfo->bytes = m_textureInfo->basisData.size();
+    m_onLoaded.notify();
 }
 
 void Texture::reUploadTexture(const char* result) {

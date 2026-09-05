@@ -15,10 +15,11 @@
 | --- |-------------------------------| --- | --- |
 | `AnimationEffectsDemo` | 动画组件全家桶：锚点缩放、弹跳、制动踏板、流光、图集帧动画 | `MRAnchorPointScale`、`MRBounce`、`MRBrakePedal`、`MRFlowingLight`、`MRFrameAnimation`、`Tween` | [AnimationEffectsDemo.md](samples/AnimationEffectsDemo.md) |
 | `ControlsDemo` | 交互控件全家桶：按钮、选择、菜单、数值输入与布局辅助    | `MRButton`、`MRTextureButton`、`MRCheckBox`、`MRToggle`、`MRRadioButton`、`MRSpinBox` | [ControlsDemo.md](samples/ControlsDemo.md) |
+| `DebugDemo` | 调试设施：批渲染统计验收、帧数限制、按需渲染、F3 overlay、对象快照 | `EngineOptions`、`batchStatistics`、`ObjectRegistry` | [DebugDemo.md](samples/DebugDemo.md) |
 | `GLTFDemo` | GLTF/GLB 3D 模型加载与交互           | `MR3DSceneView`、`Scene3DAsyncLoader`、`OrbitController` | [GLTFDemo.md](samples/GLTFDemo.md) |
 | `GearsDemo` | 换挡特效全家桶：光圈、展开、高光、选中点          | `MRGearsIris`、`MRGearsOpening`、`MRGearsShine`、`MRGearsSelect` | [GearsDemo.md](samples/GearsDemo.md) |
 | `IBLPrecomputeDemo` | IBL 贴图预计算工具（命令行，无窗口）          | `IBLPrecompute` | [IBLPrecomputeDemo.md](samples/IBLPrecomputeDemo.md) |
-| `ImageDemo` | 图片组件与 SSBO 合批验证、阴影、CI 验收参数    | `MRImage`、`Shadow`、`batchStatistics` | [ImageDemo.md](samples/ImageDemo.md) |
+| `ImageDemo` | Image 六卡片展示：圆角、UV 裁剪、合批动画、阴影、图集区域、程序化纹理 | `MRImage`、`Shadow`、`TextureAtlas`、`Texture::setTextureData` | [ImageDemo.md](samples/ImageDemo.md) |
 | `ListNavigationDemo` | 列表选择、树形展开与长列表滚动               | `MRItemList`、`MRTree`、`MRScrollContainer` | [ListNavigationDemo.md](samples/ListNavigationDemo.md) |
 | `PMemoryDemo` | QNX 下 PMEM/OES 纹理零拷贝接入        | `Texture(OES)`、`MRImage`、`global_tools::loadPmemData` | [PMemoryDemo.md](samples/PMemoryDemo.md) |
 | `Particles2DDemo` | CPU / GPU 两种 2D 粒子系统对比        | `MRCPUParticles2D`、`MRGPUParticles2D` | [Particles2DDemo.md](samples/Particles2DDemo.md) |
@@ -52,4 +53,5 @@ cmake --build build --target <DemoName> --parallel 8
 - 想找 3D 能力：看 `GLTFDemo` 与 `IBLPrecomputeDemo`
 - 想找视频/流媒体：看 `VideoStreamPlayerDemo`、`SafeStreamTextureDemo`、`PMemoryDemo`
 - 想找功能安全（Safe）组件：看 `Safe*` 四件套
+- 想找调试/性能观测：看 `DebugDemo`
 - 想找平台特性：看 `PMemoryDemo`

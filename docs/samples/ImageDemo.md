@@ -2,52 +2,73 @@
 
 - 对应源码：`samples/ImageDemo.cpp`
 - 编译目标：`ImageDemo`
-- 合并说明：旧 `ShadowDemo.md` 的内容（阴影能力）已并入本文
+- 拆分说明：批渲染统计验收 / 帧数限制 / 对象快照等调试能力已拆分至 [DebugDemo.md](DebugDemo.md)
 
 ## Demo 用途
 
-`MRImage` 图片组件的基础用法 + SSBO 批渲染验证：
+`MRImage` 图片组件能力展示，六张卡片同屏对比：
 
-- 一排 `MRImage` 共享同一纹理，验证合批（SSBO 实例化）是否生效；
-- `Shadow` 组件为 `MRColor` / `MRImage` 添加投影；
-- 内置自动化验收参数（`--report-json`），CI 可断言批渲染统计。
-
-## 启动参数
-
-| 参数 | 说明 |
-|---|---|
-| `--report-json` | 结束时输出批渲染统计 JSON，并执行合批验收断言（12 renderItems / 2 batches / 2 drawCalls），失败返回码 2 |
-| `--request-render` | 启用按需渲染模式 |
-| `--frames N` | 最多渲染 N 帧 |
-| `--object-snapshot PATH` | 输出对象注册表快照 |
-| `--object-snapshot-command PATH` | 对象快照命令文件 |
+| 卡片 | 能力 | 关键 API |
+|---|---|---|
+| 圆角阶梯 | shader 圆角裁剪，无需预处理贴图 | `MRImage::setRounding` |
+| UV 裁剪 | 取源图子区域拉伸显示（放大镜） | `MRImage::setScissor` |
+| 图片墙与合批 | 10 张图共享纹理做 alpha 呼吸动画，仍合并为 1 个 SSBO 批次 | `Material::setFloat("alpha")` + `Tween` |
+| Shadow 投影 | 任意带 `MeshRenderer` 的组件叠加投影（underlay 通道） | `Shadow` 组件 |
+| 图集区域 | `.basis` 图集按名取子区域显示 | `MRImage::setTexture(atlas, name)` |
+| 程序化纹理 | CPU 生成的 RGBA 数据直接上屏 | `Texture::setTextureData` |
 
 ## 运行方式
 
 ```bash
 cmake --build build --target ImageDemo --parallel 8
-./build/ImageDemo.exe --report-json
+./build/ImageDemo.exe
 ```
 
 ## 示例做了什么
 
-1. 以 `EngineOptions`（可关闭多线程、限制帧数）创建 `Engine`。
-2. 加载 `assets/textures/img.bmp` 纹理，循环创建 10 个 `MRImage` 共享该纹理、
-   不同高度摆放——同材质同纹理会被合入同一 SSBO batch。
-3. `MRColor` 色块与 `MRImage` 各添加一个 `Shadow` 组件
-   （`setShadowOffset(5,5)`、半透明黑），演示阴影投影。
-4. `--report-json` 时输出 `batchStatistics` 并断言合批结果。
+1. **圆角阶梯**：5 张 `brickwall.jpg` 并排，`setRounding` 以 14px 步进从 0 递增——
+   圆角由 `image_normal` shader 在片元阶段裁剪（`geomAttr.z`），改一个参数即得任意圆角。
+2. **UV 裁剪**：左图显示原图；右图 `setScissor` 取源图中心 25% 区域放大 4 倍显示，
+   并叠加圆角——运行时按纹理实际尺寸计算裁剪区，不依赖图片分辨率。
+   注意 `setImageUrl` 在首次渲染该纹理时才同步解码，加载完成前 `getWidth()/getHeight()`
+   返回 0，直接计算 UV 会得到 NaN（画面变黑）。正确做法是订阅 `Texture::onLoaded()`
+   事件，解码完成、尺寸就绪后再应用依赖尺寸的逻辑。
+3. **图片墙**：10 张 `car.png` 两行排布，单个 `Tween` 按 10 个相位驱动各图
+   `setFloat("alpha")` 做波浪呼吸——alpha 是 SSBO 每实例属性（`geomAttr.w`），
+   动画不破坏合批，验证"动画中的同材质组件仍是一个批次"。
+4. **Shadow**：`MRColor` 色块与圆角图片各挂 `Shadow` 组件
+   （offset 28 / 40），阴影渐变宽度与偏移一致，展示软阴影参数。
+   注意阴影走 **underlay 通道**、先于一切普通内容绘制，因此不要把带阴影的组件
+   垫在不透明面板上（后画的面板会把阴影整个盖住）——本卡片直接放在窗口清屏背景上。
+5. **图集区域**：`TextureAtlas` 加载 `atlas_speed.atlas`（.basis 图集），
+   三个 `MRImage` 以 `setTexture(atlas, "O_*Digit_*.png")` 显示图集中的不同区域。
+6. **程序化纹理**：CPU 生成 256x256 RGBA（对角渐变 + 棋盘 + 圆环），
+   `Texture::setTextureData` 创建后直接显示，其中一张 `setRounding(100)` 切成圆形。
 
 ## 相关组件
 
 ### `MRImage`
-- 图片组件：`setTexture(Texture)` 直接绑定纹理，或经
-  `MeshRenderer::getMaterial()->setTexture("texture", ...)` 设置。
+- 图片组件：`setTexture(Texture)` / `setTexture(TextureAtlas, name)` 换图，
+  `setRounding` shader 圆角，`setScissor` UV 裁剪；尺寸变化自动同步
+  `displaySize` 到材质并触发重绘。
 
 ### `Shadow`
-- 组件化投影：`addComponent<Shadow>()` 后设置 `setShadowOffset` / `setShadowColor`，
-  可挂载到任意带 `MeshRenderer` 的组件（`shadow` shader 渲染底层投影）。
+- 组件化投影：`addComponent<Shadow>()` + `setShadowOffset` / `setShadowColor`，
+  以 underlay 批次渲染在主体之下（渐变宽度 = 偏移量）。
+- underlay 先于一切普通内容绘制：阴影会被后绘制的不透明同级内容（如卡片面板）
+  覆盖，带阴影的组件应直接放在窗口背景或更早绘制的内容上。
 
-### 合批统计
-- `FrameState::batchStatistics` 提供 renderItems/batches/ssboBatches/drawCalls 等
-  计数，是验证 SSBO 批渲染（`isSSBOShader` + 材质兼容性 hash）是否生效的直接手段。
+### `Texture::onLoaded`
+- 文件加载完成事件（`Observable<>`）：`setImageUrl` 的图片在首次渲染该纹理时
+  同步解码，事件在解码成功、`getWidth()/getHeight()` 就绪后触发，回调运行在
+  触发渲染的线程。`.basis` 图集与普通图片路径都会触发；
+  `setTextureData` 等同步数据路径不触发。
+
+### `Texture::setTextureData`
+- 内存纹理入口：CPU RGBA 数据（可 `std::vector` 或裸指针）直接建纹理，
+  适合程序化图案、调试可视化、动态生成内容。
+
+### 合批要点
+- 同一 shader + 兼容管线状态 + 同纹理集合的组件合并为一个 SSBO 批次；
+  `alpha / rounding / displaySize / model` 均为每实例数据，改它们不动批次。
+- 批渲染统计与验收工具见 [DebugDemo.md](DebugDemo.md)。

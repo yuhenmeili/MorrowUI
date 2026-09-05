@@ -14,6 +14,7 @@
 #include "FrameState.h"
 #include "GlobalDefine.h"
 #include "GpuTypes.h"
+#include "core/Observable.h"
 #include "basis_universal/transcoder/basisu_containers.h"
 #include "debug/ObjectRegistry.h"
 
@@ -82,6 +83,15 @@ public:
 
     int32_t getHeight();
 
+    /// 文件加载完成事件：setImageUrl 指定的图片解码成功、imageWidth/imageHeight
+    /// 就绪后触发。解码在首次渲染该纹理时同步执行，因此回调发生在触发渲染的
+    /// 线程上（Observable 为单线程原语，连接/断开/通知须在同一线程）。
+    /// setTextureData / setOESTextureData 等同步数据路径不触发；
+    /// 重新 setImageUrl 会再次加载并再次触发。
+    Observable<>& onLoaded() {
+        return m_onLoaded;
+    }
+
     uint64_t getRevision() const;
 
     std::string getImageInfo();
@@ -115,6 +125,7 @@ private:
     DebugObjectHandle m_debugObject{DebugObjectCategory::Texture, "Texture"};
     std::string m_uniqueID = Math::generate_uuid();
     uint64_t m_revision = 1;
+    Observable<> m_onLoaded;
 };
 
 using TextureSharedPtr = std::shared_ptr<Texture>;
