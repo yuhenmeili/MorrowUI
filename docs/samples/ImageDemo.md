@@ -2,62 +2,52 @@
 
 - 对应源码：`samples/ImageDemo.cpp`
 - 编译目标：`ImageDemo`
+- 合并说明：旧 `ShadowDemo.md` 的内容（阴影能力）已并入本文
 
 ## Demo 用途
 
-`ImageDemo` 展示最基础的图片组件使用方式，并顺带演示了同一张纹理在多个 `MRImage` 实例之间复用。它非常适合拿来验证图片加载、尺寸拉伸和批量摆放效果。
+`MRImage` 图片组件的基础用法 + SSBO 批渲染验证：
+
+- 一排 `MRImage` 共享同一纹理，验证合批（SSBO 实例化）是否生效；
+- `Shadow` 组件为 `MRColor` / `MRImage` 添加投影；
+- 内置自动化验收参数（`--report-json`），CI 可断言批渲染统计。
+
+## 启动参数
+
+| 参数 | 说明 |
+|---|---|
+| `--report-json` | 结束时输出批渲染统计 JSON，并执行合批验收断言（12 renderItems / 2 batches / 2 drawCalls），失败返回码 2 |
+| `--request-render` | 启用按需渲染模式 |
+| `--frames N` | 最多渲染 N 帧 |
+| `--object-snapshot PATH` | 输出对象注册表快照 |
+| `--object-snapshot-command PATH` | 对象快照命令文件 |
 
 ## 运行方式
 
-```powershell
-cmake --build "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw" --target ImageDemo --config Debug -- -j 4
-& "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw\ImageDemo.exe"
+```bash
+cmake --build build --target ImageDemo --parallel 8
+./build/ImageDemo.exe --report-json
 ```
-
-启用按需渲染：
-
-```powershell
-.\build\ImageDemo.exe --request-render
-```
-
-静态场景完成首帧和资源加载触发的必要帧后，会进入事件等待；Widget、输入、resize、
-异步资源或动画发出 render request 时再继续渲染。`--frames` 在该模式下统计实际
-完成的渲染帧，因此没有新请求时会等待，而不是用空闲循环补足帧数。
 
 ## 示例做了什么
 
-1. 创建窗口并设置白色背景。
-2. 加载图片 `../assets/textures/img.bmp`。
-3. 循环 10 次创建 `MRImage`。
-4. 每个图片都设置不同的 x 坐标和略有变化的高度。
-5. 通过 `MeshRenderer` 材质把同一张纹理绑定给所有图片实例。
+1. 以 `EngineOptions`（可关闭多线程、限制帧数）创建 `Engine`。
+2. 加载 `assets/textures/img.bmp` 纹理，循环创建 10 个 `MRImage` 共享该纹理、
+   不同高度摆放——同材质同纹理会被合入同一 SSBO batch。
+3. `MRColor` 色块与 `MRImage` 各添加一个 `Shadow` 组件
+   （`setShadowOffset(5,5)`、半透明黑），演示阴影投影。
+4. `--report-json` 时输出 `batchStatistics` 并断言合批结果。
 
-## 相关组件介绍
+## 相关组件
 
 ### `MRImage`
-- 基础图像显示组件。
-- 支持直接设置 `Texture`，也支持 atlas 方式设置局部图片区域。
-- 适合做图标、背景图、占位图和纯贴图 UI。
+- 图片组件：`setTexture(Texture)` 直接绑定纹理，或经
+  `MeshRenderer::getMaterial()->setTexture("texture", ...)` 设置。
 
-### `Texture`
-- 负责加载与持有图像纹理资源。
-- 当前示例使用 `ImageType::IMAGE` 和普通 BMP 文件。
+### `Shadow`
+- 组件化投影：`addComponent<Shadow>()` 后设置 `setShadowOffset` / `setShadowColor`，
+  可挂载到任意带 `MeshRenderer` 的组件（`shadow` shader 渲染底层投影）。
 
-### `MeshRenderer` / `Material`
-- `MRImage` 内部通过 mesh + material 完成显示。
-- 本 demo 显式取出材质并调用 `setTexture("texture", textAtlas)`，便于理解纹理绑定位置。
-
-### `Transform`
-- 决定每个图片的屏幕位置和尺寸。
-- 示例通过循环构造不同高度，便于观察拉伸效果。
-
-## 资源依赖
-
-- 图片：`assets/textures/img.bmp`
-
-## 适合继续扩展的方向
-
-- 增加圆角、裁剪和 atlas 子区域显示示例。
-- 对比不同图片格式的加载效果。
-- 加入 hover 或 click，作为图片按钮 demo 的起点。
-
+### 合批统计
+- `FrameState::batchStatistics` 提供 renderItems/batches/ssboBatches/drawCalls 等
+  计数，是验证 SSBO 批渲染（`isSSBOShader` + 材质兼容性 hash）是否生效的直接手段。

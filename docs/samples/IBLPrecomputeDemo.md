@@ -5,13 +5,9 @@
 
 ## Demo 用途
 
-`IBLPrecomputeDemo` 不是 UI 场景 demo，而是一个资源预处理工具示例。它会读取 HDR 环境贴图，烘焙出：
-
-- irradiance 贴图
-- specular atlas
-- BRDF LUT
-
-这正是 `MR3DSceneView::setIBLFromDirectory()` 等 3D PBR 功能依赖的上游资源准备步骤。
+命令行 IBL 预计算工具：输入一张 HDR 环境贴图，离线烘焙出 PBR 渲染所需的三类数据
+（漫反射辐照度图、镜面反射图集、BRDF LUT），供 `GLTFDemo` / `MR3DSceneView` 的
+`setIBLFromDirectory` 使用。无窗口、跑完即退出。
 
 ## 启动参数
 
@@ -21,57 +17,30 @@ IBLPrecomputeDemo [inputHDR] [outputDirectory]
 
 默认参数：
 
-- `inputHDR`：`../assets/textures/hdr/symmetrical_garden_1k.hdr`
-- `outputDirectory`：留空时由实现自行决定输出位置
+- `inputHDR`：`assets/textures/hdr/symmetrical_garden_1k.hdr`
+- `outputDirectory`：与输入同目录派生
 
 ## 运行方式
 
-```powershell
-cmake --build "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw" --target IBLPrecomputeDemo --config Debug -- -j 4
-& "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw\IBLPrecomputeDemo.exe"
-```
-
-指定 HDR 输入和输出目录：
-
-```powershell
-& "E:\WorkSpace\Client\morrow.gui\cmake-build-debug-mingw\IBLPrecomputeDemo.exe" "assets/textures/hdr/symmetrical_garden_1k.hdr" "assets/textures/ibl/generated"
+```bash
+cmake --build build --target IBLPrecomputeDemo --parallel 8
+./build/IBLPrecomputeDemo.exe
 ```
 
 ## 示例做了什么
 
-1. 构造 `IBLPrecomputeOptions`。
-2. 配置 irradiance、specular、BRDF LUT 的尺寸与采样数。
-3. 调用 `IBLPrecompute::bake()` 执行烘焙。
-4. 失败时输出错误信息；成功时打印生成文件路径和 atlas 尺寸。
+1. 填充 `IBLPrecomputeOptions`：
+   - 漫反射：128x64、采样 256；
+   - 镜面图集：基础 512x256、5 级 mip、采样 256；
+   - BRDF LUT：256、采样 512；
+   - `rgbmRange = 64`，`writeHDRDebugImages = false`。
+2. 调用 `IBLPrecompute::bake(options, result, error)` 一次性烘焙。
+3. 打印输出路径：`irradiancePNGPath`、`specularPNGPath`（图集尺寸）、
+   `brdfLUTPNGPath`。
 
-## 相关组件介绍
+## 相关组件
 
-### `IBLPrecompute`
-- 一个环境光照预计算工具类。
-- 负责从单张 HDR 环境图生成运行时 IBL 需要的多类贴图资源。
-- 属于离线/预处理型能力，而不是 UI 控件。
-
-### `IBLPrecomputeOptions`
-- 定义输入文件和烘焙精度。
-- 典型参数包括：
-  - `irradianceWidth` / `irradianceHeight`
-  - `specularBaseWidth` / `specularBaseHeight`
-  - `specularMipCount`
-  - `brdfLUTSize`
-  - `rgbmRange`
-- 调大采样数能提升质量，但会增加烘焙耗时。
-
-### `IBLPrecomputeResult`
-- 返回输出目录、结果文件路径以及 specular atlas 尺寸与 mip 信息。
-- 适合被后续资源流水线或运行时加载器直接消费。
-
-## 资源依赖
-
-- HDR 输入：`assets/textures/hdr/symmetrical_garden_1k.hdr`
-
-## 适合继续扩展的方向
-
-- 增加批量 HDR 烘焙脚本化入口。
-- 把输出结果整理成 `MR3DSceneView::setIBLFromDirectory()` 约定目录格式的说明文档。
-- 追加性能对比：不同 sample count 对耗时与质量的影响。
-
+### `IBLPrecompute` / `IBLPrecomputeOptions` / `IBLPrecomputeResult`
+- IBL 离线烘焙管线（对应 gltf_pbr shader 的 IBL 采样约定）。
+- 输出目录整体即可作为 `MR3DSceneView::setIBLFromDirectory(dir, intensity)` 的入参，
+  GLTFDemo 默认参数即指向本工具的输出。
