@@ -13,8 +13,11 @@
 >   `font_shadow.frag` 经 `u_sdfScale` 缩放距离与 AA 带宽。SDF 生成由
 >   `stbtt_GetGlyphSDF`（对 MorrowSansCN/SimHei 碎裂）改为
 >   **coverage + Felzenszwalb EDT**（对任意字体稳定）。
->   注意：`Material::applyBatch`（SSBO 批路径）需上传材质级 float uniform
->   （`u_sdfScale` 等）——此前只传纹理导致批渲染文字变均匀灰盒。
+>   `sdfScale` 经**实例槽位** `stateAttr.x` 逐实例传入（FontSSBOLayout 绑定
+>   `materialFloat("sdfScale")`，`font.frag` 读 `instanceState().x`）——同一
+>   批次混合字号时每实例用各自的缩放系数；`applyBatch` 保留材质级 float
+>   uniform 上传通道供未来使用（此前只传纹理导致 SSBO 批渲染变均匀灰盒，
+>   已修复）。
 > - **方案 C（SDF 图集升级）已落地，SDF 生成采用 coverage + EDT**：
 >   - `DynamicFont::GenerateGlyphToAtlas`：按"字形框 ± padding(5)"先用
 >     `stbtt_MakeGlyphBitmapSubpixel` 光栅化 coverage 位图，再做

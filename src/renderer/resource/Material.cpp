@@ -405,12 +405,6 @@ void Material::applyBatch(HwGPUProgram shader) {
         RENDERINGTHREAD->setGPUProgramParamAsInt(targetShader, pair.first, textureIndex);
         textureIndex++;
     }
-
-    // 材质级 float uniform（如字体的 sdfScale）：SSBO 路径的逐实例数据在
-    // 实例缓冲里，但这类材质级参数仍需在批次首材质上上传一次
-    for (const auto& pair : m_floatMap) {
-        RENDERINGTHREAD->setGPUProgramParamAsFloat(targetShader, pair.first, pair.second);
-    }
 }
 
 bool Material::isEqual(std::shared_ptr<Material> other) {

@@ -34,7 +34,7 @@ struct UIInstanceData {
     Vector4 color0;     //主色：bgColor / fontColor / defaultColor / trackColor ...
     Vector4 color1;     //副色或辅助向量：fillColor / meshCenter.xyz + alpha
     Vector4 geomAttr;   //xy = displaySize, z = rounding, w = alpha
-    Vector4 stateAttr;  //状态/开关：useTexture / progress / direction ...
+    Vector4 stateAttr;  //状态/开关与缩放：font 的 sdfScale 等
     Vector4 extraAttr;  //自定义参数：动画参数等
 };
 
