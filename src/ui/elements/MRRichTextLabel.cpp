@@ -377,9 +377,9 @@ void MRRichTextLabel::rebuildLayout() {
 
     for (const auto& parsedRun : m_parsedRuns) {
         const auto& metrics = font->GetMetrics(parsedRun.style.fontSize);
-        const FontGlyph* spaceGlyph = font->GetGlyph(L' ', parsedRun.style.fontSize);
+        const FontGlyph spaceGlyph = font->GetGlyph(L' ', parsedRun.style.fontSize);
         const float fallbackAdvance =
-            spaceGlyph ? spaceGlyph->advance + m_characterSpacing : parsedRun.style.fontSize * 0.5f;
+            spaceGlyph.generated ? spaceGlyph.advance + m_characterSpacing : parsedRun.style.fontSize * 0.5f;
 
         for (const wchar_t character : parsedRun.text) {
             if (character == L'\n') {
@@ -390,9 +390,9 @@ void MRRichTextLabel::rebuildLayout() {
                 continue;
             }
 
-            const FontGlyph* glyph = font->GetGlyph(character, parsedRun.style.fontSize);
+            const FontGlyph glyph = font->GetGlyph(character, parsedRun.style.fontSize);
             const float advance =
-                glyph && glyph->generated ? glyph->advance + m_characterSpacing : fallbackAdvance;
+                glyph.generated ? glyph.advance + m_characterSpacing : fallbackAdvance;
 
             if (m_autoWrap && wrapWidth > 0.0f && currentLineHasText &&
                 currentLine.width + advance > wrapWidth) {

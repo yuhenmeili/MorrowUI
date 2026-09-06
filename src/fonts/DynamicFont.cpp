@@ -36,36 +36,46 @@ bool DynamicFont::LoadFromMemory(const unsigned char* data, size_t size) {
     return InitializeFont();
 }
 
-int32_t DynamicFont::NormalizeFontSize(float fontSize) {
-    return std::max(1, static_cast<int32_t>(std::lround(fontSize)));
+float DynamicFont::GetScaleForFontSize(float fontSize) {
+    return std::max(fontSize, 1.0f) / REFERENCE_FONT_SIZE;
 }
 
-DynamicFont::GlyphCache& DynamicFont::GetGlyphCache(float fontSize) {
-    const int32_t normalizedSize = NormalizeFontSize(fontSize);
-    auto [it, inserted] = m_glyphCaches.try_emplace(normalizedSize);
-    if (inserted) {
-        it->second.fontSize = static_cast<float>(normalizedSize);
-        it->second.scale = stbtt_ScaleForMappingEmToPixels(&m_fontInfo, it->second.fontSize);
-        InitializeMetrics(it->second);
+DynamicFont::GlyphCache& DynamicFont::GetGlyphCache() {
+    if (m_glyphCache.scale == 1.0f) {
+        // 惰性初始化：统一按参考字号建立度量
+        m_glyphCache.scale = stbtt_ScaleForMappingEmToPixels(&m_fontInfo, REFERENCE_FONT_SIZE);
+        InitializeMetrics(m_glyphCache);
     }
-    return it->second;
+    return m_glyphCache;
 }
 
-const FontGlyph* DynamicFont::GetGlyph(int32_t codepoint, float fontSize) {
-    auto& cache = GetGlyphCache(fontSize);
+FontGlyph DynamicFont::GetGlyph(int32_t codepoint, float fontSize) {
+    auto& cache = GetGlyphCache();
     auto it = cache.glyphs.find(codepoint);
-    if (it != cache.glyphs.end()) {
-        return &it->second;
+    if (it == cache.glyphs.end()) {
+        // 生成新的字形
+        GenerateGlyphToAtlas(codepoint, cache);
+        it = cache.glyphs.find(codepoint);
     }
-    // 生成新的字形
-    if (GenerateGlyphToAtlas(codepoint, cache)) {
-        return &cache.glyphs[codepoint];
-    }
-    return nullptr;
+    // 缓存保存参考字号的字形；返回按目标字号缩放的副本（纹理坐标不缩放）
+    FontGlyph result = it != cache.glyphs.end() ? it->second : FontGlyph{codepoint};
+    const float scale = GetScaleForFontSize(fontSize);
+    result.advance *= scale;
+    result.bearingX *= scale;
+    result.bearingY *= scale;
+    result.width *= scale;
+    result.height *= scale;
+    return result;
 }
 
-const FontMetrics& DynamicFont::GetMetrics(float fontSize) {
-    return GetGlyphCache(fontSize).metrics;
+FontMetrics DynamicFont::GetMetrics(float fontSize) {
+    const float scale = GetScaleForFontSize(fontSize);
+    FontMetrics metrics = GetGlyphCache().metrics;
+    metrics.ascent *= scale;
+    metrics.descent *= scale;
+    metrics.lineGap *= scale;
+    metrics.lineHeight *= scale;
+    return metrics;
 }
 
 std::shared_ptr<FontTexture> DynamicFont::GetTextureAtlas() const {
@@ -79,9 +89,9 @@ uint64_t DynamicFont::GetTextureAtlasVersion() const {
 float DynamicFont::CalculateTextWidth(const std::wstring& text, float fontSize) {
     float width = 0.0f;
     for (wchar_t c : text) {
-        const FontGlyph* glyph = GetGlyph(static_cast<int32_t>(c), fontSize);
-        if (glyph) {
-            width += glyph->advance + m_charSpacing;
+        const FontGlyph glyph = GetGlyph(static_cast<int32_t>(c), fontSize);
+        if (glyph.generated) {
+            width += glyph.advance + m_charSpacing;
         }
     }
     FlushPendingUploads();
@@ -233,14 +243,14 @@ bool DynamicFont::GenerateGlyphToAtlas(int32_t codepoint, GlyphCache& cache) {
         cache.glyphs[codepoint] = glyph;
         return true;
     }
-    // 光栅化为 SDF（有向距离场）：按"字形框 ± SDF_PADDING"先光栅化 coverage
+    // 光栅化为 SDF（有向距离场）：按"字形框 ± SDF_SPREAD"先光栅化 coverage
     // 位图（MakeGlyphBitmap 路径对任意字体已验证正确），再做 EDT 距离变换
     // 编码。位图原点（xoff/yoff，y-down 相对基线）与 stb SDF 语义一致，
     // placement 语义由 bearingX/bearingY/width/height 承载（消费方不变）。
-    const int sdfWidth = (x1 - x0) + SDF_PADDING * 2;
-    const int sdfHeight = (y1 - y0) + SDF_PADDING * 2;
-    const int sdfXoff = x0 - SDF_PADDING;
-    const int sdfYoff = y0 - SDF_PADDING;
+    const int sdfWidth = (x1 - x0) + SDF_SPREAD * 2;
+    const int sdfHeight = (y1 - y0) + SDF_SPREAD * 2;
+    const int sdfXoff = x0 - SDF_SPREAD;
+    const int sdfYoff = y0 - SDF_SPREAD;
     std::vector<unsigned char> coverage(static_cast<size_t>(sdfWidth) * sdfHeight, 0);
     stbtt_MakeGlyphBitmapSubpixel(&m_fontInfo, coverage.data(),
                                   sdfWidth, sdfHeight, sdfWidth,
@@ -310,21 +320,19 @@ bool DynamicFont::CreateTextureAtlas(int32_t width, int32_t height) {
     // 旧图集的待上传区域不能提交到新图集。
     m_pendingUploads.clear();
 
-    // 按字号重建全部字形。不同字号共享同一张 atlas，但分别拥有度量和字形缓存。
-    for (auto& [size, cache] : m_glyphCaches) {
-        std::vector<int32_t> cachedCodepoints;
-        cachedCodepoints.reserve(cache.glyphs.size());
-        for (auto& pair : cache.glyphs) {
-            cachedCodepoints.push_back(pair.first);
-            pair.second.generated = false;
-        }
+    // 图集扩容后重建全部字形（单一参考字号缓存）。
+    std::vector<int32_t> cachedCodepoints;
+    cachedCodepoints.reserve(m_glyphCache.glyphs.size());
+    for (auto& pair : m_glyphCache.glyphs) {
+        cachedCodepoints.push_back(pair.first);
+        pair.second.generated = false;
+    }
 
-        for (const int32_t codepoint : cachedCodepoints) {
-            if (!GenerateGlyphToAtlas(codepoint, cache)) {
-                LOG_E("failed to rebuild glyph {} at {}px after expanding font atlas to {}x{}",
-                      codepoint, size, width, height);
-                return false;
-            }
+    for (const int32_t codepoint : cachedCodepoints) {
+        if (!GenerateGlyphToAtlas(codepoint, m_glyphCache)) {
+            LOG_E("failed to rebuild glyph {} after expanding font atlas to {}x{}",
+                  codepoint, width, height);
+            return false;
         }
     }
 

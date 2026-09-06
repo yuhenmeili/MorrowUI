@@ -28,6 +28,9 @@ MRLabel::MRLabel() {
     m_shadowMaterial->setVector("shadowOffset", Vector2(m_textShadowOffset.x, -m_textShadowOffset.y));
     m_shadowMaterial->setFloat("shadowBlur", 0.0f);
     m_shadowMaterial->setFloat("shadowSpread", 0.0f);
+    const float sdfScale = m_fontSize / DynamicFont::REFERENCE_FONT_SIZE;
+    m_material->setFloat("sdfScale", sdfScale);
+    m_shadowMaterial->setFloat("sdfScale", sdfScale);
     auto transform = getComponent<Transform>();
     transform->addSizeChangeListener([this]() {
         m_isAlignDirty = true;
@@ -48,6 +51,10 @@ void MRLabel::setFontSize(float fontSize) {
     fontSize = std::max(1.0f, fontSize);
     if (m_fontSize != fontSize) {
         m_fontSize = fontSize;
+        // 同一 SDF 图集服务所有字号：shader 内按缩放系数重建 AA 带宽
+        const float sdfScale = m_fontSize / DynamicFont::REFERENCE_FONT_SIZE;
+        m_material->setFloat("sdfScale", sdfScale);
+        m_shadowMaterial->setFloat("sdfScale", sdfScale);
         m_isTextLayoutDirty = true;
         m_isAlignDirty = true;
         requestRender("setFontSize");
@@ -202,22 +209,20 @@ void MRLabel::processTextLayout() {
     float spaceAdvance = 0.0f;
 
     // 获取空格字符的advance
-    const FontGlyph* spaceGlyph = m_font->GetGlyph(L' ', m_fontSize);
-    if (spaceGlyph) {
-        spaceAdvance = spaceGlyph->advance + m_characterSpacing;
-    }
+    const FontGlyph spaceGlyph = m_font->GetGlyph(L' ', m_fontSize);
+    spaceAdvance = spaceGlyph.advance + m_characterSpacing;
 
     for (size_t i = 0; i < m_text.length(); ++i) {
         wchar_t c = m_text[i];
-        const FontGlyph* glyph = m_font->GetGlyph(c, m_fontSize);
+        const FontGlyph glyph = m_font->GetGlyph(c, m_fontSize);
 
-        if (!glyph || !glyph->generated) {
+        if (!glyph.generated) {
             // 对于不可渲染字符，使用空格宽度
             currentX += spaceAdvance;
             continue;
         }
 
-        float glyphWidth = glyph->advance + m_characterSpacing;
+        float glyphWidth = glyph.advance + m_characterSpacing;
         float potentialLineWidth = currentX + glyphWidth;
 
         // 检查自动换行
@@ -340,12 +345,12 @@ void MRLabel::createTextMesh() {
         for (wchar_t c : line.characters) {
             if (c == L'\n') continue; // 跳过换行符
 
-            const FontGlyph* glyph = m_font->GetGlyph(c, m_fontSize);
-            if (!glyph || !glyph->generated) continue;
+            const FontGlyph glyph = m_font->GetGlyph(c, m_fontSize);
+            if (!glyph.generated) continue;
 
             // 渲染字符四边形
-            renderGlyphQuad(glyph, currentX, baselineY, vertices, uvs, indices);
-            currentX += glyph->advance + m_characterSpacing;
+            renderGlyphQuad(&glyph, currentX, baselineY, vertices, uvs, indices);
+            currentX += glyph.advance + m_characterSpacing;
         }
     }
 

@@ -5,8 +5,16 @@
 > 的属主网格是**逐字形 quad**，不是单个圆角矩形——直接套用会得到"每个字形一个圆角
 > 方块"的斑点阴影，观感不可接受。本文给出文字阴影的专门方案与实施路径。
 
-> **实施状态（2026-09-06，最终方案）**
+> **实施状态（2026-09-06，最终方案 + 单一字号）**
 >
+> - **单一参考字号已落地（2026-09-06）**：图集统一按 `REFERENCE_FONT_SIZE =
+>   44px` 光栅化（spread 8 / onedge 128 / dist 16，匹配通用 UI 推荐配置），
+>   `GetGlyph/GetMetrics` 返回按目标字号缩放的副本，`font.frag` /
+>   `font_shadow.frag` 经 `u_sdfScale` 缩放距离与 AA 带宽。SDF 生成由
+>   `stbtt_GetGlyphSDF`（对 MorrowSansCN/SimHei 碎裂）改为
+>   **coverage + Felzenszwalb EDT**（对任意字体稳定）。
+>   注意：`Material::applyBatch`（SSBO 批路径）需上传材质级 float uniform
+>   （`u_sdfScale` 等）——此前只传纹理导致批渲染文字变均匀灰盒。
 > - **方案 C（SDF 图集升级）已落地，SDF 生成采用 coverage + EDT**：
 >   - `DynamicFont::GenerateGlyphToAtlas`：按"字形框 ± padding(5)"先用
 >     `stbtt_MakeGlyphBitmapSubpixel` 光栅化 coverage 位图，再做

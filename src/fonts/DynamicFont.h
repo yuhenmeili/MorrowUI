@@ -45,21 +45,26 @@ struct FontMetrics {
 
 class DynamicFont {
 public:
+    // SDF 图集统一按参考字号光栅化一次，任意目标字号通过缩放渲染
+    // （d/AA 带宽在 shader 内乘 fontSize / REFERENCE_FONT_SIZE）。
+    static constexpr float REFERENCE_FONT_SIZE = 44.0f;
+
     DynamicFont();
 
     ~DynamicFont();
 
-    // 从文件加载字体资源。字号在 GetGlyph/GetMetrics 时按需指定。
+    // 从文件加载字体资源。字号在 GetGlyph/GetMetrics 时按需指定（仅影响缩放）。
     bool LoadFromFile(const std::string& filename);
 
     // 从内存加载字体
     bool LoadFromMemory(const unsigned char* data, size_t size);
 
-    // 获取字符字形信息（如果不存在则动态生成）
-    const FontGlyph* GetGlyph(int32_t codepoint, float fontSize);
+    // 获取字符字形信息（如果不存在则动态生成）。
+    // 返回值已按目标字号缩放（纹理坐标除外——始终指向图集原始单元格）。
+    FontGlyph GetGlyph(int32_t codepoint, float fontSize);
 
-    // 获取字体度量
-    const FontMetrics& GetMetrics(float fontSize);
+    // 获取字体度量（已按目标字号缩放）
+    FontMetrics GetMetrics(float fontSize);
 
     // 获取字体纹理图集
     std::shared_ptr<FontTexture> GetTextureAtlas() const;
@@ -89,18 +94,17 @@ public:
 
 private:
     struct GlyphCache {
-        float fontSize = 16.0f;
-        float scale = 1.0f;
+        float scale = 1.0f;  // 参考字号的 em->px 缩放
         FontMetrics metrics;
         std::unordered_map<int32_t, FontGlyph> glyphs;
     };
 
-    static int32_t NormalizeFontSize(float fontSize);
+    static float GetScaleForFontSize(float fontSize);
 
-    GlyphCache& GetGlyphCache(float fontSize);
+    GlyphCache& GetGlyphCache();
 
     bool InitializeFont();
-    // 初始化指定字号的字体度量
+    // 初始化参考字号的字体度量
     void InitializeMetrics(GlyphCache& cache);
 
     // 生成字符到纹理图集
@@ -135,8 +139,8 @@ private:
     int32_t m_currentY = 1;
     int32_t m_currentRowHeight = 0;
 
-    // 字符缓存
-    std::unordered_map<int32_t, GlyphCache> m_glyphCaches;
+    // 字符缓存（单一参考字号）
+    GlyphCache m_glyphCache;
 
     // 渲染设置
     int32_t m_aaQuality = 1; // 抗锯齿质量（SDF 光栅化下不再使用，保留 API 兼容）
@@ -145,12 +149,13 @@ private:
 
     // ── SDF 图集参数（必须与 font.frag / font_shadow.frag 内的常量一致）──
     // d_px = (sample - SDF_EDGE_NORM) * SDF_PX_PER_UNIT
-    // 外扩 SDF_PADDING px，边缘外有效距离 128/36 ≈ 3.6px，内 127/36 ≈ 3.5px
-    static constexpr int SDF_PADDING = 5;
-    static constexpr unsigned char SDF_ONEDGE = 180;
-    static constexpr float SDF_PIXEL_DIST_SCALE = 36.0f;
-    static constexpr float SDF_EDGE_NORM = 180.0f / 255.0f;
-    static constexpr float SDF_PX_PER_UNIT = 255.0f / 36.0f;
+    // 场覆盖字形框 ± SDF_SPREAD px（外 128/16 = 8px，内 127/16 ≈ 7.9px），
+    // 匹配通用 UI 推荐配置（参考字号 44px + spread 8px）。
+    static constexpr int SDF_SPREAD = 8;
+    static constexpr unsigned char SDF_ONEDGE = 128;
+    static constexpr float SDF_PIXEL_DIST_SCALE = 16.0f;
+    static constexpr float SDF_EDGE_NORM = 128.0f / 255.0f;
+    static constexpr float SDF_PX_PER_UNIT = 255.0f / 16.0f;
 
     static const int32_t ATLAS_PADDING = 1; // 字符间填充
 };
