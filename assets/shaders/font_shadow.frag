@@ -15,10 +15,12 @@ const float SDF_EDGE = 0.70588f;       // 180 / 255
 const float SDF_PX_PER_UNIT = 7.0833f; // 255 / 36
 
 void main() {
+    // 字体 SDF 约定：字形内部为正、外部为负（见 DynamicFont encodeSdfFromCoverage）。
+    // 阴影形状 = 字形外扩 spread；衰减发生在形状边界向外（d 越负越远）。
+    // 注意与 widget 阴影（sdRoundedBox，外部为正）的符号方向相反。
     float d = (texture(u_texture, v_texCoord.st).r - SDF_EDGE) * SDF_PX_PER_UNIT;
-    // spread 外扩：d - spread < 0 区域为阴影形状，blur 高斯衰减
-    float dEff = d - u_shadowSpread;
-    float t = max(dEff, 0.0) / max(u_shadowBlur, 0.001);
+    float dOut = -(d + u_shadowSpread);              //距阴影形状边界的向外距离（px）
+    float t = max(dOut, 0.0) / max(u_shadowBlur, 0.5);
     float alpha = exp(-t * t * 3.0);
     fragColor = vec4(u_shadowColor.rgb, u_shadowColor.a * u_alpha * alpha);
 }
