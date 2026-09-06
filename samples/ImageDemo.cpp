@@ -192,32 +192,32 @@ int main() {
     }
 
     // ---------------------------------------------------------------------
-    // 4. 阴影：Shadow 组件（underlay 通道）
+    // 4. 阴影：SDF 圆角软阴影（outer-only 裁剪，可投在卡片上）
     // ---------------------------------------------------------------------
-    // 注意：阴影走 underlay 通道、先于一切普通内容绘制，因此不能垫在不透明
-    // 卡片上（会被后画的面板盖住）。此区域直接放在窗口清屏背景上。
-    addCardTitle(window, L"Shadow 投影", L"underlay 通道先绘制，勿垫在不透明面板上", middle, bottom, cardWidth);
+    window->addChild(createCard(middle, bottom, cardWidth, cardHeight));
+    addCardTitle(window, L"Shadow 投影", L"SDF 圆角软阴影，outer-only 裁剪可投在卡片上", middle, bottom, cardWidth);
     auto shadowColor = MRColor::create();
     shadowColor->setColor(Vector4(0.95f, 0.45f, 0.25f, 1.0f));
     shadowColor->setRounding(18.0f);
-    shadowColor->getComponent<Transform>()->setPosition(middle + 60.0f, bottom + 150.0f, 0.0f);
+    shadowColor->getComponent<Transform>()->setPosition(middle + 80.0f, bottom + 150.0f, 0.0f);
     shadowColor->getComponent<Transform>()->setSize(160.0f, 160.0f);
     {
+        // 默认黑色阴影、零偏移：内区透明区正好藏在属主后面，只显示外圈柔光
         auto shadow = shadowColor->addComponent<Shadow>();
-        shadow->setShadowOffset(Vector2(28.0f, 28.0f));
-        shadow->setShadowColor(Vector4(0.1f, 0.15f, 0.3f, 0.55f));
+        shadow->setShadowBlur(24.0f);
+        // rounding 不设置 → 自动跟随属主的 18px 圆角
     }
     window->addChild(shadowColor);
 
-    auto shadowImage = createImage(carTexture, middle + 300.0f, bottom + 150.0f, 170.0f, 170.0f);
+    auto shadowImage = createImage(brickTexture, middle + 320.0f, bottom + 150.0f, 170.0f, 170.0f);
     shadowImage->setRounding(20.0f);
     {
         auto shadow = shadowImage->addComponent<Shadow>();
-        shadow->setShadowOffset(Vector2(40.0f, 40.0f));
-        shadow->setShadowColor(Vector4(0.0f, 0.0f, 0.0f, 0.5f));
+        shadow->setShadowBlur(32.0f);
+        shadow->setShadowSpread(4.0f);
     }
     window->addChild(shadowImage);
-    window->addChild(createLabel(L"offset 28 / 40，渐变宽度与偏移一致", middle + 24.0f, bottom + 350.0f, cardWidth - 48.0f, 32.0f, 17.0f));
+    window->addChild(createLabel(L"默认黑色，blur 24 / 32，spread 4，圆角跟随属主", middle + 24.0f, bottom + 350.0f, cardWidth - 48.0f, 32.0f, 17.0f));
 
     // ---------------------------------------------------------------------
     // 5. 图集区域：TextureAtlas 按名取子区域

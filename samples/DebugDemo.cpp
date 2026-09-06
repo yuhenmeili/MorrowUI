@@ -77,9 +77,10 @@ int main(int argc, char** argv) {
 
     // ---------------------------------------------------------------------
     // 验收基准场景：10 张共享同一纹理的图片 + 2 个带阴影的组件。
-    // 预期（桌面 GL，SSBO 可用，实测校准）：renderItems=12, batches=4,
-    // ssboBatches=1, standardBatches=3, drawCalls=5 ——
-    // 10 张图片合并为 1 个 SSBO 批次，色块/两个阴影材质各自成批。
+    // 预期（桌面 GL，SSBO 可用，实测校准）：renderItems=14, batches=5,
+    // ssboBatches=1, standardBatches=4, drawCalls=5 ——
+    // 10 张图片合并为 1 个 SSBO 批次；两个阴影材质各自成批（SDF 阴影走
+    // 普通通道，renderItems 含阴影项）。
     // ---------------------------------------------------------------------
     const auto textAtlas = Texture::create(ImageType::IMAGE);
     textAtlas->setImageUrl("assets/textures/img.bmp");
@@ -139,7 +140,7 @@ int main(int argc, char** argv) {
                   << "\"ssboSupported\":" << (frameState->isSSBOSupport ? "true" : "false") << "}" << std::endl;
 
         if (frameState->isSSBOSupport &&
-            (stats.renderItemCount != 12 || stats.batchCount != 4 || stats.ssboBatchCount != 1 || stats.standardBatchCount != 3 || frameState->drawCallCount != 5)) {
+            (stats.renderItemCount != 14 || stats.batchCount != 5 || stats.ssboBatchCount != 1 || stats.standardBatchCount != 4 || frameState->drawCallCount != 5)) {
             std::cerr << "DebugDemo batch acceptance failed" << std::endl;
             return 2;
         }

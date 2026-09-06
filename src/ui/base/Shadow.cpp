@@ -15,9 +15,11 @@ namespace morrow {
 Shadow::Shadow() {
     m_shadowMaterial = Material::create();
     m_shadowMaterial->setShader("shadow");
-    // 几何偏移（对象空间，shader 内平移）与边缘渐隐偏移是两套独立参数
+    // 几何偏移（对象空间，shader 内平移）与 blur/spread/rounding 是独立参数
     m_shadowMaterial->setVector("shadowOffset", m_shadowOffsetRender);
-    m_shadowMaterial->setVector("shadowOffsetFade", Vector2(std::abs(m_shadowOffsetInput.x), std::abs(m_shadowOffsetInput.y)));
+    m_shadowMaterial->setFloat("shadowBlur", m_shadowBlur);
+    m_shadowMaterial->setFloat("shadowSpread", m_shadowSpread);
+    m_shadowMaterial->setFloat("shadowRounding", m_shadowRounding);
     m_shadowMaterial->setVector("shadowColor", m_shadowColor);
     m_shadowMaterial->setFloat("alpha", 1.0f);
 }
@@ -36,17 +38,28 @@ void Shadow::update(FrameStateSharedPtr frameState) {
     }
 
     // 通用渲染路径（renderStandardBatch）依赖原对象带 MeshRenderer 来取 VertexArray
-    if (!getComponent<MeshRenderer>()) {
+    auto meshRenderer = getComponent<MeshRenderer>();
+    if (!meshRenderer) {
         return;
     }
 
     // 阴影尺寸跟随原始对象
     m_shadowMaterial->setVector("displaySize", originalTransform->getSize());
 
-    // 作为 underlay 渲染项提交给 BatchManager，参与合批/排序/统计，
-    // 且保证在原始对象之前绘制（阴影先画，被原对象覆盖）。
+    // 圆角默认跟随属主材质的 rounding 参数（显式设置后不再跟随）
+    if (m_shadowRoundingFollowOwner) {
+        if (auto ownerMaterial = meshRenderer->getMaterial()) {
+            m_shadowRounding = ownerMaterial->getFloatOr("rounding", 0.0f);
+        }
+    }
+    m_shadowMaterial->setFloat("shadowRounding", m_shadowRounding);
+    // 几何外扩容纳衰减区：blur + spread（shader 内再做下限保护）
+    m_shadowMaterial->setFloat("shadowExpand", m_shadowBlur + m_shadowSpread);
+
+    // 普通通道、以自然收集顺序绘制在属主之后；shader 的 outer-only 裁剪
+    // 保证阴影不会画在属主上，因此可以投在先绘制的内容（卡片/面板）之上
     frameState->batchManager->addRenderable(
-        m_shadowMaterial, meshFilter, originalTransform, frameState->currentClip, true);
+        m_shadowMaterial, meshFilter, originalTransform, frameState->currentClip, false);
 }
 
 void Shadow::setShadowOffset(const Vector2& offset) {
@@ -54,11 +67,30 @@ void Shadow::setShadowOffset(const Vector2& offset) {
     m_shadowOffsetInput = offset;
     m_shadowOffsetRender.set(offset.x, -offset.y);
     m_shadowMaterial->setVector("shadowOffset", m_shadowOffsetRender);
-    m_shadowMaterial->setVector("shadowOffsetFade", Vector2(std::abs(offset.x), std::abs(offset.y)));
 }
 
 void Shadow::setShadowColor(const Vector4& color) {
     m_shadowColor = color;
     m_shadowMaterial->setVector("shadowColor", m_shadowColor);
+}
+
+void Shadow::setShadowBlur(float blur) {
+    m_shadowBlur = std::max(blur, 0.0f);
+    m_shadowMaterial->setFloat("shadowBlur", m_shadowBlur);
+}
+
+void Shadow::setShadowSpread(float spread) {
+    m_shadowSpread = spread;
+    m_shadowMaterial->setFloat("shadowSpread", m_shadowSpread);
+}
+
+void Shadow::setShadowRounding(float rounding) {
+    m_shadowRounding = std::max(rounding, 0.0f);
+    m_shadowRoundingFollowOwner = false;
+    m_shadowMaterial->setFloat("shadowRounding", m_shadowRounding);
+}
+
+void Shadow::setShadowRoundingFollowOwner(bool follow) {
+    m_shadowRoundingFollowOwner = follow;
 }
 } // morrow
