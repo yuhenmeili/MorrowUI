@@ -139,9 +139,18 @@ private:
     std::unordered_map<int32_t, GlyphCache> m_glyphCaches;
 
     // 渲染设置
-    int32_t m_aaQuality = 1; // 抗锯齿质量
+    int32_t m_aaQuality = 1; // 抗锯齿质量（SDF 光栅化下不再使用，保留 API 兼容）
     float m_charSpacing = 0.0f; // 字符间距
     float m_lineSpacing = 0.0f; // 行间距
+
+    // ── SDF 图集参数（必须与 font.frag / font_shadow.frag 内的常量一致）──
+    // d_px = (sample - SDF_EDGE_NORM) * SDF_PX_PER_UNIT
+    // 外扩 SDF_PADDING px，边缘外有效距离 128/36 ≈ 3.6px，内 127/36 ≈ 3.5px
+    static constexpr int SDF_PADDING = 5;
+    static constexpr unsigned char SDF_ONEDGE = 180;
+    static constexpr float SDF_PIXEL_DIST_SCALE = 36.0f;
+    static constexpr float SDF_EDGE_NORM = 180.0f / 255.0f;
+    static constexpr float SDF_PX_PER_UNIT = 255.0f / 36.0f;
 
     static const int32_t ATLAS_PADDING = 1; // 字符间填充
 };

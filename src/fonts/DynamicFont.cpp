@@ -121,6 +121,103 @@ void DynamicFont::InitializeMetrics(GlyphCache& cache) {
     cache.metrics.lineHeight = (ascent - descent + lineGap) * cache.scale;
 }
 
+namespace {
+// ── 自造 SDF：coverage 位图 + 精确欧氏距离变换（Felzenszwalb 1D EDT）──
+// stb_truetype v1.26 的 stbtt_GetGlyphSDF 对部分字体（实测 MorrowSansCN /
+// SimHei 等 CJK 字体）产生碎片伪影（Arial 正常），故不直接使用；
+// 改用已被验证正确的 MakeGlyphBitmap coverage 路径 + 距离变换重建距离场，
+// 对任意字体稳定。边缘定位误差 ≤ 0.5px（二值化阈值 128 + 0.5 校正），
+// 对 HMI 字号与阴影/描边效果足够。
+
+constexpr int kEdtInf = 0x100000;
+
+// Felzenszwalb-Huttenlocher 一维平方距离变换（lower envelope）
+void edt1d(const std::vector<int>& f, int n, std::vector<int>& d) {
+    std::vector<int> v(n);
+    std::vector<long long> z(n + 1);
+    int k = 0;
+    v[0] = 0;
+    z[0] = -kEdtInf;
+    z[1] = kEdtInf;
+    for (int q = 1; q < n; ++q) {
+        if (f[q] >= kEdtInf) continue;  // INF 抛物线不会进入 lower envelope
+        long long s = 0;
+        while (true) {
+            const long long fq = static_cast<long long>(f[q]) + static_cast<long long>(q) * q;
+            const long long fv = static_cast<long long>(f[v[k]]) + static_cast<long long>(v[k]) * v[k];
+            s = (fq - fv) / (2 * (q - v[k]));
+            if (s > z[k]) break;
+            --k;
+        }
+        ++k;
+        v[k] = q;
+        z[k] = s;
+        z[k + 1] = kEdtInf;
+    }
+    k = 0;
+    for (int q = 0; q < n; ++q) {
+        while (z[k + 1] < q) ++k;
+        const long long delta = q - v[k];
+        d[q] = static_cast<int>(delta * delta + f[v[k]]);
+    }
+}
+
+// grid: 每格为"到目标集合的平方距离"；目标集合的格初值为 0，其余求精确 EDT。
+void edt2d(std::vector<int>& grid, int width, int height) {
+    std::vector<int> f(std::max(width, height));
+    std::vector<int> d(std::max(width, height));
+    for (int x = 0; x < width; ++x) {
+        for (int y = 0; y < height; ++y) f[y] = grid[y * width + x];
+        edt1d(f, height, d);
+        for (int y = 0; y < height; ++y) grid[y * width + x] = d[y];
+    }
+    for (int y = 0; y < height; ++y) {
+        int* row = grid.data() + y * width;
+        for (int x = 0; x < width; ++x) f[x] = row[x];
+        edt1d(f, width, d);
+        for (int x = 0; x < width; ++x) row[x] = d[x];
+    }
+}
+
+// coverage 位图 → SDF 字节图（0..255，onedge 值编码 0 距离）
+void encodeSdfFromCoverage(const unsigned char* coverage, int width, int height,
+                           int onedge, float pixelDistScale, std::vector<unsigned char>& out) {
+    const size_t count = static_cast<size_t>(width) * height;
+    // 距离场语义 = 到"源集合"（初始化为 0 的像素）的最近距离：
+    // distOutside 的源是 outside 像素 → inside 像素取值 = 到边缘的深度；
+    // distInside  的源是 inside 像素 → outside 像素取值 = 到字形的距离。
+    std::vector<int> distOutside(count, kEdtInf);
+    std::vector<int> distInside(count, kEdtInf);
+    for (size_t i = 0; i < count; ++i) {
+        if (coverage[i] >= 128) {
+            distInside[i] = 0;
+        } else {
+            distOutside[i] = 0;
+        }
+    }
+    edt2d(distOutside, width, height);
+    edt2d(distInside, width, height);
+
+    out.resize(count);
+    for (size_t i = 0; i < count; ++i) {
+        // 亚像素校正：二值化（阈值 128）把边缘量化到整像素台阶会产生锯齿，
+        // 用原始 coverage 的覆盖率恢复边缘像素的真实亚像素位置——
+        // 1D 近似下覆盖 50%+x% 的像素，其中心距边缘约 |x| px（x = cov - 0.5）：
+        //   inside: d = D_out - 1.5 + cov   （D_out=1、cov=0.78 → 0.28px；深处 cov=1 → D_out-0.5）
+        //   outside: d = -(D_in - 0.5) + cov（D_in=1、cov=0.25 → -0.25px；远处 cov=0 → -(D_in-0.5)）
+        const float coverageNorm = coverage[i] / 255.0f;
+        float d;
+        if (coverage[i] >= 128) {
+            d = std::sqrt(static_cast<float>(distOutside[i])) - 1.5f + coverageNorm;   // inside：到边缘深度
+        } else {
+            d = -(std::sqrt(static_cast<float>(distInside[i])) - 0.5f) + coverageNorm; // outside：到边缘负距离
+        }
+        const float value = static_cast<float>(onedge) + d * pixelDistScale;
+        out[i] = static_cast<unsigned char>(std::clamp(std::lround(value), 0L, 255L));
+    }
+}
+}  // namespace
+
 bool DynamicFont::GenerateGlyphToAtlas(int32_t codepoint, GlyphCache& cache) {
     FontGlyph glyph;
     glyph.codepoint = codepoint;
@@ -130,16 +227,33 @@ bool DynamicFont::GenerateGlyphToAtlas(int32_t codepoint, GlyphCache& cache) {
     stbtt_GetGlyphHMetrics(&m_fontInfo, glyphIndex, &advance, &lsb);
     stbtt_GetGlyphBitmapBox(&m_fontInfo, glyphIndex, cache.scale, cache.scale, &x0, &y0, &x1, &y1);
     glyph.advance = advance * cache.scale;
-    glyph.bearingX = lsb * cache.scale;
-    glyph.bearingY = y0;
-    glyph.width = x1 - x0;
-    glyph.height = y1 - y0;
-    if (glyph.width <= 0 || glyph.height <= 0) {
+    if (x1 - x0 <= 0 || y1 - y0 <= 0) {
         // 空格等不可见字符
         glyph.generated = true;
         cache.glyphs[codepoint] = glyph;
         return true;
     }
+    // 光栅化为 SDF（有向距离场）：按"字形框 ± SDF_PADDING"先光栅化 coverage
+    // 位图（MakeGlyphBitmap 路径对任意字体已验证正确），再做 EDT 距离变换
+    // 编码。位图原点（xoff/yoff，y-down 相对基线）与 stb SDF 语义一致，
+    // placement 语义由 bearingX/bearingY/width/height 承载（消费方不变）。
+    const int sdfWidth = (x1 - x0) + SDF_PADDING * 2;
+    const int sdfHeight = (y1 - y0) + SDF_PADDING * 2;
+    const int sdfXoff = x0 - SDF_PADDING;
+    const int sdfYoff = y0 - SDF_PADDING;
+    std::vector<unsigned char> coverage(static_cast<size_t>(sdfWidth) * sdfHeight, 0);
+    stbtt_MakeGlyphBitmapSubpixel(&m_fontInfo, coverage.data(),
+                                  sdfWidth, sdfHeight, sdfWidth,
+                                  cache.scale, cache.scale,
+                                  static_cast<float>(-sdfXoff), static_cast<float>(-sdfYoff),
+                                  glyphIndex);
+    std::vector<unsigned char> bitmap;
+    encodeSdfFromCoverage(coverage.data(), sdfWidth, sdfHeight,
+                          SDF_ONEDGE, SDF_PIXEL_DIST_SCALE, bitmap);
+    glyph.bearingX = static_cast<float>(sdfXoff);
+    glyph.bearingY = static_cast<float>(sdfYoff);
+    glyph.width = static_cast<float>(sdfWidth);
+    glyph.height = static_cast<float>(sdfHeight);
     // 检查纹理图集是否有足够空间
     if (m_currentX + glyph.width + ATLAS_PADDING > m_atlasWidth) {
         m_currentX = ATLAS_PADDING;
@@ -153,29 +267,14 @@ bool DynamicFont::GenerateGlyphToAtlas(int32_t codepoint, GlyphCache& cache) {
         }
     }
     // 更新行高
-    m_currentRowHeight = std::max(m_currentRowHeight, int(glyph.height));
-    // 生成字形位图
-    int bitmapWidth = glyph.width;
-    int bitmapHeight = glyph.height;
-    std::vector<unsigned char> bitmap(bitmapWidth * bitmapHeight);
-    // 根据抗锯齿质量选择渲染模式
-    if (m_aaQuality > 0) {
-        stbtt_MakeGlyphBitmap(&m_fontInfo, bitmap.data(),
-                              bitmapWidth, bitmapHeight,
-                              bitmapWidth, cache.scale, cache.scale, glyphIndex);
-    } else {
-        // 无抗锯齿模式
-        stbtt_MakeGlyphBitmapSubpixel(&m_fontInfo, bitmap.data(),
-                                      bitmapWidth, bitmapHeight,
-                                      bitmapWidth, cache.scale, cache.scale, 0, 0, glyphIndex);
-    }
+    m_currentRowHeight = std::max(m_currentRowHeight, static_cast<int32_t>(glyph.height));
     // 延迟上传：加入待提交列表，由 FlushPendingUploads / EnsureStringGlyphs 整批提交
-    m_pendingUploads.push_back({ m_currentX, m_currentY, bitmapWidth, bitmapHeight, bitmap });
+    m_pendingUploads.push_back({ m_currentX, m_currentY, sdfWidth, sdfHeight, bitmap });
     // 设置纹理坐标 (归一化)
     glyph.texCoordX = static_cast<float>(m_currentX) / m_atlasWidth;
     glyph.texCoordY = static_cast<float>(m_currentY) / m_atlasHeight;
-    glyph.texCoordWidth = static_cast<float>(bitmapWidth) / m_atlasWidth;
-    glyph.texCoordHeight = static_cast<float>(bitmapHeight) / m_atlasHeight;
+    glyph.texCoordWidth = static_cast<float>(sdfWidth) / m_atlasWidth;
+    glyph.texCoordHeight = static_cast<float>(sdfHeight) / m_atlasHeight;
     glyph.generated = true;
     cache.glyphs[codepoint] = glyph;
     // 更新当前位置

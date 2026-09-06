@@ -7,7 +7,8 @@
 ## Demo 用途
 
 文本能力集中展示：`MRTextEdit` 多行输入、`MRLineEdit` 单行/密码输入、
-`MRLabel` 九宫格对齐、`MRRichTextLabel` 富文本标记。
+`MRLabel` 九宫格对齐、`MRRichTextLabel` 富文本标记、`MRLabel` 文字阴影。
+
 
 ## 运行方式
 
@@ -27,7 +28,10 @@ cmake --build build --target TextDemo --parallel 8
 2. **Label 对齐**（右半区）：`addAlignmentSample` 用 `MRColor` 圆角底板 + `MRLabel`
    展示 6 种对齐组合——LEFT/CENTER/RIGHT × TOP/CENTER/BOTTOM，
    均为 `setAlign(horizontal, vertical)` 在同一固定区域内的效果。
-3. **富文本**：`MRRichTextLabel` 演示标记语法——`[font_size=N]`、
+3. **文字阴影**（左下）：`setTextShadowColor/Offset/Blur/Spread`——Glow（零偏移
+   黑色柔光，blur 3）与 Drop（偏移 (3,3) 软投影，blur 1.5）两种典型用法；阴影走
+   `font_shadow` 变体（SDF 图集采样，先阴影后文字自然顺序）。
+4. **富文本**：`MRRichTextLabel` 演示标记语法——`[font_size=N]`、
    `[color=#RRGGBB]`、`[br]` 换行、标签嵌套，`setAutoWrap(true)` 按宽度自动换行、
    `setLineSpacing(1.15)` 行距。
 
@@ -41,6 +45,11 @@ cmake --build build --target TextDemo --parallel 8
 - 多行 / 单行输入：placeholder、maxLength、字体字号；事件
   `onTextChanged`（实时）与 `onSubmitted`（回车）。
 - 密码模式 `setPasswordMode(true)` 以圆点回显。
+
+### `MRLabel` 文字阴影
+- `setTextShadowColor`（alpha=0 关闭，默认关闭）/ `setTextShadowOffset`（屏幕方向）/
+  `setTextShadowBlur` / `setTextShadowSpread`；阴影与文字共用同一 SDF 图集，
+  开启后每组件多 1 个渲染项。
 
 ### `MRRichTextLabel`
 - 富文本标签：`[font_size]` `[color]` `[br]` 标记可嵌套组合，

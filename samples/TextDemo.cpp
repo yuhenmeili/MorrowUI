@@ -126,6 +126,20 @@ int main() {
         fontName);
     window->addChild(richText);
 
+    // 文字阴影（SDF 图集）：柔光与投影两种典型用法
+    window->addChild(createLabel(L"文字阴影（SDF 图集）", fontName, 120.0f, 650.0f, 620.0f, 40.0f, 26.0f));
+    auto glowLabel = createLabel(L"Glow：黑色柔光，零偏移", fontName, 120.0f, 700.0f, 620.0f, 44.0f, 26.0f);
+    glowLabel->setTextShadowColor(Vector4(0.0f, 0.0f, 0.0f, 0.6f));
+    glowLabel->setTextShadowOffset(Vector2(0.0f, 0.0f));
+    glowLabel->setTextShadowBlur(3.0f);
+    window->addChild(glowLabel);
+
+    auto dropLabel = createLabel(L"Drop：偏移 (3, 3) 软投影", fontName, 120.0f, 755.0f, 620.0f, 44.0f, 26.0f);
+    dropLabel->setTextShadowColor(Vector4(0.0f, 0.0f, 0.0f, 0.6f));
+    dropLabel->setTextShadowOffset(Vector2(3.0f, 3.0f));
+    dropLabel->setTextShadowBlur(1.5f);
+    window->addChild(dropLabel);
+
     LOG_I("TextDemo started: text input, rich text and label alignment");
     engine->render();
     return 0;

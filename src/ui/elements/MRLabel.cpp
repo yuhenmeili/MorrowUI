@@ -8,6 +8,8 @@
 
 #include "FontManager.h"
 #include "GlobalObject.h"
+#include "Material.h"
+#include "BatchManager.h"
 #include "ssbo/ShaderStorageBuffer.h"
 #include "base/Transform.h"
 #include "renderer/resource/ssbo/layouts/FontSSBOLayout.h"
@@ -18,6 +20,14 @@ MRLabel::MRLabel() {
     m_material->setShader("font");
     m_material->setSSBOLayout(std::make_shared<FontSSBOLayout>());
     m_material->setVector("fontColor", Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+    // 文字阴影材质：默认 shadowColor alpha = 0（关闭）
+    m_shadowMaterial = Material::create();
+    m_shadowMaterial->setShader("font_shadow");
+    m_shadowMaterial->setVector("shadowColor", Vector4(0.0f, 0.0f, 0.0f, 0.0f));
+    m_shadowMaterial->setFloat("alpha", 1.0f);
+    m_shadowMaterial->setVector("shadowOffset", Vector2(m_textShadowOffset.x, -m_textShadowOffset.y));
+    m_shadowMaterial->setFloat("shadowBlur", 0.0f);
+    m_shadowMaterial->setFloat("shadowSpread", 0.0f);
     auto transform = getComponent<Transform>();
     transform->addSizeChangeListener([this]() {
         m_isAlignDirty = true;
@@ -120,6 +130,7 @@ void MRLabel::update(FrameStateSharedPtr frameState) {
         // 因此只在布局完成后绑定一次，确保使用的是最新图集。
         if (m_font) {
             m_material->setTexture("texture", m_font->GetTextureAtlas());
+            m_shadowMaterial->setTexture("texture", m_font->GetTextureAtlas());
         }
 
         applyAlignment();
@@ -131,7 +142,44 @@ void MRLabel::update(FrameStateSharedPtr frameState) {
             m_fontAtlasVersion = m_font->GetTextureAtlasVersion();
         }
     }
+
+    // 先阴影后文字：自然收集顺序满足层序（阴影画在先绘制内容之上、自己文字之下）
+    submitTextShadow(frameState);
+
     UIWidget::update(frameState);
+}
+
+void MRLabel::submitTextShadow(FrameStateSharedPtr frameState) {
+    if (!m_shadowEnabled || !frameState || !frameState->batchManager || m_text.empty()) {
+        return;
+    }
+    if (auto meshFilter = getComponent<MeshFilter>()) {
+        frameState->batchManager->addRenderable(
+            m_shadowMaterial, meshFilter, getComponent<Transform>(), frameState->currentClip, false);
+    }
+}
+
+void MRLabel::setTextShadowColor(const Vector4& color) {
+    m_shadowEnabled = color.w > 0.0f;
+    m_shadowMaterial->setVector("shadowColor", color);
+    requestRender("setTextShadowColor");
+}
+
+void MRLabel::setTextShadowOffset(const Vector2& offset) {
+    m_textShadowOffset = offset;
+    // 对象空间 y-up，屏幕 y-down 偏移取反
+    m_shadowMaterial->setVector("shadowOffset", Vector2(offset.x, -offset.y));
+    requestRender("setTextShadowOffset");
+}
+
+void MRLabel::setTextShadowBlur(float blur) {
+    m_shadowMaterial->setFloat("shadowBlur", std::max(blur, 0.0f));
+    requestRender("setTextShadowBlur");
+}
+
+void MRLabel::setTextShadowSpread(float spread) {
+    m_shadowMaterial->setFloat("shadowSpread", spread);
+    requestRender("setTextShadowSpread");
 }
 
 //核心布局处理函数

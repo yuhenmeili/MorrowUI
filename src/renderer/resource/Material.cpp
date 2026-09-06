@@ -5,6 +5,7 @@
 #include "Material.h"
 
 #include <cstring>
+#include <fstream>
 #include <utility>
 
 #include "EmbeddedShaders.h"

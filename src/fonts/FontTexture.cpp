@@ -12,8 +12,9 @@ namespace morrow {
 FontTexture::FontTexture(int32_t width, int32_t height): Texture(ImageType::TEXT) {
     m_fontData.resize(static_cast<size_t>(width) * height * 4, 0);
     setTextureData(m_fontData.data(), width, height, PixelDataFormat::RGBA);
-    setMinFilterType(SamplerMinFilter::NEAREST);
-    setMagFilterType(SamplerMagFilter::NEAREST);
+    // 图集存 SDF（有向距离场），重建依赖双线性插值，必须使用 LINEAR 过滤
+    setMinFilterType(SamplerMinFilter::LINEAR);
+    setMagFilterType(SamplerMagFilter::LINEAR);
 }
 
 bool FontTexture::Initialize() {
@@ -29,10 +30,10 @@ bool FontTexture::Initialize() {
 
 void FontTexture::UpdateRegion(int32_t x, int32_t y, int32_t width, int32_t height, const unsigned char* sourceData) {
     const int32_t imageWidth = getWidth();
-    for (int32_t row = 0; row < height; ++row) {
+    for (int row = 0; row < height; ++row) {
         unsigned char* dest = m_fontData.data() + (static_cast<size_t>(y + row) * imageWidth + x) * 4;
         const unsigned char* src = sourceData + row * width;
-        for (int32_t col = 0; col < width; ++col) {
+        for (int col = 0; col < width; ++col) {
             const unsigned char value = src[col];
             dest[col * 4 + 0] = value;
             dest[col * 4 + 1] = value;

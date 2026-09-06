@@ -143,6 +143,7 @@ inline bool resolveIncludes(
     std::string& error) {
     std::unordered_set<std::string> includedFiles;
     std::unordered_set<std::string> activeFiles;
+    resolved.clear();  // 同一 Material 多次 setShader 会复用输出串，必须先清空
     return detail::resolveIncludesInternal(source, loader, resolved, error, includedFiles, activeFiles, 0);
 }
 }

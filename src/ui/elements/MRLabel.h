@@ -60,6 +60,19 @@ public:
     /// 设置允许显示的最大行数；0 表示不限制。
     void setMaxLines(int maxLines);
 
+    // 文字阴影（SDF 图集采样，见 docs/road_map/TEXT_SHADOW_DESIGN_PROPOSAL.md）
+    /// 设置阴影颜色；alpha = 0 时关闭阴影（默认）。
+    void setTextShadowColor(const Vector4& color);
+
+    /// 设置阴影偏移（屏幕方向：+x 右，+y 下，px）。默认 (2, 2)。
+    void setTextShadowOffset(const Vector2& offset);
+
+    /// 设置阴影模糊半径（px）；0 = 硬阴影。
+    void setTextShadowBlur(float blur);
+
+    /// 设置阴影相对字形的扩展/收缩（px）。
+    void setTextShadowSpread(float spread);
+
     // 文本测量
     /// 获取当前文本布局占用的宽度和高度。
     Vector2 getTextExtents() const;
@@ -75,6 +88,9 @@ private:
     void createTextMesh();
 
     void renderGlyphQuad(const FontGlyph* glyph, float x, float baselineY, std::vector<Vector3>& gearsVertices, std::vector<Vector2>& gearsUVs, std::vector<int16_t>& gearsIndices);
+
+    /// 在文字渲染项之前提交阴影渲染项（先阴影后文字，自然收集顺序）
+    void submitTextShadow(FrameStateSharedPtr frameState);
 
     std::shared_ptr<DynamicFont> m_font;
     // DynamicFont 扩容后会替换 FontTexture 并重新计算字形 UV。
@@ -97,6 +113,11 @@ private:
 
     HorizontalAlignment m_horizontalAlignment = HorizontalAlignment::LEFT;
     VerticalAlignment m_verticalAlignment = VerticalAlignment::TOP;
+
+    // 文字阴影（font_shadow 材质，a=0 时关闭）
+    std::shared_ptr<Material> m_shadowMaterial;
+    bool m_shadowEnabled = false;
+    Vector2 m_textShadowOffset = Vector2(2.0f, 2.0f);
 };
 } // morrow
 
