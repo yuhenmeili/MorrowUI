@@ -43,6 +43,17 @@ struct FontMetrics {
     float lineHeight; // 行高
 };
 
+// SDF 生成方式
+enum class SdfMethod {
+    // coverage 位图 + EDT 距离变换（默认）。对任意字体稳定；细笔画边缘
+    // 有 ±0.5px 级别的重建误差（二值化 + 一维亚像素校正的近似性）。
+    BitmapEdt,
+    // stbtt 矢量轮廓逐像素求距（stbtt_GetGlyphSDF）。边缘亚像素精确；
+    // 绕数判定使用整型截断坐标，部分密集曲线的 CJK 字体可能产生碎片
+    // 伪影（实测 MorrowSansCN / SimHei 有，Arial 无），且生成更耗时。
+    GlyphSdf,
+};
+
 class DynamicFont {
 public:
     // SDF 图集统一按参考字号光栅化一次，任意目标字号通过缩放渲染
@@ -54,10 +65,14 @@ public:
     ~DynamicFont();
 
     // 从文件加载字体资源。字号在 GetGlyph/GetMetrics 时按需指定（仅影响缩放）。
-    bool LoadFromFile(const std::string& filename);
+    // method 选择 SDF 生成方式（默认 BitmapEdt），仅影响之后新生成的字形。
+    bool LoadFromFile(const std::string& filename, SdfMethod method = SdfMethod::BitmapEdt);
 
     // 从内存加载字体
-    bool LoadFromMemory(const unsigned char* data, size_t size);
+    bool LoadFromMemory(const unsigned char* data, size_t size, SdfMethod method = SdfMethod::BitmapEdt);
+
+    // 当前 SDF 生成方式
+    SdfMethod GetSdfMethod() const;
 
     // 获取字符字形信息（如果不存在则动态生成）。
     // 返回值已按目标字号缩放（纹理坐标除外——始终指向图集原始单元格）。
@@ -146,6 +161,7 @@ private:
     int32_t m_aaQuality = 1; // 抗锯齿质量（SDF 光栅化下不再使用，保留 API 兼容）
     float m_charSpacing = 0.0f; // 字符间距
     float m_lineSpacing = 0.0f; // 行间距
+    SdfMethod m_sdfMethod = SdfMethod::BitmapEdt; // SDF 生成方式
 
     // ── SDF 图集参数（必须与 font.frag / font_shadow.frag 内的常量一致）──
     // d_px = (sample - SDF_EDGE_NORM) * SDF_PX_PER_UNIT
