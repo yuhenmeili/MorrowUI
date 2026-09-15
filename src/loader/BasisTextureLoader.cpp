@@ -4,7 +4,7 @@
 
 #include <fstream>
 #include "BasisTextureLoader.h"
-#include "GlobalObject.h"
+#include "../core/GlobalObject.h"
 
 namespace morrow{
 BasisTextureLoader::BasisTextureLoader()

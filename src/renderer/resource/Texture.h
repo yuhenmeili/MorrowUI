@@ -114,6 +114,8 @@ private:
 
     void startLoadBasis();
 
+    void startLoadKtx2();
+
     void reUploadTexture(const char* result);
 
 protected:

@@ -125,7 +125,7 @@ int main() {
     constexpr float right = 1260.0f;
 
     const auto brickTexture = Texture::create();
-    brickTexture->setImageUrl("assets/textures/brickwall.jpg");
+    brickTexture->setImageUrl("assets/textures/brickwall.ktx2");
     const auto carTexture = Texture::create();
     carTexture->setImageUrl("assets/textures/car.png");
     auto atlas = std::make_shared<TextureAtlas>("assets/textures/frame_animation/atlas_speed.atlas", "assets/textures/frame_animation/", false);

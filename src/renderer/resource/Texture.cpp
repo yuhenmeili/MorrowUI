@@ -9,12 +9,20 @@
 
 #include "BasisTextureLoader.h"
 #include "GlobalObject.h"
+#include "Ktx2TextureLoader.h"
 #include "MathUtils.h"
 #include "PixelFormat.h"
 #include "TextureLoader.h"
 #include "TextureManager.h"
 #include "ToolUtils.h"
 #include "utils/Log.h"
+
+namespace {
+/// 压缩像素格式决定上传走 glCompressedTexImage2D 还是 glTexImage2D。
+bool isCompressedPixelFormat(PixelDataFormat format) {
+    return format == PixelDataFormat::COMPRESSED_RGB8_ETC2 || format == PixelDataFormat::COMPRESSED_RGBA8_ETC2_EAC;
+}
+}
 
 namespace morrow {
 TextureSharedPtr Texture::create(ImageType imageType) {
@@ -193,9 +201,10 @@ void Texture::render(FrameStateSharedPtr frameState) {
     if (m_textureInfo->textureNeedUpLoad) {
         if (m_textureInfo->imageType == ImageType::IMAGE) {
             if (!m_textureInfo->textureDataSharedPtr && !m_textureInfo->textureDataRawPtr) {
-                std::string fileSuffix = ".basis";
-                if (ToolUtils::endsWith(m_textureInfo->imageUrl, fileSuffix)) {
+                if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".basis")) {
                     startLoadBasis();
+                } else if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".ktx2")) {
+                    startLoadKtx2();
                 } else {
                     startLoadImage();
                 }
@@ -280,7 +289,22 @@ void Texture::startLoadBasis() {
     m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(m_textureInfo->basisData.data(), std::default_delete<unsigned char[]>());
     m_textureInfo->imageWidth = imageInfo.m_width;
     m_textureInfo->imageHeight = imageInfo.m_height;
-    m_textureInfo->compressedTexture = true;
+    m_textureInfo->compressedTexture = isCompressedPixelFormat(m_textureInfo->format);
+    m_textureInfo->bytes = m_textureInfo->basisData.size();
+    m_onLoaded.notify();
+}
+
+void Texture::startLoadKtx2() {
+    auto loader = std::make_shared<Ktx2TextureLoader>();
+    if (!loader->load(m_textureInfo->imageUrl, m_textureInfo->basisData, m_textureInfo->format)) {
+        LOG_I("loadKtx2File {} failed", m_textureInfo->imageUrl);
+        m_textureInfo->basisData.clear();
+        return;
+    }
+    m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(m_textureInfo->basisData.data(), std::default_delete<unsigned char[]>());
+    m_textureInfo->imageWidth = loader->getWidth();
+    m_textureInfo->imageHeight = loader->getHeight();
+    m_textureInfo->compressedTexture = loader->isCompressed();
     m_textureInfo->bytes = m_textureInfo->basisData.size();
     m_onLoaded.notify();
 }

@@ -36,6 +36,7 @@ add_custom_target(morrow_generate_embedded_shaders
 
 # 分别收集各个目录的源文件
 file(GLOB_RECURSE CORE_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/core/*.cpp)
+file(GLOB_RECURSE LOADER_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/loader/*.cpp)
 file(GLOB_RECURSE EXTERN_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/extern/*.cpp)
 file(GLOB_RECURSE UI_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp)
 file(GLOB_RECURSE RENDERER_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/renderer/*.cpp)
@@ -173,6 +174,7 @@ endif()
 
 set(MORROW_SRC
     ${CORE_SRC}
+    ${LOADER_SRC}
     ${EXTERN_SRC}
     ${UI_SRC}
     ${RENDERER_SRC}
@@ -186,6 +188,11 @@ set(MORROW_SRC
 add_library(${MORROW_LIB_NAME} STATIC ${MORROW_SRC})
 add_dependencies(${MORROW_LIB_NAME} morrow_generate_embedded_shaders)
 target_compile_definitions(${MORROW_LIB_NAME} PUBLIC ${MORROW_PUBLIC_DEFINES})
+# basis_universal 转码器默认关闭 KTX2 支持，打开以启用 Ktx2TextureLoader
+if(NOT DEFINED BASISD_SUPPORT_KTX2)
+    set(BASISD_SUPPORT_KTX2 1)
+endif()
+target_compile_definitions(${MORROW_LIB_NAME} PRIVATE BASISD_SUPPORT_KTX2=${BASISD_SUPPORT_KTX2})
 if(MORROW_ENABLE_OBJECT_DIAGNOSTICS)
     target_compile_definitions(${MORROW_LIB_NAME} PUBLIC MORROW_ENABLE_OBJECT_DIAGNOSTICS=1)
 else()
@@ -209,6 +216,7 @@ target_include_directories(${MORROW_LIB_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/common
     ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/loader
     ${CMAKE_CURRENT_SOURCE_DIR}/extern
     ${CMAKE_CURRENT_SOURCE_DIR}/fonts
     ${CMAKE_CURRENT_SOURCE_DIR}/ui
