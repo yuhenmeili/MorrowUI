@@ -20,7 +20,7 @@ MRFrameAnimation::MRFrameAnimation()
 void MRFrameAnimation::setTextureAtlas(TextureAtlasSharedPtr textureAtlas)
 {
     m_textureAtlas = textureAtlas;
-    m_animation = std::make_shared<Animation<AtlasRegionSharedPtr>>(1.0f/ 30.0f, m_textureAtlas->getRegions(), PlayMode::LOOP);
+    m_animation = std::make_shared<Animation<TextureRegionSharedPtr>>(1.0f/ 30.0f, m_textureAtlas->getRegions(), PlayMode::LOOP);
     m_animationTime = 0.0f;
     requestRender("setTextureAtlas");
 }

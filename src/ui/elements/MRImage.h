@@ -43,7 +43,7 @@ private:
 
     TextureSharedPtr m_texture;
     TextureAtlasSharedPtr m_textureAtlas;
-    AtlasRegionSharedPtr m_atlasRegion;
+    TextureRegionSharedPtr m_atlasRegion;
     std::string m_atlasRegionName;
 
     float m_rounding = 0.0f;

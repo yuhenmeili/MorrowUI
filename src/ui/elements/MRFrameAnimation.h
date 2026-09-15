@@ -6,8 +6,8 @@
 #define MORROW_MRFrameAnimation_H_
 
 #include <memory>
-#include "atlas/AtlasRegion.h"
 #include "atlas/TextureAtlas.h"
+#include "atlas/TextureRegion.h"
 #include "atlas/Animation.h"
 #include "base/UIWidget.h"
 
@@ -96,8 +96,8 @@ private:
     MRFrameAnimation();
 
     TextureAtlasSharedPtr m_textureAtlas;
-    AnimationSharedPtr<AtlasRegionSharedPtr> m_animation;
-    AtlasRegionSharedPtr m_currentFrame;
+    AnimationSharedPtr<TextureRegionSharedPtr> m_animation;
+    TextureRegionSharedPtr m_currentFrame;
     float m_animationTime = 0.0f;
 };
 
