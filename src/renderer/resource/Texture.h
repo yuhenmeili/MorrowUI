@@ -15,7 +15,9 @@
 #include "GlobalDefine.h"
 #include "GpuTypes.h"
 #include "core/Observable.h"
+#if MORROW_ENABLE_BASISU
 #include "basis_universal/transcoder/basisu_containers.h"
+#endif
 #include "debug/ObjectRegistry.h"
 
 namespace morrow {
@@ -26,7 +28,9 @@ struct TextureInfo {
     std::shared_ptr<unsigned char> textureDataSharedPtr;
     std::shared_ptr<std::vector<unsigned char>> textureDataBuffer;
     void* textureDataRawPtr = nullptr;
+#if MORROW_ENABLE_BASISU
     basisu::vector<uint8_t> basisData;
+#endif
 
     int32_t imageWidth;
     int32_t imageHeight;

@@ -7,15 +7,17 @@
 #include <fstream>
 #include <iostream>
 
-#include "BasisTextureLoader.h"
 #include "GlobalObject.h"
-#include "Ktx2TextureLoader.h"
 #include "MathUtils.h"
 #include "PixelFormat.h"
 #include "TextureLoader.h"
 #include "TextureManager.h"
 #include "ToolUtils.h"
 #include "utils/Log.h"
+#if MORROW_ENABLE_BASISU
+#include "BasisTextureLoader.h"
+#include "Ktx2TextureLoader.h"
+#endif
 
 namespace {
 /// 压缩像素格式决定上传走 glCompressedTexImage2D 还是 glTexImage2D。
@@ -198,21 +200,31 @@ void Texture::render(FrameStateSharedPtr frameState) {
     if (!m_textureHandle.isValid()) {
         m_textureHandle = RENDERINGTHREAD->createTexture2D(m_textureInfo->imageType);
     }
-    if (m_textureInfo->textureNeedUpLoad) {
-        if (m_textureInfo->imageType == ImageType::IMAGE) {
-            if (!m_textureInfo->textureDataSharedPtr && !m_textureInfo->textureDataRawPtr) {
-                if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".basis")) {
-                    startLoadBasis();
-                } else if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".ktx2")) {
-                    startLoadKtx2();
-                } else {
+        if (m_textureInfo->textureNeedUpLoad) {
+            if (m_textureInfo->imageType == ImageType::IMAGE) {
+                if (!m_textureInfo->textureDataSharedPtr && !m_textureInfo->textureDataRawPtr) {
+#if MORROW_ENABLE_BASISU
+                    if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".basis")) {
+                        startLoadBasis();
+                    } else if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".ktx2")) {
+                        startLoadKtx2();
+                    } else {
+                        startLoadImage();
+                    }
+#else
+                    if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".basis") ||
+                        ToolUtils::endsWith(m_textureInfo->imageUrl, ".ktx2")) {
+                        LOG_E("texture {} requires MORROW_ENABLE_BASISU=ON", m_textureInfo->imageUrl);
+                        m_textureInfo->textureNeedUpLoad = false;
+                        return;
+                    }
                     startLoadImage();
+#endif
                 }
             }
+            deployTexture();
+            m_textureInfo->textureNeedUpLoad = false;
         }
-        deployTexture();
-        m_textureInfo->textureNeedUpLoad = false;
-    }
 }
 
 void Texture::bindTexture(int32_t index) {
@@ -283,30 +295,43 @@ void Texture::startLoadImage() {
 }
 
 void Texture::startLoadBasis() {
+#if MORROW_ENABLE_BASISU
     auto loader = std::make_shared<BasisTextureLoader>();
     loader->load(m_textureInfo->imageUrl, m_textureInfo->basisData, m_textureInfo->format);
     auto imageInfo = loader->getImageDesc(0);
-    m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(m_textureInfo->basisData.data(), std::default_delete<unsigned char[]>());
+    // basisData（basisu::vector）保持像素所有权；textureDataSharedPtr 仅作
+    // 别名视图：deleter 持有 TextureInfo 引用保证像素存活到 GPU 上传命令
+    // 执行完毕，最后一个引用释放时归还 basisData。此前用 delete[] 包装
+    // vector 内部指针，会在 deployTexture 的 reset() 与 vector 析构时双重释放。
+    m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(
+        m_textureInfo->basisData.data(),
+        [owner = m_textureInfo](unsigned char*) { owner->basisData.clear(); });
     m_textureInfo->imageWidth = imageInfo.m_width;
     m_textureInfo->imageHeight = imageInfo.m_height;
     m_textureInfo->compressedTexture = isCompressedPixelFormat(m_textureInfo->format);
     m_textureInfo->bytes = m_textureInfo->basisData.size();
     m_onLoaded.notify();
+#endif
 }
 
 void Texture::startLoadKtx2() {
+#if MORROW_ENABLE_BASISU
     auto loader = std::make_shared<Ktx2TextureLoader>();
     if (!loader->load(m_textureInfo->imageUrl, m_textureInfo->basisData, m_textureInfo->format)) {
         LOG_I("loadKtx2File {} failed", m_textureInfo->imageUrl);
         m_textureInfo->basisData.clear();
         return;
     }
-    m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(m_textureInfo->basisData.data(), std::default_delete<unsigned char[]>());
+    // 所有权语义同 startLoadBasis：basisData 持有，shared_ptr 仅作生命周期别名。
+    m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(
+        m_textureInfo->basisData.data(),
+        [owner = m_textureInfo](unsigned char*) { owner->basisData.clear(); });
     m_textureInfo->imageWidth = loader->getWidth();
     m_textureInfo->imageHeight = loader->getHeight();
     m_textureInfo->compressedTexture = loader->isCompressed();
     m_textureInfo->bytes = m_textureInfo->basisData.size();
     m_onLoaded.notify();
+#endif
 }
 
 void Texture::reUploadTexture(const char* result) {

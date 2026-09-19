@@ -17,7 +17,7 @@ public:
 
     ~WGLPlatform() override = default;
 
-    void initialize(bool multithread) override;
+    void initialize(bool multithread, const RenderDeviceOptions& deviceOptions = {}) override;
 
     bool beginFrame(FrameStateSharedPtr frameState) override;
 

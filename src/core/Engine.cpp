@@ -48,8 +48,31 @@ Engine::Engine(const EngineOptions& options) {
     m_maxFrames = options.maxFrames;
     m_objectSnapshotPath = options.objectSnapshotPath;
     m_objectSnapshotCommandPath = options.objectSnapshotCommandPath;
+
+    // 字体配置须在平台初始化（ensureRenderCapabilities → FontManager::initialize）前生效。
+    auto& fontManager = *GlobalObject::getInstance().getFontManager();
+    fontManager.setDefaultFontEnabled(!options.skipDefaultFont);
+    if (options.fontAtlasInitialSize > 0) {
+        fontManager.setInitialAtlasSize(options.fontAtlasInitialSize);
+    }
+    if (!options.skipDefaultFont && options.asyncFontPreload) {
+        // 默认字体读盘与下方 EGL 初始化/窗口创建并行。
+        fontManager.preloadDefaultFontAsync();
+    }
+
+    // shader 二进制缓存：未显式配置时按平台取默认（QNX 常驻分区可写，桌面默认关闭）。
+    RenderDeviceOptions deviceOptions = options.deviceOptions;
+#ifdef QNX
+    if (deviceOptions.shaderBinaryCacheDir.empty()) {
+        deviceOptions.shaderBinaryCacheDir = "/var/data/shaders";
+    }
+#endif
+    if (!deviceOptions.shaderBinaryCacheDir.empty()) {
+        LOG_I("shader binary cache enabled: {}", deviceOptions.shaderBinaryCacheDir);
+    }
+
     m_platform = PlatformFactory::create(windowInfo);
-    m_platform->initialize(options.multithread);
+    m_platform->initialize(options.multithread, deviceOptions);
     std::weak_ptr<RenderingThread> weakRenderingThread =
         GlobalObject::getInstance().getRenderingThread();
     m_mainThreadDispatcher.setWakeCallback([weakRenderingThread]() {
@@ -69,9 +92,10 @@ Engine::Engine(const EngineOptions& options) {
     m_frameState->camera = m_camera;
     m_frameState->inputEventsManager = m_platform->getInputManager();
 #if MORROW_ENABLE_DEBUG_OVERLAY
-    m_debugPlane = std::make_shared<DebugPlane>();
-    m_debugPlane->initialize(m_platform->getWindow());
-    m_debugPlane->setVisible(options.debugOverlayVisible);
+    // DebugPlane 懒创建（见 ensureDebugPlane）：避免启动路径上的额外布局成本。
+    if (options.debugOverlayVisible) {
+        setDebugOverlayVisible(true);
+    }
 #else
     if (options.debugOverlayVisible) {
         LOG_W("debugOverlayVisible ignored because MORROW_ENABLE_DEBUG_OVERLAY=OFF");
@@ -108,10 +132,22 @@ MainThreadDispatcher& Engine::mainThreadDispatcher() {
     return m_mainThreadDispatcher;
 }
 
+#if MORROW_ENABLE_DEBUG_OVERLAY
+DebugPlane* Engine::ensureDebugPlane() {
+    if (!m_debugPlane) {
+        m_debugPlane = std::make_shared<DebugPlane>();
+        m_debugPlane->initialize(m_platform->getWindow());
+    }
+    return m_debugPlane.get();
+}
+#endif
+
 void Engine::setDebugOverlayVisible(bool visible) {
 #if MORROW_ENABLE_DEBUG_OVERLAY
-    if (m_debugPlane) {
-        m_debugPlane->setVisible(visible);
+    if (visible) {
+        ensureDebugPlane()->setVisible(true);
+    } else if (m_debugPlane) {
+        m_debugPlane->setVisible(false);
     }
 #else
     (void)visible;
@@ -120,9 +156,7 @@ void Engine::setDebugOverlayVisible(bool visible) {
 
 void Engine::toggleDebugOverlay() {
 #if MORROW_ENABLE_DEBUG_OVERLAY
-    if (m_debugPlane) {
-        m_debugPlane->toggleVisible();
-    }
+    ensureDebugPlane()->toggleVisible();
 #endif
 }
 

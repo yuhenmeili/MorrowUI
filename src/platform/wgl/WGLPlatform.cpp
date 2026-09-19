@@ -20,8 +20,8 @@ WGLPlatform::WGLPlatform(const WindowInfo& info) {
     m_wglInputProvider->setWindow(m_window->getSurface());
 };
 
-void WGLPlatform::initialize(bool multithread) {
-    Platform::initialize(multithread);
+void WGLPlatform::initialize(bool multithread, const RenderDeviceOptions& deviceOptions) {
+    Platform::initialize(multithread, deviceOptions);
     m_window->initializeIfNeeded();
     RENDERINGTHREAD->makeCurrent(m_window->getSurface());
     ensureRenderCapabilitiesInitialized();

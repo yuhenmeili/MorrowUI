@@ -1,18 +1,82 @@
 // #define STB_TRUETYPE_IMPLEMENTATION
 
+#include <cstdio>
+
 #include <fstream>
 #include "FontManager.h"
 #include "core/ToolUtils.h"
 #include "utils/Log.h"
 
-namespace morrow
-{
+namespace morrow {
+namespace {
+// 引擎默认字体：仅中文字体（含 CJK 全字符集，约 8.4MB）。
+constexpr const char* kDefaultFontName = "MorrowSansCN1.1-Regular.otf";
+constexpr const char* kDefaultFontPath = "assets/fonts/MorrowSansCN1.1-Regular.otf";
+
+std::shared_ptr<std::vector<unsigned char>> readFontFileBytes(const std::string& path) {
+    FILE* file = fopen(path.c_str(), "rb");
+    if (!file) {
+        LOG_E("fail to preload font {}", path);
+        return nullptr;
+    }
+    fseek(file, 0, SEEK_END);
+    const long size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    if (size <= 0) {
+        fclose(file);
+        return nullptr;
+    }
+    auto bytes = std::make_shared<std::vector<unsigned char>>(static_cast<size_t>(size));
+    const size_t read = fread(bytes->data(), 1, bytes->size(), file);
+    fclose(file);
+    if (read != bytes->size()) {
+        return nullptr;
+    }
+    return bytes;
+}
+} // namespace
+
+void FontManager::preloadDefaultFontAsync() {
+    if (!m_defaultFontEnabled || m_preloadStarted) {
+        return;
+    }
+    m_preloadStarted = true;
+    m_preloadFuture = std::async(std::launch::async, [] {
+        return readFontFileBytes(kDefaultFontPath);
+    });
+}
+
 void FontManager::initialize() {
+    if (!m_defaultFontEnabled) {
+        return;
+    }
     FontInfo fontInfo = {
-        .name = "MorrowSansCN1.1-Regular.otf",
-        .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"
+        .name = kDefaultFontName,
+        .path = kDefaultFontPath
     };
     addFonts({fontInfo});
+}
+
+DynamicFontSharedPtr FontManager::createFont(const FontInfo& info) {
+    auto font = std::make_shared<DynamicFont>(m_initialAtlasSize);
+    bool loaded = false;
+
+    // 预读字节就绪时直接接管（零拷贝），避免二次读盘。
+    if (m_preloadFuture.valid() && info.path == kDefaultFontPath) {
+        auto bytes = m_preloadFuture.get();
+        if (bytes && !bytes->empty()) {
+            loaded = font->AdoptFontData(std::move(*bytes));
+        }
+    }
+    if (!loaded) {
+        loaded = font->LoadFromFile(info.path);
+    }
+    if (!loaded) {
+        return nullptr;
+    }
+    font->SetAntialiasingQuality(2);
+    font->SetCharacterSpacing(0.5f);
+    return font;
 }
 
 void FontManager::addFonts(const std::vector<FontInfo>& fontsConfig)
@@ -23,14 +87,20 @@ void FontManager::addFonts(const std::vector<FontInfo>& fontsConfig)
                 LOG_W("font {} already exists, skip loading", info.name);
                 continue;
             }
-            DynamicFontSharedPtr dynamicFont = std::make_shared<DynamicFont>();
-            if (!dynamicFont->LoadFromFile(info.path)) {
+            auto existing = m_fontsByPath.find(info.path);
+            if (existing != m_fontsByPath.end()) {
+                // 同一路径已加载：按别名复用，避免重复读盘与双图集驻留。
+                m_fontFamilies[info.name] = existing->second;
+                LOG_I("font {} reuses already loaded font data of {}", info.name, info.path);
+                continue;
+            }
+            DynamicFontSharedPtr dynamicFont = createFont(info);
+            if (!dynamicFont) {
                 LOG_E("load font {} error", info.path);
                 continue;
             }
-            dynamicFont->SetAntialiasingQuality(2);
-            dynamicFont->SetCharacterSpacing(0.5f);
             m_fontFamilies[info.name] = std::move(dynamicFont);
+            m_fontsByPath[info.path] = m_fontFamilies[info.name];
         } else {
             LOG_I("fontUrl is empty");
         }

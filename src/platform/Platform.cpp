@@ -17,8 +17,9 @@
 #include "ui/base/Widget.h"
 
 namespace morrow {
-void Platform::initialize(bool multithread) {
-    GlobalObject::getInstance().getRenderingThread()->run(shared_from_this(), multithread);
+void Platform::initialize(bool multithread, const RenderDeviceOptions& deviceOptions) {
+    m_ssboSupportPreset = deviceOptions.ssboSupportPreset;
+    GlobalObject::getInstance().getRenderingThread()->run(shared_from_this(), multithread, deviceOptions);
 }
 
 WindowSharedPtr Platform::getWindow() const {
@@ -167,8 +168,14 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
 
 void Platform::ensureRenderCapabilitiesInitialized() {
     RENDERINGTHREAD->debugDriver();
-    m_isSSBOSupport = RENDERINGTHREAD->checkSSBOSupport();
-    LOG_I("SSBO support: {}", m_isSSBOSupport ? "enabled" : "disabled");
+    if (m_ssboSupportPreset >= 0) {
+        // 预设路径：车型/SoC 固定时跳过启动期的跨线程同步查询往返。
+        m_isSSBOSupport = m_ssboSupportPreset != 0;
+        LOG_I("SSBO support: {} (preset)", m_isSSBOSupport ? "enabled" : "disabled");
+    } else {
+        m_isSSBOSupport = RENDERINGTHREAD->checkSSBOSupport();
+        LOG_I("SSBO support: {} (detected)", m_isSSBOSupport ? "enabled" : "disabled");
+    }
     GlobalObject::getInstance().getFontManager()->initialize();
 }
 

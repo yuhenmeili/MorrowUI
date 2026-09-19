@@ -9,9 +9,13 @@
 /// Non-trivial payloads– pushNT<T>(type): placement-new inline, destructor
 ///                                        registered in cleanup chain.
 ///
-/// IMPORTANT: The backing buffer is fixed-size (kDefaultCapacity).  It never
-/// reallocates so raw pointers stored in the cleanup chain remain valid.
-/// Increase kDefaultCapacity if an assert fires in debug builds.
+/// IMPORTANT: The backing buffer is fixed-size.  It never reallocates so raw
+/// pointers stored in the cleanup chain remain valid.  Overflow behaviour:
+///   - Debug builds assert immediately (increase capacity via
+///     EngineOptions::deviceOptions.commandBufferCapacity).
+///   - Release builds degrade safely: the command is dropped (its payload is
+///     constructed/destructed in a dedicated overflow arena, never written
+///     past the buffer) and endFrame() reports the drop count.
 ///
 
 #pragma once
@@ -19,6 +23,8 @@
 #include <cstdint>
 #include <cstring>
 #include <cassert>
+#include <array>
+#include <deque>
 #include <vector>
 #include <type_traits>
 #include <new>
@@ -30,6 +36,8 @@ public:
     // QNX startup frames can batch a large number of resource creation and
     // texture upload commands before the render thread drains the ring slot.
     // 16 MB keeps the buffer fixed-size while leaving enough headroom.
+    // Production builds can shrink this via RenderDeviceOptions to reduce
+    // startup allocation and resident memory.
     static constexpr size_t kDefaultCapacity = 16u * 1024u * 1024u;
 
     // ---------------------------------------------------------------
@@ -64,6 +72,8 @@ public:
         static_assert(std::is_trivially_destructible<T>::value,
             "Use pushNT for non-trivially-destructible types (e.g. those with "
             "std::string / std::vector / std::shared_ptr members).");
+        static_assert(sizeof(T) <= kOverflowSlotSize,
+            "Payload too large for the overflow slot; raise kOverflowSlotSize");
         uint8_t* p = alloc(type, sizeof(T));
         std::memset(p, 0, sizeof(T));
         return reinterpret_cast<T*>(p);
@@ -80,6 +90,8 @@ public:
     // ---------------------------------------------------------------
     template<typename T>
     T* pushNT(uint32_t type) {
+        static_assert(sizeof(T) <= kOverflowSlotSize,
+            "Payload too large for the overflow slot; raise kOverflowSlotSize");
         uint8_t* p = alloc(type, sizeof(T));
         T* obj = new (p) T();                               // default-construct
         m_cleanups.push_back({ obj, [](void* ptr) {
@@ -95,7 +107,10 @@ public:
         for (auto it = m_cleanups.rbegin(); it != m_cleanups.rend(); ++it)
             it->dtor(it->ptr);
         m_cleanups.clear();
+        m_overflowSlots.clear();
         m_size = 0;
+        m_overflowed = false;
+        m_droppedCommands = 0;
     }
 
     // ---------------------------------------------------------------
@@ -105,16 +120,40 @@ public:
     const uint8_t* data()   const noexcept { return m_buffer.data(); }
     size_t         size()   const noexcept { return m_size; }
     bool           empty()  const noexcept { return m_size == 0; }
+    size_t         capacity() const noexcept { return m_buffer.size(); }
+
+    /// 本帧是否有命令因容量不足被丢弃（Release 安全降级路径）。
+    bool   overflowed() const noexcept { return m_overflowed; }
+    size_t droppedCommands() const noexcept { return m_droppedCommands; }
 
 private:
+    // Capacity for one dropped command's payload in the overflow path.
+    // Every encoded payload type is far below this; enforced by static_assert.
+    static constexpr size_t kOverflowSlotSize = 512;
+    // Overflowed trivial payloads land here (memset only, no destructor).
+    alignas(8) uint8_t m_scratch[kOverflowSlotSize] = {};
+
     // ---------------------------------------------------------------
     // Allocate space and write the header.  Returns pointer to payload area.
-    // NEVER reallocates – capacity must be sufficient.
+    // NEVER reallocates – capacity must be sufficient.  On overflow the
+    // command is dropped: trivial payloads use m_scratch, non-trivial
+    // payloads get a stable slot in m_overflowSlots so their registered
+    // destructors stay valid until clear().
     // ---------------------------------------------------------------
     uint8_t* alloc(uint32_t type, size_t payloadSize) {
         const size_t stride = sizeof(CmdHeader) + align8(payloadSize);
-        assert(m_size + stride <= m_buffer.size() &&
-               "CommandBuffer overflow: increase kDefaultCapacity");
+        if (m_size + stride > m_buffer.size()) {
+            assert(false &&
+                   "CommandBuffer overflow: increase capacity via "
+                   "EngineOptions::deviceOptions.commandBufferCapacity");
+            ++m_droppedCommands;
+            m_overflowed = true;
+            if (payloadSize > kOverflowSlotSize) {
+                // static_assert 上限内的 payload 不会走到这里；防御性兜底。
+                return m_scratch;
+            }
+            return payloadSize ? overflowSlot() : m_scratch;
+        }
         uint8_t* base = m_buffer.data() + m_size;
         auto* h       = reinterpret_cast<CmdHeader*>(base);
         h->type        = type;
@@ -123,12 +162,21 @@ private:
         return base + sizeof(CmdHeader);    // pointer to payload area
     }
 
+    // Stable storage for one dropped non-trivial payload.  deque 元素地址
+    // 在后续插入时保持稳定，cleanup 链中的指针直到 clear() 前都有效。
+    uint8_t* overflowSlot() {
+        m_overflowSlots.emplace_back();
+        return m_overflowSlots.back().data();
+    }
+
     struct Cleanup { void* ptr; void (*dtor)(void*); };
 
     std::vector<uint8_t>  m_buffer;
     size_t                m_size;
     std::vector<Cleanup>  m_cleanups;
+    std::deque<std::array<uint8_t, kOverflowSlotSize>> m_overflowSlots;
+    bool                  m_overflowed = false;
+    size_t                m_droppedCommands = 0;
 };
 
 } // namespace morrow
-

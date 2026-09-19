@@ -3,8 +3,20 @@ add_subdirectory(math)
 
 set(MORROW_LIB_NAME "morrow")
 
-option(MORROW_ENABLE_OBJECT_DIAGNOSTICS "Enable lightweight ObjectRegistry snapshots" ON)
-option(MORROW_ENABLE_DEBUG_OVERLAY "Compile the runtime FPS/batch debug overlay" ON)
+# 诊断/调试设施默认跟随构建类型：Release 系构建默认裁掉（对象注册的
+# 锁+分配开销、DebugPlane 的启动布局成本与体积），Debug 保持默认开启。
+# 可用 -DMORROW_ENABLE_OBJECT_DIAGNOSTICS=ON 等显式覆盖。
+if(CMAKE_BUILD_TYPE MATCHES "^(Release|RelWithDebInfo|MinSizeRel)$")
+    set(MORROW_DIAGNOSTICS_DEFAULT OFF)
+    set(MORROW_DEBUG_OVERLAY_DEFAULT OFF)
+else()
+    set(MORROW_DIAGNOSTICS_DEFAULT ON)
+    set(MORROW_DEBUG_OVERLAY_DEFAULT ON)
+endif()
+
+option(MORROW_ENABLE_OBJECT_DIAGNOSTICS "Enable lightweight ObjectRegistry snapshots" ${MORROW_DIAGNOSTICS_DEFAULT})
+option(MORROW_ENABLE_DEBUG_OVERLAY "Compile the runtime FPS/batch debug overlay" ${MORROW_DEBUG_OVERLAY_DEFAULT})
+option(MORROW_ENABLE_BASISU "Compile the Basis/KTX2 transcoder (.basis/.ktx2 texture support)" ON)
 
 set(MORROW_SHADER_DIR ${CMAKE_SOURCE_DIR}/assets/shaders)
 set(MORROW_SHADER_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
@@ -38,6 +50,12 @@ add_custom_target(morrow_generate_embedded_shaders
 file(GLOB_RECURSE CORE_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/core/*.cpp)
 file(GLOB_RECURSE LOADER_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/loader/*.cpp)
 file(GLOB_RECURSE EXTERN_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/extern/*.cpp)
+if(NOT MORROW_ENABLE_BASISU)
+    # 裁掉 basis_universal 转码器（约 1.7 万行）与 Basis/KTX2 加载器；
+    # 资产全部为 png/jpg 等普通格式时使用，显著缩小二进制。
+    list(FILTER EXTERN_SRC EXCLUDE REGEX "basis_universal")
+    list(FILTER LOADER_SRC EXCLUDE REGEX "BasisTextureLoader\\.cpp|Ktx2TextureLoader\\.cpp")
+endif()
 file(GLOB_RECURSE UI_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp)
 file(GLOB_RECURSE RENDERER_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/renderer/*.cpp)
 file(GLOB_RECURSE FONTS_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fonts/*.cpp)
@@ -192,7 +210,13 @@ target_compile_definitions(${MORROW_LIB_NAME} PUBLIC ${MORROW_PUBLIC_DEFINES})
 if(NOT DEFINED BASISD_SUPPORT_KTX2)
     set(BASISD_SUPPORT_KTX2 1)
 endif()
-target_compile_definitions(${MORROW_LIB_NAME} PRIVATE BASISD_SUPPORT_KTX2=${BASISD_SUPPORT_KTX2})
+if(MORROW_ENABLE_BASISU)
+    target_compile_definitions(${MORROW_LIB_NAME}
+        PUBLIC MORROW_ENABLE_BASISU=1
+        PRIVATE BASISD_SUPPORT_KTX2=${BASISD_SUPPORT_KTX2})
+else()
+    target_compile_definitions(${MORROW_LIB_NAME} PUBLIC MORROW_ENABLE_BASISU=0)
+endif()
 if(MORROW_ENABLE_OBJECT_DIAGNOSTICS)
     target_compile_definitions(${MORROW_LIB_NAME} PUBLIC MORROW_ENABLE_OBJECT_DIAGNOSTICS=1)
 else()

@@ -8,7 +8,10 @@
 #include "Log.h"
 
 namespace morrow {
-DynamicFont::DynamicFont() {
+DynamicFont::DynamicFont(int32_t initialAtlasSize) {
+    const int32_t atlasSize = initialAtlasSize > 0 ? initialAtlasSize : kDefaultAtlasSize;
+    m_atlasWidth = atlasSize;
+    m_atlasHeight = atlasSize;
     CreateTextureAtlas(m_atlasWidth, m_atlasHeight);
 }
 
@@ -36,6 +39,15 @@ bool DynamicFont::LoadFromFile(const std::string& filename, SdfMethod method) {
 
 bool DynamicFont::LoadFromMemory(const unsigned char* data, size_t size, SdfMethod method) {
     m_fontData.assign(data, data + size);
+    m_sdfMethod = method;
+    return InitializeFont();
+}
+
+bool DynamicFont::AdoptFontData(std::vector<unsigned char>&& data, SdfMethod method) {
+    if (data.empty()) {
+        return false;
+    }
+    m_fontData = std::move(data);
     m_sdfMethod = method;
     return InitializeFont();
 }
@@ -229,10 +241,9 @@ bool DynamicFont::ExpandTextureAtlas() {
 }
 
 bool DynamicFont::CreateTextureAtlas(int32_t width, int32_t height) {
+    // 不立即 Initialize()：GPU 纹理与整图部署延迟到首个字形 FlushToGPU，
+    // 避免启动期为空图集做 4MB/16MB 级全量上传（见 FontTexture::FlushToGPU）。
     auto newAtlas = std::make_shared<FontTexture>(width, height);
-    if (!newAtlas->Initialize()) {
-        return false;
-    }
 
     // 扩容会替换纹理对象，同时改变归一化 UV 的分母。
     // 新图集不能直接复用旧字形的 generated/UV 状态，因此需要

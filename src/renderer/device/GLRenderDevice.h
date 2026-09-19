@@ -14,7 +14,9 @@
 
 #include "Platform.h"
 #include "RenderDevice.h"
+#include "RenderDeviceOptions.h"
 #include "ResourceRegistry.h"
+#include "ShaderBinaryCache.h"
 
 namespace morrow {
 // ---------------------------------------------------------------------------
@@ -26,7 +28,7 @@ using GLRenderDevicePtr = std::shared_ptr<GLRenderDevice>;
 
 class GLRenderDevice {
 public:
-    explicit GLRenderDevice(PlatformSharedPtr platform);
+    explicit GLRenderDevice(PlatformSharedPtr platform, const RenderDeviceOptions& options = {});
 
     ~GLRenderDevice();
 
@@ -203,10 +205,10 @@ private:
     HwRenderTarget m_boundRenderTarget{0};
     GLint m_viewportBeforeRenderTarget[4] = {0, 0, 0, 0};
     ResourceRegistry m_registry;
+    // glProgramBinary 磁盘缓存（内容哈希键，源码变化自动失效）
+    ShaderBinaryCache m_shaderBinaryCache;
 
     // ── 内部 GL helper（不对外暴露）──
-    bool makeFolder();
-
     bool upLoadTexture(GlTexture2D* textureImp, const TextureData& data);
 
     bool upLoadOESTexture(GlTexture2D* textureImp, const TextureData& data);

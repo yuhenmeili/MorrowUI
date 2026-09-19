@@ -45,7 +45,17 @@ void FontTexture::UpdateRegion(int32_t x, int32_t y, int32_t width, int32_t heig
 }
 
 void FontTexture::FlushToGPU() {
-    if (!m_dirty || !m_textureHandle) return;
+    if (!m_dirty) {
+        return;
+    }
+    if (!m_textureHandle) {
+        // 惰性初始化：首个字形写入 CPU 缓冲后才创建 GPU 纹理并整图部署，
+        // 从未使用的字体不再在启动期上传一张全零图集（4MB/16MB 级）。
+        // Initialize 的 deploy 会连同已写入的字形一次性上传。
+        Initialize();
+        m_dirty = false;
+        return;
+    }
     RENDERINGTHREAD->updateSubTexture2D(m_textureHandle, m_textureData, 0, 0, getWidth(), getHeight(), m_fontData.data());
     m_dirty = false;
 }

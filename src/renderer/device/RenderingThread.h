@@ -9,6 +9,7 @@
 
 #include "Platform.h"
 #include "RenderDeviceProxy.h"
+#include "RenderDeviceOptions.h"
 
 namespace morrow
 {
@@ -16,7 +17,7 @@ namespace morrow
 class RenderingThread
 {
 public:
-    void run(PlatformSharedPtr platform, bool multithread = false);
+    void run(PlatformSharedPtr platform, bool multithread = false, const RenderDeviceOptions& options = {});
 
     const ThreadBufferESDeviceSharedPtr& getDevice() const;
 

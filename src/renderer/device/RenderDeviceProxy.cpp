@@ -299,7 +299,18 @@ struct SetGPUProgramParamMat4ArrayPayload {
 // Constructor / Destructor
 // ---------------------------------------------------------------------------
 
-RenderDeviceProxy::RenderDeviceProxy(PlatformSharedPtr platform, bool returnResImmediately) : RenderDeviceProxyBase(std::move(platform), returnResImmediately) {
+namespace {
+// 单槽容量：0 = 引擎默认。
+size_t resolveCommandBufferCapacity(const RenderDeviceOptions& options) {
+    return options.commandBufferCapacity ? options.commandBufferCapacity : CommandBuffer::kDefaultCapacity;
+}
+} // namespace
+
+RenderDeviceProxy::RenderDeviceProxy(PlatformSharedPtr platform, bool returnResImmediately, const RenderDeviceOptions& options)
+    : RenderDeviceProxyBase(std::move(platform), returnResImmediately, options),
+      m_commandBuffers{CommandBuffer(resolveCommandBufferCapacity(options)),
+                       CommandBuffer(resolveCommandBufferCapacity(options)),
+                       CommandBuffer(resolveCommandBufferCapacity(options))} {
     m_vboRecyclePool = std::make_unique<VBODataRecyclePool>();
     m_uboRecyclePool = std::make_unique<UBODataRecyclePool>();
     m_ssboRecyclePool = std::make_unique<SSBODataRecyclePool>();
@@ -888,6 +899,15 @@ void RenderDeviceProxy::endFrame() {
                               std::move(m_currentFrameOESRecycle)});
         tryRecycle();
         return;
+    }
+
+    // 容量不足时 Release 降级路径已丢弃超量命令（Debug 下 assert 已拦截）。
+    // 帧以部分命令提交：缺失的多为尾部 draw/上传，不产生越界或悬垂访问。
+    if (CMD_BUF.overflowed()) {
+        LOG_E("CommandBuffer overflow: {} command(s) dropped this frame "
+              "(slot capacity {} bytes); frame submitted partially - "
+              "increase EngineOptions.deviceOptions.commandBufferCapacity",
+              CMD_BUF.droppedCommands(), CMD_BUF.capacity());
     }
 
     // Write the end-of-frame sentinel.

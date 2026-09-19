@@ -25,8 +25,12 @@
 #define MR_BATCH "a_batch"
 
 namespace morrow {
-GLRenderDevice::GLRenderDevice(PlatformSharedPtr platform) :
+GLRenderDevice::GLRenderDevice(PlatformSharedPtr platform, const RenderDeviceOptions& options) :
     m_platform(platform) {
+    ShaderBinaryCache::Options cacheOptions;
+    cacheOptions.dir = options.shaderBinaryCacheDir;
+    cacheOptions.formatVersion = options.shaderCacheFormatVersion;
+    m_shaderBinaryCache.configure(cacheOptions);
 }
 
 GLRenderDevice::~GLRenderDevice() {
@@ -557,113 +561,74 @@ void GLRenderDevice::bindPipelineState(const GraphicsPipelineState& state) {
     setCullFace(state.cullFaceMode);
 }
 
-const std::string SHADERS_FOLDER_PATH = "/var/data/shaders/";
-
-bool GLRenderDevice::makeFolder() {
-#ifdef OPENGL_GLFW
-#else
-    try {
-        if (access(SHADERS_FOLDER_PATH.c_str(), 0) == -1) {
-            int32_t isCreate = ::mkdir(SHADERS_FOLDER_PATH.c_str(), S_IRWXU);
-            if (!isCreate) {
-                return true;
-            }
-            return false;
-        } else {
-            return true;
-        }
-    } catch (std::exception const& ex) {
-        LOG_E("makeFolder error -- {}", ex.what());
-    }
-#endif
-    return true;
-}
-
 HwGPUProgram GLRenderDevice::createGPUProgramSync() {
     return m_registry.allocateGPUProgram();
 }
 
 void GLRenderDevice::createGPUProgramRender(HwGPUProgram handle, const std::string& programFileName, const std::string& vertexShaderStr, const std::string& fragmentShaderStr) {
-    // LOG_I("shader: {}, vert: {}, frag: {}", programFileName, vertexShaderStr, fragmentShaderStr);
-    GLenum binaryFormat = 0x8740;
-    std::string version = "20251031";
+    // 1) 磁盘二进制缓存：键 = 驱动标识 + 完整源码的内容哈希，
+    //    修改 shader 后哈希自动变化，无需手工重置缓存。
+    const uint64_t cacheKey =
+        m_shaderBinaryCache.enabled() ? m_shaderBinaryCache.computeKey(vertexShaderStr, fragmentShaderStr) : 0;
+
     auto programObject = glCreateProgram();
+    bool linked = false;
 
-    // Load binary from file
-    //    std::ifstream file("shader.bin", std::ios::binary);
-    //    std::istreambuf_iterator<char> startIt(file), endIt;
-    //    std::vector<char> buffer(startIt, endIt);
-    //    file.close();
-
-    // Install shader binary
-    //    glProgramBinary(program, format, reinterpret_cast<char *>(buffer.data()), buffer.size());
-
-    bool loadBinarySuccess = false;
-
-    // FILE* fp = fopen((SHADERS_FOLDER_PATH + programFileName + "." + version).c_str(), "r");
-    // if (fp) {
-    //     fseek(fp, 0, SEEK_END);
-    //     size_t file_len = ftell(fp);
-    //     fseek(fp, 0, SEEK_SET);
-    //     char buffer[file_len];
-    //     fread(buffer, file_len, 1, fp);
-    //     fclose(fp);
-    //
-    //     glProgramBinary(programObject, binaryFormat, buffer, file_len);
-    //     loadBinarySuccess = checkCompileErrors(programFileName, programObject, "PROGRAM");
-    // }
-
-    if (!loadBinarySuccess) {
-        const char* vShaderCode = vertexShaderStr.c_str();
-        const char* fShaderCode = fragmentShaderStr.c_str();
-
-        uint32_t vertex, fragment;
-        // vertex shader
-        vertex = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertex, 1, &vShaderCode, nullptr);
-        glCompileShader(vertex);
-        checkCompileErrors(programFileName, vertex, "VERTEX");
-        // fragment Shader
-        fragment = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragment, 1, &fShaderCode, nullptr);
-        glCompileShader(fragment);
-        checkCompileErrors(programFileName, fragment, "FRAGMENT");
-        // shader Program
-        glAttachShader(programObject, vertex);
-        glAttachShader(programObject, fragment);
-        glLinkProgram(programObject);
-        checkCompileErrors(programFileName, programObject, "PROGRAM");
-
-#ifdef OPENGL_GLFW
-#else
-        // save shader to binary
-        //  if (makeFolder()) {
-        //      GLint formats = 0;
-        //      glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &formats);
-        //      if (formats >= 1) {
-        //          // Get the binary length
-        //          GLint length = 0;
-        //          glGetProgramiv(programObject, GL_PROGRAM_BINARY_LENGTH, &length);
-        //
-        //          // Retrieve the binary code
-        //          std::vector<GLubyte> buffer(length);
-        //          GLenum format = 0;
-        //          glGetProgramBinary(programObject, length, nullptr, &format, buffer.data());
-        //
-        //          // Write the binary to a file.
-        //          std::string fName(SHADERS_FOLDER_PATH + programFileName + "." + version);
-        //          std::ofstream out(fName.c_str(), std::ios::binary);
-        //          out.write(reinterpret_cast<char*>(buffer.data()), length);
-        //          out.close();
-        //          LOG_I("{} Saved Succeed!", programFileName);
-        //      }
-        //  }
-#endif
-
-        // delete the shaders as they're linked into our program now and no longer necessery
-        glDeleteShader(vertex);
-        glDeleteShader(fragment);
+    if (m_shaderBinaryCache.enabled()) {
+        std::vector<uint8_t> binary;
+        uint32_t binaryFormat = 0;
+        if (m_shaderBinaryCache.loadBinary(cacheKey, programFileName, binary, binaryFormat)) {
+            glProgramBinary(programObject, binaryFormat, binary.data(), static_cast<GLsizei>(binary.size()));
+            linked = checkCompileErrors(programFileName, programObject, "PROGRAM");
+            if (linked) {
+                m_registry.commitGPUProgram(handle, new GlProgram(programObject));
+                return;
+            }
+            // 缓存与当前驱动不兼容（如缓存写入后驱动更新）：回退源码编译。
+            glDeleteProgram(programObject);
+            programObject = glCreateProgram();
+        }
     }
+
+    // 2) 源码编译（缓存未启用或未命中）
+    const char* vShaderCode = vertexShaderStr.c_str();
+    const char* fShaderCode = fragmentShaderStr.c_str();
+
+    uint32_t vertex, fragment;
+    // vertex shader
+    vertex = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex, 1, &vShaderCode, nullptr);
+    glCompileShader(vertex);
+    checkCompileErrors(programFileName, vertex, "VERTEX");
+    // fragment Shader
+    fragment = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment, 1, &fShaderCode, nullptr);
+    glCompileShader(fragment);
+    checkCompileErrors(programFileName, fragment, "FRAGMENT");
+    // shader Program
+    glAttachShader(programObject, vertex);
+    glAttachShader(programObject, fragment);
+    glLinkProgram(programObject);
+    linked = checkCompileErrors(programFileName, programObject, "PROGRAM");
+
+    // 3) 编译成功后写入缓存，供下次冷启动直接 glProgramBinary 加载
+    if (linked && m_shaderBinaryCache.enabled()) {
+        GLint supportedFormats = 0;
+        glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &supportedFormats);
+        GLint binaryLength = 0;
+        glGetProgramiv(programObject, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
+        if (supportedFormats >= 1 && binaryLength > 0) {
+            std::vector<uint8_t> binary(static_cast<size_t>(binaryLength));
+            GLenum binaryFormat = 0;
+            glGetProgramBinary(programObject, binaryLength, nullptr, &binaryFormat, binary.data());
+            m_shaderBinaryCache.storeBinary(cacheKey, programFileName, binary.data(), binary.size(), binaryFormat);
+        }
+    }
+
+    // delete the shaders as they're linked into our program now and no longer necessery
+    glDeleteShader(vertex);
+    glDeleteShader(fragment);
+
     m_registry.commitGPUProgram(handle, new GlProgram(programObject));
 }
 

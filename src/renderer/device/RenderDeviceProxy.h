@@ -14,6 +14,7 @@
 #include "PlatformSemaphore.h"
 #include "RecyclePool.h"
 #include "RenderDeviceProxyBase.h"
+#include "RenderDeviceOptions.h"
 
 namespace morrow {
 using VBODataRecyclePool = RecyclePool<VBOData>;
@@ -25,7 +26,7 @@ using PixelDataRecyclePool = RecyclePool<std::vector<uint8_t>>;
 
 class RenderDeviceProxy : public RenderDeviceProxyBase {
 public:
-    RenderDeviceProxy(PlatformSharedPtr platform, bool returnResImmediately);
+    RenderDeviceProxy(PlatformSharedPtr platform, bool returnResImmediately, const RenderDeviceOptions& options = {});
 
     ~RenderDeviceProxy() override;
 
@@ -171,6 +172,8 @@ private:
     // the render thread with zero per-frame blocking in the common case.
     // ---------------------------------------------------------------
     static constexpr uint32_t kRingSize = 3;
+    // 构造函数初始化列表逐槽传入容量；kRingSize 变化时须同步更新该列表。
+    static_assert(kRingSize == 3, "update m_commandBuffers init list in RenderDeviceProxy ctor");
 
     void submitCurrentBufferAndAdvance();
 

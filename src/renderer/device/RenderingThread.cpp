@@ -6,10 +6,10 @@
 
 namespace morrow
 {
-void RenderingThread::run(PlatformSharedPtr platform, bool multithread)
+void RenderingThread::run(PlatformSharedPtr platform, bool multithread, const RenderDeviceOptions& options)
 {
     m_platform = platform;
-    m_esDevice = std::make_shared<RenderDeviceProxy>(platform, false);
+    m_esDevice = std::make_shared<RenderDeviceProxy>(platform, false, options);
     m_esDevice->run(multithread);
 }
 

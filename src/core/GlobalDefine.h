@@ -6,6 +6,12 @@
 #define GLOBALDEFINE_H
 #include <cstdint>
 
+// CMake: MORROW_ENABLE_BASISU（target 编译定义，PUBLIC）。
+// 此处兜底默认值服务于直接编译部分源文件的测试目标，语义与 CMake 默认一致。
+#ifndef MORROW_ENABLE_BASISU
+#define MORROW_ENABLE_BASISU 1
+#endif
+
 enum class ImageType : uint8_t {
     IMAGE = 0, //默认就是图片
     OES = 1,

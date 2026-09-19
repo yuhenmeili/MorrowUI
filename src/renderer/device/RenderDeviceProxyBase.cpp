@@ -10,9 +10,9 @@ namespace morrow {
 
 //-------------------------------------------------------------------------------------------------------------
 
-RenderDeviceProxyBase::RenderDeviceProxyBase(PlatformSharedPtr platform, bool returnResImmediately)
+RenderDeviceProxyBase::RenderDeviceProxyBase(PlatformSharedPtr platform, bool returnResImmediately, const RenderDeviceOptions& options)
     : m_returnResImmediately(returnResImmediately), m_threaded(false), m_isInPresenting(false), m_quit(false) {
-    m_realDevice = std::make_shared<GLRenderDevice>(platform);
+    m_realDevice = std::make_shared<GLRenderDevice>(platform, options);
 }
 
 RenderDeviceProxyBase::~RenderDeviceProxyBase() {

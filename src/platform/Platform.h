@@ -10,6 +10,7 @@
 #include "FrameState.h"
 #include "InputEventsManager.h"
 #include "ClipRect.h"
+#include "renderer/device/RenderDeviceOptions.h"
 
 namespace morrow {
 struct WindowInfo;
@@ -22,7 +23,9 @@ class Platform : public std::enable_shared_from_this<Platform> {
 public:
     virtual ~Platform() = default;
 
-    virtual void initialize(bool multithread);
+    /// multithread 选择单/多线程渲染；deviceOptions 携带渲染设备启动配置
+    /// （CommandBuffer 容量、shader 二进制缓存、SSBO 预设）。
+    virtual void initialize(bool multithread, const RenderDeviceOptions& deviceOptions = {});
 
     /// ────────── 输入阶段 ──────────
     /// poll 输入事件 + 解析 hit-test 目标
@@ -82,6 +85,8 @@ protected:
     WindowSharedPtr m_window;
     int32_t m_requestedSamples = 1;
     bool m_isSSBOSupport = false;
+    /// SSBO 能力预设（RenderDeviceOptions::ssboSupportPreset），见 ensureRenderCapabilitiesInitialized。
+    int32_t m_ssboSupportPreset = -1;
     std::unordered_map<int32_t, std::weak_ptr<Widget>> m_pointerCaptureTargets;
     std::weak_ptr<Widget> m_hoverTarget;
     std::weak_ptr<Widget> m_keyboardFocusTarget;

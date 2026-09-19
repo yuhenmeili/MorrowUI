@@ -11,6 +11,7 @@
 #include "PlatformSemaphore.h"
 #include "GLRenderDevice.h"
 #include "Platform.h"
+#include "RenderDeviceOptions.h"
 
 namespace morrow {
 class RenderDeviceProxyBase;
@@ -50,7 +51,7 @@ private:
     Semaphore m_waitSem[WaitType_Max];
 
 public:
-    RenderDeviceProxyBase(PlatformSharedPtr platform, bool returnResImmediately);
+    RenderDeviceProxyBase(PlatformSharedPtr platform, bool returnResImmediately, const RenderDeviceOptions& options = {});
 
     ~RenderDeviceProxyBase() override;
 

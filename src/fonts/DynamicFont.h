@@ -60,7 +60,9 @@ public:
     // （d/AA 带宽在 shader 内乘 fontSize / REFERENCE_FONT_SIZE）。
     static constexpr float REFERENCE_FONT_SIZE = 44.0f;
 
-    DynamicFont();
+    /// initialAtlasSize：字形图集初始边长（像素）；<=0 使用引擎默认 1024。
+    /// CJK 首屏文案多时建议直接 2048，避免首帧扩容触发全量字形重建。
+    explicit DynamicFont(int32_t initialAtlasSize = 0);
 
     ~DynamicFont();
 
@@ -68,8 +70,11 @@ public:
     // method 选择 SDF 生成方式（默认 BitmapEdt），仅影响之后新生成的字形。
     bool LoadFromFile(const std::string& filename, SdfMethod method = SdfMethod::BitmapEdt);
 
-    // 从内存加载字体
+    // 从内存加载字体（拷贝一份）
     bool LoadFromMemory(const unsigned char* data, size_t size, SdfMethod method = SdfMethod::BitmapEdt);
+
+    // 接管外部已读入的字体文件字节（零拷贝，配合后台线程预读使用）
+    bool AdoptFontData(std::vector<unsigned char>&& data, SdfMethod method = SdfMethod::BitmapEdt);
 
     // 当前 SDF 生成方式
     SdfMethod GetSdfMethod() const;
@@ -150,6 +155,7 @@ private:
     uint64_t m_textureAtlasVersion = 0;
     int32_t m_atlasWidth = 1024;
     int32_t m_atlasHeight = 1024;
+    static constexpr int32_t kDefaultAtlasSize = 1024;
     int32_t m_currentX = 1; // 留出1像素边界
     int32_t m_currentY = 1;
     int32_t m_currentRowHeight = 0;

@@ -26,8 +26,8 @@ QNXPlatform::QNXPlatform(const WindowInfo& info) {
     m_window = EGLWindow::create(m_egl, info);
 }
 
-void QNXPlatform::initialize(bool multithread) {
-    Platform::initialize(multithread);
+void QNXPlatform::initialize(bool multithread, const RenderDeviceOptions& deviceOptions) {
+    Platform::initialize(multithread, deviceOptions);
     m_window->initializeIfNeeded();
     ensureRenderCapabilitiesInitialized();
 }
