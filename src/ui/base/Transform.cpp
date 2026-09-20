@@ -14,12 +14,18 @@ Transform::Transform()
       , m_worldMatrix(Matrix4()) {
 }
 
+// 值相等即跳过：布局容器每帧重写相同值是常态，这里必须切断
+// "无变化 → markDirty → 局部矩阵重算 → 整批 VBO 重传"的放大链。
+// 父尺寸变化对子节点局部矩阵的影响由 getWorldMatrix 的 parentChanged
+// 检测兜底（父世界版本变化会强制子节点重算局部矩阵），无需子节点失效。
 void Transform::setPosition(float x, float y, float z) {
+    if (m_localPosition.x == x && m_localPosition.y == y && m_localPosition.z == z) return;
     m_localPosition.set(x, y, z);
     markDirty();
 }
 
 void Transform::setPosition(const Vector3& position) {
+    if (m_localPosition == position) return;
     m_localPosition = position;
     markDirty();
 }
@@ -28,13 +34,17 @@ Vector3 Transform::getPosition() const {
     return m_localPosition;
 }
 
+// float 重载会把 z 强制写 0，因此值比较包含 m_size.z == 0 的判定：
+// 之前经 Vector3 重载设过非零 z 时，这里仍需真实写入。
 void Transform::setSize(float width, float height) {
+    if (m_size.x == width && m_size.y == height && m_size.z == 0.0f) return;
     m_size.set(width, height, 0.0f);
     setDirty();
     notifySizeChange();
 }
 
 void Transform::setSize(const Vector3& size) {
+    if (m_size == size) return;
     m_size = size;
     setDirty();
     notifySizeChange();
@@ -49,11 +59,13 @@ Vector3 Transform::getCenter() const {
 }
 
 void Transform::setScale(float x, float y, float z) {
+    if (m_localScale.x == x && m_localScale.y == y && m_localScale.z == z) return;
     m_localScale.set(x, y, z);
     markDirty();
 }
 
 void Transform::setScale(const Vector3& scale) {
+    if (m_localScale == scale) return;
     m_localScale = scale;
     markDirty();
 }
@@ -63,18 +75,21 @@ Vector3 Transform::getScale() const {
 }
 
 void Transform::setRotation(float x, float y, float z, float w) {
+    if (m_localRotation.x == x && m_localRotation.y == y && m_localRotation.z == z && m_localRotation.w == w) return;
     m_localRotation.set(x, y, z, w);
     markDirty();
 }
 
 void Transform::setRotation(const Quaternion& rotation) {
+    if (m_localRotation == rotation) return;
     m_localRotation = rotation;
     markDirty();
 }
 
 void Transform::setRotation(const Vector3& axis, float angle) {
-    m_localRotation.setFromAxisAngle(axis, angle);
-    markDirty();
+    Quaternion rotation;
+    rotation.setFromAxisAngle(axis, angle);
+    setRotation(rotation);
 }
 
 Quaternion Transform::getRotation() const {
@@ -82,11 +97,13 @@ Quaternion Transform::getRotation() const {
 }
 
 void Transform::setPivot(const Vector3& pivot) {
+    if (m_pivotScreen == pivot) return;
     m_pivotScreen = pivot;
     markDirty();
 }
 
 void Transform::setPivot(float x, float y, float z) {
+    if (m_pivotScreen.x == x && m_pivotScreen.y == y && m_pivotScreen.z == z) return;
     m_pivotScreen.set(x, y, z);
     markDirty();
 }

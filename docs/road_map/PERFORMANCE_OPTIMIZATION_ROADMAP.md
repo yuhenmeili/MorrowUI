@@ -74,38 +74,40 @@
 
 优先级定义：P0 = 收益数量级大且实现代价小，立即推进；P1 = 对两个极致目标有直接 measurable 收益；P2 = 轻量化与平台专项；P3 = 长期方向（需求/数据驱动）。
 
-| 编号 | 优化项 | 优先级 | 类别 | 预期收益 |
-|---|---|---|---|---|
-| O-1 | Release 编译配置（-O2/LTO/gc-sections/strip） | **P0** | 构建 | 全部 CPU 路径 2~5×，体积大幅缩减 |
-| O-2 | 诊断/调试设施量产默认关闭 | **P0** | 构建 | 启动分配与加锁开销归零，体积缩减 |
-| O-3 | 第三方模块裁剪开关（GLTF/Basis 等） | **P0** | 构建 | 纯 2D 核心 UI 二进制显著缩小 |
-| S-1 | 默认字体加载优化（mmap/异步/裁剪） | **P0** | 启动 | 消除 8.4MB 同步读盘 |
-| S-2 | Shader 二进制缓存（glProgramBinary） | **P0** | 启动 | 二次启动省全部编译；变体裁剪降首次成本 |
-| S-3 | CommandBuffer 容量可配置化 | **P0** | 启动/内存 | 48MB 常驻 → MB 级 |
-| S-4 | 消除启动期同步往返（checkSSBOSupport） | P1 | 启动 | 启动关键路径去串行化 |
-| S-5 | 字形 atlas 初始尺寸与扩容策略 | P1 | 启动 | 首帧 CJK 场景尖峰消除 |
-| S-6 | 启动任务并行化时间线 | P1 | 启动 | EGL/字体/shader 并行 |
-| R-1 | SSBO 逐实例填充去字符串查找 | **P1（运行时最大单点）** | 运行时 | 每帧数千次 map+string → 0 |
-| R-2 | uniform location 缓存（渲染线程） | P1 | 运行时 | 消灭每帧驱动侧字符串查询 |
-| R-3 | Transform setter 值相等检查 | **P1（一行改动，切断放大链）** | 运行时 | 布局场景整批 VBO 重传归零 |
-| R-4 | 布局容器脏标记 | P1 | 运行时 | 静止布局零重排 |
-| R-5 | getComponent / 父 Transform 指针缓存 | P1 | 运行时 | 每帧数千次哈希查找+原子操作归零 |
-| R-6 | 热路径杂项清理（requestRender string 等） | P1 | 运行时 | 消除每帧堆分配 |
-| R-7 | eglSwapInterval 显式化 + FPSController 接线 | P1 | 运行时 | 帧节奏可控、防主线程空转 |
-| T-1 | 字形上传脏矩形化 | P1 | 文本 | 新字帧 4MB 上传 → KB 级 |
-| T-2 | 量产预烘焙 SDF atlas | P2 | 文本 | 运行时零光栅化 |
-| M-1 | 节点创建分配预算收敛（池化/共享 quad/UUID） | P2 | 内存 | 45-60 次分配/节点 → 个位数 |
-| M-2 | Material 参数容器槽位化 | P2 | 内存/运行时 | 6 个 string-map → 紧凑结构 |
-| M-3 | RecyclePool 上限与水位统计 | P2 | 内存 | 峰值后内存可归还 |
-| M-4 | KTX2 加载峰值与转码线程化 | P2 | 内存/启动 | 2× 文件峰值消除，主线程尖峰移除 |
-| M-5 | 2D 场景 depth buffer 去除 | P2 | 运行时 | 每帧 clear 带宽减半 |
-| C-1 | Basis/KTX2 数据所有权修复 | **P1（正确性）** | 正确性 | 消除 double-free 风险 |
-| C-2 | Tween 完成判定修复 | P1（正确性） | 正确性 | from==to 的动画不再首帧丢失 |
-| C-3 | CommandBuffer 溢出安全路径 | P2（正确性） | 正确性 | NDEBUG 下不再越界写穿 |
-| Q-1 | QNX 空闲等待事件驱动化 | **P1（静止功耗关键）** | 平台 | 静止 CPU 趋零，唤醒延迟 16.7ms → µs 级 |
-| Q-2 | QNX 输入：阻塞策略 + keyboard/rotary 通道 | P1 | 平台 | 每帧 ~1ms 轮询消除；仪表硬键可用 |
-| Q-3 | 热路径 dynamic_cast 清理 | P2 | 平台/运行时 | present/makeCurrent 每帧 RTTI 消除 |
-| L-1 | Widget 树线性化 / RenderItem SoA | P3 | 架构 | ≤300 节点下收益有限，profiling 驱动 |
+状态截至 2026-09-20（dev 分支 `3960ddb` + R-3 增量）：M1 已合入；M2 曾实施后因 UI 位置错乱**整体回撤**，其中 R-3 已单独重新实施（见第 12 节 M2 状态说明），其余条目回到"未实施"。
+
+| 编号 | 优化项 | 优先级 | 类别 | 预期收益 | 状态 |
+|---|---|---|---|---|---|
+| O-1 | Release 编译配置（-O2/LTO/gc-sections/strip） | **P0** | 构建 | 全部 CPU 路径 2~5×，体积大幅缩减 | ✅ M1 |
+| O-2 | 诊断/调试设施量产默认关闭 | **P0** | 构建 | 启动分配与加锁开销归零，体积缩减 | ✅ M1 |
+| O-3 | 第三方模块裁剪开关（GLTF/Basis 等） | **P0** | 构建 | 纯 2D 核心 UI 二进制显著缩小 | ✅ M1（仅 BASISU；GLTF 推迟） |
+| S-1 | 默认字体加载优化（mmap/异步/裁剪） | **P0** | 启动 | 消除 8.4MB 同步读盘 | ✅ M1（mmap 未做） |
+| S-2 | Shader 二进制缓存（glProgramBinary） | **P0** | 启动 | 二次启动省全部编译；变体裁剪降首次成本 | ✅ M1 |
+| S-3 | CommandBuffer 容量可配置化 | **P0** | 启动/内存 | 48MB 常驻 → MB 级 | ✅ M1 |
+| S-4 | 消除启动期同步往返（checkSSBOSupport） | P1 | 启动 | 启动关键路径去串行化 | ✅ M1 |
+| S-5 | 字形 atlas 初始尺寸与扩容策略 | P1 | 启动 | 首帧 CJK 场景尖峰消除 | ✅ M1 |
+| S-6 | 启动任务并行化时间线 | P1 | 启动 | EGL/字体/shader 并行 | 未实施 |
+| R-1 | SSBO 逐实例填充去字符串查找 | **P1（运行时最大单点）** | 运行时 | 每帧数千次 map+string → 0 | 未实施（曾实施已回撤） |
+| R-2 | uniform location 缓存（渲染线程） | P1 | 运行时 | 消灭每帧驱动侧字符串查询 | 未实施（曾实施已回撤） |
+| R-3 | Transform setter 值相等检查 | **P1（一行改动，切断放大链）** | 运行时 | 布局场景整批 VBO 重传归零 | ✅ 2026-09-20 单独实施 |
+| R-4 | 布局容器脏标记 | P1 | 运行时 | 静止布局零重排 | 未实施（曾实施已回撤） |
+| R-5 | getComponent / 父 Transform 指针缓存 | P1 | 运行时 | 每帧数千次哈希查找+原子操作归零 | 未实施（曾实施已回撤） |
+| R-6 | 热路径杂项清理（requestRender string 等） | P1 | 运行时 | 消除每帧堆分配 | 未实施（曾实施已回撤） |
+| R-7 | eglSwapInterval 显式化 + FPSController 接线 | P1 | 运行时 | 帧节奏可控、防主线程空转 | 未实施 |
+| T-1 | 字形上传脏矩形化 | P1 | 文本 | 新字帧 4MB 上传 → KB 级 | 未实施（曾实施已回撤） |
+| T-2 | 量产预烘焙 SDF atlas | P2 | 文本 | 运行时零光栅化 | 未实施 |
+| M-1 | 节点创建分配预算收敛（池化/共享 quad/UUID） | P2 | 内存 | 45-60 次分配/节点 → 个位数 | 未实施 |
+| M-2 | Material 参数容器槽位化 | P2 | 内存/运行时 | 6 个 string-map → 紧凑结构 | 未实施 |
+| M-3 | RecyclePool 上限与水位统计 | P2 | 内存 | 峰值后内存可归还 | 未实施 |
+| M-4 | KTX2 加载峰值与转码线程化 | P2 | 内存/启动 | 2× 文件峰值消除，主线程尖峰移除 | 未实施 |
+| M-5 | 2D 场景 depth buffer 去除 | P2 | 运行时 | 每帧 clear 带宽减半 | 未实施 |
+| C-1 | Basis/KTX2 数据所有权修复 | **P1（正确性）** | 正确性 | 消除 double-free 风险 | ✅ M1 |
+| C-2 | Tween 完成判定修复 | P1（正确性） | 正确性 | from==to 的动画不再首帧丢失 | 未实施（曾实施已回撤） |
+| C-3 | CommandBuffer 溢出安全路径 | P2（正确性） | 正确性 | NDEBUG 下不再越界写穿 | ✅ M1（随 S-3 落地） |
+| Q-1 | QNX 空闲等待事件驱动化 | **P1（静止功耗关键）** | 平台 | 静止 CPU 趋零，唤醒延迟 16.7ms → µs 级 | 未实施 |
+| Q-2 | QNX 输入：阻塞策略 + keyboard/rotary 通道 | P1 | 平台 | 每帧 ~1ms 轮询消除；仪表硬键可用 | 未实施 |
+| Q-3 | 热路径 dynamic_cast 清理 | P2 | 平台/运行时 | present/makeCurrent 每帧 RTTI 消除 | 未实施 |
+| L-1 | Widget 树线性化 / RenderItem SoA | P3 | 架构 | ≤300 节点下收益有限，profiling 驱动 | 未实施 |
 
 ---
 
@@ -490,6 +492,21 @@ UIInstanceData 每实例 6 字段（`SSBOLayoutBuilder.h:32-50`），300 实例 
 7. C-1 Basis/KTX2 所有权修复（正确性，随 M1 带上）。
 
 ### M2：动效运行时（目标：满负荷动效主线程 < 2ms @Release）
+
+> **实施状态（2026-09-20，dev 分支）**：M2 曾于 2026-09-19 全部实施（阶段耗时采集、R-1~R-6、T-1、C-2 及 MeshFilter/MeshRenderer/Shadow 组件缓存），随后在真实 demo 中出现 **UI 位置重叠错乱**（元素堆叠/缺失）。经两轮修复与端到端诊断（世界矩阵数值 + 帧缓冲像素双层校验，单线程路径全部通过）未能定位根因，**全部改动已于 2026-09-20 回撤**，代码回到 M1 状态。
+>
+> **R-3 已于 2026-09-20 单独重新实施**（值相等检查本身无害，位置错乱根因大概率在 R-1 增量填充一侧）：
+>
+> - **实现**：`setPosition/setSize/setScale/setRotation/setPivot` 全部 setter 前置值比较，值未变直接 return（NaN 因 `NaN != NaN` 恒不等不会被吞；`setSize(float,float)` 的比较含 `m_size.z == 0` 以保留该重载强制写 z=0 的语义）。`setSize` 值未变时连 `notifySizeChange` 都不触发，MeshFilter 几何重建随之归零（7.3 优化方向第 2 条自动覆盖）。
+> - **关键架构确认（修正此前记录）**：上次记录的"子节点局部矩阵依赖父尺寸、无版本跟踪"缺口**实际不存在**——`Transform::getWorldMatrix` 的 `parentChanged` 检测（缓存父世界版本比对）会在父世界版本变化时强制重算子节点局部矩阵，重新读取父尺寸。因此 R-3 纯值比较是安全的，**无需**上次附加的 `invalidateChildrenOffset`（当时修的是不存在的缺口，也侧面说明错乱根因不在 R-3）。注意 `getLocalMatrix()` 单独调用不含 parentChanged 检测（引擎内无外部调用点，仅 getWorldMatrix 路径，行为无害）。
+> - **验证**：新增 `tests/TransformValueCheckTests.cpp`（同值无操作/监听跳过、父尺寸后置与运行中传导、孙节点复合抵消不变量、NaN 不吞、z 语义）；重建 `samples/PosDiag.cpp` 端到端诊断（绝对定位/父尺寸运行中 resize/HBox/Margin 四场景，单线程矩阵+像素双层、`--mt` 多线程矩阵校验）。Debug 27/27 单测全过；Release 同套验证全过；ControlsDemo/AnimationEffectsDemo 冒烟无异常。
+> - **测试期间发现的测试数学错误（非引擎错误）**：孙节点世界位置在直接父节点 resize 时不变——middle 局部平移含 `+middleW/2`、leaf 局部平移含 `-middleW/2`，两者相抵（子节点按自身左上语义锚定）。
+>
+> 其余条目暂缓整体推进，重新实施时建议：
+>
+> 1. **先补位置回归测试再动代码**：端到端校验（矩阵数值 + glReadPixels 像素）必须覆盖 **`multithread = true` 默认路径**（`EngineOptions::multithread` 默认即为 true）——上一轮诊断只覆盖单线程；异步纹理加载导致的批次成员跨帧变化、渲染线程时序均未被触达（PosDiag 已支持 `--mt`）；
+> 2. **分条小步合入**：按 R-5 → R-2 → R-1 → R-4 → R-6 → T-1 → C-2 逐条独立验证（构建 + 单测 + demo 视觉确认）后再进下一条，避免再次整体回撤；
+> 3. 回撤前未验证完的头号嫌疑，重做 R-1 时优先排查：SSBO 增量填充在"批次实例数量不变但成员重排"及多线程时序下的正确性。
 
 1. 最小版性能时间线（阶段耗时分离，兼作 M2 验收工具）；
 2. R-3 Transform 值检查（先行，一行级改动立即止血布局场景）；
