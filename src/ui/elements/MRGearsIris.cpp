@@ -29,12 +29,10 @@ void MRGearsIris::initialize() {
     m_material->setVector("gridColor", m_options->gridColor);
 
     auto timeTween = Tween::create(0.0f, 1.0f, 1.0f);
+    timeTween->setLoop(-1);
     timeTween->setEase(EaseType::Linear)
                 .onUpdate([this](float value) {
                     m_material->setFloat("timeDelta", value);
-                })
-                .onComplete([timeTween]() {
-                    timeTween->restart();
                 });
 
     timeTween->play();

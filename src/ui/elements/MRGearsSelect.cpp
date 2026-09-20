@@ -36,12 +36,10 @@ void MRGearsSelect::initialize()
     m_material->setFloat("pointSize", m_options->pointSize);
 
     auto timeTween = Tween::create(0.0f, 1.0f, 2.0f);
+    timeTween->setLoop(-1);
     timeTween->setEase(EaseType::Linear)
                 .onUpdate([this](float value) {
                     m_material->setFloat("alpha", value);
-                })
-                .onComplete([timeTween]() {
-                    timeTween->restart();
                 });
 
     timeTween->play();

@@ -178,15 +178,17 @@ int main() {
         window->addChild(image);
     }
     {
-        // 呼吸动画：alpha 是 SSBO 每实例属性，动画不影响合批
+        // 呼吸动画：alpha 是 SSBO 每实例属性，动画不影响合批；
+        // 循环由 Tween 架构保证（setLoop(-1) 无限循环），不依赖完成回调里 restart
         auto wallTween = Tween::create(0.0f, 1.0f, 2.0f);
+        wallTween->setLoop(-1);
         wallTween->setEase(EaseType::Linear).onUpdate([wallImages](float value) {
             for (size_t i = 0; i < wallImages.size(); ++i) {
                 const float phase = value + static_cast<float>(i) * 0.1f;
                 const float alpha = 0.55f + 0.45f * std::sin(phase * 3.14159265f * 2.0f);
                 wallImages[i]->getComponent<MeshRenderer>()->getMaterial()->setFloat("alpha", alpha);
             }
-        }).onComplete([wallTween]() { wallTween->restart(); });
+        });
         wallTween->play();
         TweenManager::getInstance().addTween(wallTween);
     }

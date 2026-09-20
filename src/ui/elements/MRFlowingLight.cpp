@@ -24,13 +24,10 @@ void MRFlowingLight::initialize() {
 
 
     auto timeTween = Tween::create(0.0f, 2.0f, 2.0f);
+    timeTween->setLoop(-1);
     timeTween->setEase(EaseType::Linear)
              .onUpdate([this](float value) {
                  m_material->setFloat("timeDelta", value);
-             })
-             .onComplete([timeTween]() {
-                 // LOG_I("缩放动画完成!");
-                 timeTween->restart();
              });
 
     timeTween->play();

@@ -112,9 +112,10 @@ int main() {
     window->addChild(animatedBar);
 
     auto tween = Tween::create(0.0f, 1.0f, 2.0f);
+    tween->setLoop(-1);
     tween->setEase(EaseType::Linear).onUpdate([animatedBar](float value) {
         animatedBar->setProgress(value);
-    }).onComplete([tween]() { tween->restart(); });
+    });
     tween->play();
     TweenManager::getInstance().addTween(tween);
 

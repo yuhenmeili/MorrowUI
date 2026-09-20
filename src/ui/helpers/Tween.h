@@ -36,6 +36,11 @@ public:
     // 设置缓动类型
     Tween& setEase(EaseType easeType);
 
+    // 循环次数：<0 无限循环；1（默认）播放一次；N>1 共播放 N 轮。
+    // 循环 tween 的 onComplete 只在全部轮次结束后触发一次；
+    // 每轮边界不产生回调，相位由超出部分结转保持。
+    Tween& setLoop(int loopCount);
+
     // 设置更新回调
     Tween& onUpdate(TweenCallback callback);
 
@@ -44,19 +49,27 @@ public:
 
     // 控制方法
     void play();
+
     void pause();
+
     void stop();
+
     void restart();
 
     // 更新方法（每帧调用）
     void update(FrameStateSharedPtr frameState);
 
     // 获取当前值
-    float getCurrentValue() const { return m_currentValue; }
+    float getCurrentValue() const;
 
-    float getTargetValue() const {return m_to;}
+    float getTargetValue() const;
 
-    bool isPlaying() const { return m_state == TweenState::Playing; }
+    bool isPlaying() const;
+
+    /// 自然播放到时长终点后置位（play/restart 复位）。
+    /// TweenManager 以此回收 tween——不能用 currentValue==target 判完成：
+    /// 循环 tween 在每轮边界值等于 target 但必须继续播放（见 setLoop）。
+    bool isFinished() const;
 
 private:
     Tween(float from, float to, float duration);
@@ -71,6 +84,9 @@ private:
     float m_currentValue;
     EaseType m_easeType;
     TweenState m_state;
+    int m_loopCount = 1;
+    int m_loopsDone = 0;
+    bool m_finished = false;
     TweenCallback m_updateCallback;
     TweenCompleteCallback m_completeCallback;
 };
@@ -82,12 +98,16 @@ public:
     static TweenManager& getInstance();
 
     void addTween(TweenSharedPtr tween);
+
     void update(FrameStateSharedPtr frameState);
+
     void removeAllTweens();
+
     void killTween(TweenSharedPtr tween);
 
 private:
     TweenManager() = default;
+
     std::vector<TweenSharedPtr> m_tweens;
 };
 } // namespace morrow

@@ -73,10 +73,9 @@ int main() {
     window->addChild(anchorScale);
 
     auto scaleTween = Tween::create(0.15f, 1.0f, 1.5f);
+    scaleTween->setLoop(-1);
     scaleTween->setEase(EaseType::Linear).onUpdate([anchorTransform](float value) {
         anchorTransform->setScale(value, value, 1.0f);
-    }).onComplete([scaleTween]() {
-        scaleTween->restart();
     });
     scaleTween->play();
     TweenManager::getInstance().addTween(scaleTween);
@@ -98,10 +97,9 @@ int main() {
     window->addChild(bounce);
 
     auto bounceTween = Tween::create(0.0f, 1.0f, 1.0f);
+    bounceTween->setLoop(-1);
     bounceTween->setEase(EaseType::Linear).onUpdate([bounceMaterial](float value) {
         bounceMaterial->setFloat("timeDelta", value);
-    }).onComplete([bounceTween]() {
-        bounceTween->restart();
     });
     bounceTween->play();
     TweenManager::getInstance().addTween(bounceTween);
@@ -125,10 +123,9 @@ int main() {
     window->addChild(brakePedal);
 
     auto brakeTween = Tween::create(0.0f, 1.0f, 1.0f);
+    brakeTween->setLoop(-1);
     brakeTween->setEase(EaseType::Linear).onUpdate([brakeMaterial](float value) {
         brakeMaterial->setFloat("timeDelta", value);
-    }).onComplete([brakeTween]() {
-        brakeTween->restart();
     });
     brakeTween->play();
     TweenManager::getInstance().addTween(brakeTween);

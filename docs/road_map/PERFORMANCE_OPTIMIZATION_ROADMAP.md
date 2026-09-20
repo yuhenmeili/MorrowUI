@@ -102,7 +102,7 @@
 | M-4 | KTX2 加载峰值与转码线程化 | P2 | 内存/启动 | 2× 文件峰值消除，主线程尖峰移除 | 未实施 |
 | M-5 | 2D 场景 depth buffer 去除 | P2 | 运行时 | 每帧 clear 带宽减半 | 未实施 |
 | C-1 | Basis/KTX2 数据所有权修复 | **P1（正确性）** | 正确性 | 消除 double-free 风险 | ✅ M1 |
-| C-2 | Tween 完成判定修复 | P1（正确性） | 正确性 | from==to 的动画不再首帧丢失 | 未实施（曾实施已回撤） |
+| C-2 | Tween 完成判定修复 | P1（正确性） | 正确性 | from==to 的动画不再首帧丢失 | ✅ 2026-09-20 单独实施（含 setLoop 架构级循环） |
 | C-3 | CommandBuffer 溢出安全路径 | P2（正确性） | 正确性 | NDEBUG 下不再越界写穿 | ✅ M1（随 S-3 落地） |
 | Q-1 | QNX 空闲等待事件驱动化 | **P1（静止功耗关键）** | 平台 | 静止 CPU 趋零，唤醒延迟 16.7ms → µs 级 | 未实施 |
 | Q-2 | QNX 输入：阻塞策略 + keyboard/rotary 通道 | P1 | 平台 | 每帧 ~1ms 轮询消除；仪表硬键可用 | 未实施 |
@@ -501,6 +501,15 @@ UIInstanceData 每实例 6 字段（`SSBOLayoutBuilder.h:32-50`），300 实例 
 > - **关键架构确认（修正此前记录）**：上次记录的"子节点局部矩阵依赖父尺寸、无版本跟踪"缺口**实际不存在**——`Transform::getWorldMatrix` 的 `parentChanged` 检测（缓存父世界版本比对）会在父世界版本变化时强制重算子节点局部矩阵，重新读取父尺寸。因此 R-3 纯值比较是安全的，**无需**上次附加的 `invalidateChildrenOffset`（当时修的是不存在的缺口，也侧面说明错乱根因不在 R-3）。注意 `getLocalMatrix()` 单独调用不含 parentChanged 检测（引擎内无外部调用点，仅 getWorldMatrix 路径，行为无害）。
 > - **验证**：新增 `tests/TransformValueCheckTests.cpp`（同值无操作/监听跳过、父尺寸后置与运行中传导、孙节点复合抵消不变量、NaN 不吞、z 语义）；重建 `samples/PosDiag.cpp` 端到端诊断（绝对定位/父尺寸运行中 resize/HBox/Margin 四场景，单线程矩阵+像素双层、`--mt` 多线程矩阵校验）。Debug 27/27 单测全过；Release 同套验证全过；ControlsDemo/AnimationEffectsDemo 冒烟无异常。
 > - **测试期间发现的测试数学错误（非引擎错误）**：孙节点世界位置在直接父节点 resize 时不变——middle 局部平移含 `+middleW/2`、leaf 局部平移含 `-middleW/2`，两者相抵（子节点按自身左上语义锚定）。
+>
+> **C-2 已于 2026-09-20 单独重新实施（含架构级循环）**：
+>
+> - **问题陈述（修正）**：旧实现 `TweenManager` 用 `currentValue == targetValue` 浮点相等判完成。`from != to` 的常规路径完全正常（onUpdate 每帧、onComplete 到点触发后被回收）。唯一分歧场景是 `from == to`：第 1 帧 onUpdate 带正确值正常触发，但 tween 随即被回收，completion 分支永远走不到，**onComplete 不触发**（已对照旧代码实测确认）。
+> - **实现**：`Tween` 增加 `m_finished`/`isFinished()`——仅在自然播放到时长终点时置位，`play()`（含 restart 路径）复位，`stop()` 不置位（保持可复播语义）；manager 回收条件改为 `isFinished()`。在 `from != to` 时与旧判定等价，差异仅在 `from == to`。
+> - **架构级循环 `setLoop(loopCount)`**：`<0` 无限循环、`1`（默认）单次、`N>1` 共 N 轮；每轮边界不产生回调，超出时长结转保持相位；onComplete 仅全部轮次结束后触发一次；`duration<=0` 立即完成（防除零/空转）。**循环语义必须由状态化完成判定支撑**：循环 tween 在每轮边界值恰好等于 target 且必须继续播，值相等回收会把循环动画杀掉——旧的"onComplete 里 restart"能存活只是因为 `restart→stop()` 恰好把值重置回 from。回调内 restart 的旧用法仍兼容（play 复位 finished）。
+> - **ImageDemo 已切换**：呼吸动画改用 `setLoop(-1)`，移除 onComplete 内 restart（顺带消除 tween 在自身回调里捕获自身 shared_ptr 的引用环）。
+> - **restart 调用点已全量清理（2026-09-20）**：全仓库 9 处 onComplete-restart 循环全部改为 `setLoop(-1)`——引擎元素 5 处（MRFlowingLight / MRGearsOpening / MRGearsShine / MRGearsSelect / MRGearsIris，模式均为线性 tween 驱动 shader time uniform）、demo 4 处（AnimationEffectsDemo ×3、RangeControlsDemo ×1）。回调内 restart 现仅作为兼容语义保留（Tween::restart 本身保留，用于手动重播）。
+> - **验证**：本地对照验证 7 组场景全过（from==to 全时长 + onComplete 一次、无限循环不回收不完成、3 轮有限循环中途不完成/结束后恰好一次、回调内 restart 兼容、常规完成一次性、stop 冻结可复播、kill 不完成）；全量构建 26/26 单测过；ImageDemo Release 冒烟无异常。
 >
 > 其余条目暂缓整体推进，重新实施时建议：
 >
