@@ -5,10 +5,12 @@
 #ifndef MORROW_TEXTURE_H
 #define MORROW_TEXTURE_H
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "DriverEnums.h"
 #include "FrameState.h"
@@ -25,6 +27,9 @@ struct TextureInfo {
     std::string textureName;
 
     std::string imageUrl;
+    /// 内存中的编码图像字节（png/jpg/basis/ktx2），作为与 imageUrl 互斥的像素来源，
+    /// 首次渲染时按魔数识别格式并从内存解码。
+    std::shared_ptr<std::vector<unsigned char>> encodedImageData;
     std::shared_ptr<unsigned char> textureDataSharedPtr;
     std::shared_ptr<std::vector<unsigned char>> textureDataBuffer;
     void* textureDataRawPtr = nullptr;
@@ -55,6 +60,13 @@ public:
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~options~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Texture& setImageUrl(const std::string& imageUrl);
+
+    /// 直接注入编码图像字节（png/jpg/basis/ktx2，按魔数自动识别格式），
+    /// 首次渲染时从内存解码，是 setImageUrl 的内存版本；与 setImageUrl 互斥。
+    Texture& setImageBuffer(std::shared_ptr<std::vector<unsigned char>> imageData);
+
+    /// 便捷重载：拷贝 [data, data + size) 后注入，语义同上。
+    Texture& setImageBuffer(const unsigned char* data, size_t size);
 
     Texture& setTextureData(std::shared_ptr<unsigned char> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format = PixelDataFormat::RGBA, int32_t bytes = 0,
                             bool compressedTexture = false);
@@ -119,6 +131,17 @@ private:
     void startLoadBasis();
 
     void startLoadKtx2();
+
+    /// 解码 encodedImageData：按魔数分派到 stb/basis/ktx2 内存解码路径。
+    void startLoadImageBuffer();
+
+    /// 用 stb 从内存解码 png/jpg 等常规编码格式。
+    void decodeStbImageFromMemory(const unsigned char* data, size_t size);
+
+#if MORROW_ENABLE_BASISU
+    /// basis/ktx2 转码完成后的公共装配：basisData 别名、尺寸与 onLoaded。
+    void finishBasisuLoad(uint32_t width, uint32_t height, bool compressed);
+#endif
 
     void reUploadTexture(const char* result);
 

@@ -26,6 +26,22 @@ void BasisTextureLoader::load(const std::string& fileUrl, basisu::vector<uint8_t
     fread(m_file.data(), 1, fileSize, file);
     fclose(file);
 
+    decode(result, glFormat);
+}
+
+void BasisTextureLoader::loadFromMemory(const uint8_t* fileData, size_t fileSize, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat)
+{
+    if (!fileData || fileSize == 0) {
+        LOG_I("basis loadFromMemory: empty data");
+        return;
+    }
+    m_file.resize(fileSize);
+    memcpy(m_file.data(), fileData, fileSize);
+    decode(result, glFormat);
+}
+
+void BasisTextureLoader::decode(basisu::vector<uint8_t>& result, PixelDataFormat& glFormat)
+{
     if (!m_transcoder.validate_header(m_file.data(), m_file.size())) {
         LOG_I("basis_file::basis_file: m_transcoder.validate_header() failed!\n");
         m_file.clear();
@@ -35,16 +51,6 @@ void BasisTextureLoader::load(const std::string& fileUrl, basisu::vector<uint8_t
         LOG_I("Unable to start transcoding");
         return;
     }
-//    LOG_I("GL_COMPRESSED_R11_EAC supported %d", RENDERINGTHREAD->isTextureFormatSupported(GL_COMPRESSED_R11_EAC));
-//    LOG_I("GL_COMPRESSED_SIGNED_R11_EAC supported %d", RENDERINGTHREAD->isTextureFormatSupported(GL_COMPRESSED_SIGNED_R11_EAC));
-//    LOG_I("GL_COMPRESSED_RG11_EAC supported %d", RENDERINGTHREAD->isTextureFormatSupported(GL_COMPRESSED_RG11_EAC));
-//    LOG_I("GL_COMPRESSED_SIGNED_RG11_EAC supported %d", RENDERINGTHREAD->isTextureFormatSupported(GL_COMPRESSED_SIGNED_RG11_EAC));
-//    LOG_I("GL_COMPRESSED_RGB8_ETC2 supported %d", RENDERINGTHREAD->isTextureFormatSupported(GL_COMPRESSED_RGB8_ETC2));
-//    LOG_I("GL_COMPRESSED_SRGB8_ETC2 supported %d", RENDERINGTHREAD->isTextureFormatSupported(GL_COMPRESSED_SRGB8_ETC2));
-//    LOG_I("GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2 supported %d", RENDERINGTHREAD->isTextureFormatSupported(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2));
-//    LOG_I("GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2 supported %d", RENDERINGTHREAD->isTextureFormatSupported(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2));
-//    LOG_I("GL_COMPRESSED_RGBA8_ETC2_EAC supported %d", RENDERINGTHREAD->isTextureFormatSupported(GL_COMPRESSED_RGBA8_ETC2_EAC));
-//    LOG_I("GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC supported %d", RENDERINGTHREAD->isTextureFormatSupported(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC));
 
     transcoder_texture_format format = resolveTextureFormat(); // Or another supported format
     if (!transcodeImage(result, 0, 0, int(format), 0, 0)) {

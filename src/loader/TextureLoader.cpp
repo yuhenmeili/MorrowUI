@@ -18,6 +18,11 @@ unsigned char* TextureFromFile::load(char const* imageUri, int32_t* imageWidth, 
     return stbi_load(imageUri, imageWidth, imageHeight, comp, req_comp);
 }
 
+unsigned char* TextureFromFile::loadFromMemory(unsigned char const* imageData, size_t imageSize, int32_t* imageWidth, int32_t* imageHeight, int32_t* comp, int32_t req_comp)
+{
+    return stbi_load_from_memory(imageData, static_cast<int>(imageSize), imageWidth, imageHeight, comp, req_comp);
+}
+
 float* TextureFromFile::loadFloat(char const* imageUri, int32_t* imageWidth, int32_t* imageHeight, int32_t* comp, int32_t req_comp)
 {
     return stbi_loadf(imageUri, imageWidth, imageHeight, comp, req_comp);

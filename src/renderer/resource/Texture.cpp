@@ -4,6 +4,7 @@
 
 #include "Texture.h"
 
+#include <cstring>
 #include <fstream>
 #include <iostream>
 
@@ -24,7 +25,26 @@ namespace {
 bool isCompressedPixelFormat(PixelDataFormat format) {
     return format == PixelDataFormat::COMPRESSED_RGB8_ETC2 || format == PixelDataFormat::COMPRESSED_RGBA8_ETC2_EAC;
 }
+
+/// 内存编码图像的格式识别结果。
+enum class EncodedImageKind {
+    StbImage, ///< png/jpg/bmp 等 stb 支持的常规格式
+    Basis,    ///< .basis（文件头 2 字节小端序 "sB"）
+    Ktx2,     ///< .ktx2（标识符 «KTX 20»）
+};
+
+/// 按魔数识别编码格式；无法识别的交给 stb 尝试。
+EncodedImageKind sniffEncodedImageKind(const unsigned char* data, size_t size) {
+    static constexpr unsigned char kKtx2Magic[] = {0xAB, 'K', 'T', 'X', ' ', '2', '0', 0xBB};
+    if (size >= sizeof(kKtx2Magic) && std::memcmp(data, kKtx2Magic, sizeof(kKtx2Magic)) == 0) {
+        return EncodedImageKind::Ktx2;
+    }
+    if (size >= 2 && data[0] == 's' && data[1] == 'B') {
+        return EncodedImageKind::Basis;
+    }
+    return EncodedImageKind::StbImage;
 }
+} // namespace
 
 namespace morrow {
 TextureSharedPtr Texture::create(ImageType imageType) {
@@ -51,6 +71,7 @@ Texture& Texture::setImageUrl(const std::string& imageUrl) {
     if (m_textureInfo->imageUrl != imageUrl) {
         LOG_I("setImageUrl {}", imageUrl);
         m_textureInfo->imageUrl = imageUrl;
+        m_textureInfo->encodedImageData.reset();
         m_textureInfo->textureDataSharedPtr.reset();
         m_textureInfo->textureDataRawPtr = nullptr;
         m_textureInfo->textureNeedUpLoad = true;
@@ -58,6 +79,32 @@ Texture& Texture::setImageUrl(const std::string& imageUrl) {
         REQUESTRENDER;
     }
     return *this;
+}
+
+Texture& Texture::setImageBuffer(std::shared_ptr<std::vector<unsigned char>> imageData) {
+    LOG_I("setImageBuffer {} bytes", imageData ? imageData->size() : 0);
+    m_textureInfo->imageUrl.clear();
+    // 先释放对旧 basisData 的别名引用，再清理转码像素，避免别名悬空。
+    m_textureInfo->textureDataSharedPtr.reset();
+    m_textureInfo->textureDataBuffer.reset();
+    m_textureInfo->textureDataRawPtr = nullptr;
+#if MORROW_ENABLE_BASISU
+    m_textureInfo->basisData.clear();
+#endif
+    m_textureInfo->encodedImageData = std::move(imageData);
+    m_textureInfo->gpuUseCompleteCallback = {};
+    m_textureInfo->textureNeedUpLoad = true;
+    ++m_revision;
+    REQUESTRENDER;
+    return *this;
+}
+
+Texture& Texture::setImageBuffer(const unsigned char* data, size_t size) {
+    if (!data || size == 0) {
+        return setImageBuffer(std::shared_ptr<std::vector<unsigned char>>());
+    }
+    auto imageData = std::make_shared<std::vector<unsigned char>>(data, data + size);
+    return setImageBuffer(std::move(imageData));
 }
 
 Texture& Texture::setTextureData(std::shared_ptr<unsigned char> textureData, int32_t imageWidth, int32_t imageHeight, PixelDataFormat format, int32_t bytes,
@@ -203,8 +250,11 @@ void Texture::render(FrameStateSharedPtr frameState) {
         if (m_textureInfo->textureNeedUpLoad) {
             if (m_textureInfo->imageType == ImageType::IMAGE) {
                 if (!m_textureInfo->textureDataSharedPtr && !m_textureInfo->textureDataRawPtr) {
+                    if (m_textureInfo->encodedImageData) {
+                        startLoadImageBuffer();
+                    }
 #if MORROW_ENABLE_BASISU
-                    if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".basis")) {
+                    else if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".basis")) {
                         startLoadBasis();
                     } else if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".ktx2")) {
                         startLoadKtx2();
@@ -212,13 +262,14 @@ void Texture::render(FrameStateSharedPtr frameState) {
                         startLoadImage();
                     }
 #else
-                    if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".basis") ||
-                        ToolUtils::endsWith(m_textureInfo->imageUrl, ".ktx2")) {
+                    else if (ToolUtils::endsWith(m_textureInfo->imageUrl, ".basis") ||
+                             ToolUtils::endsWith(m_textureInfo->imageUrl, ".ktx2")) {
                         LOG_E("texture {} requires MORROW_ENABLE_BASISU=ON", m_textureInfo->imageUrl);
                         m_textureInfo->textureNeedUpLoad = false;
                         return;
+                    } else {
+                        startLoadImage();
                     }
-                    startLoadImage();
 #endif
                 }
             }
@@ -299,18 +350,7 @@ void Texture::startLoadBasis() {
     auto loader = std::make_shared<BasisTextureLoader>();
     loader->load(m_textureInfo->imageUrl, m_textureInfo->basisData, m_textureInfo->format);
     auto imageInfo = loader->getImageDesc(0);
-    // basisData（basisu::vector）保持像素所有权；textureDataSharedPtr 仅作
-    // 别名视图：deleter 持有 TextureInfo 引用保证像素存活到 GPU 上传命令
-    // 执行完毕，最后一个引用释放时归还 basisData。此前用 delete[] 包装
-    // vector 内部指针，会在 deployTexture 的 reset() 与 vector 析构时双重释放。
-    m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(
-        m_textureInfo->basisData.data(),
-        [owner = m_textureInfo](unsigned char*) { owner->basisData.clear(); });
-    m_textureInfo->imageWidth = imageInfo.m_width;
-    m_textureInfo->imageHeight = imageInfo.m_height;
-    m_textureInfo->compressedTexture = isCompressedPixelFormat(m_textureInfo->format);
-    m_textureInfo->bytes = m_textureInfo->basisData.size();
-    m_onLoaded.notify();
+    finishBasisuLoad(imageInfo.m_width, imageInfo.m_height, isCompressedPixelFormat(m_textureInfo->format));
 #endif
 }
 
@@ -322,17 +362,88 @@ void Texture::startLoadKtx2() {
         m_textureInfo->basisData.clear();
         return;
     }
-    // 所有权语义同 startLoadBasis：basisData 持有，shared_ptr 仅作生命周期别名。
+    finishBasisuLoad(loader->getWidth(), loader->getHeight(), loader->isCompressed());
+#endif
+}
+
+void Texture::startLoadImageBuffer() {
+    auto& encodedImageData = m_textureInfo->encodedImageData;
+    if (!encodedImageData || encodedImageData->empty()) {
+        encodedImageData.reset();
+        return;
+    }
+    const auto* data = encodedImageData->data();
+    const auto size = encodedImageData->size();
+    const auto kind = sniffEncodedImageKind(data, size);
+#if MORROW_ENABLE_BASISU
+    if (kind == EncodedImageKind::Basis) {
+        auto loader = std::make_shared<BasisTextureLoader>();
+        loader->loadFromMemory(data, size, m_textureInfo->basisData, m_textureInfo->format);
+        auto imageInfo = loader->getImageDesc(0);
+        finishBasisuLoad(imageInfo.m_width, imageInfo.m_height, isCompressedPixelFormat(m_textureInfo->format));
+    } else if (kind == EncodedImageKind::Ktx2) {
+        auto loader = std::make_shared<Ktx2TextureLoader>();
+        if (!loader->loadFromMemory(data, size, m_textureInfo->basisData, m_textureInfo->format)) {
+            LOG_I("loadKtx2FromMemory failed ({})", m_textureInfo->textureName);
+            m_textureInfo->basisData.clear();
+        } else {
+            finishBasisuLoad(loader->getWidth(), loader->getHeight(), loader->isCompressed());
+        }
+    } else {
+        decodeStbImageFromMemory(data, size);
+    }
+#else
+    if (kind != EncodedImageKind::StbImage) {
+        LOG_E("texture buffer {} requires MORROW_ENABLE_BASISU=ON", m_textureInfo->textureName);
+    } else {
+        decodeStbImageFromMemory(data, size);
+    }
+#endif
+    // 解码只尝试一次：无论成败都释放编码字节，避免每次渲染重复解码。
+    encodedImageData.reset();
+}
+
+void Texture::decodeStbImageFromMemory(const unsigned char* data, size_t size) {
+    LOG_I("start loadImageFromMemory {}", getImageInfo());
+    int32_t comp;
+    int32_t re_comp = PixelFormat::componentsLength(m_textureInfo->format);
+    unsigned char* textureData = TextureFromFile::loadFromMemory(data, size, &m_textureInfo->imageWidth, &m_textureInfo->imageHeight, &comp, re_comp);
+    if (!textureData) {
+        LOG_I("loadImageFromMemory failed, {} bytes", size);
+        m_textureInfo->textureDataSharedPtr.reset();
+        return;
+    }
+
+    /// shared_ptr will take the ownership of the raw pointer
+    /// free is not needed
+    /// stbi_image_free(textureData);
+    m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(textureData, [](unsigned char* ptr) { TextureFromFile::free(ptr); });
+
+    m_textureInfo->bytes = m_textureInfo->imageWidth * m_textureInfo->imageHeight * re_comp;
+    m_textureInfo->compressedTexture = false;
+    m_onLoaded.notify();
+}
+
+#if MORROW_ENABLE_BASISU
+void Texture::finishBasisuLoad(uint32_t width, uint32_t height, bool compressed) {
+    if (m_textureInfo->basisData.empty()) {
+        // 转码失败：保持无像素状态，由 render() 的 needUpLoad=false 终止重试。
+        return;
+    }
+    // basisData（basisu::vector）保持像素所有权；textureDataSharedPtr 仅作
+    // 别名视图：deleter 持有 TextureInfo 引用保证像素存活到 GPU 上传命令
+    // 执行完毕，最后一个引用释放时归还 basisData。此前用 delete[] 包装
+    // vector 内部指针，会在 deployTexture 的 reset() 与 vector 析构时双重释放。
     m_textureInfo->textureDataSharedPtr = std::shared_ptr<unsigned char>(
         m_textureInfo->basisData.data(),
         [owner = m_textureInfo](unsigned char*) { owner->basisData.clear(); });
-    m_textureInfo->imageWidth = loader->getWidth();
-    m_textureInfo->imageHeight = loader->getHeight();
-    m_textureInfo->compressedTexture = loader->isCompressed();
-    m_textureInfo->bytes = m_textureInfo->basisData.size();
+    m_textureInfo->imageWidth = static_cast<int32_t>(width);
+    m_textureInfo->imageHeight = static_cast<int32_t>(height);
+    m_textureInfo->compressedTexture = compressed;
+    m_textureInfo->bytes = static_cast<int32_t>(m_textureInfo->basisData.size());
     m_onLoaded.notify();
-#endif
 }
+#endif
 
 void Texture::reUploadTexture(const char* result) {
     m_textureInfo->textureNeedUpLoad = true;

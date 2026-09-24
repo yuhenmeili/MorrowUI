@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <fstream>
+#include <iterator>
+#include <sstream>
 #include "AtlasParser.h"
 
 #include "ToolUtils.h"
@@ -52,17 +54,32 @@ std::vector<int32_t> AtlasFrame::findValue(const std::string& name) const {
 }
 
 void AtlasParser::parse(const std::string& atlasFilePath, bool flip) {
-    std::ifstream file(atlasFilePath);
+    std::ifstream file(atlasFilePath, std::ios::binary);
     if (!file.is_open()) {
         LOG_I("Failed to open file {}.", atlasFilePath);
         return;
     }
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    std::istringstream stream(content);
+    parseStream(stream, flip, atlasFilePath);
+}
 
+void AtlasParser::parseBuffer(const unsigned char* atlasData, size_t size, bool flip) {
+    if (!atlasData || size == 0) {
+        LOG_I("Failed to parse atlas buffer: empty data");
+        return;
+    }
+    std::string content(reinterpret_cast<const char*>(atlasData), size);
+    std::istringstream stream(content);
+    parseStream(stream, flip, "buffer");
+}
+
+void AtlasParser::parseStream(std::istream& stream, bool flip, const std::string& sourceName) {
     bool hasIndexes = false;
     AtlasPageSharedPtr page;
     AtlasFrameSharedPtr frame;
     std::string line;
-    while (std::getline(file, line)) {
+    while (std::getline(stream, line)) {
         line = trim(line);
         if (line.empty()) {
             continue;
@@ -79,7 +96,7 @@ void AtlasParser::parse(const std::string& atlasFilePath, bool flip) {
                 page->width = std::stoi(entry[1]);
                 page->height = std::stoi(entry[2]);
             } else {
-                LOG_I("Failed to load atlas file {}. size before page", atlasFilePath);
+                LOG_I("Failed to load atlas file {}. size before page", sourceName);
             }
         } else if (key == "bounds") {
             if (frame) {
@@ -88,7 +105,7 @@ void AtlasParser::parse(const std::string& atlasFilePath, bool flip) {
                 frame->width = std::stoi(entry[3]);
                 frame->height = std::stoi(entry[4]);
             } else {
-                LOG_I("Failed to load atlas file {}. bounds before frame", atlasFilePath);
+                LOG_I("Failed to load atlas file {}. bounds before frame", sourceName);
             }
         } else if (key == "index") {
             if (frame) {
@@ -97,7 +114,7 @@ void AtlasParser::parse(const std::string& atlasFilePath, bool flip) {
                     hasIndexes = true;
                 }
             } else {
-                LOG_I("Failed to load atlas file {}. index before frame", atlasFilePath);
+                LOG_I("Failed to load atlas file {}. index before frame", sourceName);
             }
         } else if (entry.size() == 1) {
             // 其余无冒号行为帧名称，开启新帧。

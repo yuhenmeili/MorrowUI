@@ -13,9 +13,31 @@ TextureAtlas::TextureAtlas(const std::string& packFileUrl, const std::string& im
     buildRegions();
 }
 
+TextureAtlas::TextureAtlas(std::shared_ptr<std::vector<unsigned char>> atlasFileData,
+                           std::unordered_map<std::string, std::shared_ptr<std::vector<unsigned char>>> pageImageData, bool flip) {
+    parseAtlasBuffer(atlasFileData, flip);
+    buildTexturesFromMemory(nullptr, pageImageData);
+    buildRegions();
+}
+
+TextureAtlas::TextureAtlas(std::shared_ptr<std::vector<unsigned char>> atlasFileData, std::shared_ptr<std::vector<unsigned char>> pageImageData,
+                           bool flip) {
+    parseAtlasBuffer(atlasFileData, flip);
+    buildTexturesFromMemory(std::move(pageImageData), {});
+    buildRegions();
+}
+
 TextureAtlas::~TextureAtlas() {
     m_textures.clear();
     m_regions.clear();
+}
+
+void TextureAtlas::parseAtlasBuffer(const std::shared_ptr<std::vector<unsigned char>>& atlasFileData, bool flip) {
+    if (atlasFileData && !atlasFileData->empty()) {
+        m_parser.parseBuffer(atlasFileData->data(), atlasFileData->size(), flip);
+    } else {
+        LOG_E("TextureAtlas buffer ctor: empty atlas data");
+    }
 }
 
 void TextureAtlas::buildTextures(const std::string& imagesDir) {
@@ -24,14 +46,38 @@ void TextureAtlas::buildTextures(const std::string& imagesDir) {
     for (auto& page : m_parser.getPages()) {
         auto texture = Texture::create(ImageType::IMAGE);
         texture->setImageUrl(isFileUrl ? imagesDir : imagesDir + page->name);
-        texture->setFormat(page->format);
-        texture->setMinFilterType(page->minFilter);
-        texture->setMagFilterType(page->magFilter);
-        texture->setWidth(page->width);
-        texture->setHeight(page->height);
-        //        texture->setWrap();
-        m_textures.emplace(page->name, texture);
+        assemblePageTexture(page, texture);
     }
+}
+
+void TextureAtlas::buildTexturesFromMemory(const std::shared_ptr<std::vector<unsigned char>>& sharedPageImage,
+                                           const std::unordered_map<std::string, std::shared_ptr<std::vector<unsigned char>>>& pageImageData) {
+    for (auto& page : m_parser.getPages()) {
+        auto texture = Texture::create(ImageType::IMAGE);
+        std::shared_ptr<std::vector<unsigned char>> pageImage = sharedPageImage;
+        if (!pageImage) {
+            auto iter = pageImageData.find(page->name);
+            if (iter != pageImageData.end()) {
+                pageImage = iter->second;
+            }
+        }
+        if (pageImage) {
+            texture->setImageBuffer(pageImage);
+        } else {
+            LOG_E("TextureAtlas: page {} has no encoded image data", page->name);
+        }
+        assemblePageTexture(page, texture);
+    }
+}
+
+void TextureAtlas::assemblePageTexture(const AtlasPageSharedPtr& page, const TextureSharedPtr& texture) {
+    texture->setFormat(page->format);
+    texture->setMinFilterType(page->minFilter);
+    texture->setMagFilterType(page->magFilter);
+    texture->setWidth(page->width);
+    texture->setHeight(page->height);
+    //        texture->setWrap();
+    m_textures.emplace(page->name, texture);
 }
 
 void TextureAtlas::buildRegions() {
@@ -46,12 +92,22 @@ void TextureAtlas::buildRegions() {
 }
 
 void TextureAtlas::updateTexture(const std::string& imageUrlOrName) {
+    if (auto texture = findPageTexture(imageUrlOrName)) {
+        texture->setImageUrl(imageUrlOrName);
+    }
+}
+
+void TextureAtlas::updateTexture(std::shared_ptr<std::vector<unsigned char>> imageData, const std::string& pageName) {
+    if (auto texture = findPageTexture(pageName)) {
+        texture->setImageBuffer(std::move(imageData));
+    }
+}
+
+TextureSharedPtr TextureAtlas::findPageTexture(const std::string& imageUrlOrName) const {
     std::string::size_type pos = imageUrlOrName.rfind('/');
     std::string imageName = pos == std::string::npos ? imageUrlOrName : imageUrlOrName.substr(pos + 1);
     auto iter = m_textures.find(imageName);
-    if (iter != m_textures.end()) {
-        iter->second->setImageUrl(imageUrlOrName);
-    }
+    return iter != m_textures.end() ? iter->second : nullptr;
 }
 
 TextureSharedPtr TextureAtlas::getTexture(const std::string& name) const {

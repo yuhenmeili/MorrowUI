@@ -27,8 +27,24 @@ bool Ktx2TextureLoader::load(const std::string& fileUrl, basisu::vector<uint8_t>
     fread(m_file.data(), 1, fileSize, file);
     fclose(file);
 
+    return decode(result, glFormat);
+}
+
+bool Ktx2TextureLoader::loadFromMemory(const uint8_t* fileData, size_t fileSize, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat)
+{
+    if (!fileData || fileSize == 0) {
+        LOG_I("ktx2 loadFromMemory: empty data");
+        return false;
+    }
+    m_file.resize(fileSize);
+    memcpy(m_file.data(), fileData, fileSize);
+    return decode(result, glFormat);
+}
+
+bool Ktx2TextureLoader::decode(basisu::vector<uint8_t>& result, PixelDataFormat& glFormat)
+{
     if (!m_transcoder.init(m_file.data(), static_cast<uint32_t>(m_file.size()))) {
-        LOG_I("ktx2 init failed: {} (only BasisU compressed KTX2 files are supported)", fileUrl.c_str());
+        LOG_I("ktx2 init failed (only BasisU compressed KTX2 files are supported)");
         m_file.clear();
         return false;
     }
@@ -36,7 +52,7 @@ bool Ktx2TextureLoader::load(const std::string& fileUrl, basisu::vector<uint8_t>
     m_height = m_transcoder.get_height();
 
     if (!m_transcoder.start_transcoding()) {
-        LOG_I("ktx2 start_transcoding failed: {}", fileUrl.c_str());
+        LOG_I("ktx2 start_transcoding failed");
         m_file.clear();
         return false;
     }
@@ -56,7 +72,7 @@ bool Ktx2TextureLoader::load(const std::string& fileUrl, basisu::vector<uint8_t>
     result.resize(requiredSize);
 
     if (!m_transcoder.transcode_image_level(0, 0, 0, result.data(), outputSizeInBlocksOrPixels, format, 0)) {
-        LOG_I("ktx2 transcode_image_level failed: {}", fileUrl.c_str());
+        LOG_I("ktx2 transcode_image_level failed");
         m_file.clear();
         result.clear();
         return false;

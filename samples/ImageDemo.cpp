@@ -6,13 +6,15 @@
 //   2. UV 裁剪      — setScissor 取源图子区域，实现"放大镜"效果
 //   3. 图片墙合批   — 10 张图共享纹理做 alpha 呼吸动画，仍合并在 1 个 SSBO 批次
 //   4. 阴影         — Shadow 组件为任意带 MeshRenderer 的组件加投影
-//   5. 图集区域     — TextureAtlas (.basis 图集) 按名取子区域显示
+//   5. 图集区域     — TextureAtlas (.basis 图集) 内存字节装配，按名取子区域显示
 //   6. 程序化纹理   — CPU 生成 RGBA 数据经 Texture::setTextureData 直接上屏
 //
 // 批渲染统计 / 对象快照 / 帧数限制等调试能力已拆分至 DebugDemo。
 //
 
 #include <cmath>
+#include <fstream>
+#include <iterator>
 
 #include "Engine.h"
 #include "FontManager.h"
@@ -63,6 +65,16 @@ std::shared_ptr<MRImage> createImage(const TextureSharedPtr& texture, float x, f
     transform->setPosition(x, y, 0.0f);
     transform->setSize(width, height);
     return image;
+}
+
+// 模拟网络下载 / 打包资源：整文件读入内存，走 buffer 装配与解码路径
+std::shared_ptr<std::vector<unsigned char>> readFileBytes(const std::string& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        LOG_E("readFileBytes: failed to open {}", path);
+        return nullptr;
+    }
+    return std::make_shared<std::vector<unsigned char>>((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 }
 
 // CPU 生成 256x256 程序化纹理：对角渐变 + 棋盘格 + 中心圆环
@@ -128,7 +140,10 @@ int main() {
     brickTexture->setImageUrl("assets/textures/brickwall.ktx2");
     const auto carTexture = Texture::create();
     carTexture->setImageUrl("assets/textures/car.png");
-    auto atlas = std::make_shared<TextureAtlas>("assets/textures/frame_animation/atlas_speed.atlas", "assets/textures/frame_animation/", false);
+    // 图集整体走内存路径：.atlas 文本字节 + .basis 页编码字节一次性传入构造，
+    // 与 URL 路径（TextureAtlas(fileUrl, imagesDir)）等价
+    auto atlas = std::make_shared<TextureAtlas>(readFileBytes("assets/textures/frame_animation/atlas_speed.atlas"),
+                                                readFileBytes("assets/textures/frame_animation/atlas_speed.basis"), false);
 
     // ---------------------------------------------------------------------
     // 1. 圆角阶梯：同一张图，shader 圆角从 0 递增
@@ -225,7 +240,7 @@ int main() {
     // 5. 图集区域：TextureAtlas 按名取子区域
     // ---------------------------------------------------------------------
     window->addChild(createCard(right, top, cardWidth, cardHeight));
-    addCardTitle(window, L"图集区域 TextureAtlas", L".basis 图集按名取子区域，同图集天然合批", right, top, cardWidth);
+    addCardTitle(window, L"图集区域 TextureAtlas", L".basis 图集内存装配（buffer 注入），同图集天然合批", right, top, cardWidth);
     const char* regionNames[] = {"O_HundredDigit_1.png", "O_SingleDigit_3.png", "O_TensDigit_6.png"};
     for (int index = 0; index < 3; ++index) {
         auto image = MRImage::create();

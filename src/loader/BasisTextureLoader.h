@@ -5,6 +5,7 @@
 #ifndef MORROW_CORE_BASISTEXTURELOADER_H_
 #define MORROW_CORE_BASISTEXTURELOADER_H_
 
+#include <cstddef>
 #include <cstdio>
 #include "DriverEnums.h"
 #include "basis_universal/transcoder/basisu_transcoder.h"
@@ -80,6 +81,9 @@ public:
 
     void load(const std::string& fileUrl, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat);
 
+    /// 从内存中的 .basis 编码字节加载并转码，语义同 load。
+    void loadFromMemory(const uint8_t* fileData, size_t fileSize, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat);
+
     void close();
 
     uint32_t getHasAlpha();
@@ -107,6 +111,9 @@ public:
     uint32_t transcodeImage(basisu::vector<uint8_t>& dst_data, uint32_t image_index, uint32_t level_index, uint32_t format, uint32_t unused, uint32_t get_alpha_for_opaque_formats);
 
 private:
+    /// 对 m_file 中已就位的编码字节做校验与转码，load/loadFromMemory 的公共后段。
+    void decode(basisu::vector<uint8_t>& result, PixelDataFormat& glFormat);
+
     basisu_transcoder m_transcoder;
     basisu::vector<uint8_t> m_file;
 };

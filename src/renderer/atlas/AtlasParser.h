@@ -5,6 +5,8 @@
 #ifndef MORROW_RENDERER_ATLASPARSER_H_
 #define MORROW_RENDERER_ATLASPARSER_H_
 
+#include <cstddef>
+#include <istream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -55,6 +57,9 @@ public:
     /// 解析指定 .atlas 文件；flip 为真时标记所有帧在装配时做垂直翻转。
     void parse(const std::string& atlasFilePath, bool flip);
 
+    /// 从内存中的 .atlas 文件字节解析（如网络下载或打包资源），语义同 parse。
+    void parseBuffer(const unsigned char* atlasData, size_t size, bool flip);
+
     std::vector<AtlasPageSharedPtr>& getPages() {
         return m_pages;
     }
@@ -64,6 +69,9 @@ public:
     }
 
 private:
+    /// 逐行解析核心，供 parse/parseBuffer 复用；sourceName 仅用于日志。
+    void parseStream(std::istream& stream, bool flip, const std::string& sourceName);
+
     std::vector<AtlasPageSharedPtr> m_pages;
     std::vector<AtlasFrameSharedPtr> m_frames;
 };
