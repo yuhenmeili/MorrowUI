@@ -14,6 +14,7 @@
 | Demo | 说明                            | 主要组件 | 文档 |
 | --- |-------------------------------| --- | --- |
 | `AnimationEffectsDemo` | 动画组件全家桶：锚点缩放、弹跳、制动踏板、流光、图集帧动画 | `MRAnchorPointScale`、`MRBounce`、`MRBrakePedal`、`MRFlowingLight`、`MRFrameAnimation`、`Tween` | [AnimationEffectsDemo.md](samples/AnimationEffectsDemo.md) |
+| `BackblurDemo` | Kawase 共享背景模糊（S1）：分段渲染、共享模糊链、tint 降级与运行中开关 | `BackdropBlur`、`BackdropBlurManager` | [BackblurDemo.md](samples/BackblurDemo.md) |
 | `ControlsDemo` | 交互控件全家桶：按钮、选择、菜单、数值输入与布局辅助    | `MRButton`、`MRTextureButton`、`MRCheckBox`、`MRToggle`、`MRRadioButton`、`MRSpinBox` | [ControlsDemo.md](samples/ControlsDemo.md) |
 | `DebugDemo` | 调试设施：批渲染统计验收、帧数限制、按需渲染、F3 overlay、对象快照 | `EngineOptions`、`batchStatistics`、`ObjectRegistry` | [DebugDemo.md](samples/DebugDemo.md) |
 | `GLTFDemo` | GLTF/GLB 3D 模型加载与交互           | `MR3DSceneView`、`Scene3DAsyncLoader`、`OrbitController` | [GLTFDemo.md](samples/GLTFDemo.md) |

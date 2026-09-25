@@ -59,6 +59,9 @@ void DebugPlane::update(std::shared_ptr<FrameState> frame_state) {
         L" Cache:" + std::to_wstring(stats.cacheHitCount) +
         L"/" + std::to_wstring(stats.cacheMissCount) +
         L" Fallback:" + std::to_wstring(stats.ssboFallbackBatchCount) +
+        (stats.backdropQuadCount > 0
+             ? L" Blur:" + std::to_wstring(stats.backdropQuadCount) + L"q/" + std::to_wstring(stats.backdropDrawCallCount) + L"d"
+             : L"") +
         L" Break[L/M/G/O]:" +
         std::to_wstring(breakCount(BatchBreakReason::DisplayLayer)) + L"/" +
         std::to_wstring(breakCount(BatchBreakReason::MaterialState)) + L"/" +

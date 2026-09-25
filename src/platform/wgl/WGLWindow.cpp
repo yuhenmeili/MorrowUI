@@ -126,6 +126,7 @@ void WGLWindow::beginRenderPass(FrameStateSharedPtr frameState) {
     frameState->clipStack.clear();
     frameState->camera->update(m_windowPosition.x, m_windowPosition.y, m_framebufferSize.x, m_framebufferSize.y);
     frameState->batchManager = m_batchManager;
+    frameState->clearColor = m_clearColor;
     RENDERINGTHREAD->setClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
     RENDERINGTHREAD->setViewPort(0, 0, fbWidth, fbHeight);
     RENDERINGTHREAD->setScissorRect(false, 0, 0, 0, 0);

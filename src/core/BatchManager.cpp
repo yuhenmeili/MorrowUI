@@ -11,6 +11,7 @@
 #include "Material.h"
 #include "OrthographicCamera.h"
 #include "RenderBatchPool.h"
+#include "effects/BackdropBlurManager.h"
 #include "ssbo/SSBOFieldBinding.h"
 #include "ssbo/SSBOManager.h"
 #include "UniformBuffer.h"
@@ -80,25 +81,56 @@ void BatchManager::renderBatches(std::shared_ptr<FrameState> frameState) {
     const uint32_t drawCallsBeforeBatches = frameState->drawCallCount;
 
     // ---- 渲染所有批次 ----
-    for (auto& batch : m_batches) {
-        if (batch.materials.empty()) continue;
-        applyClipRect(frameState, batch.clipRect);
-
-        if (frameState->isSSBOSupport && batch.isSSBOShader && batch.materials.size() > 1) {
-            ++statistics.ssboBatchCount;
-            renderSSBOBatch(frameState, batch);
-        } else {
-            ++statistics.standardBatchCount;
-            if (batch.isSSBOShader && batch.materials.size() > 1 && !frameState->isSSBOSupport) {
-                ++statistics.ssboFallbackBatchCount;
-                renderNonSSBOFallback(frameState, batch, projectionMatrix);
-            } else {
-                renderStandardBatch(frameState, batch, projectionMatrix);
+    // 背景模糊分段（KAWASE_BACKDROP_BLUR_PROPOSAL.md §5.1）：本帧存在活跃模糊
+    // 面片时，underlay 批次与边界层以下的普通批次先画进 backdrop RT，链与回屏
+    // 合成之后剩余批次再上屏；无模糊场景 beginBackdropPass 直接返回 false，
+    // 走下方原有单段路径，批次统计与 GPU 状态完全不变。
+    auto& backdropBlur = BackdropBlurManager::getInstance();
+    if (backdropBlur.beginBackdropPass(frameState)) {
+        const int32_t boundaryLayer = backdropBlur.getBoundaryLayer();
+        for (auto& batch : m_batches) {
+            if (batch.isUnderlay || batch.displayLayer < boundaryLayer) {
+                drawBatch(frameState, batch, projectionMatrix);
             }
+        }
+        backdropBlur.renderBackdropChain(frameState);
+        for (auto& batch : m_batches) {
+            if (!batch.isUnderlay && batch.displayLayer >= boundaryLayer) {
+                drawBatch(frameState, batch, projectionMatrix);
+            }
+        }
+    } else {
+        for (auto& batch : m_batches) {
+            drawBatch(frameState, batch, projectionMatrix);
         }
     }
     RENDERINGTHREAD->setScissorRect(false, 0, 0, 0, 0);
     statistics.batchDrawCallCount = frameState->drawCallCount - drawCallsBeforeBatches;
+
+    // 帧收尾：清空本帧模糊面片提交（组件在下一渲染帧的 update 阶段重新提交）
+    backdropBlur.endFrame();
+}
+
+// ---------------------------------------------------------------------------
+// 单批次绘制：renderBatches 各分段共用的循环体（统计口径与原实现一致）
+// ---------------------------------------------------------------------------
+void BatchManager::drawBatch(const std::shared_ptr<FrameState>& frameState, RenderBatch& batch, Matrix4& projectionMatrix) {
+    auto& statistics = frameState->batchStatistics;
+    if (batch.materials.empty()) return;
+    applyClipRect(frameState, batch.clipRect);
+
+    if (frameState->isSSBOSupport && batch.isSSBOShader && batch.materials.size() > 1) {
+        ++statistics.ssboBatchCount;
+        renderSSBOBatch(frameState, batch);
+    } else {
+        ++statistics.standardBatchCount;
+        if (batch.isSSBOShader && batch.materials.size() > 1 && !frameState->isSSBOSupport) {
+            ++statistics.ssboFallbackBatchCount;
+            renderNonSSBOFallback(frameState, batch, projectionMatrix);
+        } else {
+            renderStandardBatch(frameState, batch, projectionMatrix);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -140,12 +172,12 @@ bool BatchManager::isRenderableListUnchanged() const {
 void BatchManager::buildBatches(BatchStatistics& statistics) {
     RenderBatchPool::getInstance().releaseAll(m_batches);
     // underlay（阴影等底层效果）先合批，保证绘制顺序在前
-    buildFromItems(m_underlayRenderables, statistics);
-    buildFromItems(m_renderables, statistics);
+    buildFromItems(m_underlayRenderables, statistics, true);
+    buildFromItems(m_renderables, statistics, false);
     m_batchesDirty = false;
 }
 
-void BatchManager::buildFromItems(const std::vector<RenderItem>& items, BatchStatistics& statistics) {
+void BatchManager::buildFromItems(const std::vector<RenderItem>& items, BatchStatistics& statistics, bool underlay) {
     if (items.empty()) return;
 
     const BatchBuildResult result = m_batchBuilder.build(items);
@@ -162,6 +194,9 @@ void BatchManager::buildFromItems(const std::vector<RenderItem>& items, BatchSta
             firstItem.material->isSSBOShader());
         newBatch.ssboLayout = firstItem.material->getSSBOLayout();
         newBatch.clipRect = firstItem.clipRect;
+        // 分段归属标记：canBatch 保证组内 displayLayer 一致，取组首项即可
+        newBatch.displayLayer = firstItem.displayLayer;
+        newBatch.isUnderlay = underlay;
 
         for (const uint32_t itemIndex : group.itemIndices) {
             const auto& item = items[itemIndex];

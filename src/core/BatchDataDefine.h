@@ -35,6 +35,10 @@ struct RenderBatch {
     ClipRect clipRect;
     std::shared_ptr<ShaderStorageBuffer> ssbo;
     SSBOLayoutComponentSharedPtr ssboLayout;
+    // 分段渲染标记（KAWASE_BACKDROP_BLUR_PROPOSAL.md §5.1）：canBatch 保证组内
+    // displayLayer 一致，取组首项即可。underlay 批次始终画进 backdrop 段（§8.2）。
+    int32_t displayLayer = 0;
+    bool isUnderlay = false;
 };
 
 }

@@ -52,7 +52,8 @@ private:
     void buildBatches(BatchStatistics& statistics);
 
     /// 将一组 RenderItem 合批并物化为 RenderBatch，追加到 m_batches
-    void buildFromItems(const std::vector<RenderItem>& items, BatchStatistics& statistics);
+    /// @param underlay 该列表是否为底层渲染项（影响批次的分段归属标记）
+    void buildFromItems(const std::vector<RenderItem>& items, BatchStatistics& statistics, bool underlay);
 
     /// 检查本帧可渲染列表是否与上一帧相同（增量合批判断）
     bool isRenderableListUnchanged() const;
@@ -70,6 +71,9 @@ private:
     void renderNonSSBOFallback(std::shared_ptr<FrameState> frameState, RenderBatch& batch, Matrix4& projectionMatrix);
 
     void applyClipRect(const std::shared_ptr<FrameState>& frameState, const ClipRect& clipRect);
+
+    /// 绘制单个批次（renderBatches 各分段共用的循环体）
+    void drawBatch(const std::shared_ptr<FrameState>& frameState, RenderBatch& batch, Matrix4& projectionMatrix);
 
     // ---- 数据成员 ----
 

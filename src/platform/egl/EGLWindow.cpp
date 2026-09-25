@@ -205,6 +205,7 @@ void EGLWindow::beginRenderPass(FrameStateSharedPtr frameState)
     frameState->clipStack.clear();
     frameState->camera->update(m_windowPosition.x, m_windowPosition.y, m_windowSize.x, m_windowSize.y);
     frameState->batchManager = m_batchManager;
+    frameState->clearColor = m_clearColor;
     RENDERINGTHREAD->setClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
     RENDERINGTHREAD->setViewPort(0, 0, int32_t(m_windowSize.x), int32_t(m_windowSize.y));
     RENDERINGTHREAD->setScissorRect(false, 0, 0, 0, 0);

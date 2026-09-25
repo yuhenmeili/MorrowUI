@@ -14,6 +14,7 @@
 #include "ClipRect.h"
 #include "Scene3DPassContext.h"
 #include "Vector3.h"
+#include "Vector4.h"
 
 namespace morrow {
 class PerspectiveCamera;
@@ -41,6 +42,9 @@ struct FrameState {
     std::vector<ClipRect> clipStack;
     int32_t framebufferWidth = 0;
     int32_t framebufferHeight = 0;
+    // 窗口清屏色镜像（beginRenderPass 写入）：backdrop RT 需用同一颜色清屏，
+    // 回屏合成后才能与无模糊路径的背景一致（KAWASE_BACKDROP_BLUR_PROPOSAL.md §5.1）。
+    Vector4 clearColor;
 
     uint32_t drawCallCount = 0;
     uint32_t fps = 0;

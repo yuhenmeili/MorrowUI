@@ -1,12 +1,13 @@
 # Samples 文档索引
 
-本文档与 `samples/` 下的 17 个 demo **一一对应**：每个 `samples/XxxDemo.cpp`
+本文档与 `samples/` 下的 18 个 demo **一一对应**：每个 `samples/XxxDemo.cpp`
 都有同名的 `docs/samples/XxxDemo.md`（对应源码、编译目标、用途、运行方式、
 步骤与组件介绍）。编译目标名 = 源文件名（CMake 按文件名自动生成）。
 
 | Demo | 文档 | 内容 |
 |---|---|---|
 | AnimationEffectsDemo | [AnimationEffectsDemo.md](AnimationEffectsDemo.md) | 动画组件全家桶：AnchorPointScale / Bounce / BrakePedal / FlowingLight / FrameAnimation + Tween |
+| BackblurDemo | [BackblurDemo.md](BackblurDemo.md) | Kawase 共享背景模糊：分段渲染 / 共享模糊链 / tint 降级与运行中开关 |
 | ControlsDemo | [ControlsDemo.md](ControlsDemo.md) | 交互控件全家桶：Button / TextureButton / CheckBox / Toggle / Radio / Menu / SpinBox / 布局辅助 |
 | DebugDemo | [DebugDemo.md](DebugDemo.md) | 调试设施：批渲染统计验收（--report-json）、帧数限制、按需渲染、F3 overlay、对象快照 |
 | GLTFDemo | [GLTFDemo.md](GLTFDemo.md) | GLTF 异步加载、MR3DSceneView、IBL 光照、轨道相机 |
