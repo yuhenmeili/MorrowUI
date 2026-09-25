@@ -6,8 +6,8 @@
 > **全屏、大量 UIWidget 同时需要背景模糊**这一最重场景，给出基于 Kawase
 > 模糊的分阶段落地方案。
 
-> **状态**：S1 已实施（2026-09-25，验收见 `samples/BackblurDemo.cpp` 与
-> [BackblurDemo.md](../samples/BackblurDemo.md)）；S2/S3 未实施。分析基线：
+> **状态**：S1、S2 已实施（2026-09-25，验收见 `samples/BackblurDemo.cpp` 与
+> [BackblurDemo.md](../samples/BackblurDemo.md)）；S3 未实施。分析基线：
 > dev 分支 `8b1dc5d`（2026-09-24）。文中所有代码位置均已逐一核实。
 >
 > **S1 实现偏差**（相对 §5/§6 原文，两处有意取舍）：
@@ -335,16 +335,28 @@ iOS"降低透明度"——视觉层级与可读性保留，成本归零（无 RT
   多线程模式下存在**与本案无关的存量段错误**（字体纹理上传命令超出
   CommandBuffer 容量，基线同样复现，另行处理）。
 
-### S2：分级 + 缓存 + 分辨率策略
+### S2：分级 + 缓存 + 分辨率策略 ✅ 已实施（2026-09-25）
 
-- 三层级链（1/2、1/4、1/8）与半径映射表；每层级材质分批（≤ 3 批）；
+- 三层级链（1/2、1/4、1/8）与半径映射表；每层级材质分批（≤ 3 批）——
+  实现为每层级一个 CPU 合并 VBO、1 draw（BackblurDemo 4 面片 → 3 draw），
+  链按本帧最大所需层级裁剪（无 L2 面片时低层级整段跳过）；
 - `EngineOptions` 启动档位（Off / Standard / LowCost，LowCost = 1/4 基准链）
-  与运行中切换的 RT 生命周期（懒分配 / 短暂保留 / fence 释放）；
-- backdrop 脏标记（列表等价 + Transform revision 聚合），clean 跳过 3a/3b；
-- 窗口 resize 时 RT 链重建（复用 `OffscreenRenderTarget::resize`）；
-- tint/acrylic 混色、边缘 clamp 采样；
-- 验收：静止场景 GPU 帧时间与无模糊基线一致（perf 采样）；动画期帧时间
-  满足 < 3ms 目标（目标 SoC 实测）。
+  与运行中切换的 RT 生命周期（懒分配 / 短暂保留 / 按序命令释放）；
+- backdrop 脏标记（列表等价 + 版本号聚合），clean 跳过 3a/3b——签名覆盖
+  帧参数 / 批次结构 / Transform 世界版本 / Material uniform 修订 / Mesh
+  几何修订；为此给 Material 数值 setter 补了值相等检查（与 Transform 既有
+  语义对齐：无变化不递增修订号，否则标签类控件每帧的重复 set 会让缓存
+  永远失效）；
+- 窗口 resize 时 RT 链重建（复用 `OffscreenRenderTarget::resize`，尺寸变化
+  经签名自动触发全量重渲）；
+- tint/acrylic 混色、边缘 clamp 采样——混色修正为不透明替换语义
+  （`结果 = mix(模糊背景, tint.rgb, tint.a)`，tint.a 为混色强度；S1 版在
+  shader 内 mix 后又走 alpha 混合导致 tint.a 被平方），边缘由 RT 纹理
+  CLAMP_TO_EDGE 兜底；
+- 验收：静止场景（--static）backdrop 段与链整段跳过（4q/4d，连带 backdrop
+  批次不画、batchDrawCalls 显著下降），帧间隔与无模糊基线一致（桌面 GL
+  观测 20.2 vs 20.1ms，受 vsync/FPS 控制器主导）；动画期链满载 4q/10d；
+  桌面实测 avgFrameMs 已进 demo JSON，< 3ms GPU 预算仍须目标 SoC 实测。
 
 ### S3：质量与高级特性（按需）
 

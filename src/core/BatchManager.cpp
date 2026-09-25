@@ -83,23 +83,35 @@ void BatchManager::renderBatches(std::shared_ptr<FrameState> frameState) {
     // ---- 渲染所有批次 ----
     // 背景模糊分段（KAWASE_BACKDROP_BLUR_PROPOSAL.md §5.1）：本帧存在活跃模糊
     // 面片时，underlay 批次与边界层以下的普通批次先画进 backdrop RT，链与回屏
-    // 合成之后剩余批次再上屏；无模糊场景 beginBackdropPass 直接返回 false，
-    // 走下方原有单段路径，批次统计与 GPU 状态完全不变。
+    // 合成之后剩余批次再上屏；无模糊场景走下方原有单段路径，批次统计与 GPU
+    // 状态完全不变。
     auto& backdropBlur = BackdropBlurManager::getInstance();
-    if (backdropBlur.beginBackdropPass(frameState)) {
-        const int32_t boundaryLayer = backdropBlur.getBoundaryLayer();
-        for (auto& batch : m_batches) {
-            if (batch.isUnderlay || batch.displayLayer < boundaryLayer) {
-                drawBatch(frameState, batch, projectionMatrix);
+    bool segmented = false;
+    if (backdropBlur.isFrameActive()) {
+        // S2 脏标记（§5.5）：backdrop 段内容未变（批次结构等价 + 版本号聚合
+        // 签名一致）时跳过 3a/3b——不绑定 RT、不重画 backdrop 批次、不跑链，
+        // 仅重绘 3c（回屏合成 + 面片 + 前景）。必须先于 beginBackdropPass
+        // 计算（其绑定决策读取该结果）。
+        const bool backdropDirty = backdropBlur.computeBackdropDirty(m_batches, frameState);
+        segmented = backdropBlur.beginBackdropPass(frameState);
+        if (segmented) {
+            const int32_t boundaryLayer = backdropBlur.getBoundaryLayer();
+            if (backdropDirty) {
+                for (auto& batch : m_batches) {
+                    if (batch.isUnderlay || batch.displayLayer < boundaryLayer) {
+                        drawBatch(frameState, batch, projectionMatrix);
+                    }
+                }
+            }
+            backdropBlur.renderBackdropChain(frameState);
+            for (auto& batch : m_batches) {
+                if (!batch.isUnderlay && batch.displayLayer >= boundaryLayer) {
+                    drawBatch(frameState, batch, projectionMatrix);
+                }
             }
         }
-        backdropBlur.renderBackdropChain(frameState);
-        for (auto& batch : m_batches) {
-            if (!batch.isUnderlay && batch.displayLayer >= boundaryLayer) {
-                drawBatch(frameState, batch, projectionMatrix);
-            }
-        }
-    } else {
+    }
+    if (!segmented) {
         for (auto& batch : m_batches) {
             drawBatch(frameState, batch, projectionMatrix);
         }

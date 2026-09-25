@@ -86,6 +86,9 @@ Engine::Engine(const EngineOptions& options) {
     m_camera->setDirection(0.0f, 0.0f, -1.0f);
     m_camera->setUp(0.0f, 1.0f, 0.0f);
 
+    // 背景模糊启动档位（Off 档等价 setEnabled(false)，RT 链不分配）
+    BackdropBlurManager::getInstance().setQuality(options.backdropBlur);
+
     m_fpsController = std::make_shared<FPSController>(30);
     m_frameState = std::make_shared<FrameState>();
     // m_frameState->esContext = m_esContext;

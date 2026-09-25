@@ -8,6 +8,7 @@
 #include "FPSController.h"
 #include "Platform.h"
 #include "Window.h"
+#include "effects/BackdropBlurManager.h"
 #include "renderer/device/RenderDeviceOptions.h"
 #include <string>
 
@@ -39,6 +40,12 @@ struct EngineOptions {
     /// 字形图集初始边长（像素）。0 = 引擎默认 1024；CJK 首屏文案多时
     /// 建议 2048，避免首帧图集扩容触发全量字形重建。
     int32_t fontAtlasInitialSize = 0;
+
+    // ── 背景模糊（KAWASE_BACKDROP_BLUR_PROPOSAL.md §5.7）──
+    /// 启动档位：Off = 全程退化路径（RT 链不分配，毛玻璃降级为 tint 面板）；
+    /// Standard = 1/2 基准链；LowCost = 1/4 基准链。运行中可经
+    /// BackdropBlurManager::setQuality 切换（懒重建）。
+    BackdropBlurQuality backdropBlur = BackdropBlurQuality::Standard;
 };
 
 class Engine

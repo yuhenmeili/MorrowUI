@@ -30,8 +30,9 @@ public:
 
     void update(FrameStateSharedPtr frameState) override;
 
-    /// 模糊半径（px）。S1 为单层级固定半径档：> 0 即启用共享链采样，
-    /// 分级量化（L0/L1/L2）与半径动画见提案 S2/S3。
+    /// 模糊半径（px）。经共享链分级量化（§5.2）：≤12 → L0'（轻）、
+    /// ≤40 → L1'（中，面板常用）、>40 → L2'（重）；0 = 关闭本面板模糊。
+    /// 层内半径不再连续可调；半径动画用"层级固定 + tint/alpha 过渡"表达（S3）。
     void setBlurRadius(float radius);
 
     /// acrylic 混色：rgb 为面板底色，a 为混色强度（也是面片透明度）。

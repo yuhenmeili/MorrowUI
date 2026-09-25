@@ -58,17 +58,32 @@ bool Material::hasTexture(const std::string& name) const {
 }
 
 void Material::setVector(const std::string& name, const Vector2& value) {
-    m_vectorMap[m_attributePrefix + name] = value;
+    const std::string key = m_attributePrefix + name;
+    auto it = m_vectorMap.find(key);
+    if (it != m_vectorMap.end() && std::holds_alternative<Vector2>(it->second) && std::get<Vector2>(it->second) == value) {
+        return; // 值未变：修订号不递增（脏标记 / 渲染签名依赖"真变化"语义）
+    }
+    m_vectorMap[key] = value;
     ++m_uniformRevision;
 }
 
 void Material::setVector(const std::string& name, const Vector3& value) {
-    m_vectorMap[m_attributePrefix + name] = value;
+    const std::string key = m_attributePrefix + name;
+    auto it = m_vectorMap.find(key);
+    if (it != m_vectorMap.end() && std::holds_alternative<Vector3>(it->second) && std::get<Vector3>(it->second) == value) {
+        return;
+    }
+    m_vectorMap[key] = value;
     ++m_uniformRevision;
 }
 
 void Material::setVector(const std::string& name, const Vector4& value) {
-    m_vectorMap[m_attributePrefix + name] = value;
+    const std::string key = m_attributePrefix + name;
+    auto it = m_vectorMap.find(key);
+    if (it != m_vectorMap.end() && std::holds_alternative<Vector4>(it->second) && std::get<Vector4>(it->second) == value) {
+        return;
+    }
+    m_vectorMap[key] = value;
     ++m_uniformRevision;
 }
 
@@ -81,7 +96,12 @@ VectorVariant Material::getVector(const std::string& name) const {
 }
 
 void Material::setMatrix4(const std::string& name, const Matrix4& matrix) {
-    m_matrix4Map[m_attributePrefix + name] = matrix;
+    const std::string key = m_attributePrefix + name;
+    auto it = m_matrix4Map.find(key);
+    if (it != m_matrix4Map.end() && it->second == matrix) {
+        return; // 值未变：修订号不递增（脏标记 / 渲染签名依赖"真变化"语义）
+    }
+    m_matrix4Map[key] = matrix;
     ++m_uniformRevision;
 }
 
@@ -94,7 +114,12 @@ Matrix4 Material::getMatrix4(const std::string& name) const {
 }
 
 void Material::setFloat(const std::string& name, float value) {
-    m_floatMap[m_attributePrefix + name] = value;
+    const std::string key = m_attributePrefix + name;
+    auto it = m_floatMap.find(key);
+    if (it != m_floatMap.end() && it->second == value) {
+        return; // 值未变：修订号不递增（脏标记 / 渲染签名依赖"真变化"语义）
+    }
+    m_floatMap[key] = value;
     ++m_uniformRevision;
 }
 
@@ -165,7 +190,12 @@ bool Material::tryGetVectorComponent(std::string_view name, int component, float
 }
 
 void Material::setInt(const std::string& name, int32_t value) {
-    m_intMap[m_attributePrefix + name] = value;
+    const std::string key = m_attributePrefix + name;
+    auto it = m_intMap.find(key);
+    if (it != m_intMap.end() && it->second == value) {
+        return; // 值未变：修订号不递增（脏标记 / 渲染签名依赖"真变化"语义）
+    }
+    m_intMap[key] = value;
     ++m_uniformRevision;
 }
 
@@ -178,8 +208,7 @@ int32_t Material::getInt(const std::string& name) const {
 }
 
 void Material::setBool(const std::string& name, bool value) {
-    m_intMap[m_attributePrefix + name] = value ? 1 : 0;
-    ++m_uniformRevision;
+    setInt(name, value ? 1 : 0);
 }
 
 bool Material::getBool(const std::string& name) const {

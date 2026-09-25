@@ -47,12 +47,13 @@ void BackdropBlur::update(FrameStateSharedPtr frameState) {
 
     auto& manager = BackdropBlurManager::getInstance();
     if (manager.isEnabled() && m_blurRadius > 0.0f) {
-        // 启用：提交给共享模糊链。tint.a 同时承担混色强度与面片透明度，
+        // 启用：提交给共享模糊链。半径由管理器量化到 L0'/L1'/L2' 采样层级
+        //（§5.2：≤12 / ≤40 / >40 px）；tint.a 同时承担混色强度与面片透明度，
         // 再叠加属主自身 alpha，保持与普通 Widget 的 setAlpha 语义一致。
         const Vector3 size = transform->getSize();
         manager.submitQuad(transform->getWorldMatrix(), Vector2(size.x, size.y), m_rounding,
                            Vector4(m_tintColor.x, m_tintColor.y, m_tintColor.z, m_tintColor.w * ownerAlpha),
-                           getGameObject()->getDisplayLayer());
+                           m_blurRadius, getGameObject()->getDisplayLayer());
         return;
     }
 
