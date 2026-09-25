@@ -2,12 +2,17 @@
 /// Zero-allocation flat command buffer for the render command stream.
 ///
 /// Encoding layout in m_buffer:
-///   [CmdHeader(8B) | payload (padded to 8-byte alignment)]  ...
+///   [CmdHeader(8B) | pad(8B) | payload @ +16（16 字节对齐）]
 ///
 /// Trivial payloads    – push<T>(type)  : inline embed, no destructor needed.
 /// No-payload commands – push(type)     : only a header written.
 /// Non-trivial payloads– pushNT<T>(type): placement-new inline, destructor
 ///                                        registered in cleanup chain.
+///
+/// Payload 一律 16 字节对齐：Release 下编译器会把 payload 的构造 / 拷贝
+/// 向量化为 movaps 等 16 字节对齐 SSE 指令，仅 8 字节对齐时（如
+/// align8 累积步长落在 8 mod 16）会确定性段错误——ImageDemo 启动期的
+/// 字形上传序列曾触发（桌面 GL 多线程模式）。
 ///
 /// IMPORTANT: The backing buffer is fixed-size.  It never reallocates so raw
 /// pointers stored in the cleanup chain remain valid.  Overflow behaviour:
@@ -50,6 +55,14 @@ public:
     static_assert(sizeof(CmdHeader) == 8, "CmdHeader must be exactly 8 bytes");
 
     static constexpr size_t align8(size_t v) noexcept { return (v + 7u) & ~7u; }
+    static constexpr size_t align16(size_t v) noexcept { return (v + 15u) & ~15u; }
+
+    /// 记录内 payload 的字节偏移（紧跟 header，上取整到 16 对齐）。
+    /// 编码（alloc）与解码（executeFrame）必须使用同一常量。
+    static constexpr size_t payloadOffset() noexcept { return 16u; }
+
+    /// 单条命令记录的步长：payloadOffset + align16(payloadSize)。
+    static constexpr size_t strideOf(size_t payloadSize) noexcept { return payloadOffset() + align16(payloadSize); }
 
     // ---------------------------------------------------------------
     // Construction / assignment
@@ -131,17 +144,18 @@ private:
     // Every encoded payload type is far below this; enforced by static_assert.
     static constexpr size_t kOverflowSlotSize = 512;
     // Overflowed trivial payloads land here (memset only, no destructor).
-    alignas(8) uint8_t m_scratch[kOverflowSlotSize] = {};
+    // 与主缓冲一致按 16 对齐：溢出路径同样会 placement-new 构造 payload。
+    alignas(16) uint8_t m_scratch[kOverflowSlotSize] = {};
 
     // ---------------------------------------------------------------
-    // Allocate space and write the header.  Returns pointer to payload area.
-    // NEVER reallocates – capacity must be sufficient.  On overflow the
-    // command is dropped: trivial payloads use m_scratch, non-trivial
-    // payloads get a stable slot in m_overflowSlots so their registered
-    // destructors stay valid until clear().
+    // Allocate space and write the header.  Returns pointer to payload area
+    // (16 字节对齐，见文件头注释).  NEVER reallocates – capacity must be
+    // sufficient.  On overflow the command is dropped: trivial payloads use
+    // m_scratch, non-trivial payloads get a stable slot in m_overflowSlots
+    // so their registered destructors stay valid until clear().
     // ---------------------------------------------------------------
     uint8_t* alloc(uint32_t type, size_t payloadSize) {
-        const size_t stride = sizeof(CmdHeader) + align8(payloadSize);
+        const size_t stride = strideOf(payloadSize);
         if (m_size + stride > m_buffer.size()) {
             assert(false &&
                    "CommandBuffer overflow: increase capacity via "
@@ -159,14 +173,16 @@ private:
         h->type        = type;
         h->payloadSize = static_cast<uint32_t>(payloadSize);
         m_size        += stride;
-        return base + sizeof(CmdHeader);    // pointer to payload area
+        return base + payloadOffset();    // pointer to payload area
     }
 
     // Stable storage for one dropped non-trivial payload.  deque 元素地址
-    // 在后续插入时保持稳定，cleanup 链中的指针直到 clear() 前都有效。
+    // 在后续插入时保持稳定，cleanup 链中的指针直到 clear() 前都有效；
+    // 16 对齐同 m_scratch。
+    struct alignas(16) OverflowSlot { std::array<uint8_t, kOverflowSlotSize> bytes; };
     uint8_t* overflowSlot() {
         m_overflowSlots.emplace_back();
-        return m_overflowSlots.back().data();
+        return m_overflowSlots.back().bytes.data();
     }
 
     struct Cleanup { void* ptr; void (*dtor)(void*); };
@@ -174,7 +190,7 @@ private:
     std::vector<uint8_t>  m_buffer;
     size_t                m_size;
     std::vector<Cleanup>  m_cleanups;
-    std::deque<std::array<uint8_t, kOverflowSlotSize>> m_overflowSlots;
+    std::deque<OverflowSlot> m_overflowSlots;
     bool                  m_overflowed = false;
     size_t                m_droppedCommands = 0;
 };

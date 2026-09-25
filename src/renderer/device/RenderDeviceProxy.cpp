@@ -972,7 +972,7 @@ void RenderDeviceProxy::releaseUnsubmittedOESCallbacks() {
 
     while (ptr < end) {
         auto* header = reinterpret_cast<CommandBuffer::CmdHeader*>(ptr);
-        void* payload = ptr + sizeof(CommandBuffer::CmdHeader);
+        void* payload = ptr + CommandBuffer::payloadOffset();
         if (header->type == Cmd_EndFrame)
             break;
 
@@ -984,7 +984,7 @@ void RenderDeviceProxy::releaseUnsubmittedOESCallbacks() {
             }
         }
 
-        ptr += sizeof(CommandBuffer::CmdHeader) + CommandBuffer::align8(header->payloadSize);
+        ptr += CommandBuffer::strideOf(header->payloadSize);
     }
 }
 
@@ -1044,7 +1044,7 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
 
     while (ptr < end) {
         auto* h = reinterpret_cast<CommandBuffer::CmdHeader*>(ptr);
-        void* p = ptr + sizeof(CommandBuffer::CmdHeader);
+        void* p = ptr + CommandBuffer::payloadOffset();
 
         if (h->type == Cmd_EndFrame)
             break;
@@ -1300,7 +1300,7 @@ void RenderDeviceProxy::executeFrame(CommandBuffer& buf) {
                 break;
         }
 
-        ptr += sizeof(CommandBuffer::CmdHeader) + CommandBuffer::align8(h->payloadSize);
+        ptr += CommandBuffer::strideOf(h->payloadSize);
     }
 }
 
