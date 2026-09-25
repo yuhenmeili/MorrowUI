@@ -6,9 +6,10 @@
 > **全屏、大量 UIWidget 同时需要背景模糊**这一最重场景，给出基于 Kawase
 > 模糊的分阶段落地方案。
 
-> **状态**：S1、S2 已实施（2026-09-25，验收见 `samples/BackblurDemo.cpp` 与
-> [BackblurDemo.md](../samples/BackblurDemo.md)）；S3 未实施。分析基线：
-> dev 分支 `8b1dc5d`（2026-09-24）。文中所有代码位置均已逐一核实。
+> **状态**：S1、S2、S3（前三项）已实施（2026-09-25，验收见
+> `samples/BackblurDemo.cpp` 与 [BackblurDemo.md](../samples/BackblurDemo.md)）；
+> S3 第 4 项（方案 C 多分段点）维持按需。分析基线：dev 分支 `8b1dc5d`
+> （2026-09-24）。文中所有代码位置均已逐一核实。
 >
 > **S1 实现偏差**（相对 §5/§6 原文，两处有意取舍）：
 > 1. 模糊面片未走"SSBO 实例布局扩展 + backdropUV 字段"路线，改为
@@ -360,10 +361,19 @@ iOS"降低透明度"——视觉层级与可读性保留，成本归零（无 RT
 
 ### S3：质量与高级特性（按需）
 
-- 上采样升级为 9-tap tent / dual-Kawase 上行链，近景文字背景更干净；
-- 半径动画（层级固定 + tint/alpha 过渡的规范用法；评估双层混合插值）；
-- 滚动容器 / clipRect 内的模糊面片裁剪正确性专项（依赖批次 clipRect 键，
-  预期天然工作，需用例覆盖）；
+前三项已实施（2026-09-25）；方案 C 维持"出现明确需求后再评估"。
+
+- ✅ 上采样升级为 9-tap tent——实现在 `backdrop.frag` 的面片采样端（非独立
+  上行链 pass）：十字 + 对角 9 tap 加权，仅模糊面片覆盖区域付出成本；
+- ✅ 半径动画（层级固定 + 双层混合插值）——`BackdropBlur::setBlurLevel(0..2)`
+  连续层级：整数部分取该层级纹理，小数部分在相邻层级间插值（混合因子走
+  Tangent.w 顶点属性，动画面片仍按层级对合并为 1 draw）；层级固定、链与
+  缓存不受动画影响；tint/alpha 过渡仍可用 `setTintColor` + Tween 表达；
+- ✅ 滚动容器 / clipRect 裁剪正确性专项——面片提交时携带
+  `frameState->currentClip`，按（层级对 × clipRect）分组施加 scissor
+  （与 `BatchManager::applyClipRect` 同款 GL Y 翻换算）；BackblurDemo
+  900px 容器内 1200px 面板用例验证：溢出部分被精确剪掉，横向缓动下
+  裁剪边缘稳定；
 - 方案 C（多分段点分组 backdrop）仅在出现明确需求后评估。
 
 ---

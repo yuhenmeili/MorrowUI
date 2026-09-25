@@ -32,8 +32,14 @@ public:
 
     /// 模糊半径（px）。经共享链分级量化（§5.2）：≤12 → L0'（轻）、
     /// ≤40 → L1'（中，面板常用）、>40 → L2'（重）；0 = 关闭本面板模糊。
-    /// 层内半径不再连续可调；半径动画用"层级固定 + tint/alpha 过渡"表达（S3）。
+    /// 层内半径不再连续可调。
     void setBlurRadius(float radius);
+
+    /// 连续采样层级（0..2，S3 半径动画）：整数部分取该层级，小数部分在相邻
+    /// 层级间双层混合插值——层级固定、链不变，只有采样混合因子动画（§5.2
+    /// "层级固定 + 过渡"的规范用法）。设置后覆盖 setBlurRadius 的量化结果，
+    /// 再次调用 setBlurRadius 恢复量化行为。
+    void setBlurLevel(float level);
 
     /// acrylic 混色：rgb 为面板底色，a 为混色强度（也是面片透明度）。
     void setTintColor(const Vector4& color);
@@ -48,6 +54,8 @@ public:
 
 private:
     float m_blurRadius = 24.0f;
+    float m_blurLevel = 1.0f;   // 连续层级（setBlurLevel 设置后生效）
+    bool m_explicitLevel = false; // true = 用 m_blurLevel，false = 量化 m_blurRadius
     Vector4 m_tintColor = Vector4(1.0f, 1.0f, 1.0f, 0.45f);
     float m_rounding = 0.0f;
     bool m_roundingFollowOwner = true;

@@ -4,22 +4,21 @@
 //
 //   1. 全屏卡片墙（displayLayer = -5，边界以下）：彩色圆角卡片 + 文字，
 //      其中一行做 alpha 呼吸动画 → 模糊背景持续变化，验证链每帧更新；
-//   2. 三级半径毛玻璃面板（displayLayer = 0）：BackdropBlur 组件，
-//      轻半径 8（L0'）/ 中半径 24（L1' ×2，验证层级内合批）/ 重半径 56（L2'），
-//      互相交叠验证共享链语义（模糊源只含边界以下内容）；
+//   2. 三级半径毛玻璃面板（displayLayer = 0）：轻 8（L0'）/ 中 24 ×2（L1'）/
+//      重 56（L2'）+ 半径动画面板（S3 双层混合插值，层级 0↔2 往返）+
+//      裁剪容器内面板（S3 clipRect 专项，溢出部分被剪掉）；
 //   3. 前景清晰条（displayLayer = 3，边界以上）：压在玻璃上保持锐利；
-//   4. 运行中开/关切换与档位循环：按钮翻转 BackdropBlurManager::setEnabled /
-//      setQuality（Off / Standard / LowCost），关闭后毛玻璃降级为 tint 半透明
-//      面板（"关闭 ≠ 删组件"）。
+//   4. 运行中开/关切换与档位循环。
 //
 // 验收断言（--report-json，统计取末帧）：
-//   默认（呼吸动画 → 每帧脏）：backdropQuads=4、backdropDraws=10
-//     （链 3 级 × 2 pass + 合成 1 + 面片 3 层级各 1 draw）
-//   --static（背景静止 → 缓存命中）：backdropQuads=4、backdropDraws=4
-//     （链与 backdrop 段整段跳过，仅合成 1 + 面片 3）
+//   默认（呼吸 + 半径动画 → 每帧脏）：backdropQuads=6、backdropDraws=11~12
+//     （链 3 级 × 2 + 合成 1 + 面片 5 组：L0/L1/L2 单层各 1 + 动画双层组 1 +
+//      裁剪组 1；动画恰落在整数层级时并入同层组少 1）
+//   --static（全部动画停 → 缓存命中）：backdropQuads=6、backdropDraws=6
+//     （链与 backdrop 段整段跳过，仅合成 1 + 面片 5 组）
 //   --quality off：backdropQuads=0、backdropDraws=0（退化路径，零成本）
 //
-// F3 切换调试 overlay 可看到 "Blur:4q/10d"（--static 下为 4q/4d）统计。
+// F3 切换调试 overlay 可看到 "Blur:6q/12d"（--static 下为 6q/6d）统计。
 //
 
 #include <cmath>
@@ -239,6 +238,63 @@ int main(int argc, char** argv) {
     }
 
     // ---------------------------------------------------------------------
+    // 2b. 半径动画面板（S3 双层混合插值）：层级 0 ↔ 2 往返，小数部分在
+    //     相邻层级间插值——层级固定、链不变，只有采样混合因子动画
+    // ---------------------------------------------------------------------
+    auto animPanel = createGlassPanel(1330.0f, 140.0f, 510.0f, 390.0f, 26.0f, Vector4(0.98f, 0.94f, 0.86f, 0.40f), 24.0f);
+    window->addChild(animPanel);
+    {
+        auto title = createLabel(L"半径动画（双层混合插值）", 30.0f, 24.0f, 440.0f, 40.0f, 22.0f);
+        animPanel->addChild(title);
+        auto desc = createLabel(L"setBlurLevel 在 0 ↔ 2 间往返：\n模糊强度连续变化，\n链与层级结构保持不变", 30.0f, 76.0f, 440.0f, 110.0f, 17.0f);
+        animPanel->addChild(desc);
+    }
+    {
+        auto animBlur = animPanel->getComponent<BackdropBlur>();
+        animBlur->setBlurLevel(staticBackground ? 1.4f : 0.2f);
+        if (!staticBackground) {
+            // 三角波 0→2→0（循环 0..1 的 Tween 映射为往返）
+            auto levelTween = Tween::create(0.0f, 1.0f, 3.2f);
+            levelTween->setLoop(-1);
+            levelTween->setEase(EaseType::Linear).onUpdate([animBlur](float value) {
+                const float triangle = value < 0.5f ? value * 2.0f : (1.0f - value) * 2.0f;
+                animBlur->setBlurLevel(triangle * static_cast<float>(2));
+            });
+            levelTween->play();
+            TweenManager::getInstance().addTween(levelTween);
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // 2c. 裁剪容器内的模糊（S3 clipRect 专项）：容器 660px 宽，内部模糊
+    //     面板 900px 宽溢出——面片按 currentClip 施加 scissor，仅容器
+    //     内可见；横向缓动验证运行中裁剪。容器与 B2（x ≥ 820）错开、
+    //     上沿压住卡片墙底行保证背后有内容可模糊
+    // ---------------------------------------------------------------------
+    auto clipContainer = std::make_shared<UIWidget>(false);
+    clipContainer->setClipChildren(true);
+    clipContainer->getComponent<Transform>()->setPosition(60.0f, 700.0f, 0.0f);
+    clipContainer->getComponent<Transform>()->setSize(660.0f, 330.0f);
+    window->addChild(clipContainer);
+
+    auto clipPanel = createGlassPanel(30.0f, 16.0f, 900.0f, 300.0f, 22.0f, Vector4(0.95f, 0.97f, 1.0f, 0.40f), 24.0f);
+    clipContainer->addChild(clipPanel);
+    {
+        auto text = createLabel(L"裁剪容器内的模糊：面板 900px 宽，容器 660px —— 溢出部分被剪掉", 50.0f, 120.0f, 780.0f, 36.0f, 19.0f);
+        clipPanel->addChild(text);
+    }
+    if (!staticBackground) {
+        auto slideTween = Tween::create(0.0f, 1.0f, 4.0f);
+        slideTween->setLoop(-1);
+        slideTween->setEase(EaseType::Linear).onUpdate([clipPanel](float value) {
+            const float triangle = value < 0.5f ? value * 2.0f : (1.0f - value) * 2.0f;
+            clipPanel->getComponent<Transform>()->setPosition(30.0f + triangle * 80.0f, 16.0f, 0.0f);
+        });
+        slideTween->play();
+        TweenManager::getInstance().addTween(slideTween);
+    }
+
+    // ---------------------------------------------------------------------
     // 3. 前景清晰条（displayLayer = 3，边界以上）：压在面板 A 上沿保持锐利
     // ---------------------------------------------------------------------
     auto sharpBar = MRColor::create();
@@ -262,8 +318,8 @@ int main(int argc, char** argv) {
     statusLabel->setFontSize(20.0f);
     statusLabel->setFontColor(0.10f, 0.40f, 0.16f, 1.0f);
     statusLabel->setAlign(HorizontalAlignment::CENTER, VerticalAlignment::CENTER);
-    statusLabel->getComponent<Transform>()->setPosition(0.0f, 26.0f, 0.0f);
-    statusLabel->getComponent<Transform>()->setSize(240.0f, 40.0f);
+    statusLabel->getComponent<Transform>()->setPosition(1020.0f, 826.0f, 0.0f);
+    statusLabel->getComponent<Transform>()->setSize(240.0f, 36.0f);
     statusLabel->setDisplayLayer(3);
 
     auto toggleButton = MRButton::create();
@@ -273,9 +329,10 @@ int main(int argc, char** argv) {
     toggleButton->setBackgroundColor(Vector4(0.16f, 0.48f, 0.32f, 1.0f));
     toggleButton->setCornerRadius(14.0f);
     toggleButton->setDisplayLayer(3);
-    toggleButton->getComponent<Transform>()->setPosition(40.0f, 880.0f, 0.0f);
+    toggleButton->getComponent<Transform>()->setPosition(1020.0f, 870.0f, 0.0f);
     toggleButton->getComponent<Transform>()->setSize(240.0f, 90.0f);
-    toggleButton->addChild(statusLabel);
+    // 状态文字独立于按钮（MRButton 内部 label 居中铺满，塞进按钮会叠印）
+    window->addChild(statusLabel);
     window->addChild(toggleButton);
 
     const auto refreshStatus = [&statusLabel]() {
@@ -307,8 +364,8 @@ int main(int argc, char** argv) {
     qualityLabel->setFontSize(20.0f);
     qualityLabel->setFontColor(0.10f, 0.30f, 0.50f, 1.0f);
     qualityLabel->setAlign(HorizontalAlignment::CENTER, VerticalAlignment::CENTER);
-    qualityLabel->getComponent<Transform>()->setPosition(0.0f, 26.0f, 0.0f);
-    qualityLabel->getComponent<Transform>()->setSize(240.0f, 40.0f);
+    qualityLabel->getComponent<Transform>()->setPosition(1290.0f, 826.0f, 0.0f);
+    qualityLabel->getComponent<Transform>()->setSize(240.0f, 36.0f);
     qualityLabel->setDisplayLayer(3);
 
     auto qualityButton = MRButton::create();
@@ -318,9 +375,9 @@ int main(int argc, char** argv) {
     qualityButton->setBackgroundColor(Vector4(0.20f, 0.36f, 0.62f, 1.0f));
     qualityButton->setCornerRadius(14.0f);
     qualityButton->setDisplayLayer(3);
-    qualityButton->getComponent<Transform>()->setPosition(310.0f, 880.0f, 0.0f);
+    qualityButton->getComponent<Transform>()->setPosition(1290.0f, 870.0f, 0.0f);
     qualityButton->getComponent<Transform>()->setSize(240.0f, 90.0f);
-    qualityButton->addChild(qualityLabel);
+    window->addChild(qualityLabel);
     window->addChild(qualityButton);
 
     auto qualityConnection = qualityButton->events().onClicked.connect([&refreshStatus, &qualityLabel](BaseButton&) {
@@ -371,16 +428,17 @@ int main(int argc, char** argv) {
                 return 2;
             }
         } else if (staticBackground) {
-            // 静止背景：backdrop 段与链整段跳过（缓存命中），仅剩合成 + 面片
-            if (stats.backdropQuadCount != 4 || stats.backdropDrawCallCount != 4) {
+            // 静止背景：backdrop 段与链整段跳过（缓存命中），仅剩合成 + 面片。
+            // 面片 5 组：L0 / L1(B+B2) / L2 / 动画面板(1.4 → 双层 1↔2) / 裁剪组
+            if (stats.backdropQuadCount != 6 || stats.backdropDrawCallCount != 6) {
                 std::cerr << "BackblurDemo --static cache acceptance failed" << std::endl;
                 return 2;
             }
         } else {
-            // 呼吸动画：每帧脏。链跑满 3 级（存在 L2' 面片）= 6 pass，
-            // 合成 1，面片 3 层级各 1 draw
-            if (stats.backdropQuadCount != 4 || stats.backdropDrawCallCount != 10) {
-                std::cerr << "BackblurDemo S2 acceptance failed" << std::endl;
+            // 呼吸 + 半径动画：每帧脏，链跑满 3 级 = 6 pass；合成 1；面片 5 组
+            //（动画面板落在整数层级时并入同层组，draws 少 1）
+            if (stats.backdropQuadCount != 6 || stats.backdropDrawCallCount < 11 || stats.backdropDrawCallCount > 12) {
+                std::cerr << "BackblurDemo S3 acceptance failed" << std::endl;
                 return 2;
             }
         }

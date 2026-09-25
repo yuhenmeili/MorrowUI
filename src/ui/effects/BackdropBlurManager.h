@@ -75,9 +75,11 @@ public:
 
     /// BackdropBlur 组件在 update 阶段提交一个模糊面片（世界矩阵与尺寸取自
     /// 属主 Transform；displayLayer 取自属主 Widget，用于推导分段边界）。
-    /// blurRadius 经 quantizeRadius 映射到采样层级（0 不会走到这里：组件已
-    /// 降级为 tint 面板）。
-    void submitQuad(const Matrix4& worldMatrix, const Vector2& size, float rounding, const Vector4& tint, float blurRadius, int32_t displayLayer);
+    /// levelF 为连续采样层级（0..kMaxLevel）：整数部分取该层级纹理，小数
+    /// 部分在相邻层级间双层混合插值（S3 半径动画）。clipRect 取自提交时的
+    /// frameState->currentClip（滚动容器等裁剪，S3 专项）。
+    void submitQuad(const Matrix4& worldMatrix, const Vector2& size, float rounding, const Vector4& tint, float levelF, int32_t displayLayer,
+                    const ClipRect& clipRect);
 
     /// 本帧是否存在活跃模糊（enabled 且已提交面片）。
     bool isFrameActive() const;
@@ -87,7 +89,8 @@ public:
     [[nodiscard]] int32_t getBoundaryLayer() const;
 
     /// 半径 → 采样层级（§5.2 映射表）：0 < r ≤ 12 → L0，12 < r ≤ 40 → L1，
-    /// r > 40 → L2。层内半径不再连续可调（分级量化是刻意取舍）。
+    /// r > 40 → L2。层内半径不再连续可调（分级量化是刻意取舍；半径动画用
+    /// 组件的 setBlurLevel 双层插值表达）。
     static uint8_t quantizeRadius(float blurRadius);
 
     /// S2 脏标记（§5.5 方案 B）：对 backdrop 段（underlay + 边界以下）的全部
@@ -121,8 +124,9 @@ private:
         Vector2 size;
         float rounding = 0.0f;
         Vector4 tint;
-        uint8_t level = 0; // 采样层级（quantizeRadius 结果）
+        float level = 0.0f; // 连续采样层级（整数部分 = 层级，小数 = 双层插值因子）
         int32_t displayLayer = 0;
+        ClipRect clipRect;
     };
 
     /// 链上一个层级：降采样输入 RT + kawase 输出 RT（后者即该层级采样层 Li'）。
@@ -147,7 +151,9 @@ private:
     /// 回屏背景恢复：backdrop RT → 默认帧缓冲的全屏拷贝（blend 关闭）。
     void renderComposite(const FrameStateSharedPtr& frameState);
 
-    /// 按层级分组烘焙模糊面片：每层级一个合并 VBO、一次 draw 采样该层 Li'。
+    /// 按分组烘焙模糊面片并绘制（S3）：分组键 = (低层级, 高层级, clipRect)——
+    /// 整数 levelF 并入单层组（每层级 1 draw）；带小数的进双层插值组（相邻
+    /// 层级对 1 draw）；不同 clipRect（滚动容器等）独立分组并施加 scissor。
     void renderBlurQuads(const FrameStateSharedPtr& frameState);
 
     /// 把一组面片烘焙成平面布局 VBOData（S1 单层级路径的同款顶点格式）。
@@ -155,6 +161,7 @@ private:
 
     static constexpr int32_t kNoBoundary = 11;     // displayLayer 域为 [-10,10]，11 = 本帧尚无提交
     static constexpr uint8_t kLevelCount = 3;      // L0 / L1 / L2
+    static constexpr uint8_t kMaxLevel = kLevelCount - 1;
     static constexpr float kLevel0MaxRadius = 12.0f; // (0, 12] → L0
     static constexpr float kLevel1MaxRadius = 40.0f; // (12, 40] → L1
 

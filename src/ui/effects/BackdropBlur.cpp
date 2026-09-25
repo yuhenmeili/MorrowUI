@@ -7,6 +7,7 @@
 
 #include "BackdropBlurManager.h"
 #include "BatchManager.h"
+#include "GlobalObject.h"
 #include "base/Component.inl"
 #include "base/MeshFilter.h"
 #include "base/MeshRenderer.h"
@@ -46,14 +47,17 @@ void BackdropBlur::update(FrameStateSharedPtr frameState) {
     const float ownerAlpha = ownerMaterial ? ownerMaterial->getFloatOr("alpha", 1.0f) : 1.0f;
 
     auto& manager = BackdropBlurManager::getInstance();
-    if (manager.isEnabled() && m_blurRadius > 0.0f) {
-        // 启用：提交给共享模糊链。半径由管理器量化到 L0'/L1'/L2' 采样层级
-        //（§5.2：≤12 / ≤40 / >40 px）；tint.a 同时承担混色强度与面片透明度，
-        // 再叠加属主自身 alpha，保持与普通 Widget 的 setAlpha 语义一致。
+    if (manager.isEnabled() && (m_explicitLevel || m_blurRadius > 0.0f)) {
+        // 启用：提交给共享模糊链。层级来源二选一：setBlurLevel 的连续层级
+        //（半径动画双层插值）或半径量化（§5.2：≤12 / ≤40 / >40 px）。
+        // tint.a 同时承担混色强度与面片透明度，再叠加属主自身 alpha，
+        // 保持与普通 Widget 的 setAlpha 语义一致。clipRect 取当前裁剪栈
+        //（滚动容器等，S3 裁剪专项）。
         const Vector3 size = transform->getSize();
+        const float levelF = m_explicitLevel ? m_blurLevel : static_cast<float>(BackdropBlurManager::quantizeRadius(m_blurRadius));
         manager.submitQuad(transform->getWorldMatrix(), Vector2(size.x, size.y), m_rounding,
                            Vector4(m_tintColor.x, m_tintColor.y, m_tintColor.z, m_tintColor.w * ownerAlpha),
-                           m_blurRadius, getGameObject()->getDisplayLayer());
+                           levelF, getGameObject()->getDisplayLayer(), frameState->currentClip);
         return;
     }
 
@@ -71,6 +75,14 @@ void BackdropBlur::update(FrameStateSharedPtr frameState) {
 
 void BackdropBlur::setBlurRadius(float radius) {
     m_blurRadius = std::max(radius, 0.0f);
+    m_explicitLevel = false;
+}
+
+void BackdropBlur::setBlurLevel(float level) {
+    m_blurLevel = level;
+    m_explicitLevel = true;
+    // 层级动画不触碰材质 / Transform，按需渲染模式下需要显式唤醒渲染循环
+    REQUESTRENDER;
 }
 
 void BackdropBlur::setTintColor(const Vector4& color) {

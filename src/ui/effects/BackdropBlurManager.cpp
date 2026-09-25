@@ -70,15 +70,19 @@ BackdropBlurQuality BackdropBlurManager::getQuality() const {
     return m_quality;
 }
 
-void BackdropBlurManager::submitQuad(const Matrix4& worldMatrix, const Vector2& size, float rounding, const Vector4& tint, float blurRadius, int32_t displayLayer) {
+void BackdropBlurManager::submitQuad(const Matrix4& worldMatrix, const Vector2& size, float rounding, const Vector4& tint, float levelF, int32_t displayLayer,
+                                     const ClipRect& clipRect) {
     BlurQuad quad;
     quad.worldMatrix = worldMatrix;
     quad.size = size;
     quad.rounding = rounding;
     quad.tint = tint;
-    quad.level = quantizeRadius(blurRadius);
+    quad.level = std::min(std::max(levelF, 0.0f), static_cast<float>(kMaxLevel));
     quad.displayLayer = displayLayer;
-    m_maxNeededLevel = std::max(m_maxNeededLevel, quad.level);
+    quad.clipRect = clipRect;
+    // 链需跑到能供采样该面片的最高层级（含双层插值的高一层）
+    const auto needed = static_cast<uint8_t>(std::min(static_cast<int>(kMaxLevel), static_cast<int>(std::ceil(quad.level - 1e-4f))));
+    m_maxNeededLevel = std::max(m_maxNeededLevel, needed);
     m_boundaryLayer = std::min(m_boundaryLayer, displayLayer);
     m_quads.push_back(quad);
 }
@@ -398,31 +402,73 @@ void BackdropBlurManager::renderBlurQuads(const FrameStateSharedPtr& frameState)
     auto& statistics = frameState->batchStatistics;
     statistics.backdropQuadCount = static_cast<uint32_t>(m_quads.size());
 
-    // 按采样层级分组（§5.3：每层级一个批次，共 ≤ 3 批；同层级任意数量面片
-    // 合并为 1 个 draw call）
-    std::array<std::vector<const BlurQuad*>, kLevelCount> quadsByLevel;
+    // 分组（§5.3 ≤ 3 批 + S3 扩展）：键 = (低层级, 高层级, clipRect)。
+    // 整数 levelF → 单层组（高=低）；带小数 → 相邻层级对的双层插值组；
+    // 不同 clipRect 独立分组并施加 scissor。组内面片仍合并为 1 个 draw。
+    struct QuadGroup {
+        uint8_t baseLevel = 0;
+        uint8_t nextLevel = 0; // == baseLevel 表示单层
+        ClipRect clipRect;
+        std::vector<const BlurQuad*> quads;
+    };
+    std::vector<QuadGroup> groups;
     for (const auto& quad : m_quads) {
-        const uint8_t level = (quad.level < kLevelCount) ? quad.level : kLevelCount - 1;
-        quadsByLevel[level].push_back(&quad);
+        const float clamped = std::min(std::max(quad.level, 0.0f), static_cast<float>(kMaxLevel));
+        const auto base = static_cast<uint8_t>(clamped);
+        const float fraction = clamped - static_cast<float>(base);
+        const uint8_t next = (fraction > 1e-4f && base < kMaxLevel) ? static_cast<uint8_t>(base + 1) : base;
+        QuadGroup* target = nullptr;
+        for (auto& group : groups) {
+            if (group.baseLevel == base && group.nextLevel == next && group.clipRect == quad.clipRect) {
+                target = &group;
+                break;
+            }
+        }
+        if (!target) {
+            groups.push_back(QuadGroup{base, next, quad.clipRect, {}});
+            target = &groups.back();
+        }
+        target->quads.push_back(&quad);
     }
 
-    for (uint8_t level = 0; level < kLevelCount; ++level) {
-        if (quadsByLevel[level].empty()) {
-            continue;
+    for (const auto& group : groups) {
+        // 裁剪（S3 专项）：与 BatchManager::applyClipRect 同款 GL Y 翻转换算，
+        // 模糊面片不进通用批次，需要在这里显式施加
+        if (group.clipRect.enabled && !group.clipRect.empty()) {
+            const int32_t left = std::max(0, static_cast<int32_t>(std::floor(group.clipRect.left)));
+            const int32_t top = std::max(0, static_cast<int32_t>(std::floor(group.clipRect.top)));
+            const int32_t right = std::min(frameState->framebufferWidth, static_cast<int32_t>(std::ceil(group.clipRect.right)));
+            const int32_t bottom = std::min(frameState->framebufferHeight, static_cast<int32_t>(std::ceil(group.clipRect.bottom)));
+            const int32_t width = std::max(0, right - left);
+            const int32_t height = std::max(0, bottom - top);
+            const int32_t glY = std::max(0, frameState->framebufferHeight - bottom);
+            RENDERINGTHREAD->setScissorRect(width > 0 && height > 0, left, glY, width, height);
+        } else {
+            RENDERINGTHREAD->setScissorRect(false, 0, 0, 0, 0);
         }
-        auto vboData = buildQuadVBOData(quadsByLevel[level], frameState);
-        if (!m_blurQuadVBOs[level].isValid()) {
-            m_blurQuadVBOs[level] = RENDERINGTHREAD->createVBO();
+
+        auto vboData = buildQuadVBOData(group.quads, frameState);
+        if (!m_blurQuadVBOs[group.baseLevel].isValid()) {
+            m_blurQuadVBOs[group.baseLevel] = RENDERINGTHREAD->createVBO();
         }
-        RENDERINGTHREAD->useTexture2D(m_levels[level].blurredRT->getColorTexture(), 0);
+        HwTexture2D baseTexture = m_levels[group.baseLevel].blurredRT->getColorTexture();
+        HwTexture2D nextTexture = (group.nextLevel != group.baseLevel) ? m_levels[group.nextLevel].blurredRT->getColorTexture() : baseTexture;
+        RENDERINGTHREAD->useTexture2D(baseTexture, 0);
+        RENDERINGTHREAD->useTexture2D(nextTexture, 1);
         m_blurQuadMaterial->setInt("texture", 0);
+        m_blurQuadMaterial->setInt("textureNext", 1); // 单层时绑定同纹理，采样结果不被引用
+        m_blurQuadMaterial->setVector("texel", Vector2(1.0f / static_cast<float>(m_levels[group.baseLevel].blurredRT->getWidth()),
+                                                       1.0f / static_cast<float>(m_levels[group.baseLevel].blurredRT->getHeight())));
+        m_blurQuadMaterial->setVector("texelNext", Vector2(1.0f / static_cast<float>(m_levels[group.nextLevel].blurredRT->getWidth()),
+                                                           1.0f / static_cast<float>(m_levels[group.nextLevel].blurredRT->getHeight())));
         m_blurQuadMaterial->setMatrix4("projectionView", frameState->camera->getProjectionView());
         m_blurQuadMaterial->apply();
-        RENDERINGTHREAD->updateVBO(m_blurQuadMaterial->getShader(), m_blurQuadVBOs[level], vboData);
-        RENDERINGTHREAD->drawVBO(m_blurQuadVBOs[level], 1);
+        RENDERINGTHREAD->updateVBO(m_blurQuadMaterial->getShader(), m_blurQuadVBOs[group.baseLevel], vboData);
+        RENDERINGTHREAD->drawVBO(m_blurQuadVBOs[group.baseLevel], 1);
         frameState->drawCallCount++;
         statistics.backdropDrawCallCount++;
     }
+    RENDERINGTHREAD->setScissorRect(false, 0, 0, 0, 0);
 }
 
 VBODataSharedPtr BackdropBlurManager::buildQuadVBOData(const std::vector<const BlurQuad*>& quads, const FrameStateSharedPtr& frameState) {
@@ -436,7 +482,7 @@ VBODataSharedPtr BackdropBlurManager::buildQuadVBOData(const std::vector<const B
 
     // 每面片 4 顶点，属性平面布局（与设备端 glVertexAttribPointer stride=0 约定一致）：
     //   Position = 世界空间角点；UV = backdrop 采样 UV；Normal = (objX, objY, rounding)；
-    //   Tangent = (displaySize.x, displaySize.y, 0, 0)；Color = tint。
+    //   Tangent = (displaySize.x, displaySize.y, 0, 双层插值因子)；Color = tint。
     const uint32_t vertexCount = static_cast<uint32_t>(quads.size()) * 4;
     auto vboData = std::make_shared<VBOData>();
     vboData->vertexCount = vertexCount;
@@ -471,6 +517,9 @@ VBODataSharedPtr BackdropBlurManager::buildQuadVBOData(const std::vector<const B
         const BlurQuad& quad = *quads[q];
         const float halfW = quad.size.x * 0.5f;
         const float halfH = quad.size.y * 0.5f;
+        // 双层插值因子：levelF 的小数部分（整数层级 → 0）
+        const float clampedLevel = std::min(std::max(quad.level, 0.0f), static_cast<float>(kMaxLevel));
+        const float blendFactor = clampedLevel - std::floor(clampedLevel);
         // 顶点顺序与 MeshFilter 四边形一致：左上、右上、右下、左下（对象空间 Y 向上）
         const Vector2 corners[4] = {
             Vector2(-halfW, halfH),
@@ -486,7 +535,7 @@ VBODataSharedPtr BackdropBlurManager::buildQuadVBOData(const std::vector<const B
             uvs[base + c] = Vector2((world.x + halfScreenW) * invScreenW, (world.y + halfScreenH) * invScreenH);
             colors[base + c] = quad.tint;
             normals[base + c] = Vector3(corners[c].x, corners[c].y, quad.rounding);
-            tangents[base + c] = Vector4(quad.size.x, quad.size.y, 0.0f, 0.0f);
+            tangents[base + c] = Vector4(quad.size.x, quad.size.y, 0.0f, blendFactor);
         }
         vboData->indices.push_back(base);
         vboData->indices.push_back(base + 1);

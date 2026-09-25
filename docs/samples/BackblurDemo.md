@@ -1,11 +1,11 @@
-# BackblurDemo — Kawase 共享背景模糊（S1/S2）
+# BackblurDemo — Kawase 共享背景模糊（S1/S2/S3）
 
 对应源码：`samples/BackblurDemo.cpp`（编译目标同名）。
 设计文档：[KAWASE_BACKDROP_BLUR_PROPOSAL.md](../road_map/KAWASE_BACKDROP_BLUR_PROPOSAL.md)。
 
 ## 用途
 
-演示 `BackdropBlur` 组件驱动的毛玻璃 / acrylic 背景模糊，覆盖 S1/S2 的验收场景：
+演示 `BackdropBlur` 组件驱动的毛玻璃 / acrylic 背景模糊，覆盖 S1/S2/S3 的验收场景：
 
 1. **分段渲染语义**：卡片墙置于 `displayLayer = -5`（分段边界以下，进入
    模糊源）；毛玻璃面板在默认层 0；前景清晰条与切换按钮在层 3（边界以上，
@@ -13,12 +13,19 @@
 2. **三级半径分级**：轻 8px（L0'）/ 中 24px ×2 面板（L1'，验证层级内
    合批）/ 重 56px（L2'），全部采样同一条共享链，模糊强度肉眼可辨地
    递增；面板之间不互相出现在对方的模糊背景里；
-3. **backdrop 缓存（S2）**：背景静止时（`--static`）脏标记命中，backdrop
-   段与模糊链整段跳过（`Blur:4q/4d`），仅重绘回屏合成 + 面片 + 前景；
-   呼吸动画则每帧重渲（`Blur:4q/10d`）；
-4. **运行中开/关与档位切换**：按钮翻转 `setEnabled` / 循环 `setQuality`
+3. **半径动画（S3 双层混合插值）**：`setBlurLevel(0..2)` 往返动画——层级
+   固定、链不变，小数部分在相邻层级纹理间插值（每顶点混合因子，动画
+   面片仍合并为 1 draw）；
+4. **裁剪容器（S3 clipRect 专项）**：660px 宽容器内的 900px 模糊面板，
+   溢出部分被精确剪掉（按 `currentClip` 分组施加 scissor），横向缓动验证
+   运行中裁剪；
+5. **backdrop 缓存（S2）**：`--static` 停止全部动画后脏标记命中，backdrop
+   段与模糊链整段跳过（`Blur:6q/6d`）；动画期每帧重渲（`Blur:6q/12d`）；
+6. **运行中开/关与档位切换**：按钮翻转 `setEnabled` / 循环 `setQuality`
    （Off / Standard / LowCost），关闭后毛玻璃降级为 tint 半透明面板
    （"关闭 ≠ 删组件"），档位切换懒重建 RT 链。
+
+上采样为 9-tap tent（S3）：低分辨率层级放大在近景文字边缘更平滑。
 
 ## 运行方式
 
@@ -38,8 +45,8 @@ BackblurDemo --frames N                 # 限制渲染帧数（自动化）
 
 | 模式 | 断言 |
 |---|---|
-| 默认（呼吸动画，每帧脏） | `backdropQuads = 4`；`backdropDrawCalls = 10`（链 3 级 × 2 pass + 合成 1 + 面片 3 层级各 1 draw） |
-| `--static`（缓存命中） | `backdropQuads = 4`；`backdropDrawCalls = 4`（链与 backdrop 段整段跳过；连带 backdrop 批次不画，batchDrawCalls 显著下降） |
+| 默认（呼吸 + 半径动画，每帧脏） | `backdropQuads = 6`；`backdropDrawCalls = 11~12`（链 3 级 × 2 pass + 合成 1 + 面片 5 组：L0 / L1(B+B2) / L2 / 动画双层组 / 裁剪组；动画恰落在整数层级时并入同层组少 1） |
+| `--static`（缓存命中） | `backdropQuads = 6`；`backdropDrawCalls = 6`（链与 backdrop 段整段跳过；连带 backdrop 批次不画，batchDrawCalls 显著下降） |
 | `--quality off` | `backdropQuads = 0`、`backdropDrawCalls = 0`，且 `drawCalls == batchDrawCalls`（模糊子系统零成本） |
 
 性能观测：JSON 中 `avgFrameMs` 为帧间隔均值（桌面 GL 含 vsync/FPS 控制器，
@@ -49,10 +56,10 @@ BackblurDemo --frames N                 # 限制渲染帧数（自动化）
 
 | 名称 | 位置 | 说明 |
 |---|---|---|
-| `BackdropBlur` | `src/ui/effects/BackdropBlur.h` | 组件式 opt-in：`setBlurRadius`（量化到 L0/L1/L2：≤12 / ≤40 / >40 px）/ `setTintColor` / `setRounding(FollowOwner)`；启用时向共享链提交面片，关闭时降级为 tint 面板（Shadow 同款自持材质 + 普通通道自然顺序） |
-| `BackdropBlurManager` | `src/ui/effects/BackdropBlurManager.h` | 单例：三级 RT 链（每级 downsample + kawase 一对 RT）、脏标记缓存（批次结构等价 + Transform/Material/Mesh 版本号聚合签名）、`setEnabled` 全局开关、`setQuality` 档位（Off / Standard=1/2 基准 / LowCost=1/4 基准，懒重建） |
+| `BackdropBlur` | `src/ui/effects/BackdropBlur.h` | 组件式 opt-in：`setBlurRadius`（量化到 L0/L1/L2：≤12 / ≤40 / >40 px）/ `setBlurLevel`（连续 0..2，半径动画双层插值）/ `setTintColor` / `setRounding(FollowOwner)`；启用时向共享链提交面片（含 currentClip），关闭时降级为 tint 面板 |
+| `BackdropBlurManager` | `src/ui/effects/BackdropBlurManager.h` | 单例：三级 RT 链、脏标记缓存、面片分组绘制（层级对 × clipRect，9-tap tent 上采样 + 双层插值）、`setEnabled` / `setQuality` 档位 |
 | `EngineOptions.backdropBlur` | `src/core/Engine.h` | 启动档位，缺省 Standard |
-| shader | `assets/shaders/backdrop*.vert/.frag` | downsample（4-tap box）/ kawase / composite（回屏拷贝）/ backdrop（面片采样 + 圆角 + acrylic 混色，不透明替换）/ backdrop_tint（降级纯色面板） |
+| shader | `assets/shaders/backdrop*.vert/.frag` | downsample / kawase / composite / backdrop（tent + 双层插值 + 圆角 + acrylic 混色）/ backdrop_tint（降级纯色面板） |
 
 ## 注意事项
 
