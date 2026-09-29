@@ -4,7 +4,7 @@
 
 #ifndef WINDOWWINDOW_H
 #define WINDOWWINDOW_H
-#include "Window.h"
+#include "morrow/Window.h"
 #include "OpenglHeader.h"
 
 #include <unordered_map>
@@ -29,9 +29,14 @@ public:
 
     void terminate() override;
 
-    void* getSurface() const override { return m_window; }
+    Vector2 framebufferSize() const override { return m_framebufferSize; }
 
-    Vector2 getFramebufferSize() const { return m_framebufferSize; }
+    void setClipboardText(const std::string& text) override;
+
+    std::string clipboardText() const override;
+
+    /// 实现层专用：原生窗口句柄（GLFWwindow*），不出公共接口。
+    void* nativeWindowHandle() const { return m_window; }
 
 private:
     static void window_size_callback(GLFWwindow *window, int width, int height);

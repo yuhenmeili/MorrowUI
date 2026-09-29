@@ -4,8 +4,8 @@
 #include <memory>
 #include <string>
 
-#include "base/UIWidget.h"
-#include "core/Observable.h"
+#include "morrow/base/UIWidget.h"
+#include "morrow/core/Observable.h"
 
 namespace morrow {
 class BaseButton;

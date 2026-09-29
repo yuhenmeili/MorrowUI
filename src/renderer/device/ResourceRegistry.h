@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "ResourceHandle.h"
+#include "morrow/ResourceHandle.h"
 #include "GlResourceObjects.h"
 
 namespace morrow {

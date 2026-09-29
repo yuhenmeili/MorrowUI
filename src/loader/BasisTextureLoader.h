@@ -7,7 +7,7 @@
 
 #include <cstddef>
 #include <cstdio>
-#include "DriverEnums.h"
+#include "morrow/DriverEnums.h"
 #include "basis_universal/transcoder/basisu_transcoder.h"
 using namespace basist;
 
@@ -79,10 +79,10 @@ public:
 
     PixelDataFormat toGlTextureFormat(transcoder_texture_format transcoderTextureFormat);
 
-    void load(const std::string& fileUrl, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat);
+    void load(const std::string& fileUrl, std::vector<uint8_t>& result, PixelDataFormat& glFormat);
 
     /// 从内存中的 .basis 编码字节加载并转码，语义同 load。
-    void loadFromMemory(const uint8_t* fileData, size_t fileSize, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat);
+    void loadFromMemory(const uint8_t* fileData, size_t fileSize, std::vector<uint8_t>& result, PixelDataFormat& glFormat);
 
     void close();
 

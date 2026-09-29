@@ -73,6 +73,10 @@ set(PLATFORM_SRC
 
 set(PLATFORM_INCLUDE_DIRS)
 set(PLATFORM_LIBS)
+# 平台图形后端宏（OPENGL_EGL/OPENGL_GLFW/QNX）是实现细节：
+# PRIVATE 传入实现编译，不出现在公共接口（公共头不允许 #ifdef 平台分支）。
+set(MORROW_PRIVATE_PLATFORM_DEFINES)
+# 公共头需要感知的功能开关（MORROW_ENABLE_*）。
 set(MORROW_PUBLIC_DEFINES)
 set(MORROW_IS_QNX FALSE)
 
@@ -113,14 +117,14 @@ if(MORROW_PLATFORM STREQUAL "QNX")
     list(APPEND PLATFORM_SRC ${EGL_SOURCES})
     list(APPEND PLATFORM_LIBS screen EGL GLESv2 m)
 
-    list(APPEND MORROW_PUBLIC_DEFINES OPENGL_EGL QNX)
+    list(APPEND MORROW_PRIVATE_PLATFORM_DEFINES OPENGL_EGL QNX)
 elseif(MORROW_PLATFORM STREQUAL "Linux")
     message(STATUS "Building for Linux platform")
     file(GLOB_RECURSE WGL_SOURCES "platform/wgl/*.cpp" "platform/wgl/*.c")
     list(APPEND PLATFORM_SRC ${WGL_SOURCES})
     list(APPEND PLATFORM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/includes/opengl/wgl)
 
-    list(APPEND MORROW_PUBLIC_DEFINES OPENGL_GLFW)
+    list(APPEND MORROW_PRIVATE_PLATFORM_DEFINES OPENGL_GLFW)
     set(MORROW_HAS_GLFW FALSE)
 
     find_package(glfw3 QUIET)
@@ -171,7 +175,7 @@ elseif(MORROW_PLATFORM STREQUAL "Windows")
     list(APPEND PLATFORM_SRC ${WGL_SOURCES})
     list(APPEND PLATFORM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/includes/opengl/wgl)
 
-    list(APPEND MORROW_PUBLIC_DEFINES OPENGL_GLFW)
+    list(APPEND MORROW_PRIVATE_PLATFORM_DEFINES OPENGL_GLFW)
 
     find_library(GLFW_LIBRARY
         NAMES glfw3 glfw3dll glfw
@@ -206,19 +210,23 @@ set(MORROW_SRC
 add_library(${MORROW_LIB_NAME} STATIC ${MORROW_SRC})
 add_dependencies(${MORROW_LIB_NAME} morrow_generate_embedded_shaders)
 
-# M1 门禁：公共头传递闭包必须零 GLES/EGL/GL/GLFW 词汇
+# M1 门禁：公共面（include/morrow 全量头）必须零 GLES/EGL/GL/GLFW 词汇
 # （docs/road_map/PUBLIC_API_ENCAPSULATION_PROPOSAL.md §8）。
+file(GLOB_RECURSE MORROW_PUBLIC_HEADERS CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/include/morrow/*.h)
 add_custom_target(morrow_gate_public_api
     COMMAND ${CMAKE_COMMAND}
-        -DAPI_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
-        -DAPI_ROOT_HEADERS=${CMAKE_CURRENT_SOURCE_DIR}/core/Engine.h
+        -DAPI_SOURCE_DIR=${CMAKE_SOURCE_DIR}/include
+        "-DAPI_ROOT_HEADERS=${MORROW_PUBLIC_HEADERS}"
         -DAPI_GATE_FATAL=ON
         -P ${CMAKE_SOURCE_DIR}/cmake/CheckPublicApiGLFree.cmake
-    COMMENT "M1 gate: public header closure (Engine.h) must be GL/EGL/GLFW-free"
+    COMMENT "M1 gate: public headers (include/morrow) must be GL/EGL/GLFW-free"
 )
 add_dependencies(${MORROW_LIB_NAME} morrow_gate_public_api)
 
-target_compile_definitions(${MORROW_LIB_NAME} PUBLIC ${MORROW_PUBLIC_DEFINES})
+target_compile_definitions(${MORROW_LIB_NAME}
+    PUBLIC ${MORROW_PUBLIC_DEFINES}
+    PRIVATE ${MORROW_PRIVATE_PLATFORM_DEFINES})
 # basis_universal 转码器默认关闭 KTX2 支持，打开以启用 Ktx2TextureLoader
 if(NOT DEFINED BASISD_SUPPORT_KTX2)
     set(BASISD_SUPPORT_KTX2 1)
@@ -249,7 +257,48 @@ target_link_libraries(${MORROW_LIB_NAME}
     morrow_utils
     ${PLATFORM_LIBS})
 
-target_include_directories(${MORROW_LIB_NAME} PUBLIC
+# 对外唯一 PUBLIC include：include/（公共头前缀 morrow/）。
+# 其余全部 PRIVATE：实现内部继续用旧 include 路径（经一次性转发头），
+# 外部消费者在标准流程下不可达。
+
+# ---------------------------------------------------------------------------
+# Phase 2 门禁（M2/M3/M4，M1 见上方 morrow_gate_public_api）
+#   M2 负向编译：仅凭公共 include 路径不得触及实现私有头
+#   M3/M4 include 图：公共头/editor/samples 的引擎 include 必须全部可经
+#     include/morrow + 白名单（src/math）解析（tools/check_unresolved_includes.py）
+# 详见 docs/road_map/PUBLIC_API_ENCAPSULATION_PROPOSAL.md §8。
+# ---------------------------------------------------------------------------
+file(WRITE "${CMAKE_BINARY_DIR}/gate_negative.cpp"
+"#include \"morrow/Engine.h\"
+#include \"renderer/device/GLRenderDevice.h\"
+int main() { return 0; }
+")
+try_compile(MORROW_GATE_LEAK_COMPILES
+    "${CMAKE_BINARY_DIR}/gate_negative_build"
+    SOURCES "${CMAKE_BINARY_DIR}/gate_negative.cpp"
+    CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CMAKE_SOURCE_DIR}/include"
+    OUTPUT_VARIABLE MORROW_GATE_NEGATIVE_OUTPUT)
+if(MORROW_GATE_LEAK_COMPILES)
+    message(FATAL_ERROR
+        "M2 gate FAILED: 实现私有头可从公共 include 路径触及！
+${MORROW_GATE_NEGATIVE_OUTPUT}")
+endif()
+
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_FOUND)
+    add_custom_target(morrow_gate_include_graph
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/check_unresolved_includes.py
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "M3/M4 gate: public/editor/sample include graph must resolve via include/morrow"
+    )
+    add_dependencies(${MORROW_LIB_NAME} morrow_gate_include_graph)
+else()
+    message(STATUS "Python3 not found: M3/M4 include-graph gate skipped")
+endif()
+
+target_include_directories(${MORROW_LIB_NAME}
+    PUBLIC ${CMAKE_SOURCE_DIR}/include
+    PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/common
     ${CMAKE_CURRENT_SOURCE_DIR}/core
@@ -264,6 +313,7 @@ target_include_directories(${MORROW_LIB_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/platform
     ${CMAKE_CURRENT_SOURCE_DIR}/debug
     ${CMAKE_CURRENT_SOURCE_DIR}/gltf
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils
     ${MORROW_SHADER_GENERATED_DIR}
     ${PLATFORM_INCLUDE_DIRS}
 )

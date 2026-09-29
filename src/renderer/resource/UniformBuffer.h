@@ -6,7 +6,7 @@
 #define UNIFORMBUFFER_H
 #include <memory>
 #include "Matrix4.h"
-#include "GpuTypes.h"
+#include "morrow/GpuTypes.h"
 
 namespace morrow {
 using namespace Math;

@@ -6,9 +6,9 @@
 
 #include "BatchManager.h"
 #include "GlobalObject.h"
-#include "OrthographicCamera.h"
-#include "base/Transform.h"
-#include "utils/Log.h"
+#include "morrow/OrthographicCamera.h"
+#include "morrow/base/Transform.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 WGLWindow::WGLWindow(const WindowInfo& info) {
@@ -156,6 +156,18 @@ void WGLWindow::terminate() {
     glfwDestroyWindow(m_window);
     m_window = nullptr;
     glfwTerminate();
+}
+
+void WGLWindow::setClipboardText(const std::string& text) {
+    if (m_window)
+        glfwSetClipboardString(m_window, text.c_str());
+}
+
+std::string WGLWindow::clipboardText() const {
+    if (!m_window)
+        return {};
+    const char* text = glfwGetClipboardString(m_window);
+    return text ? std::string(text) : std::string{};
 }
 
 void WGLWindow::window_size_callback(GLFWwindow* window, int width, int height) {

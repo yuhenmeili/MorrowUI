@@ -7,7 +7,7 @@
 
 #include <cstddef>
 #include <string>
-#include "DriverEnums.h"
+#include "morrow/DriverEnums.h"
 #include "basis_universal/transcoder/basisu_transcoder.h"
 
 namespace morrow {
@@ -20,10 +20,10 @@ public:
     Ktx2TextureLoader();
 
     /// 加载并转码 level0；像素数据写入 result，像素格式写回 glFormat。
-    bool load(const std::string& fileUrl, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat);
+    bool load(const std::string& fileUrl, std::vector<uint8_t>& result, PixelDataFormat& glFormat);
 
     /// 从内存中的 KTX2 编码字节加载并转码，语义同 load。
-    bool loadFromMemory(const uint8_t* fileData, size_t fileSize, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat);
+    bool loadFromMemory(const uint8_t* fileData, size_t fileSize, std::vector<uint8_t>& result, PixelDataFormat& glFormat);
 
     /// 当前解析出的目标格式是否为 GPU 压缩格式（决定上传走哪个 GL 入口）。
     bool isCompressed() const;

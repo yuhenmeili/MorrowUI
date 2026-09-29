@@ -5,8 +5,8 @@
 #include <memory>
 #include <string>
 
-#include "base/UIWidget.h"
-#include "core/Observable.h"
+#include "morrow/base/UIWidget.h"
+#include "morrow/core/Observable.h"
 #include "scene/NodeTypeCatalog.h"
 
 namespace morrow {

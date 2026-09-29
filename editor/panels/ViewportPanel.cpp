@@ -5,10 +5,10 @@
 #include <limits>
 
 #include "EditorShell.h"
-#include "base/Interaction.h"
-#include "base/TouchEvent.h"
-#include "base/Transform.h"
-#include "elements/MRColor.h"
+#include "morrow/base/Interaction.h"
+#include "morrow/base/TouchEvent.h"
+#include "morrow/base/Transform.h"
+#include "morrow/elements/MRColor.h"
 #include "panels/InspectorPanel.h"
 #include "scene/SceneInstantiator.h"
 

@@ -1,10 +1,10 @@
-#include "MRSpinBox.h"
+#include "morrow/elements/MRSpinBox.h"
 
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
 
-#include "base/Transform.h"
+#include "morrow/base/Transform.h"
 
 namespace morrow {
 

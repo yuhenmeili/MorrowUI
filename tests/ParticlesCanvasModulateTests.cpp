@@ -2,11 +2,11 @@
 #include <iostream>
 #include <string>
 
-#include "ui/base/Mesh.h"
-#include "ui/base/MeshFilter.h"
-#include "ui/base/Transform.h"
-#include "ui/elements/MRCanvasModulate.h"
-#include "ui/elements/MRParticles2D.h"
+#include "morrow/base/Mesh.h"
+#include "morrow/base/MeshFilter.h"
+#include "morrow/base/Transform.h"
+#include "morrow/elements/MRCanvasModulate.h"
+#include "morrow/elements/MRParticles2D.h"
 
 using namespace morrow;
 

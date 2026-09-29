@@ -1,4 +1,4 @@
-#include "IBLPrecompute.h"
+#include "morrow/scene3d/IBLPrecompute.h"
 
 #include <algorithm>
 #include <cerrno>

@@ -2,9 +2,9 @@
 #include <memory>
 #include <string>
 
-#include "ui/base/TouchEvent.h"
-#include "ui/elements/MRLineEdit.h"
-#include "ui/elements/MRTextEdit.h"
+#include "morrow/base/TouchEvent.h"
+#include "morrow/elements/MRLineEdit.h"
+#include "morrow/elements/MRTextEdit.h"
 
 using namespace morrow;
 

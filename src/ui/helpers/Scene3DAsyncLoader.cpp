@@ -2,7 +2,7 @@
 // Created by lance on 2026/4/21.
 //
 
-#include "Scene3DAsyncLoader.h"
+#include "morrow/helpers/Scene3DAsyncLoader.h"
 
 #include <exception>
 #include <utility>
@@ -10,7 +10,7 @@
 #include "GLTFAnimationController.h"
 #include "GLTFLoader.h"
 #include "GLTFSceneBuilder.h"
-#include "Log.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 std::shared_ptr<Scene3DAsyncLoader> Scene3DAsyncLoader::create(const EngineSharedPtr& engine, const std::shared_ptr<MR3DSceneView>& scene3DView) {

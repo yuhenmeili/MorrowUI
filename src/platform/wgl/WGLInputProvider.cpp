@@ -6,10 +6,10 @@
 
 #include <unordered_map>
 
-#include "Log.h"
+#include "morrow/utils/Log.h"
 #include "OpenglHeader.h"
 #include "math/MathUtils.h"
-#include "ui/base/TouchEvent.h"
+#include "morrow/base/TouchEvent.h"
 
 namespace morrow {
 namespace {
@@ -270,6 +270,24 @@ void WGLInputProvider::key_callback(GLFWwindow* window, int key, int /*scancode*
         case GLFW_KEY_C:
             mappedKey = TOUCH_KEY_C;
             break;
+        case GLFW_KEY_ESCAPE:
+            mappedKey = TOUCH_KEY_ESCAPE;
+            break;
+        case GLFW_KEY_UP:
+            mappedKey = TOUCH_KEY_UP;
+            break;
+        case GLFW_KEY_DOWN:
+            mappedKey = TOUCH_KEY_DOWN;
+            break;
+        case GLFW_KEY_S:
+            mappedKey = TOUCH_KEY_S;
+            break;
+        case GLFW_KEY_Z:
+            mappedKey = TOUCH_KEY_Z;
+            break;
+        case GLFW_KEY_Y:
+            mappedKey = TOUCH_KEY_Y;
+            break;
         default:
             break;
     }
@@ -281,6 +299,7 @@ void WGLInputProvider::key_callback(GLFWwindow* window, int key, int /*scancode*
     event.deviceType = TOUCH_DEVICE_TYPE_KEYBOARD;
     event.touchTime = Math::getCurrentMonotonicTime();
     event.keyCode = mappedKey;
+    event.keyRepeatCount = (action == GLFW_REPEAT) ? 1u : 0u;
     if ((mods & GLFW_MOD_SHIFT) != 0)
         event.modifiers |= TOUCH_MODIFIER_SHIFT;
     if ((mods & GLFW_MOD_CONTROL) != 0)

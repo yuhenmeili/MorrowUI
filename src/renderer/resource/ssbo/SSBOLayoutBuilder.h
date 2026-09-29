@@ -5,8 +5,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "ShaderStorageBuffer.h"
-#include "SSBOFieldBinding.h"
+#include "morrow/ShaderStorageBuffer.h"
+#include "morrow/SSBOFieldBinding.h"
 
 namespace morrow {
 

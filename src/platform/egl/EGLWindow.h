@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "EGLOperationsQNX.h"
-#include "platform/Window.h"
+#include "morrow/Window.h"
 #include <screen/screen.h>
 
 namespace morrow
@@ -36,7 +36,15 @@ public:
 
     void setScreenAlpha(float alpha = 1.0f);
 
-    void* getSurface() const override { return m_eglSurface; }
+    Vector2 framebufferSize() const override { return m_windowSize; }
+
+    // QNX screen 剪贴板暂未接入：写入为空操作，读取返回空串
+    void setClipboardText(const std::string& /*text*/) override {}
+
+    std::string clipboardText() const override { return {}; }
+
+    /// 实现层专用：EGLSurface，不出公共接口
+    void* nativeSurface() const { return m_eglSurface; }
 
 private:
     EGLWindow(EGLOperationsQNXSharedPtr context, const WindowInfo& info);

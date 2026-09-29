@@ -12,9 +12,9 @@
 #include "platform/egl/GLESHeader.h"
 #endif
 
-#include "Platform.h"
-#include "RenderDevice.h"
-#include "RenderDeviceOptions.h"
+#include "morrow/Platform.h"
+#include "morrow/RenderDevice.h"
+#include "morrow/RenderDeviceOptions.h"
 #include "ResourceRegistry.h"
 #include "ShaderBinaryCache.h"
 

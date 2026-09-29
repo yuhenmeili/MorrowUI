@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 
-#include "ui/helpers/Scene3DNormalization.h"
+#include "morrow/helpers/Scene3DNormalization.h"
 
 using namespace morrow;
 using namespace morrow::Math;

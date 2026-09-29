@@ -10,8 +10,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "BatchDataDefine.h"
-#include "utils/Singleton.h"
+#include "morrow/BatchDataDefine.h"
+#include "morrow/utils/Singleton.h"
 
 namespace morrow {
 

@@ -2,9 +2,9 @@
 // Created by lance on 24-7-1.
 //
 
-#include "TextureAtlas.h"
+#include "morrow/atlas/TextureAtlas.h"
 #include "ToolUtils.h"
-#include "utils/Log.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 TextureAtlas::TextureAtlas(const std::string& packFileUrl, const std::string& imagesDir, bool flip) {

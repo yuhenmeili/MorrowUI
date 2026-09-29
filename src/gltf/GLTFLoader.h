@@ -7,7 +7,7 @@
 
 #include <string>
 #include <memory>
-#include "GLTFTypes.h"
+#include "morrow/GLTFTypes.h"
 
 namespace morrow {
 

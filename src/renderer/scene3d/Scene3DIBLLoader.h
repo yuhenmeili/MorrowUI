@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "Scene3DPassContext.h"
+#include "morrow/scene3d/Scene3DPassContext.h"
 
 namespace morrow {
 class Scene3DIBLLoader {

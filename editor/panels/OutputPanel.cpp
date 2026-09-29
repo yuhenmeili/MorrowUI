@@ -5,8 +5,8 @@
 #include <locale>
 
 #include "EditorShell.h"
-#include "base/Transform.h"
-#include "elements/MRTextEdit.h"
+#include "morrow/base/Transform.h"
+#include "morrow/elements/MRTextEdit.h"
 #include "panels/BuildPanel.h"
 
 namespace morrow::editor {

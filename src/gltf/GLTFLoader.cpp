@@ -8,8 +8,8 @@
 #include <cstring>
 #include <thread>
 
-#include "DriverEnums.h"
-#include "Log.h"
+#include "morrow/DriverEnums.h"
+#include "morrow/utils/Log.h"
 #include "tinygltf/tiny_gltf.h"
 
 namespace morrow {

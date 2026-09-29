@@ -8,8 +8,8 @@
 #include <memory>
 #include <string>
 
-#include "GLTFTypes.h"
-#include "Texture.h"
+#include "morrow/GLTFTypes.h"
+#include "morrow/Texture.h"
 
 namespace morrow {
 class SceneNode;

@@ -9,7 +9,7 @@
 #include "filesystem/ProjectFileSystemModel.h"
 #include "panels/EditorPanel.h"
 #include "assets/AssetTypeCatalog.h"
-#include "core/Observable.h"
+#include "morrow/core/Observable.h"
 
 namespace morrow {
 class UIWidget;

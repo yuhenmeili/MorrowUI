@@ -4,10 +4,10 @@
 
 #include "EGLWindow.h"
 #include "BatchManager.h"
-#include "utils/Log.h"
+#include "morrow/utils/Log.h"
 #include "GlobalObject.h"
-#include "OrthographicCamera.h"
-#include "base/Transform.h"
+#include "morrow/OrthographicCamera.h"
+#include "morrow/base/Transform.h"
 
 namespace morrow
 {

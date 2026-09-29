@@ -2,19 +2,19 @@
 // Created by 0060328 on 25-9-18.
 //
 
-#include "Platform.h"
+#include "morrow/Platform.h"
 
 #include <chrono>
 #include <thread>
 
-#include "FontManager.h"
+#include "morrow/FontManager.h"
 #include "GlobalObject.h"
 #include "RenderDeviceProxy.h"
-#include "Window.h"
-#include "ui/base/Interaction.h"
-#include "ui/base/TouchEvent.h"
-#include "ui/base/UIWidget.h"
-#include "ui/base/Widget.h"
+#include "morrow/Window.h"
+#include "morrow/base/Interaction.h"
+#include "morrow/base/TouchEvent.h"
+#include "morrow/base/UIWidget.h"
+#include "morrow/base/Widget.h"
 
 namespace morrow {
 void Platform::initialize(bool multithread, const RenderDeviceOptions& deviceOptions) {
@@ -181,6 +181,16 @@ void Platform::ensureRenderCapabilitiesInitialized() {
 
 void Platform::dispatchEvents(const FrameStateSharedPtr& frameState) {
     bool needRender = false;
+    // 原始键盘/字符输入先广播给工具层监听者（编辑器等），不参与 Widget 派发，
+    // 也不影响下方按 target 的正常派发。
+    if (m_window) {
+        for (const auto& touchEvent : frameState->inputEventsManager->getInputEvents()) {
+            if (touchEvent.eventType == TOUCH_EVENT_TYPE_KEY_DOWN ||
+                touchEvent.eventType == TOUCH_EVENT_TYPE_CHARACTER) {
+                m_window->events().onRawKeyboardInput.notify(touchEvent);
+            }
+        }
+    }
     // dispatch event
     for (auto& touchEvent : frameState->inputEventsManager->getInputEvents()) {
         if (touchEvent.target) {

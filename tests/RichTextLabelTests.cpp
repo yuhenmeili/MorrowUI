@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include "ui/elements/MRRichTextLabel.h"
+#include "morrow/elements/MRRichTextLabel.h"
 
 using namespace morrow;
 

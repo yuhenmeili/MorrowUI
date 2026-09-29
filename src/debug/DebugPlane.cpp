@@ -4,9 +4,9 @@
 
 #include "DebugPlane.h"
 
-#include "Window.h"
-#include "base/Transform.h"
-#include "elements/MRLabel.h"
+#include "morrow/Window.h"
+#include "morrow/base/Transform.h"
+#include "morrow/elements/MRLabel.h"
 
 namespace morrow {
 void DebugPlane::initialize(std::shared_ptr<Window> window) {

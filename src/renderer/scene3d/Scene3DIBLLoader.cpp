@@ -5,8 +5,8 @@
 #include <sstream>
 #include <vector>
 
-#include "Texture.h"
-#include "Log.h"
+#include "morrow/Texture.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 namespace {

@@ -43,6 +43,8 @@ target_link_libraries(morrow_editor_runtime
     morrow
 )
 target_include_directories(morrow_editor_runtime PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# 仓库内工具豁免：编辑器缩略图直接用 stb_image（vendor 头不进入引擎公共接口）。
+target_include_directories(morrow_editor_runtime PRIVATE ${CMAKE_SOURCE_DIR}/src/includes/common)
 
 add_executable(MorrowEditor Editor.cpp)
 target_link_libraries(MorrowEditor PRIVATE morrow_editor_runtime)

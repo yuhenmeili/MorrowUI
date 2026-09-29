@@ -12,20 +12,19 @@
 #include "ProjectSettings.h"
 #include "assets/AssetDatabase.h"
 #include "assets/ImportQueue.h"
-#include "base/UIWidget.h"
+#include "morrow/base/UIWidget.h"
 #include "build/BuildQueue.h"
-#include "core/Observable.h"
+#include "morrow/core/Observable.h"
 #include "filesystem/ProjectFileSystemModel.h"
-#include "layout/DragDropManager.h"
-#include "layout/MRSplitContainer.h"
-#include "layout/MRTabContainer.h"
+#include "morrow/layout/DragDropManager.h"
+#include "morrow/layout/MRSplitContainer.h"
+#include "morrow/layout/MRTabContainer.h"
 #include "scene/EditorSession.h"
 #include "scene/NodeTypeCatalog.h"
 #include "ui/CreateNodeDialog.h"
 #include "ui/DockDropOverlay.h"
 #include "ui/DockLayout.h"
 #include "panels/FileSystemPanel.h"
-#include "wgl/OpenglHeader.h"
 
 namespace morrow {
 class Engine;
@@ -78,7 +77,7 @@ private:
 
     void handleInput(std::vector<TouchEvent>& events);
 
-    void handleKey(int key, int action, int mods);
+    void handleKeyEvent(const TouchEvent& event);
 
     bool handleDockDrag(const TouchEvent& event);
 
@@ -108,10 +107,6 @@ private:
 
     std::shared_ptr<MRButton> addButton(const std::shared_ptr<UIWidget>& parent, const std::wstring& text, float x, float y, float width, float height,
                                         std::function<void()> callback);
-
-    static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
-
-    static void charCallback(GLFWwindow* window, unsigned int codepoint);
 
     std::shared_ptr<Window> m_window;
     std::shared_ptr<Engine> m_engine;
@@ -154,6 +149,7 @@ private:
     std::string m_stderrRemainder;
     Observable<std::vector<TouchEvent>&>::Connection m_inputConnection;
     Observable<const Vector2&>::Connection m_framebufferSizeConnection;
+    Observable<const TouchEvent&>::Connection m_rawKeyConnection;
     std::vector<Observable<MRSplitContainer&, float>::Connection> m_splitConnections;
     std::vector<Observable<MRTabContainer&, const std::string&>::Connection> m_tabConnections;
     std::vector<Observable<MRTabContainer&>::Connection> m_tabOrderConnections;

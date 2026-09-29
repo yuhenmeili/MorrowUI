@@ -10,6 +10,12 @@
 >   **公共路径与内部结构解耦**硬规则、**薄头厚 cpp** 原则、semver + 废弃缓冲
 >   演进策略（§2.1 G6、§7.5）、新增门禁 M5（公共 API 一致性测试）与
 >   `version.h`（§7.2、§8）。
+> - v4.2（2026-09-29）：Phase 2 实施完成。要点：① 迁移策略按评审改为**一次性全量
+>   直引 morrow/ 路径，不留转发头**（§7.2 修订）；② 新增 Window 能力 API
+>   （framebufferSize/剪贴板/onRawKeyboardInput + TouchKeyCode 扩展），editor 彻底
+>   去 GLFW 直调（§6.3 状态）；③ 公共面去除 vendor 头（Texture basisData 改
+>   std::vector + 加载器边界转换）、FontManager pimpl 化（§6.6 落地）；④
+>   M1~M5 全部门禁接入构建（§8 状态）。详见 §9 Phase 2 状态块。
 > - v4.1（2026-09-29）：Phase 0/1 实施完成，同步实施偏差（§3.2 AtlasParser 死
 >   字段删除、§6.1 前向声明方案、§9 Phase 1 状态与验证数据）。
 > - v3（2026-09-29）：五项评审决策落稿（§12）：① 维持静态库，不升级动态库
@@ -482,6 +488,39 @@ M1/M2 成本极低（纯 CMake/脚本），Phase 1 结束即可上线，长期�
 等价映射。
 
 ### Phase 2 — 构建边界（本提案主体落地）
+
+> 状态：✅ 已完成（2026-09-29）。Windows/MinGW(Ninja) 全量构建通过（morrow +
+> 15 samples + editor + 26 组测试，PublicApiConsistencyTests 为新增门禁测试）；
+> DebugDemo `--report-json --frames 30` 渲染结果与改造前逐项一致（14 items →
+> 5 batches / 5 draw calls）。QNX/Linux 交叉编译待验证。
+
+实施结果与偏差：
+
+1. **迁移策略修订**：不留转发头，实现代码一次性全量改写为 `morrow/` 公共路径
+   （评审期间决策）；公共面最终形态 = `include/morrow/`（约 107 个头：
+   根 + atlas/base/controllers/core/debug/effects/elements/helpers/layout/
+   scene3d/utils 子目录 + `version.h`）。
+2. **公共面补迁**（可达性分析迭代发现）：`PerspectiveCamera.h`、
+   `OrbitCamera.h`、`TextTextureInfo.h`、`FontGlyph.h`（自 DynamicFont 抽出的
+   干净数据模型）、`core/EventDispatcherBackUp.h`、`utils/{Log,GlobalTools,
+   Singleton}.h`（morrow_utils 目标改 PUBLIC include/）。
+3. **§6.3 落地**：`Window::framebufferSize()/setClipboardText()/clipboardText()`
+   + `WindowEvents::onRawKeyboardInput`（Widget 派发前广播）；`TouchKeyCode`
+   追加 ESCAPE/UP/DOWN/S/Z/Y + `TouchEvent::keyRepeatCount`；editor 删除
+   `wgl/OpenglHeader.h` include 与全部 glfw 直调（改消费引擎事件），键值统一走
+   TouchKeyCode（未新增独立 KeyCode 枚举）。
+4. **§6.6 落地**：`TextureInfo::basisData` 改 `std::vector<uint8_t>`，
+   Basis/Ktx2 加载器对外签名同步、内部保留 basisu 容器做边界转换——vendor 头
+   退出公共面；`FontManager` pimpl 化（`fonts_internal::getFont` 内部入口），
+   stb_truetype 不再可达；`MRLabel.h` 改 DynamicFont 前向声明。
+5. **白名单例外（文档化）**：`src/math`（morrow_math 目标，GL-free 产品头）
+   仍以自身目录交付；editor 作为仓库内工具 PRIVATE 引入 `src/includes/common`
+   （stb_image 缩略图用），不进入引擎公共接口。
+6. **门禁**：M1（include/morrow 全量扫描，随 morrow 构建）、M2（configure 期
+   try_compile 负向编译，内部头不可从公共路径触及）、M3/M4
+   （`tools/check_unresolved_includes.py`，随构建执行，0 未解析）、M5
+   （`tests/PublicApiConsistencyTests.cpp`，CMake 刻意只给 `-I include
+   -I src/math`，纯公共路径编译 + 不求值工厂签名断言）。
 
 任务：
 

@@ -16,16 +16,16 @@
 #include <fstream>
 #include <iterator>
 
-#include "Engine.h"
-#include "FontManager.h"
-#include "Texture.h"
-#include "atlas/TextureAtlas.h"
-#include "base/Shadow.h"
-#include "base/Transform.h"
-#include "elements/MRColor.h"
-#include "elements/MRImage.h"
-#include "elements/MRLabel.h"
-#include "ui/helpers/Tween.h"
+#include "morrow/Engine.h"
+#include "morrow/FontManager.h"
+#include "morrow/Texture.h"
+#include "morrow/atlas/TextureAtlas.h"
+#include "morrow/base/Shadow.h"
+#include "morrow/base/Transform.h"
+#include "morrow/elements/MRColor.h"
+#include "morrow/elements/MRImage.h"
+#include "morrow/elements/MRLabel.h"
+#include "morrow/helpers/Tween.h"
 
 using namespace morrow;
 using namespace morrow::Math;

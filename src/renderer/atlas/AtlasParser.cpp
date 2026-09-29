@@ -6,10 +6,10 @@
 #include <fstream>
 #include <iterator>
 #include <sstream>
-#include "AtlasParser.h"
+#include "morrow/atlas/AtlasParser.h"
 
 #include "ToolUtils.h"
-#include "utils/Log.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 namespace {

@@ -2,11 +2,11 @@
 // StaticAtlasManager.cpp — 全局静态图集管理器实现
 //
 
-#include "StaticAtlasManager.h"
+#include "morrow/StaticAtlasManager.h"
 
 #include "GlobalObject.h"
-#include "RenderDeviceProxyBase.h"
-#include "utils/Log.h"
+#include "morrow/RenderDeviceProxyBase.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 

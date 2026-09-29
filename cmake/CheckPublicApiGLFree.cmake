@@ -19,6 +19,13 @@ if(NOT DEFINED API_GATE_FATAL)
     set(API_GATE_FATAL ON)
 endif()
 
+# API_PRINT_CLOSURE=ON 时仅打印闭包文件清单（相对 API_SOURCE_DIR），供迁移与
+# M3/M5 门禁使用，不做词汇扫描。
+set(_print_closure OFF)
+if(DEFINED API_PRINT_CLOSURE AND API_PRINT_CLOSURE)
+    set(_print_closure ON)
+endif()
+
 if(NOT DEFINED API_SOURCE_DIR OR NOT DEFINED API_ROOT_HEADERS)
     message(FATAL_ERROR "CheckPublicApiGLFree: API_SOURCE_DIR 与 API_ROOT_HEADERS 必须提供")
 endif()
@@ -139,6 +146,15 @@ foreach(_file IN LISTS _closure)
 endforeach()
 
 list(LENGTH _closure _closure_size)
+
+if(_print_closure)
+    foreach(_file IN LISTS _closure)
+        file(RELATIVE_PATH _rel "${API_SOURCE_DIR}" "${_file}")
+        message("${_rel}")
+    endforeach()
+    return()
+endif()
+
 if(_violations STREQUAL "")
     message(STATUS "CheckPublicApiGLFree: OK — 闭包 ${_closure_size} 个头文件，零 GL/EGL/GLFW 词汇")
     return()

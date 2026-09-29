@@ -2,16 +2,17 @@
 // Created by 0060328 on 25-10-11.
 //
 
-#include "MRRichTextLabel.h"
+#include "morrow/elements/MRRichTextLabel.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <cwctype>
 #include <utility>
 
-#include "FontManager.h"
+#include "morrow/FontManager.h"
+#include "DynamicFont.h"
 #include "GlobalObject.h"
-#include "base/Transform.h"
+#include "morrow/base/Transform.h"
 
 namespace morrow {
 namespace {
@@ -338,7 +339,7 @@ void MRRichTextLabel::rebuildLayout() {
         return;
     }
 
-    auto font = GlobalObject::getInstance().getFontManager()->getFont(m_fontName);
+    auto font = fonts_internal::getFont(m_fontName);
     if (!font) {
         LOG_E("MRRichTextLabel failed to resolve font '{}' for text length {}",
               m_fontName, m_plainText.size());

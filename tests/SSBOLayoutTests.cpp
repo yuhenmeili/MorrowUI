@@ -15,9 +15,9 @@
 #include <string>
 #include <vector>
 
-#include "core/BatchDataDefine.h"
+#include "morrow/BatchDataDefine.h"
 #include "renderer/resource/MaterialUtil.h"
-#include "renderer/resource/ssbo/SSBOFieldBinding.h"
+#include "morrow/SSBOFieldBinding.h"
 #include "renderer/resource/ssbo/SSBOLayoutBuilder.h"
 #include "renderer/resource/ssbo/layouts/BounceSSBOLayout.h"
 #include "renderer/resource/ssbo/layouts/ButtonSSBOLayout.h"
@@ -27,9 +27,9 @@
 #include "renderer/resource/ssbo/layouts/ImageSSBOLayout.h"
 #include "renderer/resource/ssbo/layouts/ProgressBarSSBOLayout.h"
 #include "renderer/resource/ssbo/layouts/TextureButtonSSBOLayout.h"
-#include "renderer/resource/ShaderReflection.h"
-#include "renderer/resource/Material.h"
-#include "ui/base/Transform.h"
+#include "morrow/ShaderReflection.h"
+#include "morrow/Material.h"
+#include "morrow/base/Transform.h"
 
 using namespace morrow;
 using namespace morrow::Math;

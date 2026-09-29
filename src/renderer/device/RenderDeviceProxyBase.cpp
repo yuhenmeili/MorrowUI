@@ -4,7 +4,7 @@
 //
 
 #include <functional>
-#include "RenderDeviceProxyBase.h"
+#include "morrow/RenderDeviceProxyBase.h"
 #include "GLRenderDevice.h"
 
 namespace morrow {

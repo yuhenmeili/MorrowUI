@@ -2,16 +2,17 @@
 // Created by 0060328 on 25-10-9.
 //
 
-#include "MRLabel.h"
+#include "morrow/elements/MRLabel.h"
 
 #include <algorithm>
 
-#include "FontManager.h"
+#include "morrow/FontManager.h"
 #include "GlobalObject.h"
-#include "Material.h"
+#include "DynamicFont.h"
+#include "morrow/Material.h"
 #include "BatchManager.h"
-#include "ssbo/ShaderStorageBuffer.h"
-#include "base/Transform.h"
+#include "morrow/ShaderStorageBuffer.h"
+#include "morrow/base/Transform.h"
 #include "renderer/resource/ssbo/layouts/FontSSBOLayout.h"
 
 namespace morrow {
@@ -126,7 +127,7 @@ void MRLabel::update(FrameStateSharedPtr frameState) {
     }
 
     if (m_isTextLayoutDirty || m_isAlignDirty) {
-        m_font = GlobalObject::getInstance().getFontManager()->getFont(m_fontName);
+        m_font = fonts_internal::getFont(m_fontName);
         if (!m_font && !m_text.empty()) {
             LOG_E("MRLabel failed to resolve font '{}' for text length {}", m_fontName, m_text.size());
         }

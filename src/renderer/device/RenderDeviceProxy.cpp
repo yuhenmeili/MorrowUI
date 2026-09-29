@@ -25,12 +25,12 @@
 #include <cstring>
 #include <future>
 
-#include "Log.h"
+#include "morrow/utils/Log.h"
 #include "GLRenderDevice.h"
 #include "PixelFormat.h"
-#include "RenderDevice.h"
-#include "RenderDeviceProxyBase.h"
-#include "ShaderReflection.h"
+#include "morrow/RenderDevice.h"
+#include "morrow/RenderDeviceProxyBase.h"
+#include "morrow/ShaderReflection.h"
 
 namespace morrow {
 // ---------------------------------------------------------------------------

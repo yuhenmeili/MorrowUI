@@ -3,10 +3,10 @@
 #include <string>
 #include <thread>
 
-#include "FrameState.h"
-#include "GlobalObject.h"
+#include "morrow/scene3d/FrameState.h"
+#include "core/GlobalObject.h"
 #include "RenderingThread.h"
-#include "ui/helpers/Tween.h"
+#include "morrow/helpers/Tween.h"
 
 using namespace morrow;
 

@@ -12,7 +12,7 @@ BasisTextureLoader::BasisTextureLoader()
     basisu_transcoder_init();
 }
 
-void BasisTextureLoader::load(const std::string& fileUrl, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat)
+void BasisTextureLoader::load(const std::string& fileUrl, std::vector<uint8_t>& result, PixelDataFormat& glFormat)
 {
     std::FILE* file = std::fopen(fileUrl.c_str(), "rb");
     if (!file) {
@@ -26,10 +26,12 @@ void BasisTextureLoader::load(const std::string& fileUrl, basisu::vector<uint8_t
     fread(m_file.data(), 1, fileSize, file);
     fclose(file);
 
-    decode(result, glFormat);
+    basisu::vector<uint8_t> decoded;
+    decode(decoded, glFormat);
+    result.assign(decoded.begin(), decoded.end());
 }
 
-void BasisTextureLoader::loadFromMemory(const uint8_t* fileData, size_t fileSize, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat)
+void BasisTextureLoader::loadFromMemory(const uint8_t* fileData, size_t fileSize, std::vector<uint8_t>& result, PixelDataFormat& glFormat)
 {
     if (!fileData || fileSize == 0) {
         LOG_I("basis loadFromMemory: empty data");
@@ -37,7 +39,9 @@ void BasisTextureLoader::loadFromMemory(const uint8_t* fileData, size_t fileSize
     }
     m_file.resize(fileSize);
     memcpy(m_file.data(), fileData, fileSize);
-    decode(result, glFormat);
+    basisu::vector<uint8_t> decoded;
+    decode(decoded, glFormat);
+    result.assign(decoded.begin(), decoded.end());
 }
 
 void BasisTextureLoader::decode(basisu::vector<uint8_t>& result, PixelDataFormat& glFormat)

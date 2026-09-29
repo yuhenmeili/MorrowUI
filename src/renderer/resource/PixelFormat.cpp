@@ -4,7 +4,7 @@
 
 #include "PixelFormat.h"
 
-#include "DriverEnums.h"
+#include "morrow/DriverEnums.h"
 #include "PixelDatatype.h"
 
 namespace morrow {

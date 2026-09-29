@@ -8,7 +8,7 @@
 #include <memory>
 #include <vector>
 
-#include "utils/Log.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 EGLOperationsQNX::EGLOperationsQNX(int32_t samples)

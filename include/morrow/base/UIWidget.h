@@ -1,0 +1,49 @@
+//
+// Created by lance on 2025/10/3.
+//
+
+#ifndef MORROW_GUI_UIWIDGET_H
+#define MORROW_GUI_UIWIDGET_H
+#include "morrow/base/Widget.h"
+#include "morrow/base/MeshFilter.h"
+#include "morrow/base/MeshRenderer.h"
+#include "morrow/Material.h"
+#include "morrow/GlobalDefine.h"
+
+namespace morrow {
+class Transform;
+
+class UIWidget : public Widget {
+public:
+    explicit UIWidget(bool createRenderComponents = true);
+
+    std::shared_ptr<Transform> getTransform();
+
+    std::shared_ptr<Transform> getTransform() const;
+
+    /// Framebuffer-pixel AABB matching TouchEvent::positionX/positionY:
+    /// top-left origin with X rightwards and Y downwards.
+    Math::Rect getScreenSpaceAABB() const;
+
+    void setClipChildren(bool clip);
+
+    bool getClipChildren() const;
+
+    void setAlpha(float alpha);
+
+    void setUVData(const Vector2& uv0, const Vector2& uv1);
+
+    virtual void initialize();
+
+    void update(FrameStateSharedPtr frameState) override;
+
+protected:
+    MeshFilterSharedPtr m_meshFilter;
+    MeshRendererSharedPtr m_meshRenderer;
+    MaterialSharedPtr m_material;
+    float m_alpha = 1.0f;
+    bool m_clipChildren = false;
+};
+} // morrow
+
+#endif //MORROW_GUI_UIWIDGET_H

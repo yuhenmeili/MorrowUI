@@ -1,10 +1,10 @@
 #include <iostream>
 #include <string>
 
-#include "ui/base/BaseButton.h"
-#include "ui/elements/MRItemList.h"
-#include "ui/elements/MRTree.h"
-#include "ui/elements/MRVideoStreamPlayer.h"
+#include "morrow/base/BaseButton.h"
+#include "morrow/elements/MRItemList.h"
+#include "morrow/elements/MRTree.h"
+#include "morrow/elements/MRVideoStreamPlayer.h"
 
 using namespace morrow;
 

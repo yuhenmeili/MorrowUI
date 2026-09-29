@@ -5,7 +5,7 @@
 #include <chrono>
 #include <set>
 
-#include "renderer/resource/Texture.h"
+#include "morrow/Texture.h"
 
 namespace morrow::editor {
 

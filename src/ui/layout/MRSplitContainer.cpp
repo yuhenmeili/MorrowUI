@@ -1,12 +1,12 @@
-#include "MRSplitContainer.h"
+#include "morrow/layout/MRSplitContainer.h"
 
 #include <algorithm>
 
-#include "base/Interaction.h"
-#include "base/TouchEvent.h"
-#include "base/Transform.h"
-#include "elements/MRButton.h"
-#include "platform/Window.h"
+#include "morrow/base/Interaction.h"
+#include "morrow/base/TouchEvent.h"
+#include "morrow/base/Transform.h"
+#include "morrow/elements/MRButton.h"
+#include "morrow/Window.h"
 
 namespace morrow {
 

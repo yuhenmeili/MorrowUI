@@ -1,0 +1,45 @@
+#ifndef MORROW_GUI_MRMENUBUTTON_H
+#define MORROW_GUI_MRMENUBUTTON_H
+
+#include "morrow/elements/MRButton.h"
+#include "morrow/elements/MRPopupMenu.h"
+
+namespace morrow {
+
+class MRMenuButton : public MRButton {
+public:
+    struct MenuEvents {
+        Observable<MRMenuButton&, int, const std::wstring&> onItemSelected;
+    };
+
+    /// 创建一个菜单按钮。
+    static std::shared_ptr<MRMenuButton> create();
+
+    /// 设置按钮使用的弹出菜单。
+    void setPopupMenu(const MRPopupMenuSharedPtr& menu);
+
+    /// 获取按钮当前使用的弹出菜单。
+    MRPopupMenuSharedPtr getPopupMenu() const {
+        return m_menu;
+    }
+    /// 向弹出菜单添加菜单项；id 小于 0 时自动生成。
+    void addMenuItem(const std::wstring& text, int id = -1);
+
+    MenuEvents& menuEvents();
+
+protected:
+    MRMenuButton();
+
+    void onActivated() override;
+
+private:
+    MRPopupMenuSharedPtr m_menu;
+    Observable<MRPopupMenu&, int, const std::wstring&>::Connection m_menuSelectionConnection;
+    MenuEvents m_menuEvents;
+};
+
+using MRMenuButtonSharedPtr = std::shared_ptr<MRMenuButton>;
+
+}  // namespace morrow
+
+#endif  // MORROW_GUI_MRMENUBUTTON_H

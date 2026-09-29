@@ -2,11 +2,11 @@
 // Created by lance on 2023/5/11.
 //
 
-#include "MRImage.h"
+#include "morrow/elements/MRImage.h"
 
 #include <vector>
 
-#include "base/Transform.h"
+#include "morrow/base/Transform.h"
 #include "renderer/resource/ssbo/layouts/ImageSSBOLayout.h"
 
 namespace morrow {

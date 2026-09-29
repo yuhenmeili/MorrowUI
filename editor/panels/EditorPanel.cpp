@@ -1,6 +1,6 @@
 #include "panels/EditorPanel.h"
 
-#include "base/UIWidget.h"
+#include "morrow/base/UIWidget.h"
 
 namespace morrow::editor {
 

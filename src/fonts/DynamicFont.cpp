@@ -5,7 +5,7 @@
 #include <cmath>
 
 #include "FontUtils.h"
-#include "Log.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 DynamicFont::DynamicFont(int32_t initialAtlasSize) {

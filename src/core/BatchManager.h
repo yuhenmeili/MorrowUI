@@ -8,8 +8,8 @@
 #include <memory>
 #include <vector>
 #include "BatchBuilder.h"
-#include "BatchDataDefine.h"
-#include "renderer/BatchStatistics.h"
+#include "morrow/BatchDataDefine.h"
+#include "morrow/BatchStatistics.h"
 
 namespace morrow {
 struct FrameState;

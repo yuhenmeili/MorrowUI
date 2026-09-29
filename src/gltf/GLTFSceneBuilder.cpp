@@ -6,9 +6,9 @@
 
 #include <functional>
 
-#include "Texture.h"
-#include "base/MeshRenderer3D.h"
-#include "base/SceneNode.h"
+#include "morrow/Texture.h"
+#include "morrow/base/MeshRenderer3D.h"
+#include "morrow/base/SceneNode.h"
 
 namespace morrow {
 namespace {

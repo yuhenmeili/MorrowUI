@@ -1,11 +1,11 @@
-#include "MRTextEdit.h"
+#include "morrow/elements/MRTextEdit.h"
 
 #include <algorithm>
 #include <cmath>
 
-#include "base/Interaction.h"
-#include "base/TouchEvent.h"
-#include "base/Transform.h"
+#include "morrow/base/Interaction.h"
+#include "morrow/base/TouchEvent.h"
+#include "morrow/base/Transform.h"
 
 namespace morrow {
 

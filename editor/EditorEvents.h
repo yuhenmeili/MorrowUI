@@ -1,7 +1,7 @@
 #ifndef MORROW_EDITOR_EVENTS_H_
 #define MORROW_EDITOR_EVENTS_H_
 
-#include "core/Observable.h"
+#include "morrow/core/Observable.h"
 #include "scene/SceneEditorModel.h"
 
 namespace morrow::editor

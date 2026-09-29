@@ -2,13 +2,13 @@
 // 水平布局：按子节点顺序从左到右排列，每个子节点保持自身尺寸，仅设置 position
 //
 
-#include "HBoxContainer.h"
+#include "morrow/layout/HBoxContainer.h"
 
 #include <algorithm>
 
-#include "FrameState.h"
-#include "base/Transform.h"
-#include "elements/MRSpacer.h"
+#include "morrow/scene3d/FrameState.h"
+#include "morrow/base/Transform.h"
+#include "morrow/elements/MRSpacer.h"
 
 namespace morrow {
 

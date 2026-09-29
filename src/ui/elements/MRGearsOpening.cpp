@@ -2,9 +2,9 @@
 // Created by lance on 2022/10/12.
 //
 
-#include "MRGearsOpening.h"
-#include "base/Transform.h"
-#include "ui/helpers/Tween.h"
+#include "morrow/elements/MRGearsOpening.h"
+#include "morrow/base/Transform.h"
+#include "morrow/helpers/Tween.h"
 
 namespace morrow
 {

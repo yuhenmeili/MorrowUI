@@ -3,9 +3,9 @@
 //
 
 #include "UniformBuffer.h"
-#include "FrameState.h"
+#include "morrow/scene3d/FrameState.h"
 #include "GlobalObject.h"
-#include "OrthographicCamera.h"
+#include "morrow/OrthographicCamera.h"
 #include "RenderDeviceProxy.h"
 
 #include <cstring>

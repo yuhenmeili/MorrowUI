@@ -9,7 +9,7 @@
 
 #include "GlobalObject.h"
 #include "QNXInputProvider.h"
-#include "utils/Log.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 QNXPlatform::QNXPlatform(const WindowInfo& info) {
@@ -57,7 +57,7 @@ void QNXPlatform::commitRenderPass(FrameStateSharedPtr frameState) {
 }
 
 void QNXPlatform::endFrame() {
-    RENDERINGTHREAD->present(m_window->getSurface());
+    RENDERINGTHREAD->present(std::static_pointer_cast<EGLWindow>(m_window)->nativeSurface());
     RENDERINGTHREAD->endFrame();
 }
 

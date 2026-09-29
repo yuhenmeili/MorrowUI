@@ -2,7 +2,7 @@
 // Created by lance on 2026/3/31.
 //
 
-#include "MR3DSceneView.h"
+#include "morrow/elements/MR3DSceneView.h"
 
 #include <algorithm>
 #include <cmath>
@@ -10,14 +10,14 @@
 #include <functional>
 
 #include "GlobalObject.h"
-#include "GlobalTools.h"
-#include "OrthographicCamera.h"
+#include "morrow/utils/GlobalTools.h"
+#include "morrow/OrthographicCamera.h"
 #include "RenderDeviceProxy.h"
 #include "Scene3DIBLLoader.h"
-#include "Scene3DUBO.h"
-#include "base/MeshRenderer3D.h"
-#include "base/Transform.h"
-#include "base/Transform3D.h"
+#include "morrow/scene3d/Scene3DUBO.h"
+#include "morrow/base/MeshRenderer3D.h"
+#include "morrow/base/Transform.h"
+#include "morrow/base/Transform3D.h"
 
 namespace morrow {
 namespace {

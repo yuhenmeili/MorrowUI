@@ -3,7 +3,7 @@
 //
 #include "OpenglUtils.h"
 
-#include "Log.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 namespace OpenglUtils {

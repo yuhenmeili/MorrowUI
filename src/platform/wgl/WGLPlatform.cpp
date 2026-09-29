@@ -16,14 +16,15 @@ WGLPlatform::WGLPlatform(const WindowInfo& info) {
     m_inputManager = std::make_shared<InputEventsManager>();
     m_wglInputProvider = std::make_shared<WGLInputProvider>();
     m_inputManager->setInputProvider(m_wglInputProvider);
-    m_window = std::make_shared<WGLWindow>(info);
-    m_wglInputProvider->setWindow(m_window->getSurface());
+    m_wglWindow = std::make_shared<WGLWindow>(info);
+    m_window = m_wglWindow;
+    m_wglInputProvider->setWindow(m_wglWindow->nativeWindowHandle());
 };
 
 void WGLPlatform::initialize(bool multithread, const RenderDeviceOptions& deviceOptions) {
     Platform::initialize(multithread, deviceOptions);
     m_window->initializeIfNeeded();
-    RENDERINGTHREAD->makeCurrent(m_window->getSurface());
+    RENDERINGTHREAD->makeCurrent(m_wglWindow->nativeWindowHandle());
     ensureRenderCapabilitiesInitialized();
 }
 
@@ -56,7 +57,7 @@ void WGLPlatform::commitRenderPass(FrameStateSharedPtr frameState) {
 }
 
 void WGLPlatform::endFrame() {
-    RENDERINGTHREAD->present(m_window->getSurface());
+    RENDERINGTHREAD->present(m_wglWindow->nativeWindowHandle());
     RENDERINGTHREAD->endFrame();
 }
 

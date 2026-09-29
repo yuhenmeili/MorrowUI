@@ -1,0 +1,11 @@
+// MorrowUI 引擎版本（对外唯一版本信息入口，语义化版本）。
+#ifndef MORROW_VERSION_H
+#define MORROW_VERSION_H
+
+#define MORROW_VERSION_MAJOR 0
+#define MORROW_VERSION_MINOR 1
+#define MORROW_VERSION_PATCH 0
+
+#define MORROW_VERSION_STRING "0.1.0"
+
+#endif // MORROW_VERSION_H

@@ -4,7 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include "TextureRegion.h"
+#include "morrow/atlas/TextureRegion.h"
 
 namespace morrow {
 TextureRegion::TextureRegion(TextureSharedPtr texture) {

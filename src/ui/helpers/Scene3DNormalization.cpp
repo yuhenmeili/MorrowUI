@@ -1,4 +1,4 @@
-#include "Scene3DNormalization.h"
+#include "morrow/helpers/Scene3DNormalization.h"
 
 #include <algorithm>
 #include <cmath>

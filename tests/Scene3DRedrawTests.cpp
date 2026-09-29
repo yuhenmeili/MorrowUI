@@ -2,10 +2,10 @@
 #include <memory>
 #include <string>
 
-#include "OrbitCamera.h"
-#include "renderer/resource/Material.h"
-#include "renderer/resource/Texture.h"
-#include "ui/base/ComponentManager.h"
+#include "morrow/OrbitCamera.h"
+#include "morrow/Material.h"
+#include "morrow/Texture.h"
+#include "morrow/base/ComponentManager.h"
 
 using namespace morrow;
 

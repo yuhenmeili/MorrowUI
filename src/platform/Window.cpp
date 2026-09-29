@@ -2,7 +2,7 @@
 // Created by 0060328 on 25-9-18.
 //
 
-#include "Window.h"
+#include "morrow/Window.h"
 
 #include "BatchManager.h"
 
@@ -48,7 +48,14 @@ WindowEvents& Window::events() {
 void Window::terminate() {
 }
 
-void* Window::getSurface() const{
-    return nullptr;
+Vector2 Window::framebufferSize() const {
+    return {0.0f, 0.0f};
+}
+
+void Window::setClipboardText(const std::string& /*text*/) {
+}
+
+std::string Window::clipboardText() const {
+    return {};
 }
 }

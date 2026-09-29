@@ -3,15 +3,15 @@
 #include <string>
 #include <vector>
 
-#include "platform/InputEventsManager.h"
-#include "platform/Platform.h"
-#include "platform/Window.h"
-#include "ui/base/BaseButton.h"
-#include "ui/base/EventDispatcher.h"
-#include "ui/base/TouchEvent.h"
-#include "ui/base/Transform.h"
-#include "ui/base/UIWidget.h"
-#include "ui/elements/MRLineEdit.h"
+#include "morrow/InputEventsManager.h"
+#include "morrow/Platform.h"
+#include "morrow/Window.h"
+#include "morrow/base/BaseButton.h"
+#include "morrow/base/EventDispatcher.h"
+#include "morrow/base/TouchEvent.h"
+#include "morrow/base/Transform.h"
+#include "morrow/base/UIWidget.h"
+#include "morrow/elements/MRLineEdit.h"
 
 using namespace morrow;
 

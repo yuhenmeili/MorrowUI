@@ -9,8 +9,8 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
-#include "GLTFTypes.h"
-#include "base/Component.h"
+#include "morrow/GLTFTypes.h"
+#include "morrow/base/Component.h"
 
 namespace morrow {
 class Widget;

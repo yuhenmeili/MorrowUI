@@ -1,4 +1,4 @@
-#include "ObjectRegistry.h"
+#include "morrow/debug/ObjectRegistry.h"
 
 #include <algorithm>
 #include <atomic>

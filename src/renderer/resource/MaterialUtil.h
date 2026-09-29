@@ -10,8 +10,8 @@
 #include <string>
 #include <unordered_set>
 
-#include "GlobalObject.h"
-#include "GpuTypes.h"
+#include "core/GlobalObject.h"
+#include "morrow/GpuTypes.h"
 
 namespace morrow {
 namespace MaterialUtil {

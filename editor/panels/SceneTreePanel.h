@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "core/Observable.h"
-#include "base/EventDispatcher.h"
+#include "morrow/core/Observable.h"
+#include "morrow/base/EventDispatcher.h"
 #include "ui/CreateNodeDialog.h"
 #include "panels/EditorPanel.h"
 

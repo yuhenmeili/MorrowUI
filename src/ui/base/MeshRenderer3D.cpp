@@ -2,18 +2,18 @@
 // Created by lance on 2026/3/31.
 //
 
-#include "MeshRenderer3D.h"
+#include "morrow/base/MeshRenderer3D.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 
 #include "GlobalObject.h"
-#include "PerspectiveCamera.h"
+#include "morrow/PerspectiveCamera.h"
 #include "RenderDeviceProxy.h"
-#include "Scene3DUBO.h"
-#include "Texture.h"
-#include "Transform3D.h"
+#include "morrow/scene3d/Scene3DUBO.h"
+#include "morrow/Texture.h"
+#include "morrow/base/Transform3D.h"
 
 namespace morrow {
 namespace {

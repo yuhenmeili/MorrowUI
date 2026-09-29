@@ -8,8 +8,8 @@
 
 #include "EGLOperationsQNX.h"
 #include "EGLWindow.h"
-#include "platform/InputEventsManager.h"
-#include "platform/Platform.h"
+#include "morrow/InputEventsManager.h"
+#include "morrow/Platform.h"
 #include "QNXInputProvider.h"
 
 namespace morrow {

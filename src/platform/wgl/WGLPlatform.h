@@ -4,12 +4,13 @@
 
 #ifndef WINDOWPLATFORM_H
 #define WINDOWPLATFORM_H
-#include "Platform.h"
+#include "morrow/Platform.h"
 #include <memory>
 
 namespace morrow {
 
 class WGLInputProvider;
+class WGLWindow;
 
 class WGLPlatform : public Platform {
 public:
@@ -40,6 +41,7 @@ public:
 private:
     InputEventsManagerSharedPtr m_inputManager;
     std::shared_ptr<WGLInputProvider> m_wglInputProvider;
+    std::shared_ptr<WGLWindow> m_wglWindow;
 };
 
 using WGLPlatformSharedPtr = std::shared_ptr<WGLPlatform>;

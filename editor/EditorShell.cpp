@@ -8,14 +8,14 @@
 #include <locale>
 #include <utility>
 
-#include "Engine.h"
-#include "base/Interaction.h"
-#include "base/TouchEvent.h"
-#include "base/Transform.h"
-#include "elements/MRButton.h"
-#include "elements/MRLabel.h"
-#include "elements/MRLineEdit.h"
-#include "elements/MRPopupMenu.h"
+#include "morrow/Engine.h"
+#include "morrow/base/Interaction.h"
+#include "morrow/base/TouchEvent.h"
+#include "morrow/base/Transform.h"
+#include "morrow/elements/MRButton.h"
+#include "morrow/elements/MRLabel.h"
+#include "morrow/elements/MRLineEdit.h"
+#include "morrow/elements/MRPopupMenu.h"
 #include "layout/EditorLayoutController.h"
 #include "assets/AssetTypeCatalog.h"
 #include "panels/AssetBrowserPanel.h"
@@ -27,25 +27,9 @@
 #include "panels/ViewportPanel.h"
 #include "ui/CreateAssetDialog.h"
 #include "ui/RenameNodeDialog.h"
-#include "platform/Window.h"
-#include "wgl/OpenglHeader.h"
+#include "morrow/Window.h"
 
 namespace {
-std::unordered_map<GLFWwindow*, morrow::editor::EditorShell*>& shells() {
-    static std::unordered_map<GLFWwindow*, morrow::editor::EditorShell*> value;
-    return value;
-}
-
-std::unordered_map<GLFWwindow*, GLFWkeyfun>& previousKeyCallbacks() {
-    static std::unordered_map<GLFWwindow*, GLFWkeyfun> callbacks;
-    return callbacks;
-}
-
-std::unordered_map<GLFWwindow*, GLFWcharfun>& previousCharCallbacks() {
-    static std::unordered_map<GLFWwindow*, GLFWcharfun> callbacks;
-    return callbacks;
-}
-
 std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float height, const morrow::Math::Vector4& color = morrow::Math::Vector4(0.12f, 0.14f, 0.17f, 1.0f)) {
     auto panel = morrow::MRButton::create();
     panel->setInteractive(false);
@@ -107,20 +91,7 @@ EditorShell::~EditorShell() {
     if (m_buildFuture.valid())
         m_buildFuture.wait();
     m_inputConnection.disconnect();
-    if (m_window) {
-        auto* glfwWindow = static_cast<GLFWwindow*>(m_window->getSurface());
-        if (glfwWindow) {
-            if (const auto iterator = previousKeyCallbacks().find(glfwWindow); iterator != previousKeyCallbacks().end()) {
-                glfwSetKeyCallback(glfwWindow, iterator->second);
-                previousKeyCallbacks().erase(iterator);
-            }
-            if (const auto iterator = previousCharCallbacks().find(glfwWindow); iterator != previousCharCallbacks().end()) {
-                glfwSetCharCallback(glfwWindow, iterator->second);
-                previousCharCallbacks().erase(iterator);
-            }
-            shells().erase(glfwWindow);
-        }
-    }
+    m_rawKeyConnection.disconnect();
 }
 
 EditorEvents& EditorShell::events() {
@@ -188,13 +159,11 @@ void EditorShell::buildLayout() {
     m_shellRoot->getTransform()->setPosition(0.0f, 0.0f, 100.0f);
     float windowWidth = 1280.0f;
     float windowHeight = 720.0f;
-    if (m_window && m_window->getSurface()) {
-        int framebufferWidth = 0;
-        int framebufferHeight = 0;
-        glfwGetFramebufferSize(static_cast<GLFWwindow*>(m_window->getSurface()), &framebufferWidth, &framebufferHeight);
-        if (framebufferWidth > 0 && framebufferHeight > 0) {
-            windowWidth = static_cast<float>(framebufferWidth);
-            windowHeight = static_cast<float>(framebufferHeight);
+    if (m_window) {
+        const Vector2 framebuffer = m_window->framebufferSize();
+        if (framebuffer.x > 0 && framebuffer.y > 0) {
+            windowWidth = framebuffer.x;
+            windowHeight = framebuffer.y;
         }
     }
     m_shellRoot->getTransform()->setSize(windowWidth, windowHeight);
@@ -429,10 +398,9 @@ void EditorShell::buildLayout() {
         if (auto interaction = edit->getComponent<Interaction>())
             interaction->setClickEnabled(false);
         m_copyConnections.emplace_back(edit->events().onCopyRequested.connect([this](MRTextEdit&, const std::wstring& selected) {
-            if (!m_window || !m_window->getSurface())
+            if (!m_window)
                 return;
-            const auto utf8 = narrow(selected);
-            glfwSetClipboardString(static_cast<GLFWwindow*>(m_window->getSurface()), utf8.c_str());
+            m_window->setClipboardText(narrow(selected));
         }));
         panel->addChild(edit);
         return edit;
@@ -642,8 +610,11 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
     }
 }
 
-void EditorShell::handleKey(int key, int action, int mods) {
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+void EditorShell::handleKeyEvent(const TouchEvent& rawEvent) {
+    const TouchKeyCode key = rawEvent.keyCode;
+    const uint32_t mods = rawEvent.modifiers;
+    const bool press = rawEvent.keyRepeatCount == 0;
+    if (key == TOUCH_KEY_ESCAPE && press) {
         if (m_assetsPanel->contextMenu && m_assetsPanel->contextMenu->isOpen()) {
             m_assetsPanel->contextMenu->hide();
             return;
@@ -657,89 +628,59 @@ void EditorShell::handleKey(int key, int action, int mods) {
             return;
         }
     }
-    if (m_sceneTree->createDialog && m_sceneTree->createDialog->isOpen() && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+    if (m_sceneTree->createDialog && m_sceneTree->createDialog->isOpen() && key == TOUCH_KEY_ESCAPE && press) {
         m_sceneTree->createDialog->hideDialog();
         return;
     }
-    if (key == GLFW_KEY_F3 && action == GLFW_PRESS) {
+    if (key == TOUCH_KEY_F3 && press) {
         if (m_engine) {
             m_engine->toggleDebugOverlay();
         }
         return;
     }
 
-    if (action != GLFW_PRESS && action != GLFW_REPEAT)
-        return;
     if (m_sceneTree->renameEdit) {
-        if (key == GLFW_KEY_ESCAPE) {
+        if (key == TOUCH_KEY_ESCAPE) {
             m_sceneTree->cancelRename();
             return;
         }
-        if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
+        if (key == TOUCH_KEY_ENTER) {
             m_sceneTree->commitRename();
             return;
         }
-        TouchKeyCode mappedKey = TOUCH_KEY_UNKNOWN;
-        if (key == GLFW_KEY_BACKSPACE)
-            mappedKey = TOUCH_KEY_BACKSPACE;
-        else if (key == GLFW_KEY_DELETE)
-            mappedKey = TOUCH_KEY_DELETE;
-        else if (key == GLFW_KEY_LEFT)
-            mappedKey = TOUCH_KEY_LEFT;
-        else if (key == GLFW_KEY_RIGHT)
-            mappedKey = TOUCH_KEY_RIGHT;
-        else if (key == GLFW_KEY_HOME)
-            mappedKey = TOUCH_KEY_HOME;
-        else if (key == GLFW_KEY_END)
-            mappedKey = TOUCH_KEY_END;
-        else if (key == GLFW_KEY_A)
-            mappedKey = TOUCH_KEY_A;
-        else if (key == GLFW_KEY_C)
-            mappedKey = TOUCH_KEY_C;
-        if (mappedKey != TOUCH_KEY_UNKNOWN) {
-            TouchEvent event;
-            event.eventType = TOUCH_EVENT_TYPE_KEY_DOWN;
-            event.deviceType = TOUCH_DEVICE_TYPE_KEYBOARD;
-            event.keyCode = mappedKey;
-            if ((mods & GLFW_MOD_SHIFT) != 0)
-                event.modifiers |= TOUCH_MODIFIER_SHIFT;
-            if ((mods & GLFW_MOD_CONTROL) != 0)
-                event.modifiers |= TOUCH_MODIFIER_CTRL;
-            if ((mods & GLFW_MOD_ALT) != 0)
-                event.modifiers |= TOUCH_MODIFIER_ALT;
-            m_sceneTree->renameEdit->dispatchTouchEvent(event);
-        }
+        TouchEvent event = rawEvent;
+        m_sceneTree->renameEdit->dispatchTouchEvent(event);
         return;
     }
     if (!m_inspector->legacyEditProperty.empty()) {
-        if (key == GLFW_KEY_ENTER) {
+        if (key == TOUCH_KEY_ENTER) {
             m_inspector->commitLegacyPropertyEdit();
             return;
         }
-        if (key == GLFW_KEY_ESCAPE) {
+        if (key == TOUCH_KEY_ESCAPE) {
             m_inspector->legacyEditProperty.clear();
             m_inspector->legacyEditValue.clear();
             setStatus("Property edit cancelled");
             return;
         }
-        if (key == GLFW_KEY_BACKSPACE && !m_inspector->legacyEditValue.empty()) {
+        if (key == TOUCH_KEY_BACKSPACE && !m_inspector->legacyEditValue.empty()) {
             m_inspector->legacyEditValue.pop_back();
             setStatus("Editing " + m_inspector->legacyEditProperty + ": " + m_inspector->legacyEditValue);
             return;
         }
     }
     char command = 0;
-    if (key == GLFW_KEY_S)
+    if (key == TOUCH_KEY_S)
         command = 's';
-    else if (key == GLFW_KEY_Z)
+    else if (key == TOUCH_KEY_Z)
         command = 'z';
-    else if (key == GLFW_KEY_Y)
+    else if (key == TOUCH_KEY_Y)
         command = 'y';
-    if (!command || !(mods & GLFW_MOD_CONTROL))
+    if (!command || !(mods & TOUCH_MODIFIER_CTRL) || !press)
         return;
     std::string error;
     const bool changed =
-        command == 's' ? m_session->save(error) : (command == 'z' ? ((mods & GLFW_MOD_SHIFT) ? m_session->redo(error) : m_session->undo(error)) : m_session->redo(error));
+        command == 's' ? m_session->save(error) : (command == 'z' ? ((mods & TOUCH_MODIFIER_SHIFT) ? m_session->redo(error) : m_session->undo(error)) : m_session->redo(error));
     if (changed && command != 's')
         m_viewport->rebuildRuntime();
     setStatus(error.empty() ? "Shortcut applied" : error);
@@ -757,25 +698,6 @@ void EditorShell::handleChar(unsigned int codepoint) {
         return;
     }
     m_inspector->appendLegacyCharacter(codepoint);
-}
-
-void EditorShell::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (const auto iterator = previousKeyCallbacks().find(window); iterator != previousKeyCallbacks().end() && iterator->second) {
-        iterator->second(window, key, scancode, action, mods);
-    }
-    const auto iterator = shells().find(window);
-    if (iterator != shells().end() && iterator->second) {
-        iterator->second->handleKey(key, action, mods);
-    }
-}
-
-void EditorShell::charCallback(GLFWwindow* window, unsigned int codepoint) {
-    if (const auto iterator = previousCharCallbacks().find(window); iterator != previousCharCallbacks().end() && iterator->second) {
-        iterator->second(window, codepoint);
-    }
-    const auto iterator = shells().find(window);
-    if (iterator != shells().end() && iterator->second)
-        iterator->second->handleChar(codepoint);
 }
 
 bool EditorShell::initialize(std::string& error) {
@@ -797,12 +719,13 @@ bool EditorShell::initialize(std::string& error) {
     m_sceneTree->refresh();
     m_viewport->rebuildRuntime();
     if (m_window) {
-        auto* glfwWindow = static_cast<GLFWwindow*>(m_window->getSurface());
-        if (glfwWindow) {
-            shells()[glfwWindow] = this;
-            previousKeyCallbacks()[glfwWindow] = glfwSetKeyCallback(glfwWindow, keyCallback);
-            previousCharCallbacks()[glfwWindow] = glfwSetCharCallback(glfwWindow, charCallback);
-        }
+        m_rawKeyConnection = m_window->events().onRawKeyboardInput.connect([this](const TouchEvent& event) {
+            if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN) {
+                handleKeyEvent(event);
+            } else if (event.eventType == TOUCH_EVENT_TYPE_CHARACTER) {
+                handleChar(event.unicodeCodepoint);
+            }
+        });
     }
     if (m_engine && m_engine->getFrameState() && m_engine->getFrameState()->inputEventsManager) {
         m_inputConnection =

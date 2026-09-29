@@ -4,7 +4,7 @@
 
 #include <cstdio>
 #include "Matrix4.h"
-#include "Log.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow
 {

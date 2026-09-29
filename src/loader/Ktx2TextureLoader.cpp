@@ -5,7 +5,7 @@
 #include <cstdio>
 #include "Ktx2TextureLoader.h"
 #include "GlobalObject.h"
-#include "utils/Log.h"
+#include "morrow/utils/Log.h"
 
 namespace morrow {
 Ktx2TextureLoader::Ktx2TextureLoader()
@@ -13,7 +13,7 @@ Ktx2TextureLoader::Ktx2TextureLoader()
     basist::basisu_transcoder_init();
 }
 
-bool Ktx2TextureLoader::load(const std::string& fileUrl, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat)
+bool Ktx2TextureLoader::load(const std::string& fileUrl, std::vector<uint8_t>& result, PixelDataFormat& glFormat)
 {
     std::FILE* file = std::fopen(fileUrl.c_str(), "rb");
     if (!file) {
@@ -27,10 +27,15 @@ bool Ktx2TextureLoader::load(const std::string& fileUrl, basisu::vector<uint8_t>
     fread(m_file.data(), 1, fileSize, file);
     fclose(file);
 
-    return decode(result, glFormat);
+    basisu::vector<uint8_t> decoded;
+    if (!decode(decoded, glFormat)) {
+        return false;
+    }
+    result.assign(decoded.begin(), decoded.end());
+    return true;
 }
 
-bool Ktx2TextureLoader::loadFromMemory(const uint8_t* fileData, size_t fileSize, basisu::vector<uint8_t>& result, PixelDataFormat& glFormat)
+bool Ktx2TextureLoader::loadFromMemory(const uint8_t* fileData, size_t fileSize, std::vector<uint8_t>& result, PixelDataFormat& glFormat)
 {
     if (!fileData || fileSize == 0) {
         LOG_I("ktx2 loadFromMemory: empty data");
@@ -38,7 +43,12 @@ bool Ktx2TextureLoader::loadFromMemory(const uint8_t* fileData, size_t fileSize,
     }
     m_file.resize(fileSize);
     memcpy(m_file.data(), fileData, fileSize);
-    return decode(result, glFormat);
+    basisu::vector<uint8_t> decoded;
+    if (!decode(decoded, glFormat)) {
+        return false;
+    }
+    result.assign(decoded.begin(), decoded.end());
+    return true;
 }
 
 bool Ktx2TextureLoader::decode(basisu::vector<uint8_t>& result, PixelDataFormat& glFormat)

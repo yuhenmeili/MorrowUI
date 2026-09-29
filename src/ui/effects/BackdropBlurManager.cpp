@@ -3,17 +3,17 @@
 // 设计说明见 BackdropBlurManager.h 与 docs/road_map/KAWASE_BACKDROP_BLUR_PROPOSAL.md。
 //
 
-#include "BackdropBlurManager.h"
+#include "morrow/effects/BackdropBlurManager.h"
 
 #include <algorithm>
 #include <cmath>
 
-#include "FrameState.h"
+#include "morrow/scene3d/FrameState.h"
 #include "GlobalObject.h"
-#include "GpuTypes.h"
-#include "OrthographicCamera.h"
-#include "base/MeshFilter.h"
-#include "base/Transform.h"
+#include "morrow/GpuTypes.h"
+#include "morrow/OrthographicCamera.h"
+#include "morrow/base/MeshFilter.h"
+#include "morrow/base/Transform.h"
 
 namespace morrow {
 

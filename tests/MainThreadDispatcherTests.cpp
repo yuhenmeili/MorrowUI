@@ -5,7 +5,7 @@
 #include <thread>
 #include <vector>
 
-#include "core/MainThreadDispatcher.h"
+#include "morrow/MainThreadDispatcher.h"
 
 using namespace morrow;
 

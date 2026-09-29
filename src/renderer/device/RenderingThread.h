@@ -7,9 +7,9 @@
 
 #include <atomic>
 
-#include "Platform.h"
+#include "morrow/Platform.h"
 #include "RenderDeviceProxy.h"
-#include "RenderDeviceOptions.h"
+#include "morrow/RenderDeviceOptions.h"
 
 namespace morrow
 {

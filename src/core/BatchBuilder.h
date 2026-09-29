@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 
-#include "ClipRect.h"
-#include "renderer/BatchStatistics.h"
+#include "morrow/ClipRect.h"
+#include "morrow/BatchStatistics.h"
 
 namespace morrow {
 class Material;

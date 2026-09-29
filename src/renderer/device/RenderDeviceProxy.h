@@ -11,10 +11,10 @@
 #include <vector>
 
 #include "CommandBuffer.h"
-#include "PlatformSemaphore.h"
+#include "morrow/PlatformSemaphore.h"
 #include "RecyclePool.h"
-#include "RenderDeviceProxyBase.h"
-#include "RenderDeviceOptions.h"
+#include "morrow/RenderDeviceProxyBase.h"
+#include "morrow/RenderDeviceOptions.h"
 
 namespace morrow {
 using VBODataRecyclePool = RecyclePool<VBOData>;

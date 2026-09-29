@@ -1,7 +1,7 @@
 #ifndef MORROW_COMPONENT_INL
 #define MORROW_COMPONENT_INL
 
-#include "Widget.h" // 确保Widget的完整定义可见
+#include "morrow/base/Widget.h" // 确保Widget的完整定义可见
 
 namespace morrow {
 

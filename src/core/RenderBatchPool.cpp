@@ -3,8 +3,8 @@
 //
 
 #include "RenderBatchPool.h"
-#include "ssbo/ShaderStorageBuffer.h"
-#include "VertexArray.h"
+#include "morrow/ShaderStorageBuffer.h"
+#include "morrow/VertexArray.h"
 
 namespace morrow {
 

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include "IBLPrecompute.h"
+#include "morrow/scene3d/IBLPrecompute.h"
 
 using namespace morrow;
 

@@ -2,7 +2,7 @@
 // Created by lance on 2022/10/11.
 //
 
-#include "Texture.h"
+#include "morrow/Texture.h"
 
 #include <cstring>
 #include <fstream>
@@ -14,7 +14,7 @@
 #include "TextureLoader.h"
 #include "TextureManager.h"
 #include "ToolUtils.h"
-#include "utils/Log.h"
+#include "morrow/utils/Log.h"
 #if MORROW_ENABLE_BASISU
 #include "BasisTextureLoader.h"
 #include "Ktx2TextureLoader.h"

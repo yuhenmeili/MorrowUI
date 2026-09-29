@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "base/UIWidget.h"
-#include "core/Observable.h"
-#include "elements/MRTree.h"
+#include "morrow/base/UIWidget.h"
+#include "morrow/core/Observable.h"
+#include "morrow/elements/MRTree.h"
 #include "filesystem/FileSystemWatcher.h"
 #include "filesystem/ProjectFileSystemModel.h"
 #include "filesystem/ThumbnailService.h"

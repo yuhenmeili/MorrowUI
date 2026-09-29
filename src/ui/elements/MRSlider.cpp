@@ -2,12 +2,12 @@
 // Created by lance on 2026/8/17.
 //
 
-#include "MRSlider.h"
+#include "morrow/elements/MRSlider.h"
 
 #include <algorithm>
-#include "base/Interaction.h"
-#include "base/TouchEvent.h"
-#include "base/Transform.h"
+#include "morrow/base/Interaction.h"
+#include "morrow/base/TouchEvent.h"
+#include "morrow/base/Transform.h"
 
 namespace morrow {
 
