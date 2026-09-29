@@ -62,7 +62,7 @@
 | GPU 状态缓存 | `GLStateCache`（`GLRenderDevice` 内建） | 重复状态设置跳过 GL 调用 |
 | GPU 资源异步销毁 + Fence 回收 | `Cmd_Delete*` + `glFenceSync` + `tryRecycle` | 多线程下生命周期安全，回收无阻塞等待 |
 | 帧流水线 | 3 槽环形 + 信号量 | 主线程领先 2 帧才阻塞，等待为睡眠态 |
-| OES 视频零拷贝 | `SafeStreamTexture` + EGLImage 复用 | 视频帧更新每帧仅一两条命令 |
+| OES 视频零拷贝 | `Texture(OES)` + EGLImage 复用 | 视频帧更新每帧仅一两条命令 |
 | 字形懒光栅化 | `DynamicFont`（stb_truetype，非 FreeType） | 只解析用到的字形，字形缓存 map 命中即返回 |
 | Shader 编译期内嵌 | `cmake/EmbedShaders.cmake` | 运行期无 shader 文件 IO |
 
@@ -353,7 +353,7 @@ UIInstanceData 每实例 6 字段（`SSBOLayoutBuilder.h:32-50`），300 实例 
 
 ### 8.2 量产预烘焙 SDF atlas（T-2）
 
-核心 UI 场景文案集合基本封闭，量产路径可离线预生成 SDF atlas + 字形表（项目内 `SafeStaticTextLayout` 已有自建字符图集先例），运行时零光栅化、零 8.4MB 字体驻留、首帧零 SDF 生成。与 S-1 联动后，文本子系统启动成本趋近于零。动态文案（如蓝牙设备名）保留现有运行时路径作为回退。
+核心 UI 场景文案集合基本封闭，量产路径可离线预生成 SDF atlas + 字形表并作为资产打包，运行时零光栅化、零 8.4MB 字体驻留、首帧零 SDF 生成。与 S-1 联动后，文本子系统启动成本趋近于零。动态文案（如蓝牙设备名）保留现有运行时路径作为回退。
 
 ---
 

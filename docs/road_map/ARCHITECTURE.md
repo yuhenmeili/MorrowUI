@@ -115,7 +115,7 @@ Application / Samples
         │
         ▼
 UI
-  Widget / UIWidget / Elements / Layout / HMI
+  Widget / UIWidget / Elements / Layout
   Component / ComponentManager
   Transform / MeshFilter / MeshRenderer
         │

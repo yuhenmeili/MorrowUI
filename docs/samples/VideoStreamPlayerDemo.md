@@ -35,5 +35,5 @@ cmake --build build --target VideoStreamPlayerDemo --parallel 8
   `setLoop`；控制接口 `play/pause/stop/seekSeconds/setPlaybackSpeed`，
   查询 `getCurrentTime/getDuration/getPlaybackSpeed`；
   事件 `onStateChanged` / `onFrameChanged`。
-- 帧源为内存 RGBA，亦可对接解码器输出；纯 OES 外部缓冲路径见
-  [SafeStreamTextureDemo.md](SafeStreamTextureDemo.md)。
+- 帧源为内存 RGBA，亦可对接解码器输出；QNX 下的 PMEM → OES 零拷贝路径见
+  [PMemoryDemo.md](PMemoryDemo.md)。

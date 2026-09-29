@@ -4,9 +4,13 @@
 >
 > 本文只做整理建议，当前不修改任何 `.cpp`、CMake 或资源文件，待审查确认后再实施。
 
+> 状态更新（2026-09-29）：`Safe*` 四件套组件与对应 Demo 已删除（cd3aaec），
+> 本文涉及 `Safe*` 合并方案的章节作废；Demo 总数相应由 17 变为 15，文中计数保留
+> 原值仅作历史记录。
+
 ## 1. 当前情况
 
-整理开始时 `samples` 目录共有 **31 个 `.cpp` Demo**；当前实施完成后为 **17 个**。根目录 `CMakeLists.txt` 使用：
+整理开始时 `samples` 目录共有 **31 个 `.cpp` Demo**；当前实施完成后为 **17 个**（Safe* 删除后为 15 个）。根目录 `CMakeLists.txt` 使用：
 
 ```cmake
 file(GLOB DEMO_LIST ${CMAKE_CURRENT_SOURCE_DIR}/samples/*.cpp)
@@ -19,7 +23,7 @@ file(GLOB DEMO_LIST ${CMAKE_CURRENT_SOURCE_DIR}/samples/*.cpp)
 1. **基础控件与布局**：文本、按钮、选择控件、菜单、滚动容器、列表/树、滑块、进度条、SpinBox 等。
 2. **视觉与动画效果**：图片、阴影、CanvasModulate、流光、帧动画、AnchorPointScale、Bounce、BrakePedal、Gears 系列。
 3. **复杂场景能力**：Parallax/Popup、粒子、视频流、GLTF/3D。
-4. **底层或安全 HMI 能力**：批处理验证、内存纹理、Safe* 组件。
+4. **底层能力**：批处理验证、内存纹理（原 Safe* 组件相关能力已随 cd3aaec 删除）。
 
 ## 2. 总体建议
 
@@ -352,7 +356,9 @@ file(GLOB DEMO_LIST ${CMAKE_CURRENT_SOURCE_DIR}/samples/*.cpp)
 
 ### 6.4 `Safe*` 系列
 
-当前包括：
+> 本节已作废：`Safe*` 组件与 Demo 已删除（cd3aaec），以下合并方案不再实施。
+
+历史记录（原方案）：
 
 - `SafeDynamicVectorCanvasDemo`
 - `SafeStaticSpriteDemo`

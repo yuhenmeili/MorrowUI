@@ -25,10 +25,6 @@
 | `PMemoryDemo` | QNX 下 PMEM/OES 纹理零拷贝接入        | `Texture(OES)`、`MRImage`、`global_tools::loadPmemData` | [PMemoryDemo.md](samples/PMemoryDemo.md) |
 | `Particles2DDemo` | CPU / GPU 两种 2D 粒子系统对比        | `MRCPUParticles2D`、`MRGPUParticles2D` | [Particles2DDemo.md](samples/Particles2DDemo.md) |
 | `RangeControlsDemo` | 滑杆与进度条：联动、纵向、Tween 循环、反向填充    | `MRSlider`、`MRProgressBar`、`Tween` | [RangeControlsDemo.md](samples/RangeControlsDemo.md) |
-| `SafeDynamicVectorCanvasDemo` | ADAS 覆盖层矢量画布（预分配顶点、逐帧重绘）      | `SafeDynamicVectorCanvas` | [SafeDynamicVectorCanvasDemo.md](samples/SafeDynamicVectorCanvasDemo.md) |
-| `SafeStaticSpriteDemo` | 安全静态图集精灵：时速表、档位、报警灯           | `SafeStaticSprite`、`StaticAtlasManager` | [SafeStaticSpriteDemo.md](samples/SafeStaticSpriteDemo.md) |
-| `SafeStaticTextLayoutDemo` | 安全静态文本：自建字符图集与告警词句            | `SafeStaticTextLayout`、`StaticAtlasManager` | [SafeStaticTextLayoutDemo.md](samples/SafeStaticTextLayoutDemo.md) |
-| `SafeStreamTextureDemo` | 安全流纹理：倒车影像模拟、多缓冲轮转            | `SafeStreamTexture` | [SafeStreamTextureDemo.md](samples/SafeStreamTextureDemo.md) |
 | `SceneEffectsDemo` | 视差背景、全局色调调制、Tooltip、Dialog    | `MRParallaxBackground`、`MRCanvasModulate`、`MRTooltip`、`MRDialog` | [SceneEffectsDemo.md](samples/SceneEffectsDemo.md) |
 | `TextDemo` | 文本输入（多行/单行/密码）、Label 对齐、富文本   | `MRTextEdit`、`MRLineEdit`、`MRLabel`、`MRRichTextLabel` | [TextDemo.md](samples/TextDemo.md) |
 | `VideoStreamPlayerDemo` | 视频流播放：内存帧源、播放控制、倍速、事件回显       | `MRVideoStreamPlayer` | [VideoStreamPlayerDemo.md](samples/VideoStreamPlayerDemo.md) |
@@ -52,7 +48,6 @@ cmake --build build --target <DemoName> --parallel 8
 - 想找仪表/点阵特效：看 `GearsDemo`
 - 想找列表/导航：看 `ListNavigationDemo`
 - 想找 3D 能力：看 `GLTFDemo` 与 `IBLPrecomputeDemo`
-- 想找视频/流媒体：看 `VideoStreamPlayerDemo`、`SafeStreamTextureDemo`、`PMemoryDemo`
-- 想找功能安全（Safe）组件：看 `Safe*` 四件套
+- 想找视频/流媒体：看 `VideoStreamPlayerDemo`、`PMemoryDemo`
 - 想找调试/性能观测：看 `DebugDemo`
 - 想找平台特性：看 `PMemoryDemo`
