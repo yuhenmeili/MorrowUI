@@ -5,20 +5,19 @@
 #ifndef MORROW_RENDERER_PIXELDATATYPE_H_
 #define MORROW_RENDERER_PIXELDATATYPE_H_
 
-#ifdef OPENGL_GLFW
-    #include "platform/wgl/OpenglHeader.h"
-#else
-    #include "platform/egl/GLESHeader.h"
-#endif
+#include <cstdint>
+
+#include "DriverEnums.h"
+
 namespace morrow
 {
 
 class PixelDatatype
 {
 public:
-    static bool isPacked(GLenum pixelDatatype);
+    static bool isPacked(PixelDataType pixelDatatype);
 
-    static int32_t sizeInBytes(GLenum pixelDatatype);
+    static int32_t sizeInBytes(PixelDataType pixelDatatype);
 };
 
 } // MORROWGUI

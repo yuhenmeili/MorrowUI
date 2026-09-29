@@ -10,12 +10,6 @@
 #include <vector>
 #include "GpuTypes.h"    // HwVBO, HwGPUProgram（无需拉入完整设备接口）
 
-#ifdef OPENGL_GLFW
-#include "platform/wgl/OpenglHeader.h"
-#else
-#include "platform/egl/GLESHeader.h"
-#endif
-
 namespace morrow {
 struct FrameState;
 class Mesh;

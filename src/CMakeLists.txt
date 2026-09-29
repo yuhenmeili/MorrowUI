@@ -205,6 +205,19 @@ set(MORROW_SRC
 
 add_library(${MORROW_LIB_NAME} STATIC ${MORROW_SRC})
 add_dependencies(${MORROW_LIB_NAME} morrow_generate_embedded_shaders)
+
+# M1 门禁：公共头传递闭包必须零 GLES/EGL/GL/GLFW 词汇
+# （docs/road_map/PUBLIC_API_ENCAPSULATION_PROPOSAL.md §8）。
+add_custom_target(morrow_gate_public_api
+    COMMAND ${CMAKE_COMMAND}
+        -DAPI_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+        -DAPI_ROOT_HEADERS=${CMAKE_CURRENT_SOURCE_DIR}/core/Engine.h
+        -DAPI_GATE_FATAL=ON
+        -P ${CMAKE_SOURCE_DIR}/cmake/CheckPublicApiGLFree.cmake
+    COMMENT "M1 gate: public header closure (Engine.h) must be GL/EGL/GLFW-free"
+)
+add_dependencies(${MORROW_LIB_NAME} morrow_gate_public_api)
+
 target_compile_definitions(${MORROW_LIB_NAME} PUBLIC ${MORROW_PUBLIC_DEFINES})
 # basis_universal 转码器默认关闭 KTX2 支持，打开以启用 Ktx2TextureLoader
 if(NOT DEFINED BASISD_SUPPORT_KTX2)

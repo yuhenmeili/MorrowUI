@@ -10,6 +10,8 @@
 >   **公共路径与内部结构解耦**硬规则、**薄头厚 cpp** 原则、semver + 废弃缓冲
 >   演进策略（§2.1 G6、§7.5）、新增门禁 M5（公共 API 一致性测试）与
 >   `version.h`（§7.2、§8）。
+> - v4.1（2026-09-29）：Phase 0/1 实施完成，同步实施偏差（§3.2 AtlasParser 死
+>   字段删除、§6.1 前向声明方案、§9 Phase 1 状态与验证数据）。
 > - v3（2026-09-29）：五项评审决策落稿（§12）：① 维持静态库，不升级动态库
 >   （交付形态升级阶段取消、符号级门禁移除）；② `setShaderFromMemory` 直接删除；
 >   ③ `Window::getSurface()` 直接删除；④ Tier A/B 白名单维持；⑤ 公共头保持
@@ -105,8 +107,8 @@ Engine.h:10 → Window.h:10 → UIWidget.h:9-10 → MeshRenderer.h:12
 | `renderer/resource/PixelDatatype.h` | `:8-12` include GL 头；`:19,21` `GLenum` 签名 | 改用 `DriverEnums` 自研枚举 |
 | `renderer/resource/PixelFormat.h` | `:12-16` include GL 头；`:23,25` `GLenum` 签名 | 同上 |
 | `renderer/resource/VertexArray.h` | `:13-17` include GL 头（方法签名已 Hw 化，include 为遗留） | 删除 include |
-| `renderer/atlas/AtlasParser.h` | `:29` **public 字段 `GLint uWrap = GL_CLAMP_TO_EDGE`** | 改 `DriverEnums::SamplerWrap`（需新增该枚举） |
-| `platform/utils/OpenglUtils.h` | `:9-13` include GL 头；`:20-33` `GLenum/GLint` 签名 | 整体私有化（实现内部工具） |
+| `renderer/atlas/AtlasParser.h` | `:29` **public 字段 `GLint uWrap = GL_CLAMP_TO_EDGE`** | 实施修订：字段全仓零使用（死字段），直接删除；未新增 `SamplerWrap` 枚举，出现真实 wrap 需求时再按 DriverEnums 枚举补 |
+| `platform/utils/OpenglUtils.h` | `:9-13` include GL 头；`:20-33` `GLenum/GLint` 签名 | 现状已实现内聚（仅 GLRenderDevice.cpp 与自身 .cpp 引用，不在任何公共头链上）；物理私有化由 Phase 2 include 划分完成，本阶段无改动 |
 | `renderer/device/*`（GLRenderDevice、GlResourceObjects、ResourceRegistry、ShaderBinaryCache） | 全量 `GLuint/GLenum` 与内联 `glDelete*` | 划入私有实现区（§7） |
 
 ### 3.3 原生句柄出口
@@ -246,8 +248,11 @@ Engine.h:10 → Window.h:10 → UIWidget.h:9-10 → MeshRenderer.h:12
 
 1. `MeshRenderer.h:12`、`Material.h:15` 删除对 `RenderDeviceProxyBase.h` 的 include
    （两个头文件内均无 Proxy 使用；如 .cpp 需要则移入 .cpp）；
-2. `RenderDeviceProxyBase.h` 改持接口指针：`std::unique_ptr<RenderDevice>
-   m_realDevice`（`RenderDevice.h` 接口头全 Hw 签名，本身无 GL 依赖，前向声明即可）；
+2. `RenderDeviceProxyBase.h` 对后端只留**前向声明**：`class GLRenderDevice;` +
+   `std::shared_ptr<GLRenderDevice> m_realDevice`（实施修订：`GLRenderDevice` 并非
+   `RenderDevice` 子类——前端命令接口由 Proxy 自身实现，二者是平行层次——因此
+   不改持接口指针，前向声明即可让头文件零 GL 依赖；共享指针成员配合 .cpp 内
+   析构定义不要求完整类型）；
 3. `GLRenderDevice` 的构造收敛到**唯一工厂点**（`RenderDeviceProxyBase.cpp` 内部或
    独立 `DeviceFactory.cpp`，由 `Platform` 图形上下文就绪后调用），
    `#include "GLRenderDevice.h"` 只出现在该 .cpp；
@@ -449,6 +454,14 @@ M1/M2 成本极低（纯 CMake/脚本），Phase 1 结束即可上线，长期�
 - 盘点外部用户代码对内部头的实际依赖（如已有集成方）。
 
 ### Phase 1 — 头文件净化与能力收口（不动构建结构）
+
+> 状态：✅ 已完成（2026-09-29）。Windows/MinGW(Ninja) 全量构建通过（morrow +
+> 15 samples + editor + 26 组测试；BuildQueueTests 失败为既有环境问题——其默认
+> "MinGW Makefiles" 生成器在本机不可用，与本批改动无关）；DebugDemo
+> `--report-json --frames 30` 真实渲染链路合批断言通过；M1 门禁接入构建
+> （`morrow_gate_public_api` 目标，随 morrow 依赖执行）：Engine.h 闭包 71 头
+> （全量 GL 泄漏）→ 60 头、零 GL/EGL/GLFW 词汇。实施偏差见 §3.2/§6.1 修订。
+> QNX/Linux 交叉编译待验证。
 
 任务：
 

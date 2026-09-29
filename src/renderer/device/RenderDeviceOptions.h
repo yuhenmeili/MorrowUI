@@ -21,7 +21,7 @@ struct RenderDeviceOptions {
     /// 常驻内存。溢出时丢弃命令并输出 LOG_E，不会越界写。
     size_t commandBufferCapacity = 0;
 
-    /// shader 二进制缓存（glProgramBinary）目录；空字符串 = 跟随平台默认
+    /// shader 二进制缓存目录；空字符串 = 跟随平台默认
     /// （QNX: "/var/data/shaders"，桌面平台: 关闭）。
     /// 缓存键为内容哈希：驱动标识 + 完整预处理后源码 + formatVersion。
     /// 修改 shader 源码后哈希自动变化，旧缓存文件自然失效（无需手工重置），

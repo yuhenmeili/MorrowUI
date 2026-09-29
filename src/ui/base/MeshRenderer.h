@@ -9,7 +9,6 @@
 #include "Widget.h"
 #include "Material.h"
 #include "VertexArray.h"
-#include "RenderDeviceProxyBase.h"
 #include "MeshFilter.h"
 
 namespace morrow {

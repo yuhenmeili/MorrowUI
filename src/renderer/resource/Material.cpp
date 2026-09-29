@@ -229,10 +229,6 @@ void Material::setIntArray(const std::string& name, const int32_t* values, int32
     ++m_uniformRevision;
 }
 
-// void ShaderMaterial::setShader(const ShaderSharedPtr& shader) {
-//     m_shader = shader;
-// }
-
 void Material::setShader(const std::string& shaderName) {
     if (m_shaderName != shaderName) {
         m_shaderName = shaderName;
@@ -241,17 +237,6 @@ void Material::setShader(const std::string& shaderName) {
         ++m_uniformRevision;
         LOG_I("set shader {}", shaderName);
     }
-}
-
-void Material::setShaderFromMemory(const std::string& shaderName, const std::string& vertexSource, const std::string& fragmentSource) {
-    m_shaderName = shaderName;
-    m_vertexShaderResource = vertexSource;
-    m_fragmentShaderResource = fragmentSource;
-    // 清除已缓存的 shader，下次 apply 时重新 buildShader
-    m_shader = HwGPUProgram{0};
-    m_batchShader = HwGPUProgram{0};
-    ++m_batchCompatibilityRevision;
-    ++m_uniformRevision;
 }
 
 std::string Material::getShaderName() const {
@@ -542,7 +527,8 @@ uint64_t Material::getRevision() const {
 }
 
 bool Material::isSSBOShader() const {
-    // 显式标记优先；ENABLE_SSBO 文本回退兼容 setShaderFromMemory 的自定义 shader
+    // 依据加载后的顶点源码文本判断；内置 SSBO shader 以
+    // "#pragma morrow ssbo" 标记（ENABLE_SSBO 为历史写法，兼容保留）。
     if (m_vertexShaderResource.find("#pragma morrow ssbo") != std::string::npos) {
         return true;
     }
@@ -589,7 +575,7 @@ void Material::loadShader() {
     if (embedded_shaders::get(vertexShaderName, vertexShaderResource) && embedded_shaders::get(fragmentShaderName, fragmentShaderResource)) {
         // loaded
     } else {
-        // Keep external files as a fallback for custom shaders and development.
+        // 外部文件回退仅服务于开发调试（内置 shader 均为构建期内嵌）。
         const std::string vertexShaderPath = "assets/shaders/" + vertexShaderName;
         const std::string fragmentShaderPath = "assets/shaders/" + fragmentShaderName;
 

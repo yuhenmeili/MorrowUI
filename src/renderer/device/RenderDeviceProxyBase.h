@@ -9,12 +9,15 @@
 #include "RenderDevice.h"
 #include <thread>
 #include "PlatformSemaphore.h"
-#include "GLRenderDevice.h"
 #include "Platform.h"
 #include "RenderDeviceOptions.h"
 
 namespace morrow {
 class RenderDeviceProxyBase;
+
+// GL 后端仅以前向声明出现在本头：GLRenderDevice 的定义只允许被实现 .cpp
+// include，公共头闭包（Engine.h 一侧）不得经由此头接触到任何 GL 头。
+class GLRenderDevice;
 
 // ---------------------------------------------------------------------------
 // RenderDeviceProxyBase — 渲染线程代理基类
@@ -43,7 +46,7 @@ protected:
     bool m_returnResImmediately;
     bool m_threaded;
     bool m_isInPresenting;
-    GLRenderDevicePtr m_realDevice;
+    std::shared_ptr<GLRenderDevice> m_realDevice;
 
 private:
     std::shared_ptr<std::thread> m_thread;

@@ -10,11 +10,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-#ifdef OPENGL_GLFW
-#include "platform/wgl/OpenglHeader.h"
-#else
-#include "platform/egl/GLESHeader.h"
-#endif
 #include "DriverEnums.h"
 
 namespace morrow {
@@ -26,7 +21,6 @@ struct AtlasPage {
     PixelDataFormat format = PixelDataFormat::RGBA;
     SamplerMinFilter minFilter = SamplerMinFilter::NEAREST;
     SamplerMagFilter magFilter = SamplerMagFilter::NEAREST;
-    GLint uWrap = GL_CLAMP_TO_EDGE, vWrap = GL_CLAMP_TO_EDGE;
     bool pma = false;
 };
 

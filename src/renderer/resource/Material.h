@@ -11,10 +11,8 @@
 #include <variant>
 #include <vector>
 
-#include "RenderDeviceProxyBase.h"
 #include "Scene3DUBO.h"
 #include "Texture.h"
-#include "Shader.h"
 #include "Vector2.h"
 #include "Vector3.h"
 #include "Vector4.h"
@@ -86,15 +84,8 @@ public:
 
     void setIntArray(const std::string& name, const int32_t* values, int32_t size, int32_t step);
 
-    // Shader相关方法
-    // void setShader(const ShaderSharedPtr& shader);
+    // Shader相关方法：对外仅具名内置 shader（构建期内嵌 + assets/shaders 回退）
     void setShader(const std::string& shaderName);
-
-    /// 从内存直接设置着色器源码（绕过文件IO，用于安全组件 ROM 硬编码）
-    /// @param shaderName  着色器标识名
-    /// @param vertexSource  顶点着色器 GLSL 源码
-    /// @param fragmentSource  片元着色器 GLSL 源码
-    void setShaderFromMemory(const std::string& shaderName, const std::string& vertexSource, const std::string& fragmentSource);
 
     std::string getShaderName() const;
 

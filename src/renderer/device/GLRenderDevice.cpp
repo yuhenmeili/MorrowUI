@@ -370,7 +370,7 @@ void GLRenderDevice::updateSubTexture2D(HwTexture2D texture, const TextureData& 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(textureTarget, textureImp->textureID);
 
-    int32_t unpackAlignment = data.imageType == ImageType::TEXT ? 1 : PixelFormat::alignmentInBytes(data.format, GL_UNSIGNED_BYTE, data.width);
+    int32_t unpackAlignment = data.imageType == ImageType::TEXT ? 1 : PixelFormat::alignmentInBytes(data.format, PixelDataType::UBYTE, data.width);
     glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
 
     GLenum format = OpenglUtils::getFormat(data.format);
@@ -399,7 +399,7 @@ bool GLRenderDevice::upLoadTexture(GlTexture2D* textureImp, const TextureData& d
     GLenum internalFormat = OpenglUtils::getInternalFormat(data.format);
     GLenum format = OpenglUtils::getFormat(data.format);
 
-    int32_t unpackAlignment = data.imageType == ImageType::TEXT ? 1 : PixelFormat::alignmentInBytes(data.format, GL_UNSIGNED_BYTE, data.width);
+    int32_t unpackAlignment = data.imageType == ImageType::TEXT ? 1 : PixelFormat::alignmentInBytes(data.format, PixelDataType::UBYTE, data.width);
     glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
 
     if (data.compressedTexture) {

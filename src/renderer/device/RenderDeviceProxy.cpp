@@ -26,6 +26,7 @@
 #include <future>
 
 #include "Log.h"
+#include "GLRenderDevice.h"
 #include "PixelFormat.h"
 #include "RenderDevice.h"
 #include "RenderDeviceProxyBase.h"
@@ -482,7 +483,7 @@ void RenderDeviceProxy::updateSubTexture2D(HwTexture2D texture, const TextureDat
     pl->y = y;
     pl->width = width;
     pl->height = height;
-    const size_t byteSize = static_cast<size_t>(PixelFormat::textureSizeInBytes(data.format, GL_UNSIGNED_BYTE, width, height));
+    const size_t byteSize = static_cast<size_t>(PixelFormat::textureSizeInBytes(data.format, PixelDataType::UBYTE, width, height));
     if (sourceData && byteSize > 0) {
         auto buf = m_pixelDataRecyclePool->acquire();
         buf->assign(sourceData, sourceData + byteSize);
