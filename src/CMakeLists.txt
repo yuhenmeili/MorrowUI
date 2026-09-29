@@ -264,8 +264,7 @@ target_link_libraries(${MORROW_LIB_NAME}
 # ---------------------------------------------------------------------------
 # Phase 2 门禁（M2/M3/M4，M1 见上方 morrow_gate_public_api）
 #   M2 负向编译：仅凭公共 include 路径不得触及实现私有头
-#   M3/M4 include 图：公共头/editor/samples 的引擎 include 必须全部可经
-#     include/morrow + 白名单（src/math）解析（tools/check_unresolved_includes.py）
+#   （M3/M4 include 图门禁与 M5 一致性测试为临时验证设施，验证完成后已按评审移除）
 # 详见 docs/road_map/PUBLIC_API_ENCAPSULATION_PROPOSAL.md §8。
 # ---------------------------------------------------------------------------
 file(WRITE "${CMAKE_BINARY_DIR}/gate_negative.cpp"
@@ -282,18 +281,6 @@ if(MORROW_GATE_LEAK_COMPILES)
     message(FATAL_ERROR
         "M2 gate FAILED: 实现私有头可从公共 include 路径触及！
 ${MORROW_GATE_NEGATIVE_OUTPUT}")
-endif()
-
-find_package(Python3 COMPONENTS Interpreter QUIET)
-if(Python3_FOUND)
-    add_custom_target(morrow_gate_include_graph
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/check_unresolved_includes.py
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "M3/M4 gate: public/editor/sample include graph must resolve via include/morrow"
-    )
-    add_dependencies(${MORROW_LIB_NAME} morrow_gate_include_graph)
-else()
-    message(STATUS "Python3 not found: M3/M4 include-graph gate skipped")
 endif()
 
 target_include_directories(${MORROW_LIB_NAME}

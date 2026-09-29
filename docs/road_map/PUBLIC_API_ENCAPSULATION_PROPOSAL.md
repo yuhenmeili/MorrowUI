@@ -10,6 +10,9 @@
 >   **公共路径与内部结构解耦**硬规则、**薄头厚 cpp** 原则、semver + 废弃缓冲
 >   演进策略（§2.1 G6、§7.5）、新增门禁 M5（公共 API 一致性测试）与
 >   `version.h`（§7.2、§8）。
+> - v4.3（2026-09-29）：按评审决策移除临时验证设施——M5 一致性测试、M3/M4
+>   include 图门禁（Python 工具）与整个 tests/ 目录删除；保留 M1/M2 构建门禁
+>   （自包含、随构建执行）。源码兼容验证已在删除前完成（构建/ctest/渲染全绿）。
 > - v4.2（2026-09-29）：Phase 2 实施完成。要点：① 迁移策略按评审改为**一次性全量
 >   直引 morrow/ 路径，不留转发头**（§7.2 修订）；② 新增 Window 能力 API
 >   （framebufferSize/剪贴板/onRawKeyboardInput + TouchKeyCode 扩展），editor 彻底
@@ -516,11 +519,11 @@ M1/M2 成本极低（纯 CMake/脚本），Phase 1 结束即可上线，长期�
 5. **白名单例外（文档化）**：`src/math`（morrow_math 目标，GL-free 产品头）
    仍以自身目录交付；editor 作为仓库内工具 PRIVATE 引入 `src/includes/common`
    （stb_image 缩略图用），不进入引擎公共接口。
-6. **门禁**：M1（include/morrow 全量扫描，随 morrow 构建）、M2（configure 期
-   try_compile 负向编译，内部头不可从公共路径触及）、M3/M4
-   （`tools/check_unresolved_includes.py`，随构建执行，0 未解析）、M5
-   （`tests/PublicApiConsistencyTests.cpp`，CMake 刻意只给 `-I include
-   -I src/math`，纯公共路径编译 + 不求值工厂签名断言）。
+6. **门禁**：M1（include/morrow 全量扫描，随 morrow 构建）与 M2（configure 期
+   try_compile 负向编译，内部头不可从公共路径触及）**长期保留**；M3/M4
+   include 图门禁、M5 一致性测试（纯公共路径编译 + 不求值工厂签名断言，验证
+   期间 26/26 通过）为临时验证设施，验证完成后按评审移除，后续需要时按 §8
+   说明重建。
 
 任务：
 

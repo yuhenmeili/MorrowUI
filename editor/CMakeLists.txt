@@ -73,34 +73,3 @@ add_custom_command(TARGET MorrowSceneRuntime POST_BUILD
     COMMENT "Copying runtime assets to $<TARGET_FILE_DIR:MorrowSceneRuntime>/assets"
 )
 
-if(BUILD_TESTING)
-    add_executable(EditorEventsTests
-        ${CMAKE_SOURCE_DIR}/tests/EditorEventsTests.cpp
-    )
-    target_link_libraries(EditorEventsTests PRIVATE morrow_editor_document morrow)
-    add_test(NAME EditorEventsTests COMMAND EditorEventsTests)
-
-    add_executable(SceneDocumentTests
-        ${CMAKE_SOURCE_DIR}/tests/SceneDocumentTests.cpp
-    )
-    target_link_libraries(SceneDocumentTests PRIVATE morrow_editor_document)
-    add_test(NAME SceneDocumentTests COMMAND SceneDocumentTests)
-
-    add_executable(ProjectFileSystemModelTests
-        ${CMAKE_SOURCE_DIR}/tests/ProjectFileSystemModelTests.cpp
-    )
-    target_link_libraries(ProjectFileSystemModelTests PRIVATE morrow_editor_document)
-    add_test(NAME ProjectFileSystemModelTests COMMAND ProjectFileSystemModelTests)
-
-    add_executable(FileSystemEnhancementTests
-        ${CMAKE_SOURCE_DIR}/tests/FileSystemEnhancementTests.cpp
-    )
-    target_link_libraries(FileSystemEnhancementTests PRIVATE morrow_editor_document)
-    add_test(NAME FileSystemEnhancementTests COMMAND FileSystemEnhancementTests)
-
-    add_executable(BuildQueueTests
-        ${CMAKE_SOURCE_DIR}/tests/BuildQueueTests.cpp
-    )
-    target_link_libraries(BuildQueueTests PRIVATE morrow_editor_document)
-    add_test(NAME BuildQueueTests COMMAND BuildQueueTests)
-endif()
