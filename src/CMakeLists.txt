@@ -224,6 +224,17 @@ add_custom_target(morrow_gate_public_api
 )
 add_dependencies(${MORROW_LIB_NAME} morrow_gate_public_api)
 
+# M3 门禁（第二轮）：入口白名单 + 可达性——孤儿头滞留公共面即失败。
+# 入口清单：cmake/morrow_public_entries.cmake（冻结的对外清单，新增公共头 = 改清单）。
+add_custom_target(morrow_gate_public_surface
+    COMMAND ${CMAKE_COMMAND}
+        -DAPI_SURFACE_DIR=${CMAKE_SOURCE_DIR}/include/morrow
+        -DENTRIES_FILE=${CMAKE_SOURCE_DIR}/cmake/morrow_public_entries.cmake
+        -P ${CMAKE_SOURCE_DIR}/cmake/CheckPublicApiSurface.cmake
+    COMMENT "M3 gate: every public header must be entry-listed or reachable"
+)
+add_dependencies(${MORROW_LIB_NAME} morrow_gate_public_surface)
+
 target_compile_definitions(${MORROW_LIB_NAME}
     PUBLIC ${MORROW_PUBLIC_DEFINES}
     PRIVATE ${MORROW_PRIVATE_PLATFORM_DEFINES})

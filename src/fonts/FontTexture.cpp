@@ -3,6 +3,7 @@
 //
 
 #include "FontTexture.h"
+#include "GpuTypes.h"
 
 #include <cstring>
 
@@ -56,7 +57,7 @@ void FontTexture::FlushToGPU() {
         m_dirty = false;
         return;
     }
-    RENDERINGTHREAD->updateSubTexture2D(m_textureHandle, m_textureData, 0, 0, getWidth(), getHeight(), m_fontData.data());
+    RENDERINGTHREAD->updateSubTexture2D(m_textureHandle, *m_textureData, 0, 0, getWidth(), getHeight(), m_fontData.data());
     m_dirty = false;
 }
 } // morrow

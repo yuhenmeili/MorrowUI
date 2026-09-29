@@ -3,6 +3,8 @@
 //
 
 #include "morrow/base/MeshRenderer3D.h"
+#include "GpuTypes.h"
+#include "scene3d/FrameStateLegacy.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -11,7 +13,7 @@
 #include "GlobalObject.h"
 #include "morrow/PerspectiveCamera.h"
 #include "RenderDeviceProxy.h"
-#include "morrow/scene3d/Scene3DUBO.h"
+#include "Scene3DUBO.h"
 #include "morrow/Texture.h"
 #include "morrow/base/Transform3D.h"
 
@@ -123,8 +125,8 @@ void MeshRenderer3D::update(FrameStateSharedPtr frameState) {
             ibl = passContext->ibl;
             scene3DFrameUbo = passContext->frameUBO;
         } else {
-            ibl = frameState->scene3DIBL;
-            scene3DFrameUbo = frameState->scene3DFrameUBO;
+            ibl = frameState->scene3DLegacy->ibl;
+            scene3DFrameUbo = frameState->scene3DLegacy->scene3DFrameUBO;
         }
     }
     if (!scene3DFrameUbo.isValid())

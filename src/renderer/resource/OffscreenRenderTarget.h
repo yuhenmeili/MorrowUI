@@ -4,7 +4,7 @@
 
 #ifndef MORROW_GUI_OFFSCREENRENDERTARGET_H
 #define MORROW_GUI_OFFSCREENRENDERTARGET_H
-#include "morrow/RenderDeviceProxyBase.h"
+#include "RenderDeviceProxyBase.h"
 
 namespace morrow {
 class OffscreenRenderTarget {

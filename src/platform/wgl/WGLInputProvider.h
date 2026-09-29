@@ -5,7 +5,7 @@
 #ifndef MORROW_WGL_INPUT_PROVIDER_H
 #define MORROW_WGL_INPUT_PROVIDER_H
 
-#include "morrow/InputProvider.h"
+#include "InputProvider.h"
 
 struct GLFWwindow;
 

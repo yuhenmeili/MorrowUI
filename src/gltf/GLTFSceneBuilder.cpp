@@ -4,6 +4,8 @@
 
 #include "GLTFSceneBuilder.h"
 
+#include "GpuTypes.h"
+
 #include <functional>
 
 #include "morrow/Texture.h"

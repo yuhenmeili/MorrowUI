@@ -6,7 +6,8 @@
 #include <string>
 #include <vector>
 
-#include "morrow/TextTextureInfo.h"
+#include "TextTextureInfo.h"
+#include "morrow/FontInfo.h"
 
 namespace morrow
 {
@@ -17,12 +18,7 @@ namespace fonts_internal {
 std::shared_ptr<DynamicFont> getFont(const std::string& fontName);
 }
 
-struct FontInfo {
-    std::string name;
-    std::string path;
-};
-
-/// 字体管理器（对外）。
+/// 字体管理器（引擎内部；应用经 Engine::addFonts/FontInfo 注册字体）。
 /// 内部实现（DynamicFont / stb_truetype）经 pimpl 隐藏，动态字体句柄不出公共接口。
 class FontManager
 {

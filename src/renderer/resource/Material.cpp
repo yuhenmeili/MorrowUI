@@ -10,10 +10,24 @@
 
 #include "EmbeddedShaders.h"
 #include "GlobalObject.h"
+#include "GpuTypes.h"
+#include "Scene3DUBO.h"
+#include "Scene3DUBO.h"
 #include "MaterialUtil.h"
 #include "ssbo/SSBOLayoutComponent.h"
 
 namespace morrow {
+
+// 内部 GPU 状态（公共头不可见）：管线状态 + Scene3D 材质 UBO。
+struct Material::GpuState {
+    GraphicsPipelineState pipelineState;
+    HwUBO scene3DMaterialUbo{0};
+    Scene3DMaterialUBO scene3DMaterialData{};
+    bool scene3DMaterialDirty = true;
+};
+
+Material::~Material() = default;
+
 MaterialSharedPtr Material::create() {
     return MaterialSharedPtr(new Material());
 }
@@ -22,9 +36,9 @@ MaterialSharedPtr Material::create(const std::string& shaderName) {
     return MaterialSharedPtr(new Material(shaderName));
 }
 
-Material::Material() = default;
+Material::Material() : m_gpuState(std::make_unique<GpuState>()) {}
 
-Material::Material(const std::string& shaderName) : m_shaderName(shaderName) {
+Material::Material(const std::string& shaderName) : m_gpuState(std::make_unique<GpuState>()), m_shaderName(shaderName) {
     loadShader();
 }
 
@@ -252,68 +266,68 @@ HwGPUProgram Material::getBatchShader() const {
 }
 
 void Material::setBlendEnabled(bool enabled) {
-    if (m_pipelineState.blendEnabled != enabled) {
-        m_pipelineState.blendEnabled = enabled;
+    if (m_gpuState->pipelineState.blendEnabled != enabled) {
+        m_gpuState->pipelineState.blendEnabled = enabled;
         ++m_batchCompatibilityRevision;
     }
 }
 
 void Material::setBlendFunc(BlendFactor srcRgbFactor, BlendFactor dstRgbFactor, BlendFactor srcAlphaFactor, BlendFactor dstAlphaFactor) {
-    if (m_pipelineState.srcRgbBlendFactor != srcRgbFactor || m_pipelineState.dstRgbBlendFactor != dstRgbFactor ||
-        m_pipelineState.srcAlphaBlendFactor != srcAlphaFactor || m_pipelineState.dstAlphaBlendFactor != dstAlphaFactor) {
-        m_pipelineState.srcRgbBlendFactor = srcRgbFactor;
-        m_pipelineState.dstRgbBlendFactor = dstRgbFactor;
-        m_pipelineState.srcAlphaBlendFactor = srcAlphaFactor;
-        m_pipelineState.dstAlphaBlendFactor = dstAlphaFactor;
+    if (m_gpuState->pipelineState.srcRgbBlendFactor != srcRgbFactor || m_gpuState->pipelineState.dstRgbBlendFactor != dstRgbFactor ||
+        m_gpuState->pipelineState.srcAlphaBlendFactor != srcAlphaFactor || m_gpuState->pipelineState.dstAlphaBlendFactor != dstAlphaFactor) {
+        m_gpuState->pipelineState.srcRgbBlendFactor = srcRgbFactor;
+        m_gpuState->pipelineState.dstRgbBlendFactor = dstRgbFactor;
+        m_gpuState->pipelineState.srcAlphaBlendFactor = srcAlphaFactor;
+        m_gpuState->pipelineState.dstAlphaBlendFactor = dstAlphaFactor;
         ++m_batchCompatibilityRevision;
     }
 }
 
 bool Material::isBlendEnabled() const {
-    return m_pipelineState.blendEnabled;
+    return m_gpuState->pipelineState.blendEnabled;
 }
 
 void Material::getBlendFunc(BlendFactor& srcRgbFactor, BlendFactor& dstRgbFactor, BlendFactor& srcAlphaFactor, BlendFactor& dstAlphaFactor) const {
-    srcRgbFactor = m_pipelineState.srcRgbBlendFactor;
-    dstRgbFactor = m_pipelineState.dstRgbBlendFactor;
-    srcAlphaFactor = m_pipelineState.srcAlphaBlendFactor;
-    dstAlphaFactor = m_pipelineState.dstAlphaBlendFactor;
+    srcRgbFactor = m_gpuState->pipelineState.srcRgbBlendFactor;
+    dstRgbFactor = m_gpuState->pipelineState.dstRgbBlendFactor;
+    srcAlphaFactor = m_gpuState->pipelineState.srcAlphaBlendFactor;
+    dstAlphaFactor = m_gpuState->pipelineState.dstAlphaBlendFactor;
 }
 
 void Material::setDoubleSided(bool doubleSided) {
     const CullFaceMode cullFaceMode = doubleSided ? CullFaceMode::NONE : CullFaceMode::BACK;
-    if (m_pipelineState.cullFaceMode != cullFaceMode) {
-        m_pipelineState.cullFaceMode = cullFaceMode;
+    if (m_gpuState->pipelineState.cullFaceMode != cullFaceMode) {
+        m_gpuState->pipelineState.cullFaceMode = cullFaceMode;
         ++m_batchCompatibilityRevision;
     }
 }
 
 bool Material::isDoubleSided() const {
-    return m_pipelineState.cullFaceMode == CullFaceMode::NONE;
+    return m_gpuState->pipelineState.cullFaceMode == CullFaceMode::NONE;
 }
 
 void Material::setDepthTestEnabled(bool enabled) {
-    if (m_pipelineState.depthTestEnabled != enabled) {
-        m_pipelineState.depthTestEnabled = enabled;
+    if (m_gpuState->pipelineState.depthTestEnabled != enabled) {
+        m_gpuState->pipelineState.depthTestEnabled = enabled;
         ++m_batchCompatibilityRevision;
     }
 }
 
 void Material::setDepthWriteEnabled(bool enabled) {
-    if (m_pipelineState.depthWriteEnabled != enabled) {
-        m_pipelineState.depthWriteEnabled = enabled;
+    if (m_gpuState->pipelineState.depthWriteEnabled != enabled) {
+        m_gpuState->pipelineState.depthWriteEnabled = enabled;
         ++m_batchCompatibilityRevision;
     }
 }
 
 void Material::setScene3DMaterialUBO(const Scene3DMaterialUBO& materialData) {
-    m_scene3DMaterialData = materialData;
-    m_scene3DMaterialDirty = true;
+    m_gpuState->scene3DMaterialData = materialData;
+    m_gpuState->scene3DMaterialDirty = true;
     ++m_uniformRevision;
 }
 
 const Scene3DMaterialUBO& Material::getScene3DMaterialUBO() const {
-    return m_scene3DMaterialData;
+    return m_gpuState->scene3DMaterialData;
 }
 
 void Material::bindScene3DMaterialUBO(HwGPUProgram shader) {
@@ -322,17 +336,17 @@ void Material::bindScene3DMaterialUBO(HwGPUProgram shader) {
         return;
     }
 
-    if (!m_scene3DMaterialUbo.isValid()) {
-        m_scene3DMaterialUbo = RENDERINGTHREAD->createUBO();
-        m_scene3DMaterialDirty = true;
+    if (!m_gpuState->scene3DMaterialUbo.isValid()) {
+        m_gpuState->scene3DMaterialUbo = RENDERINGTHREAD->createUBO();
+        m_gpuState->scene3DMaterialDirty = true;
     }
 
-    if (m_scene3DMaterialDirty) {
-        RENDERINGTHREAD->updateUBO(m_scene3DMaterialUbo, MaterialUtil::makeUBOData(m_scene3DMaterialData));
-        m_scene3DMaterialDirty = false;
+    if (m_gpuState->scene3DMaterialDirty) {
+        RENDERINGTHREAD->updateUBO(m_gpuState->scene3DMaterialUbo, MaterialUtil::makeUBOData(m_gpuState->scene3DMaterialData));
+        m_gpuState->scene3DMaterialDirty = false;
     }
 
-    RENDERINGTHREAD->bindUBO(targetShader, m_scene3DMaterialUbo, "Scene3DMaterial", kScene3DMaterialBindingPoint);
+    RENDERINGTHREAD->bindUBO(targetShader, m_gpuState->scene3DMaterialUbo, "Scene3DMaterial", kScene3DMaterialBindingPoint);
 }
 
 void Material::apply(HwGPUProgram shader) {
@@ -345,8 +359,8 @@ void Material::apply(HwGPUProgram shader) {
         return;
     }
 
-    m_pipelineState.program = targetShader;
-    RENDERINGTHREAD->bindPipelineState(m_pipelineState);
+    m_gpuState->pipelineState.program = targetShader;
+    RENDERINGTHREAD->bindPipelineState(m_gpuState->pipelineState);
 
     // 应用纹理
     int textureIndex = 0;
@@ -407,8 +421,8 @@ void Material::applyBatch(HwGPUProgram shader) {
         return;
     }
 
-    m_pipelineState.program = targetShader;
-    RENDERINGTHREAD->bindPipelineState(m_pipelineState);
+    m_gpuState->pipelineState.program = targetShader;
+    RENDERINGTHREAD->bindPipelineState(m_gpuState->pipelineState);
 
     // 应用纹理
     int textureIndex = 0;
@@ -430,7 +444,7 @@ bool Material::isEqual(std::shared_ptr<Material> other) {
     if (m_shaderName != other->m_shaderName ||
         (layoutName == nullptr) != (otherLayoutName == nullptr) ||
         (layoutName && std::string(layoutName) != otherLayoutName) ||
-        !m_pipelineState.isEqual(other->m_pipelineState) ||
+        !m_gpuState->pipelineState.isEqual(other->m_gpuState->pipelineState) ||
         m_textureMap.size() != other->m_textureMap.size()) {
         return false;
     }
@@ -451,7 +465,7 @@ bool Material::operator==(const Material& other) const {
     if (m_shaderName != other.m_shaderName ||
         (layoutName == nullptr) != (otherLayoutName == nullptr) ||
         (layoutName && std::string(layoutName) != otherLayoutName) ||
-        !m_pipelineState.isEqual(other.m_pipelineState) ||
+        !m_gpuState->pipelineState.isEqual(other.m_gpuState->pipelineState) ||
         m_textureMap.size() != other.m_textureMap.size()) {
         return false;
     }
@@ -474,14 +488,14 @@ uint64_t Material::getBatchCompatibilityHash() const {
     auto hashCombine = [](uint64_t seed, uint64_t value) { return seed ^ (value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2)); };
 
     uint64_t hash = std::hash<std::string>{}(m_shaderName);
-    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.blendEnabled));
-    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.srcRgbBlendFactor));
-    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.dstRgbBlendFactor));
-    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.srcAlphaBlendFactor));
-    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.dstAlphaBlendFactor));
-    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.cullFaceMode));
-    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.depthTestEnabled));
-    hash = hashCombine(hash, static_cast<uint64_t>(m_pipelineState.depthWriteEnabled));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_gpuState->pipelineState.blendEnabled));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_gpuState->pipelineState.srcRgbBlendFactor));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_gpuState->pipelineState.dstRgbBlendFactor));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_gpuState->pipelineState.srcAlphaBlendFactor));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_gpuState->pipelineState.dstAlphaBlendFactor));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_gpuState->pipelineState.cullFaceMode));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_gpuState->pipelineState.depthTestEnabled));
+    hash = hashCombine(hash, static_cast<uint64_t>(m_gpuState->pipelineState.depthWriteEnabled));
     hash = hashCombine(hash, static_cast<uint64_t>(m_textureMap.size()));
     hash = hashCombine(hash, static_cast<uint64_t>(isSSBOShader()));
     if (m_ssboLayout) {

@@ -2,7 +2,7 @@
 // Created by lance on 2023/12/8.
 //
 
-#include "morrow/RenderDevice.h"
+#include "RenderDevice.h"
 
 namespace morrow {
 // VBOData::VBOData(uint32_t verticesCount_, uint32_t indicesCount_, uint32_t drawMode_) : verticesCount(verticesCount_), indicesCount(indicesCount_), drawMode(drawMode_)

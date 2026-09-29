@@ -8,15 +8,17 @@
 #include <memory>
 #include <vector>
 #include <cstdint>
-#include "morrow/Material.h"
-#include "morrow/OffscreenRenderTarget.h"
+#include "morrow/Texture.h"
 #include "morrow/OrbitCamera.h"
-#include "morrow/scene3d/Scene3DPassContext.h"
 #include "morrow/controllers/OrbitController.h"
 #include "morrow/base/UIWidget.h"
 #include "morrow/base/SceneNode.h"
 
 namespace morrow {
+class OffscreenRenderTarget;
+class SceneDisplayQuad;
+class Scene3DPassContext;
+using Scene3DPassContextSharedPtr = std::shared_ptr<Scene3DPassContext>;
 /// 3D 场景相机自动适配参数。
 struct Scene3DCameraFitOptions {
     /// 是否在设置场景根节点时自动适配相机。
@@ -87,12 +89,6 @@ public:
     /// 设置场景环境光的颜色和强度。
     void setAmbientLight(const Vector3& color, float intensity);
 
-    /// 获取可修改的场景光照状态。
-    Scene3DLightingState& getLighting();
-
-    /// 获取只读场景光照状态。
-    const Scene3DLightingState& getLighting() const;
-
     /// 设置基于图像的光照纹理、RGBM 范围和镜面反射 mip 布局。
     void setIBL(const TextureSharedPtr& irradianceTexture,
                 const TextureSharedPtr& specularTexture,
@@ -108,12 +104,6 @@ public:
 
     /// 清除当前基于图像的光照配置。
     void clearIBL();
-
-    /// 获取可修改的基于图像光照状态。
-    Scene3DIBLState& getIBL();
-
-    /// 获取只读的基于图像光照状态。
-    const Scene3DIBLState& getIBL() const;
 
     /// 调整离屏帧缓冲区尺寸；视图显示尺寸变化后应调用此方法。
     /// Resize the offscreen FBO.  Call when the view's display size changes.
@@ -143,12 +133,7 @@ private:
     OrbitControllerSharedPtr m_orbitController;
     std::unique_ptr<OffscreenRenderTarget> m_renderTarget;
     std::shared_ptr<SceneNode> m_sceneRoot;
-    MaterialSharedPtr m_displayMaterial;
-
-    // Display quad GPU state (deferred VBO upload)
-    VBODataSharedPtr m_displayQuadVBOData;
-    HwVBO m_quadVBO{0};
-    bool m_quadUploaded = false;
+    std::unique_ptr<SceneDisplayQuad> m_displayQuad;
 
     Vector4 m_sceneClearColor = {0.22f, 0.23f, 0.31f, 1.0f};
     Scene3DPassContextSharedPtr m_scene3DPassContext;

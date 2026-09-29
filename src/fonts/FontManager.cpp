@@ -4,7 +4,8 @@
 #include <unordered_map>
 
 #include "DynamicFont.h"
-#include "morrow/FontManager.h"
+#include "morrow/Engine.h"
+#include "FontManager.h"
 #include "GlobalObject.h"
 #include "morrow/utils/Log.h"
 

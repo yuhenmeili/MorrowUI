@@ -164,6 +164,7 @@ enum class VertexAttributeType {
 };
 
 // 顶点属性描述
+// 顶点属性描述
 struct VertexAttribute {
     VertexAttributeType type;
     size_t offset;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "morrow/ShaderStorageBuffer.h"
+#include "ssbo/ShaderStorageBuffer.h"
 
 namespace morrow {
 

@@ -1,3 +1,19 @@
+# 仓库内工具豁免：编辑器目标共用引擎实现私有 include 集。
+set(MORROW_EDITOR_IMPL_DIRS
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_SOURCE_DIR}/src/platform
+    ${CMAKE_SOURCE_DIR}/src/renderer
+    ${CMAKE_SOURCE_DIR}/src/renderer/device
+    ${CMAKE_SOURCE_DIR}/src/renderer/resource
+    ${CMAKE_SOURCE_DIR}/src/renderer/resource/ssbo
+    ${CMAKE_SOURCE_DIR}/src/renderer/scene3d
+    ${CMAKE_SOURCE_DIR}/src/ui
+    ${CMAKE_SOURCE_DIR}/src/fonts
+    ${CMAKE_SOURCE_DIR}/src/gltf
+    ${CMAKE_SOURCE_DIR}/src/debug
+    ${CMAKE_SOURCE_DIR}/src/includes/common)
+
 add_library(morrow_editor_document STATIC
     ProjectSettings.cpp
     scene/SceneDocument.cpp
@@ -16,6 +32,7 @@ add_library(morrow_editor_document STATIC
 )
 
 target_include_directories(morrow_editor_document PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(morrow_editor_document PRIVATE ${MORROW_EDITOR_IMPL_DIRS})
 
 add_library(morrow_editor_runtime STATIC
     scene/SceneInstantiator.cpp
@@ -43,14 +60,30 @@ target_link_libraries(morrow_editor_runtime
     morrow
 )
 target_include_directories(morrow_editor_runtime PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# 仓库内工具豁免：编辑器需要引擎实现私有头（Window/平台编排/帧上下文内部），
+# vendor 头与公共边界约束只针对外部集成方。
+target_include_directories(morrow_editor_runtime PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_SOURCE_DIR}/src/platform
+    ${CMAKE_SOURCE_DIR}/src/renderer
+    ${CMAKE_SOURCE_DIR}/src/renderer/device
+    ${CMAKE_SOURCE_DIR}/src/renderer/resource
+    ${CMAKE_SOURCE_DIR}/src/renderer/scene3d
+    ${CMAKE_SOURCE_DIR}/src/ui
+    ${CMAKE_SOURCE_DIR}/src/fonts
+    ${CMAKE_SOURCE_DIR}/src/gltf
+    ${CMAKE_SOURCE_DIR}/src/debug)
 # 仓库内工具豁免：编辑器缩略图直接用 stb_image（vendor 头不进入引擎公共接口）。
 target_include_directories(morrow_editor_runtime PRIVATE ${CMAKE_SOURCE_DIR}/src/includes/common)
 
 add_executable(MorrowEditor Editor.cpp)
 target_link_libraries(MorrowEditor PRIVATE morrow_editor_runtime)
+target_include_directories(MorrowEditor PRIVATE ${MORROW_EDITOR_IMPL_DIRS})
 
 add_executable(MorrowSceneRuntime SceneRuntime.cpp)
 target_link_libraries(MorrowSceneRuntime PRIVATE morrow_editor_runtime)
+target_include_directories(MorrowSceneRuntime PRIVATE ${MORROW_EDITOR_IMPL_DIRS})
 
 target_compile_definitions(MorrowEditor PRIVATE
     MORROW_EDITOR_TEST_PROJECT="${CMAKE_SOURCE_DIR}/editor/morrow.gui/MorrowUI.morrow"

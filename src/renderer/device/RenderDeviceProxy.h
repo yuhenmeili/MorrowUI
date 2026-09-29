@@ -11,9 +11,10 @@
 #include <vector>
 
 #include "CommandBuffer.h"
-#include "morrow/PlatformSemaphore.h"
+#include "GpuTypes.h"
+#include "PlatformSemaphore.h"
 #include "RecyclePool.h"
-#include "morrow/RenderDeviceProxyBase.h"
+#include "RenderDeviceProxyBase.h"
 #include "morrow/RenderDeviceOptions.h"
 
 namespace morrow {

@@ -12,7 +12,6 @@
 
 namespace morrow {
 WGLWindow::WGLWindow(const WindowInfo& info) {
-    setWidgetType("MRWindow");
     if (!glfwInit()) {
         LOG_E("Failed to initialize GLFW");
         return;
@@ -111,8 +110,7 @@ void WGLWindow::beginRenderPass(FrameStateSharedPtr frameState) {
         m_framebufferSize.set(static_cast<float>(fbWidth), static_cast<float>(fbHeight));
     }
 
-    auto transform = getComponent<Transform>();
-    if (transform) {
+    if (auto transform = m_root2D->getComponent<Transform>()) {
         const Vector3 size = transform->getSize();
         if (size.x != m_framebufferSize.x || size.y != m_framebufferSize.y) {
             transform->setSize(m_framebufferSize.x, m_framebufferSize.y);

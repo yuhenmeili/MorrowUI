@@ -1,5 +1,4 @@
 #include "morrow/Engine.h"
-#include "morrow/FontManager.h"
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MRColor.h"
 #include "morrow/elements/MRLabel.h"
@@ -25,7 +24,7 @@ std::shared_ptr<MRLabel> createLabel(const std::wstring& text, const std::string
     return label;
 }
 
-void addAlignmentSample(const WindowSharedPtr& window, const std::string& fontName, const std::wstring& text, float x, float y, HorizontalAlignment horizontal,
+void addAlignmentSample(const Root2DSharedPtr& window, const std::string& fontName, const std::wstring& text, float x, float y, HorizontalAlignment horizontal,
                         VerticalAlignment vertical) {
     constexpr float width = 280.0f;
     constexpr float height = 105.0f;
@@ -48,8 +47,8 @@ int main() {
     // engineOptions.multithread = false;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto window = engine->getWindow();
-    window->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    auto window = engine->getRootWidget();
+    engine->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     FontInfo fontInfo = {.name = "debug_morrow_20", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
     engine->addFonts({fontInfo});

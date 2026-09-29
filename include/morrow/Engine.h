@@ -1,21 +1,29 @@
 #ifndef MORROW_ENGINE_H_
 #define MORROW_ENGINE_H_
 
-#include "morrow/scene3d/FrameState.h"
-#include "morrow/EngineEvents.h"
-#include "morrow/MainThreadDispatcher.h"
-#include "morrow/OrthographicCamera.h"
-#include "morrow/FPSController.h"
-#include "morrow/Platform.h"
-#include "morrow/Window.h"
-#include "morrow/effects/BackdropBlurManager.h"
-#include "morrow/RenderDeviceOptions.h"
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <string>
+#include <vector>
+
+#include "morrow/base/TouchEvent.h"
+#include "morrow/base/Root2D.h"
+#include "morrow/EngineEvents.h"
+#include "morrow/FontInfo.h"
+#include "morrow/OrthographicCamera.h"
+#include "morrow/RenderDeviceOptions.h"
+#include "morrow/WindowInfo.h"
+#include "morrow/effects/BackdropBlur.h"
+#include "morrow/scene3d/FrameState.h"
 
 namespace morrow
 {
 class DebugPlane;
-struct FontInfo;
+class Platform;
+class Window;
+class MainThreadDispatcher;
+class FPSController;
 
 struct EngineOptions {
     bool multithread = true;
@@ -44,10 +52,17 @@ struct EngineOptions {
     // ── 背景模糊（KAWASE_BACKDROP_BLUR_PROPOSAL.md §5.7）──
     /// 启动档位：Off = 全程退化路径（RT 链不分配，毛玻璃降级为 tint 面板）；
     /// Standard = 1/2 基准链；LowCost = 1/4 基准链。运行中可经
-    /// BackdropBlurManager::setQuality 切换（懒重建）。
+    /// setBackdropBlurQuality 切换（懒重建）。
     BackdropBlurQuality backdropBlur = BackdropBlurQuality::Standard;
 };
 
+// ---------------------------------------------------------------------------
+// Engine — 引擎入口（单窗口假设）。
+//
+// Window / Platform 为引擎内部对象（§6.7）：应用经 EngineOptions::windowInfo
+// 配置窗口，经 getRootWidget() 取得 2D UI 根搭建界面；窗口清屏色与原始键盘
+// 输入、framebuffer 尺寸变化经下方公共接口/事件获得。
+// ---------------------------------------------------------------------------
 class Engine
 {
 public:
@@ -55,16 +70,43 @@ public:
 
     virtual ~Engine();
 
-    [[nodiscard]] WindowSharedPtr getWindow() const;
+    /// 2D UI 根节点：向其 addChild 搭建界面。
+    [[nodiscard]] Root2DSharedPtr getRootWidget() const;
 
+    /// 不透明帧上下文（deltaTime / 帧号等只读视图）。
     [[nodiscard]] FrameStateSharedPtr getFrameState() const;
 
     void addFonts(const std::vector<FontInfo>& fontsUrl);
 
     void setFPS(int32_t fps);
 
+    /// 窗口清屏色。
+    void setClearColor(float r, float g, float b, float a);
+
+    /// framebuffer 尺寸（像素）。窗口未就绪时返回 {0, 0}。
+    [[nodiscard]] Vector2 framebufferSize() const;
+
+    /// 系统剪贴板读写（平台不支持时为空操作/空串）。
+    void setClipboardText(const std::string& text);
+
+    [[nodiscard]] std::string clipboardText() const;
+
+    /// 鼠标指针形态。
+    void setCursorShape(CursorShape shape);
+
+    /// 背景模糊运行档位（懒重建，见 EngineOptions::backdropBlur）。
+    void setBackdropBlurQuality(BackdropBlurQuality quality);
+
+    /// 背景模糊运行时开关/档位查询（毛玻璃降级为 tint 面板）。
+    void setBackdropBlurEnabled(bool enabled);
+
+    [[nodiscard]] bool isBackdropBlurEnabled() const;
+
+    [[nodiscard]] BackdropBlurQuality getBackdropBlurQuality() const;
+
     EngineEvents& events();
 
+    /// 主线程一次性任务队列（worker → Engine 主线程）。
     MainThreadDispatcher& mainThreadDispatcher();
 
     void setDebugOverlayVisible(bool visible);
@@ -76,6 +118,34 @@ public:
     void render();
 
     bool writeObjectSnapshot(const std::string& path) const;
+
+private:
+    Engine(const Engine&) = delete;
+    Engine& operator=(const Engine&) = delete;
+
+    EngineEvents m_events;
+    std::unique_ptr<MainThreadDispatcher> m_mainThreadDispatcher;
+
+    //debug
+    double m_lastHeartbeatTime = 0.0;
+    uint64_t m_lastHeartbeatFrameNumber = 0;
+
+    FrameStateSharedPtr m_frameState;
+    OrthographicCameraSharedPtr m_camera;
+    double m_monotonicTime = 0.0;
+    //manager
+    std::shared_ptr<FPSController> m_fpsController;
+    bool m_requestRenderEnabled = false;
+    uint32_t m_maxFrames = 0;
+    std::string m_objectSnapshotPath;
+    std::string m_objectSnapshotCommandPath;
+
+    std::shared_ptr<Platform> m_platform;
+    std::shared_ptr<DebugPlane> m_debugPlane;
+
+    // 内部 WindowEvents → EngineEvents 转播连接
+    Observable<const TouchEvent&>::Connection m_rawKeyBridge;
+    Observable<const Vector2&>::Connection m_framebufferBridge;
 
 private:
     void updateFrameState();
@@ -93,26 +163,6 @@ private:
     /// 启动成本；推迟到首次 setVisible(true)/toggle 时创建。
     DebugPlane* ensureDebugPlane();
 #endif
-
-    EngineEvents m_events;
-    MainThreadDispatcher m_mainThreadDispatcher;
-
-    //debug
-    double m_lastHeartbeatTime = 0.0;
-    uint64_t m_lastHeartbeatFrameNumber = 0;
-
-    FrameStateSharedPtr m_frameState;
-    OrthographicCameraSharedPtr m_camera;
-    double m_monotonicTime = 0.0;
-    //manager
-    FPSControllerPtr m_fpsController;
-    bool m_requestRenderEnabled = false;
-    uint32_t m_maxFrames = 0;
-    std::string m_objectSnapshotPath;
-    std::string m_objectSnapshotCommandPath;
-
-    PlatformSharedPtr m_platform;
-    std::shared_ptr<DebugPlane> m_debugPlane;
 };
 
 using EngineSharedPtr = std::shared_ptr<Engine>;

@@ -2,7 +2,7 @@
 // Created by 0060328 on 25-10-21.
 //
 
-#include "morrow/ShaderStorageBuffer.h"
+#include "ssbo/ShaderStorageBuffer.h"
 #include "GlobalObject.h"
 #include "RenderDeviceProxy.h"
 

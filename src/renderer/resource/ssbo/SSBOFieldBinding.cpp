@@ -2,13 +2,13 @@
 // Created by 0060328 on 25-10-23.
 //
 
-#include "morrow/SSBOFieldBinding.h"
+#include "ssbo/SSBOFieldBinding.h"
 
 #include <cstring>
 
 #include "morrow/Material.h"
 #include "SSBOLayoutComponent.h"
-#include "morrow/ShaderStorageBuffer.h"
+#include "ssbo/ShaderStorageBuffer.h"
 #include "morrow/base/Transform.h"
 
 namespace morrow {

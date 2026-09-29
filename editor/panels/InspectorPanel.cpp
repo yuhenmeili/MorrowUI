@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 #include "EditorShell.h"
+#include "MainThreadDispatcher.h"
 #include "morrow/Engine.h"
 #include "assets/MaterialAsset.h"
 #include "morrow/base/Interaction.h"

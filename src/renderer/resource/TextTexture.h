@@ -6,7 +6,7 @@
 #define MORROW_CORE_TEXTTEXTURE_H_
 
 #include "morrow/Texture.h"
-#include "morrow/TextTextureInfo.h"
+#include "TextTextureInfo.h"
 
 namespace morrow
 {

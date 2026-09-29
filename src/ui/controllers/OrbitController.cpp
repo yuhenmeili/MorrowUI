@@ -5,6 +5,7 @@
 
 #include "morrow/OrbitCamera.h"
 #include "morrow/OrthographicCamera.h"
+#include "InputEventsManager.h"
 #include "morrow/base/UIWidget.h"
 #include "morrow/base/TouchEvent.h"
 #include "morrow/elements/MR3DSceneView.h"

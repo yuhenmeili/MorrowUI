@@ -4,7 +4,7 @@
 
 #include "TextTexture.h"
 
-#include "morrow/FontManager.h"
+#include "FontManager.h"
 #include "GlobalObject.h"
 
 namespace morrow

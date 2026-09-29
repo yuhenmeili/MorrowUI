@@ -4,6 +4,7 @@
 
 // Standard headers must come before windows.h (pulled in by tiny_gltf.h on MinGW).
 #include "GLTFLoader.h"
+#include "GpuTypes.h"
 
 #include <cstring>
 #include <thread>

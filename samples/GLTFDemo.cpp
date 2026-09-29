@@ -1,6 +1,5 @@
 #include "morrow/helpers/Scene3DAsyncLoader.h"
 #include "morrow/Engine.h"
-#include "morrow/Window.h"
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MR3DSceneView.h"
 #include "morrow/elements/MRButton.h"
@@ -20,8 +19,8 @@ int main(int argc, char** argv) {
     engineOptions.windowInfo = windowInfo;
     engineOptions.samples = 4;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
-    auto window = engine->getWindow();
-    window->setClearColor(0.15f, 0.15f, 0.15f, 1.0f);
+    auto window = engine->getRootWidget();
+    engine->setClearColor(0.15f, 0.15f, 0.15f, 1.0f);
 
     auto scene3DView = MR3DSceneView::create(windowInfo.width, windowInfo.height);
     scene3DView->setSceneClearColor(Vector4(0.22f, 0.23f, 0.31f, 1.0f));

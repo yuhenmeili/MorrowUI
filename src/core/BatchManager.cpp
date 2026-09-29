@@ -6,16 +6,16 @@
 
 #include <cmath>
 
-#include "morrow/BatchDataDefine.h"
+#include "BatchDataDefine.h"
 #include "GlobalObject.h"
 #include "morrow/Material.h"
 #include "morrow/OrthographicCamera.h"
 #include "RenderBatchPool.h"
-#include "morrow/effects/BackdropBlurManager.h"
-#include "morrow/SSBOFieldBinding.h"
+#include "ui/effects/BackdropBlurManager.h"
+#include "ssbo/SSBOFieldBinding.h"
 #include "ssbo/SSBOManager.h"
 #include "UniformBuffer.h"
-#include "morrow/VertexArray.h"
+#include "VertexArray.h"
 #include "base/Component.inl"
 #include "morrow/base/MeshFilter.h"
 #include "morrow/base/MeshRenderer.h"
@@ -61,7 +61,7 @@ void BatchManager::addRenderable(std::shared_ptr<Material> material,
 // 渲染阶段：增量检查 → 需要时重建批次 → 渲染
 // ---------------------------------------------------------------------------
 void BatchManager::renderBatches(std::shared_ptr<FrameState> frameState) {
-    auto& statistics = frameState->batchStatistics;
+    auto& statistics = *frameState->batchStatistics;
     statistics.renderItemCount = static_cast<uint32_t>(m_renderables.size());
 
     // ---- 增量合批：比较可渲染列表是否与上一帧相同 ----
@@ -127,7 +127,7 @@ void BatchManager::renderBatches(std::shared_ptr<FrameState> frameState) {
 // 单批次绘制：renderBatches 各分段共用的循环体（统计口径与原实现一致）
 // ---------------------------------------------------------------------------
 void BatchManager::drawBatch(const std::shared_ptr<FrameState>& frameState, RenderBatch& batch, Matrix4& projectionMatrix) {
-    auto& statistics = frameState->batchStatistics;
+    auto& statistics = *frameState->batchStatistics;
     if (batch.materials.empty()) return;
     applyClipRect(frameState, batch.clipRect);
 

@@ -6,16 +6,60 @@
 
 #include <algorithm>
 
-#include "morrow/FontManager.h"
+#include "FontManager.h"
 #include "GlobalObject.h"
 #include "DynamicFont.h"
 #include "morrow/Material.h"
 #include "BatchManager.h"
-#include "morrow/ShaderStorageBuffer.h"
+#include "ssbo/ShaderStorageBuffer.h"
 #include "morrow/base/Transform.h"
 #include "renderer/resource/ssbo/layouts/FontSSBOLayout.h"
 
 namespace morrow {
+namespace {
+// 生成单个字符的字形四边形顶点/UV/索引（贴到调用方已收集的网格数组尾部）。
+void renderGlyphQuad(const FontGlyph* glyph, float x, float baselineY,
+                     std::vector<Vector3>& vertices,
+                     std::vector<Vector2>& uvs,
+                     std::vector<int16_t>& indices) {
+    // 计算四边形顶点（考虑bearing）
+    float x0 = x + glyph->bearingX;
+    float y0 = baselineY + glyph->bearingY; // 注意坐标系
+    float x1 = x0 + glyph->width;
+    float y1 = y0 + glyph->height;
+
+    // 纹理坐标
+    float u0 = glyph->texCoordX;
+    float v0 = glyph->texCoordY;
+    float u1 = u0 + glyph->texCoordWidth;
+    float v1 = v0 + glyph->texCoordHeight;
+
+    // 获取当前顶点索引
+    auto currentIndex = static_cast<int16_t>(vertices.size());
+
+    // 添加四个顶点（逆时针顺序）
+    vertices.emplace_back(x0, y0, 0.0f); // 左上
+    vertices.emplace_back(x1, y0, 0.0f); // 右上
+    vertices.emplace_back(x1, y1, 0.0f); // 右下
+    vertices.emplace_back(x0, y1, 0.0f); // 左下
+
+    // 添加纹理坐标
+    uvs.emplace_back(u0, v0); // 左上
+    uvs.emplace_back(u1, v0); // 右上
+    uvs.emplace_back(u1, v1); // 右下
+    uvs.emplace_back(u0, v1); // 左下
+
+    // 添加三角形索引（两个三角形组成四边形）
+    indices.emplace_back(currentIndex); // 左上
+    indices.emplace_back(currentIndex + 1); // 右上
+    indices.emplace_back(currentIndex + 2); // 右下
+
+    indices.emplace_back(currentIndex + 2); // 右下
+    indices.emplace_back(currentIndex + 3); // 左下
+    indices.emplace_back(currentIndex); // 左上
+}
+}  // namespace
+
 MRLabel::MRLabel() {
     setWidgetType("MRTextRenderer");
     m_material->setShader("font");
@@ -368,57 +412,5 @@ void MRLabel::createTextMesh() {
     mesh->setVertices(vertices);
     mesh->setUVs(uvs);
     mesh->setIndices(indices);
-}
-
-void MRLabel::renderGlyphQuad(const FontGlyph* glyph, float x, float baselineY,
-                              std::vector<Vector3>& vertices,
-                              std::vector<Vector2>& uvs,
-                              std::vector<int16_t>& indices) {
-    // 计算四边形顶点（考虑bearing）
-    float x0 = x + glyph->bearingX;
-    float y0 = baselineY + glyph->bearingY; // 注意坐标系
-    float x1 = x0 + glyph->width;
-    float y1 = y0 + glyph->height;
-    // float x0 = 0.0f;
-    // float y0 = 0.0f; //
-    // float x1 = 100.0f;
-    // float y1 = 100.0f;
-
-    // 纹理坐标
-    float u0 = glyph->texCoordX;
-    float v0 = glyph->texCoordY;
-    float u1 = u0 + glyph->texCoordWidth;
-    float v1 = v0 + glyph->texCoordHeight;
-    // float u0 = 0.0f;
-    // float v0 = 0.0f;
-    // float u1 = 1.0f;
-    // float v1 = 1.0f;
-
-    // 获取当前顶点索引
-    auto currentIndex = static_cast<int16_t>(vertices.size());
-
-    // 添加四个顶点（逆时针顺序）
-    vertices.emplace_back(x0, y0, 0.0f); // 左上
-    vertices.emplace_back(x1, y0, 0.0f); // 右上
-    vertices.emplace_back(x1, y1, 0.0f); // 右下
-    vertices.emplace_back(x0, y1, 0.0f); // 左下
-
-    // 添加纹理坐标
-    uvs.emplace_back(u0, v0); // 左上
-    uvs.emplace_back(u1, v0); // 右上
-    uvs.emplace_back(u1, v1); // 右下
-    uvs.emplace_back(u0, v1); // 左下
-
-    // LOG_I("x0: {}, y0: {}, x1:{}, y1:{}", x0, y0, x1, y1);
-    // LOG_I("u0: {}, v0: {}, u1:{}, v1:{}", u0, v0, u1, v1);
-
-    // 添加三角形索引（两个三角形组成四边形）
-    indices.emplace_back(currentIndex); // 左上
-    indices.emplace_back(currentIndex + 1); // 右上
-    indices.emplace_back(currentIndex + 2); // 右下
-
-    indices.emplace_back(currentIndex + 2); // 右下
-    indices.emplace_back(currentIndex + 3); // 左下
-    indices.emplace_back(currentIndex); // 左上
 }
 } // namespace morrow

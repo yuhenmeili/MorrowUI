@@ -3,14 +3,15 @@
 // 设计说明见 BackdropBlurManager.h 与 docs/road_map/KAWASE_BACKDROP_BLUR_PROPOSAL.md。
 //
 
-#include "morrow/effects/BackdropBlurManager.h"
+#include "ui/effects/BackdropBlurManager.h"
+#include "morrow/BatchStatistics.h"
 
 #include <algorithm>
 #include <cmath>
 
 #include "morrow/scene3d/FrameState.h"
 #include "GlobalObject.h"
-#include "morrow/GpuTypes.h"
+#include "GpuTypes.h"
 #include "morrow/OrthographicCamera.h"
 #include "morrow/base/MeshFilter.h"
 #include "morrow/base/Transform.h"
@@ -380,7 +381,7 @@ void BackdropBlurManager::drawChainPass(const FrameStateSharedPtr& frameState, O
     }
     RENDERINGTHREAD->drawVBO(m_passQuadVBO, 1);
     frameState->drawCallCount++;
-    frameState->batchStatistics.backdropDrawCallCount++;
+    frameState->batchStatistics->backdropDrawCallCount++;
 }
 
 void BackdropBlurManager::renderComposite(const FrameStateSharedPtr& frameState) {
@@ -392,14 +393,14 @@ void BackdropBlurManager::renderComposite(const FrameStateSharedPtr& frameState)
     }
     RENDERINGTHREAD->drawVBO(m_passQuadVBO, 1);
     frameState->drawCallCount++;
-    frameState->batchStatistics.backdropDrawCallCount++;
+    frameState->batchStatistics->backdropDrawCallCount++;
 }
 
 void BackdropBlurManager::renderBlurQuads(const FrameStateSharedPtr& frameState) {
     if (m_quads.empty()) {
         return;
     }
-    auto& statistics = frameState->batchStatistics;
+    auto& statistics = *frameState->batchStatistics;
     statistics.backdropQuadCount = static_cast<uint32_t>(m_quads.size());
 
     // 分组（§5.3 ≤ 3 批 + S3 扩展）：键 = (低层级, 高层级, clipRect)。

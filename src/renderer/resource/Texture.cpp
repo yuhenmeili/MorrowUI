@@ -3,6 +3,7 @@
 //
 
 #include "morrow/Texture.h"
+#include "GpuTypes.h"
 
 #include <cstring>
 #include <fstream>
@@ -54,6 +55,7 @@ TextureSharedPtr Texture::create(ImageType imageType) {
 }
 
 Texture::Texture(ImageType imageType) {
+    m_textureData = std::make_unique<TextureData>();
     m_textureInfo->imageType = imageType;
     m_debugObject.setName(m_uniqueID);
 }
@@ -299,19 +301,19 @@ bool Texture::deployTexture() {
         return false;
     }
     auto dataPtr = m_textureInfo->textureDataSharedPtr ? m_textureInfo->textureDataSharedPtr.get() : m_textureInfo->textureDataRawPtr;
-    m_textureData.pixels = dataPtr;
-    m_textureData.width = m_textureInfo->imageWidth;
-    m_textureData.height = m_textureInfo->imageHeight;
-    m_textureData.format = m_textureInfo->format;
-    m_textureData.bytes = m_textureInfo->bytes;
-    m_textureData.compressedTexture = m_textureInfo->compressedTexture;
-    m_textureData.minFilterType = m_textureInfo->minFilterType;
-    m_textureData.magFilterType = m_textureInfo->magFilterType;
-    m_textureData.imageType = m_textureInfo->imageType;
-    m_textureData.cpuPixelOwner =
+    m_textureData->pixels = dataPtr;
+    m_textureData->width = m_textureInfo->imageWidth;
+    m_textureData->height = m_textureInfo->imageHeight;
+    m_textureData->format = m_textureInfo->format;
+    m_textureData->bytes = m_textureInfo->bytes;
+    m_textureData->compressedTexture = m_textureInfo->compressedTexture;
+    m_textureData->minFilterType = m_textureInfo->minFilterType;
+    m_textureData->magFilterType = m_textureInfo->magFilterType;
+    m_textureData->imageType = m_textureInfo->imageType;
+    m_textureData->cpuPixelOwner =
         m_textureInfo->textureDataBuffer ? std::static_pointer_cast<void>(m_textureInfo->textureDataBuffer) : std::static_pointer_cast<void>(m_textureInfo->textureDataSharedPtr);
-    m_textureData.gpuUseCompleteCallback = std::move(m_textureInfo->gpuUseCompleteCallback);
-    RENDERINGTHREAD->updateTexture2D(m_textureHandle, m_textureData);
+    m_textureData->gpuUseCompleteCallback = std::move(m_textureInfo->gpuUseCompleteCallback);
+    RENDERINGTHREAD->updateTexture2D(m_textureHandle, *m_textureData);
 
     // updateTexture2D copies the TextureData into the command payload (or
     // consumes it immediately in single-threaded mode). The Texture object
@@ -319,8 +321,8 @@ bool Texture::deployTexture() {
     m_textureInfo->textureDataSharedPtr.reset();
     m_textureInfo->textureDataBuffer.reset();
     m_textureInfo->textureDataRawPtr = nullptr;
-    m_textureData.pixels = nullptr;
-    m_textureData.cpuPixelOwner.reset();
+    m_textureData->pixels = nullptr;
+    m_textureData->cpuPixelOwner.reset();
     return true;
 }
 

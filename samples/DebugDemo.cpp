@@ -18,6 +18,7 @@
 #include <cstring>
 #include <iostream>
 
+#include "morrow/BatchStatistics.h"
 #include "morrow/Engine.h"
 #include "morrow/Texture.h"
 #include "morrow/base/Shadow.h"
@@ -72,8 +73,8 @@ int main(int argc, char** argv) {
     engineOptions.objectSnapshotCommandPath = objectSnapshotCommandPath;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto window = engine->getWindow();
-    window->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    auto window = engine->getRootWidget();
+    engine->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     // ---------------------------------------------------------------------
     // 验收基准场景：10 张共享同一纹理的图片 + 2 个带阴影的组件。
@@ -127,7 +128,7 @@ int main(int argc, char** argv) {
 
     if (reportJson) {
         const auto frameState = engine->getFrameState();
-        const auto& stats = frameState->batchStatistics;
+        const auto& stats = *frameState->batchStatistics;
         std::cout << "{"
                   << "\"renderItems\":" << stats.renderItemCount << ","
                   << "\"batches\":" << stats.batchCount << ","

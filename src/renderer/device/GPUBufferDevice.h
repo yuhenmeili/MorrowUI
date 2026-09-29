@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "morrow/GpuTypes.h"
+#include "GpuTypes.h"
 
 namespace morrow {
 

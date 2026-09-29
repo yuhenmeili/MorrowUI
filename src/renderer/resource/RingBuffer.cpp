@@ -3,7 +3,7 @@
 //
 
 #include "RingBuffer.h"
-#include "morrow/PlatformSemaphore.h"
+#include "PlatformSemaphore.h"
 #include <cstring>
 #include <atomic>
 

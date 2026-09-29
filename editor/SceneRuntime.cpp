@@ -4,7 +4,7 @@
 #include <string>
 
 #include "morrow/Engine.h"
-#include "morrow/FontManager.h"
+#include "FontManager.h"
 #include "ProjectSettings.h"
 #include "assets/AssetDatabase.h"
 #include "scene/SceneDocument.h"
@@ -108,8 +108,8 @@ int main(int argc, char** argv) {
     engineOptions.windowInfo.height = integerSetting(project, "runtime_height", 720);
 
     auto engine = std::make_shared<morrow::Engine>(engineOptions);
-    auto window = engine->getWindow();
-    window->setClearColor(0.12f, 0.14f, 0.17f, 1.0f);
+    auto window = engine->getRootWidget();
+    engine->setClearColor(0.12f, 0.14f, 0.17f, 1.0f);
     engine->addFonts({
         {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"},
     });

@@ -6,10 +6,10 @@
 #ifndef MORROW_RENDERER_THREADESDEVICEBASE_H_
 #define MORROW_RENDERER_THREADESDEVICEBASE_H_
 
-#include "morrow/RenderDevice.h"
+#include "RenderDevice.h"
 #include <thread>
-#include "morrow/PlatformSemaphore.h"
-#include "morrow/Platform.h"
+#include "PlatformSemaphore.h"
+#include "Platform.h"
 #include "morrow/RenderDeviceOptions.h"
 
 namespace morrow {

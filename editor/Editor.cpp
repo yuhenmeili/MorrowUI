@@ -6,7 +6,7 @@
 #include <utility>
 
 #include "morrow/Engine.h"
-#include "morrow/FontManager.h"
+#include "FontManager.h"
 #include "assets/AssetDatabase.h"
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MRButton.h"
@@ -155,8 +155,8 @@ public:
         engineOptions.windowInfo.height = 1080;
 
         EngineSharedPtr engine = std::make_shared<morrow::Engine>(engineOptions);
-        auto window = engine->getWindow();
-        window->setClearColor(0.12f, 0.14f, 0.17f, 1.0f);
+        auto window = engine->getRootWidget();
+        engine->setClearColor(0.12f, 0.14f, 0.17f, 1.0f);
 
         FontInfo fontInfo = {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
         engine->addFonts({fontInfo});

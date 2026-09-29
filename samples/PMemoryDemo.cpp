@@ -15,8 +15,8 @@ int main() {
 #ifdef QNX
     EngineSharedPtr engine = std::make_shared<Engine>();
 
-    auto window = engine->getWindow();
-    window->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    auto window = engine->getRootWidget();
+    engine->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     void* pmem_hdl;
 

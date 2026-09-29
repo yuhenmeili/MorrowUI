@@ -4,13 +4,14 @@
 
 #include "DebugPlane.h"
 
-#include "morrow/Window.h"
+#include "morrow/base/Root2D.h"
+#include "morrow/BatchStatistics.h"
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MRLabel.h"
 
 namespace morrow {
-void DebugPlane::initialize(std::shared_ptr<Window> window) {
-    if (!window) {
+void DebugPlane::initialize(std::shared_ptr<Root2D> root) {
+    if (!root) {
         return;
     }
 
@@ -23,7 +24,7 @@ void DebugPlane::initialize(std::shared_ptr<Window> window) {
     m_frameLabel->setFontColor(1.0f, 0.0f, 0.0f, 1.0f);
     m_frameLabel->setDisplayLayer(10);
 
-    window->addChild(m_frameLabel);
+    root->addChild(m_frameLabel);
 
 
     m_batchLabel = std::make_shared<MRLabel>();
@@ -35,7 +36,7 @@ void DebugPlane::initialize(std::shared_ptr<Window> window) {
     m_batchLabel->setFontColor(0.0f, 0.0f, 1.0f, 1.0f);
     m_batchLabel->setDisplayLayer(10);
 
-    window->addChild(m_batchLabel);
+    root->addChild(m_batchLabel);
     applyVisibility();
 }
 
@@ -45,7 +46,7 @@ void DebugPlane::update(std::shared_ptr<FrameState> frame_state) {
     }
 
     m_frameLabel->setText(L"FPS: " + std::to_wstring(frame_state->fps));
-    const auto& stats = frame_state->batchStatistics;
+    const auto& stats = *frame_state->batchStatistics;
     const auto breakCount = [&stats](BatchBreakReason reason) {
         return stats.breakReasonCounts[static_cast<size_t>(reason)];
     };

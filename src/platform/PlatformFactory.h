@@ -6,7 +6,7 @@
 #define PLATFORMFACTORY_H
 #include <string>
 
-#include "morrow/Platform.h"
+#include "Platform.h"
 
 namespace morrow {
 class PlatformFactory {

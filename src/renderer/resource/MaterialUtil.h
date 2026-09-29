@@ -11,7 +11,7 @@
 #include <unordered_set>
 
 #include "core/GlobalObject.h"
-#include "morrow/GpuTypes.h"
+#include "GpuTypes.h"
 
 namespace morrow {
 namespace MaterialUtil {

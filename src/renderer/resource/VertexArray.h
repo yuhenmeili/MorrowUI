@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
-#include "morrow/GpuTypes.h"    // HwVBO, HwGPUProgram（无需拉入完整设备接口）
+#include "GpuTypes.h"    // HwVBO, HwGPUProgram（无需拉入完整设备接口）
 
 namespace morrow {
 struct FrameState;

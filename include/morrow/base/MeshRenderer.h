@@ -8,10 +8,13 @@
 #include "Vector2.h"
 #include "morrow/base/Widget.h"
 #include "morrow/Material.h"
-#include "morrow/VertexArray.h"
 #include "morrow/base/MeshFilter.h"
 
 namespace morrow {
+class VertexArray;
+using VertexArraySharedPtr = std::shared_ptr<VertexArray>;
+class BatchManager;
+
 class MeshRenderer : public Component {
 public:
     MeshRenderer();
@@ -24,9 +27,11 @@ public:
 
     MaterialSharedPtr getMaterial() const;
 
+private:
+    // 引擎内部批处理通道：VertexArray 是内部类型，签名不进公共面。
+    friend class BatchManager;
     VertexArraySharedPtr getVertexArray() const;
 
-private:
     MaterialSharedPtr m_material;
     VertexArraySharedPtr m_defaultVertexArray;
 };

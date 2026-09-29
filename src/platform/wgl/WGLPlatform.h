@@ -4,7 +4,7 @@
 
 #ifndef WINDOWPLATFORM_H
 #define WINDOWPLATFORM_H
-#include "morrow/Platform.h"
+#include "Platform.h"
 #include <memory>
 
 namespace morrow {

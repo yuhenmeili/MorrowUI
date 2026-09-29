@@ -6,14 +6,14 @@
 #define MORROW_OBSERVABLES_MANAGER_H
 
 #include "morrow/core/Observable.h"
-#include "morrow/core/EventDispatcherBackUp.h"
+#include "EventDispatcherBackUp.h"
 // #include "screen/screen.h"
 #include <memory>
 
 #include "Rect.h"
 #include "Vector2.h"
 #include "morrow/base/TouchEvent.h"
-#include "morrow/InputProvider.h"
+#include "InputProvider.h"
 
 namespace morrow {
 using namespace Math;

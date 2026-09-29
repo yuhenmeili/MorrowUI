@@ -1,5 +1,4 @@
 #include "morrow/Engine.h"
-#include "morrow/FontManager.h"
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MRColor.h"
 #include "morrow/elements/MRLabel.h"
@@ -33,8 +32,8 @@ std::shared_ptr<MRColor> createPanel(float x, float y, float width, float height
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto window = engine->getWindow();
-    window->setClearColor(0.015f, 0.025f, 0.055f, 1.0f);
+    auto window = engine->getRootWidget();
+    engine->setClearColor(0.015f, 0.025f, 0.055f, 1.0f);
 
     FontInfo fontInfo = {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
     engine->addFonts({fontInfo});

@@ -3,7 +3,7 @@
 //
 
 #include <thread>
-#include "morrow/FPSController.h"
+#include "FPSController.h"
 
 namespace morrow
 {

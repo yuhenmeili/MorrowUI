@@ -7,7 +7,6 @@
 #include <memory>
 #include <cstdint>
 
-#include "morrow/FontGlyph.h"
 #include "morrow/base/UIWidget.h"
 
 namespace morrow {
@@ -87,8 +86,6 @@ private:
     void applyAlignment();
 
     void createTextMesh();
-
-    void renderGlyphQuad(const FontGlyph* glyph, float x, float baselineY, std::vector<Vector3>& gearsVertices, std::vector<Vector2>& gearsUVs, std::vector<int16_t>& gearsIndices);
 
     /// 在文字渲染项之前提交阴影渲染项（先阴影后文字，自然收集顺序）
     void submitTextShadow(FrameStateSharedPtr frameState);

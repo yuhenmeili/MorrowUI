@@ -1,5 +1,4 @@
 #include "morrow/Engine.h"
-#include "morrow/FontManager.h"
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MRButton.h"
 #include "morrow/elements/MRColor.h"
@@ -60,8 +59,8 @@ std::shared_ptr<MRButton> createListItem(
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto window = engine->getWindow();
-    window->setClearColor(0.92f, 0.95f, 0.98f, 1.0f);
+    auto window = engine->getRootWidget();
+    engine->setClearColor(0.92f, 0.95f, 0.98f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",

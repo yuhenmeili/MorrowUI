@@ -4,9 +4,9 @@
 
 #include "GlobalObject.h"
 
-#include "morrow/FontManager.h"
+#include "FontManager.h"
 #include "TextureManager.h"
-#include "morrow/effects/BackdropBlurManager.h"
+#include "ui/effects/BackdropBlurManager.h"
 #include "ssbo/SSBOManager.h"
 
 namespace morrow

@@ -1,73 +1,40 @@
 //
 // Created by 0060328 on 25-9-18.
 //
+// Window — 引擎内部平台窗口（不再对外暴露，见 §6.7）。
+// 只负责 surface / swap / 输入泵 / 清屏色 / 剪贴板等窗口职责，并持有
+// 2D UI 根（Root2D）；UI 树经 Root2D 对外（Engine::getRootWidget）。
+//
 
 #ifndef WINDOW_H
 #define WINDOW_H
 #include <memory>
 #include <string>
 
-#include "morrow/base/UIWidget.h"
+#include "morrow/WindowInfo.h"
+#include "morrow/base/Root2D.h"
 #include "morrow/base/TouchEvent.h"
 #include "morrow/core/Observable.h"
+#include "morrow/scene3d/FrameState.h"
 
 namespace morrow {
-enum class CursorShape {
-    Arrow,
-    IBeam,
-    Hand,
-    ResizeHorizontal,
-    ResizeVertical,
-    ResizeAll,
-    Forbidden,
-};
 
 struct WindowEvents {
     Observable<const Vector2&> onWindowSizeChanged;
     Observable<const Vector2&> onFramebufferSizeChanged;
     Observable<float> onContentScaleChanged;
     /// 原始键盘/字符输入（KEY_DOWN / CHARACTER），在 Widget 派发前广播；
-    /// 供编辑器等工具层消费，监听器不影响 Widget 的正常事件派发。
+    /// 由 Engine 转播到 EngineEvents::onRawKeyboardInput。
     Observable<const TouchEvent&> onRawKeyboardInput;
 };
 
-enum WindowMask : int32_t {
-    SCREEN_SENSITIVITY_MASK_ALWAYS = (1 << 0),
-    SCREEN_SENSITIVITY_MASK_NEVER = (2 << 0),
-    SCREEN_SENSITIVITY_MASK_NO_FOCUS = (1 << 3),
-    SCREEN_SENSITIVITY_MASK_FULLSCREEN = (1 << 4),
-    SCREEN_SENSITIVITY_MASK_CONTINUE = (1 << 5),
-    SCREEN_SENSITIVITY_MASK_STOP = (2 << 5),
-    SCREEN_SENSITIVITY_MASK_POINTER_BRUSH = (1 << 7),
-    SCREEN_SENSITIVITY_MASK_FINGER_BRUSH = (1 << 8),
-    SCREEN_SENSITIVITY_MASK_STYLUS_BRUSH = (1 << 9),
-    SCREEN_SENSITIVITY_MASK_OVERDRIVE = (1 << 10),
-    SCREEN_SENSITIVITY_MASK_CLIPPED = (1 << 11),
-};
+class BatchManager;
 
-struct WindowInfo
-{
-    virtual ~WindowInfo() = default;
-    std::string name = "default";
-    int32_t x = 0;
-    int32_t y = 0;
-    int32_t width = 1920;
-    int32_t height = 1080;
-    int32_t samples = 1;
-    int32_t alpha = 1.0f;
-    //egl
-    int32_t displayId = 3;
-    int32_t zorder = 4000;
-    WindowMask sensitivity = WindowMask::SCREEN_SENSITIVITY_MASK_ALWAYS;
-};
-
-using WindowInfoSharedPtr = std::shared_ptr<WindowInfo>;
-
-class Window : public UIWidget{
+class Window {
 public:
     Window();
 
-    ~Window() override = default;
+    virtual ~Window() = default;
 
     virtual bool initializeIfNeeded();
 
@@ -78,6 +45,9 @@ public:
     virtual void setCursorShape(CursorShape shape);
 
     WindowEvents& events();
+
+    /// 2D UI 根（引擎内部挂载点：输入命中、调试覆盖层、编辑器壳）。
+    [[nodiscard]] std::shared_ptr<Root2D> uiRoot() const;
 
     /// ────────── 渲染阶段（替代原 update()）──────────
     /// GPU 准备：viewport、clear、framebuffer
@@ -98,8 +68,13 @@ public:
     virtual void setClipboardText(const std::string& text);
 
     virtual std::string clipboardText() const;
+
+    /// 渲染请求（原 UIWidget::requestRender；Window 内部回调使用）。
+    void requestRender(const char* reason = nullptr);
+
 protected:
     std::shared_ptr<BatchManager> m_batchManager;
+    std::shared_ptr<Root2D> m_root2D;
     WindowEvents m_events;
 };
 

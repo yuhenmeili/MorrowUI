@@ -10,13 +10,15 @@
 #include <string>
 #include <vector>
 
-#include "morrow/GpuTypes.h"
 #include "Matrix4.h"
+#include "morrow/DriverEnums.h"
 #include "Quaternion.h"
 #include "Vector3.h"
 #include "Vector4.h"
 
 namespace morrow {
+struct VBOData;
+using VBODataSharedPtr = std::shared_ptr<VBOData>;
 using namespace Math;
 
 // ---------------------------------------------------------------------------

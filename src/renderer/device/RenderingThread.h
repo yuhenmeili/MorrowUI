@@ -7,7 +7,7 @@
 
 #include <atomic>
 
-#include "morrow/Platform.h"
+#include "Platform.h"
 #include "RenderDeviceProxy.h"
 #include "morrow/RenderDeviceOptions.h"
 

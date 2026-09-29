@@ -15,11 +15,12 @@
 #include "morrow/DriverEnums.h"
 #include "morrow/scene3d/FrameState.h"
 #include "morrow/GlobalDefine.h"
-#include "morrow/GpuTypes.h"
+#include "morrow/ResourceHandle.h"
 #include "morrow/core/Observable.h"
 #include "morrow/debug/ObjectRegistry.h"
 
 namespace morrow {
+struct TextureData;
 struct TextureInfo {
     std::string textureName;
 
@@ -145,7 +146,7 @@ private:
 protected:
     TextureInfoSharedPtr m_textureInfo = std::make_shared<TextureInfo>();
     HwTexture2D m_textureHandle{0};
-    TextureData m_textureData;
+    std::unique_ptr<TextureData> m_textureData;
 
 private:
     DebugObjectHandle m_debugObject{DebugObjectCategory::Texture, "Texture"};

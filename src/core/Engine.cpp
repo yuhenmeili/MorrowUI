@@ -5,11 +5,18 @@
 #include <fstream>
 #include <sstream>
 
-#include "morrow/FontManager.h"
+#include "morrow/BatchStatistics.h"
+#include "FontManager.h"
 #include "MathUtils.h"
 #include "morrow/base/Widget.h"
 #include "GlobalObject.h"
 #include "PlatformFactory.h"
+#include "Window.h"
+#include "Platform.h"
+#include "InputEventsManager.h"
+#include "MainThreadDispatcher.h"
+#include "FPSController.h"
+#include "ui/effects/BackdropBlurManager.h"
 #if MORROW_ENABLE_DEBUG_OVERLAY
 #include "debug/DebugPlane.h"
 #endif
@@ -75,11 +82,20 @@ Engine::Engine(const EngineOptions& options) {
     m_platform->initialize(options.multithread, deviceOptions);
     std::weak_ptr<RenderingThread> weakRenderingThread =
         GlobalObject::getInstance().getRenderingThread();
-    m_mainThreadDispatcher.setWakeCallback([weakRenderingThread]() {
+    m_mainThreadDispatcher = std::make_unique<MainThreadDispatcher>();
+    m_mainThreadDispatcher->setWakeCallback([weakRenderingThread]() {
         if (const auto renderingThread = weakRenderingThread.lock()) {
             renderingThread->requestRender();
         }
     });
+
+    // 内部 WindowEvents → 公共 EngineEvents 转播（Window 内部化，§6.7）
+    if (auto window = m_platform->getWindow()) {
+        m_rawKeyBridge = window->events().onRawKeyboardInput.connect(
+            [this](const TouchEvent& event) { m_events.onRawKeyboardInput.notify(event); });
+        m_framebufferBridge = window->events().onFramebufferSizeChanged.connect(
+            [this](const Vector2& size) { m_events.onFramebufferSizeChanged.notify(size); });
+    }
 
     m_camera = std::make_shared<OrthographicCamera>(0.0f, 11000.0f);
     m_camera->setPosition(0.0f, 0.0f, 10000.0f);
@@ -107,12 +123,67 @@ Engine::Engine(const EngineOptions& options) {
 }
 
 Engine::~Engine() {
-    m_mainThreadDispatcher.shutdown();
+    m_mainThreadDispatcher->shutdown();
+
+    // 销毁顺序（GPU 资源删除依赖存活的渲染线程，必须先于 GlobalObject::destroy）：
+    //   调试覆盖层 → 帧上下文 → 平台窗口（含 Root2D UI 树 / BatchManager）
+    //   → 渲染线程与全局服务。
+    LOG_I("ENGINE_DTOR: begin");
+    m_debugPlane.reset();
+    m_frameState.reset();
+    LOG_I("ENGINE_DTOR: frameState done, renderingThread={}",
+          static_cast<bool>(GlobalObject::getInstance().getRenderingThread()));
+    m_platform.reset();
+    LOG_I("ENGINE_DTOR: platform done, renderingThread={}",
+          static_cast<bool>(GlobalObject::getInstance().getRenderingThread()));
     GlobalObject::getInstance().destroy();
+    LOG_I("ENGINE_DTOR: done");
 }
 
-WindowSharedPtr Engine::getWindow() const {
-    return m_platform ? m_platform->getWindow() : nullptr;
+Root2DSharedPtr Engine::getRootWidget() const {
+    return m_platform && m_platform->getWindow() ? m_platform->getWindow()->uiRoot() : nullptr;
+}
+
+void Engine::setClearColor(float r, float g, float b, float a) {
+    if (m_platform && m_platform->getWindow()) {
+        m_platform->getWindow()->setClearColor(r, g, b, a);
+    }
+}
+
+void Engine::setBackdropBlurQuality(BackdropBlurQuality quality) {
+    BackdropBlurManager::getInstance().setQuality(quality);
+}
+
+Vector2 Engine::framebufferSize() const {
+    return m_platform && m_platform->getWindow() ? m_platform->getWindow()->framebufferSize() : Vector2{0.0f, 0.0f};
+}
+
+void Engine::setClipboardText(const std::string& text) {
+    if (m_platform && m_platform->getWindow()) {
+        m_platform->getWindow()->setClipboardText(text);
+    }
+}
+
+std::string Engine::clipboardText() const {
+    return m_platform && m_platform->getWindow() ? m_platform->getWindow()->clipboardText() : std::string{};
+}
+
+void Engine::setCursorShape(CursorShape shape) {
+    if (m_platform && m_platform->getWindow()) {
+        m_platform->getWindow()->setCursorShape(shape);
+    }
+}
+
+void Engine::setBackdropBlurEnabled(bool enabled) {
+    BackdropBlurManager::getInstance().setEnabled(enabled);
+}
+
+bool Engine::isBackdropBlurEnabled() const {
+    return BackdropBlurManager::getInstance().isEnabled();
+}
+
+BackdropBlurQuality Engine::getBackdropBlurQuality() const {
+    return BackdropBlurManager::getInstance().getQuality();
 }
 
 FrameStateSharedPtr Engine::getFrameState() const {
@@ -132,14 +203,16 @@ EngineEvents& Engine::events() {
 }
 
 MainThreadDispatcher& Engine::mainThreadDispatcher() {
-    return m_mainThreadDispatcher;
+    return *m_mainThreadDispatcher;
 }
 
 #if MORROW_ENABLE_DEBUG_OVERLAY
 DebugPlane* Engine::ensureDebugPlane() {
     if (!m_debugPlane) {
         m_debugPlane = std::make_shared<DebugPlane>();
-        m_debugPlane->initialize(m_platform->getWindow());
+        if (auto window = m_platform->getWindow()) {
+            m_debugPlane->initialize(window->uiRoot());
+        }
     }
     return m_debugPlane.get();
 }
@@ -198,7 +271,7 @@ void Engine::render() {
         }
 
         // ── 阶段 2: 主线程任务与动画准备 ──
-        m_mainThreadDispatcher.drain();
+        m_mainThreadDispatcher->drain();
         m_events.onFrameBegin.notify();
         TweenManager::getInstance().update(m_frameState);
 
@@ -230,12 +303,12 @@ void Engine::render() {
     if (!m_objectSnapshotPath.empty()) {
         writeObjectSnapshot(m_objectSnapshotPath);
     }
-    m_mainThreadDispatcher.shutdown();
+    m_mainThreadDispatcher->shutdown();
     m_platform->terminate();
 }
 
 bool Engine::writeObjectSnapshot(const std::string& path) const {
-    const auto root = m_platform ? m_platform->getWindow() : nullptr;
+    const auto root = m_platform && m_platform->getWindow() ? m_platform->getWindow()->uiRoot() : nullptr;
     if (!root || path.empty()) return false;
     root->refreshDebugObjectTree();
     const uint64_t frame = m_frameState ? m_frameState->frameNumber : 0;
@@ -330,7 +403,7 @@ void Engine::updateFrameState() {
     m_frameState->callAfterTouched.clear();
     m_frameState->debugWidgetsAfterAnimate.clear();
     m_frameState->drawCallCount = 0;
-    m_frameState->batchStatistics.reset();
+    if (m_frameState->batchStatistics) m_frameState->batchStatistics->reset();
     m_frameState->batchManager = nullptr;
     m_frameState->ssboManager = GlobalObject::getInstance().getSSBOManager();
 }

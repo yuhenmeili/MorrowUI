@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "Vector3.h"
-#include "morrow/GpuTypes.h"
+#include "GpuTypes.h"
 
 namespace morrow {
 class Texture;

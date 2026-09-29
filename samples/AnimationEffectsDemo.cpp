@@ -1,5 +1,4 @@
 #include "morrow/Engine.h"
-#include "morrow/FontManager.h"
 #include "morrow/Texture.h"
 #include "morrow/atlas/TextureAtlas.h"
 #include "morrow/base/Transform.h"
@@ -28,7 +27,7 @@ std::shared_ptr<MRLabel> createLabel(const std::wstring& text, float x, float y,
     return label;
 }
 
-void addCard(const WindowSharedPtr& window, const std::wstring& title, const std::wstring& description, float x, float y, float width, float height) {
+void addCard(const Root2DSharedPtr& window, const std::wstring& title, const std::wstring& description, float x, float y, float width, float height) {
     auto card = MRColor::create();
     card->setColor(0.99f, 0.995f, 1.0f, 1.0f);
     card->setRounding(14.0f);
@@ -43,8 +42,8 @@ void addCard(const WindowSharedPtr& window, const std::wstring& title, const std
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto window = engine->getWindow();
-    window->setClearColor(0.92f, 0.95f, 0.98f, 1.0f);
+    auto window = engine->getRootWidget();
+    engine->setClearColor(0.92f, 0.95f, 0.98f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",

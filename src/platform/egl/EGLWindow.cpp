@@ -29,7 +29,6 @@ EGLWindow::EGLWindow(EGLOperationsQNXSharedPtr platform, const WindowInfo& windo
     m_windowSize.x = float(windowInfo.width);
     m_windowSize.y = float(windowInfo.height);
 
-    setWidgetType("MRWindow");
     m_platform = platform;
 }
 
@@ -190,8 +189,7 @@ void EGLWindow::beginRenderPass(FrameStateSharedPtr frameState)
 {
     if (!m_windowInited) return;
 
-    auto transform = getComponent<Transform>();
-    if (transform) {
+    if (auto transform = m_root2D->getComponent<Transform>()) {
         const Vector3 size = transform->getSize();
         if (size.x != m_windowSize.x || size.y != m_windowSize.y) {
             transform->setSize(m_windowSize.x, m_windowSize.y);

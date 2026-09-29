@@ -12,13 +12,14 @@
 #include "platform/egl/GLESHeader.h"
 #endif
 
-#include "morrow/Platform.h"
-#include "morrow/RenderDevice.h"
+#include "Platform.h"
+#include "RenderDevice.h"
 #include "morrow/RenderDeviceOptions.h"
 #include "ResourceRegistry.h"
 #include "ShaderBinaryCache.h"
 
 namespace morrow {
+class GLRenderDevice;
 // ---------------------------------------------------------------------------
 // GLRenderDevice – OpenGL/GLES 渲染后端的唯一公共类。
 // 持有 ResourceRegistry，负责 Handle ↔ GL 对象的映射。

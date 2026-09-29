@@ -5,7 +5,7 @@
 #include "morrow/StaticAtlasManager.h"
 
 #include "GlobalObject.h"
-#include "morrow/RenderDeviceProxyBase.h"
+#include "RenderDeviceProxyBase.h"
 #include "morrow/utils/Log.h"
 
 namespace morrow {

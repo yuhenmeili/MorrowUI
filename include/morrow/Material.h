@@ -11,7 +11,7 @@
 #include <variant>
 #include <vector>
 
-#include "morrow/scene3d/Scene3DUBO.h"
+#include "morrow/ResourceHandle.h"
 #include "morrow/Texture.h"
 #include "Vector2.h"
 #include "Vector3.h"
@@ -20,6 +20,8 @@
 namespace morrow {
 class SSBOLayoutComponent;
 using SSBOLayoutComponentSharedPtr = std::shared_ptr<const SSBOLayoutComponent>;
+
+struct Scene3DMaterialUBO;
 
 struct IntArrayData {
     std::string name;
@@ -34,6 +36,8 @@ public:
     static std::shared_ptr<Material> create();
 
     static std::shared_ptr<Material> create(const std::string& shaderName);
+
+    ~Material();
 
     // Texture相关方法
     void setTexture(const std::string& name, const TextureSharedPtr& texture);
@@ -144,6 +148,10 @@ public:
     SSBOLayoutComponentSharedPtr getSSBOLayout() const;
 
 private:
+    /// 内部 GPU 状态（管线状态 + Scene3D 材质 UBO），对公共头不可见。
+    struct GpuState;
+    std::unique_ptr<GpuState> m_gpuState;
+
     Material();
 
     explicit Material(const std::string& shaderName);
@@ -162,10 +170,6 @@ private:
     std::unordered_map<std::string, IntArrayData> m_intArrayMap;
     std::string m_shaderName;
     std::string m_attributePrefix = "u_";
-    GraphicsPipelineState m_pipelineState;
-    HwUBO m_scene3DMaterialUbo{0};
-    Scene3DMaterialUBO m_scene3DMaterialData{};
-    bool m_scene3DMaterialDirty = true;
     // 业务宏（两个变体一致注入）；ENABLE_SSBO 由 buildShader(enableSSBO) 参数管理
     std::vector<std::string> m_defines;
     std::string m_vertexShaderResource;

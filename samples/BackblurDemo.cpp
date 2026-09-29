@@ -29,12 +29,10 @@
 #include <string>
 #include <vector>
 
+#include "morrow/BatchStatistics.h"
 #include "morrow/Engine.h"
-#include "morrow/FontManager.h"
 #include "morrow/scene3d/FrameState.h"
 #include "morrow/base/Transform.h"
-#include "morrow/effects/BackdropBlur.h"
-#include "morrow/effects/BackdropBlurManager.h"
 #include "morrow/elements/MRButton.h"
 #include "morrow/elements/MRColor.h"
 #include "morrow/elements/MRLabel.h"
@@ -133,8 +131,8 @@ int main(int argc, char** argv) {
     engineOptions.backdropBlur = quality;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto window = engine->getWindow();
-    window->setClearColor(0.90f, 0.93f, 0.96f, 1.0f);
+    auto window = engine->getRootWidget();
+    engine->setClearColor(0.90f, 0.93f, 0.96f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
@@ -335,10 +333,9 @@ int main(int argc, char** argv) {
     window->addChild(statusLabel);
     window->addChild(toggleButton);
 
-    const auto refreshStatus = [&statusLabel]() {
-        auto& manager = BackdropBlurManager::getInstance();
-        std::wstring text = manager.isEnabled() ? L"[模糊：开启 · " : L"[模糊：关闭（tint 降级）· ";
-        switch (manager.getQuality()) {
+    const auto refreshStatus = [&statusLabel, &engine]() {
+        std::wstring text = engine->isBackdropBlurEnabled() ? L"[模糊：开启 · " : L"[模糊：关闭（tint 降级）· ";
+        switch (engine->getBackdropBlurQuality()) {
             case BackdropBlurQuality::Off:
                 text += L"Off]";
                 break;
@@ -352,10 +349,9 @@ int main(int argc, char** argv) {
         statusLabel->setText(text, "default");
     };
 
-    auto toggleConnection = toggleButton->events().onClicked.connect([&statusLabel](BaseButton&) {
-        auto& manager = BackdropBlurManager::getInstance();
-        manager.setEnabled(!manager.isEnabled());
-        statusLabel->setText(manager.isEnabled() ? L"[模糊：开启 · 保留档位]" : L"[模糊：关闭（tint 降级）]", "default");
+    auto toggleConnection = toggleButton->events().onClicked.connect([&statusLabel, &engine](BaseButton&) {
+        engine->setBackdropBlurEnabled(!engine->isBackdropBlurEnabled());
+        statusLabel->setText(engine->isBackdropBlurEnabled() ? L"[模糊：开启 · 保留档位]" : L"[模糊：关闭（tint 降级）]", "default");
     });
     (void)toggleConnection;
 
@@ -380,22 +376,22 @@ int main(int argc, char** argv) {
     window->addChild(qualityLabel);
     window->addChild(qualityButton);
 
-    auto qualityConnection = qualityButton->events().onClicked.connect([&refreshStatus, &qualityLabel](BaseButton&) {
-        auto& manager = BackdropBlurManager::getInstance();
-        switch (manager.getQuality()) {
+    auto qualityConnection = qualityButton->events().onClicked.connect([&refreshStatus, &qualityLabel, &engine](BaseButton&) {
+        
+        switch (engine->getBackdropBlurQuality()) {
             case BackdropBlurQuality::Off:
-                manager.setQuality(BackdropBlurQuality::Standard);
+                engine->setBackdropBlurQuality(BackdropBlurQuality::Standard);
                 break;
             case BackdropBlurQuality::Standard:
-                manager.setQuality(BackdropBlurQuality::LowCost);
+                engine->setBackdropBlurQuality(BackdropBlurQuality::LowCost);
                 break;
             case BackdropBlurQuality::LowCost:
-                manager.setQuality(BackdropBlurQuality::Off);
+                engine->setBackdropBlurQuality(BackdropBlurQuality::Off);
                 break;
         }
         refreshStatus();
         const std::wstring names[3] = {L"Off", L"Standard", L"LowCost"};
-        qualityLabel->setText(L"档位：" + names[static_cast<int>(manager.getQuality())], "default");
+        qualityLabel->setText(L"档位：" + names[static_cast<int>(engine->getBackdropBlurQuality())], "default");
     });
     (void)qualityConnection;
 
@@ -407,7 +403,7 @@ int main(int argc, char** argv) {
 
     if (reportJson) {
         const auto frameState = engine->getFrameState();
-        const auto& stats = frameState->batchStatistics;
+        const auto& stats = *frameState->batchStatistics;
         const double avgFrameMs = timedFrameCount > 0 ? (totalFrameSeconds / timedFrameCount * 1000.0) : 0.0;
         std::cout << "{"
                   << "\"renderItems\":" << stats.renderItemCount << ","

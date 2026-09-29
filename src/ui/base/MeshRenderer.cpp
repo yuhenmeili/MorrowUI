@@ -4,6 +4,8 @@
 
 #include "morrow/base/MeshRenderer.h"
 
+#include "VertexArray.h"
+
 #include "BatchManager.h"
 #include "GlobalObject.h"
 #include "morrow/base/Transform.h"

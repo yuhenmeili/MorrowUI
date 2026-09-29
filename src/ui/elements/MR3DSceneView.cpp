@@ -3,6 +3,7 @@
 //
 
 #include "morrow/elements/MR3DSceneView.h"
+#include "scene3d/FrameStateLegacy.h"
 
 #include <algorithm>
 #include <cmath>
@@ -10,11 +11,13 @@
 #include <functional>
 
 #include "GlobalObject.h"
+#include "SceneDisplayQuad.h"
 #include "morrow/utils/GlobalTools.h"
 #include "morrow/OrthographicCamera.h"
+#include "OffscreenRenderTarget.h"
 #include "RenderDeviceProxy.h"
 #include "Scene3DIBLLoader.h"
-#include "morrow/scene3d/Scene3DUBO.h"
+#include "Scene3DUBO.h"
 #include "morrow/base/MeshRenderer3D.h"
 #include "morrow/base/Transform.h"
 #include "morrow/base/Transform3D.h"
@@ -93,7 +96,6 @@ std::shared_ptr<MR3DSceneView> MR3DSceneView::create(int32_t fboW, int32_t fboH)
         transform->addSizeChangeListener([weakView]() {
             if (auto strongView = weakView.lock()) {
                 strongView->buildDisplayQuad();
-                strongView->m_quadUploaded = false;
             }
         });
     }
@@ -209,15 +211,6 @@ void MR3DSceneView::setAmbientLight(const Vector3& color, float intensity) {
     invalidateSceneRender();
 }
 
-Scene3DLightingState& MR3DSceneView::getLighting() {
-    invalidateSceneRender();
-    return m_scene3DPassContext->lighting;
-}
-
-const Scene3DLightingState& MR3DSceneView::getLighting() const {
-    return m_scene3DPassContext->lighting;
-}
-
 void MR3DSceneView::setIBL(const TextureSharedPtr& irradianceTexture, const TextureSharedPtr& specularTexture, const TextureSharedPtr& brdfLUTTexture, float rgbmRange,
                            const std::vector<int32_t>& specularMipWidths, const std::vector<int32_t>& specularMipHeights, const std::vector<int32_t>& specularMipOffsetsY, float intensity) {
     m_scene3DPassContext->ibl.irradianceTexture = irradianceTexture;
@@ -244,15 +237,6 @@ bool MR3DSceneView::setIBLFromDirectory(const std::string& iblDirectory, float i
 void MR3DSceneView::clearIBL() {
     m_scene3DPassContext->ibl = {};
     invalidateSceneRender();
-}
-
-Scene3DIBLState& MR3DSceneView::getIBL() {
-    invalidateSceneRender();
-    return m_scene3DPassContext->ibl;
-}
-
-const Scene3DIBLState& MR3DSceneView::getIBL() const {
-    return m_scene3DPassContext->ibl;
 }
 
 void MR3DSceneView::resizeFBO(int32_t w, int32_t h) {
@@ -311,59 +295,13 @@ void MR3DSceneView::syncToParentSize() {
 void MR3DSceneView::buildDisplayQuad() {
     // A simple textured quad in local widget space. The shader samples the FBO
     // texture with a y-flip to account for the OpenGL FBO origin difference.
-    m_displayMaterial = Material::create("scene3d_display");
-    m_displayMaterial->setBlendEnabled(false);
-
-    // The colour texture will be bound each frame via useTexture2D before draw.
-    // No static texture is set on the material; we bind the FBO texture manually.
-
     auto transform = getTransform();
     Vector3 displaySize = transform ? transform->getSize() : Vector3(float(m_fboW), float(m_fboH), 0.0f);
-    const float halfW = std::max(displaySize.x * 0.5f, 0.5f);
-    const float halfH = std::max(displaySize.y * 0.5f, 0.5f);
 
-    // Quad VBOData: two triangles centered at the local origin.
-    auto vboData = std::make_shared<VBOData>();
-    vboData->vertexCount = 4;
-    vboData->indexCount = 6;
-    vboData->drawMode = PrimitiveType::TRIANGLES;
-
-    // Positions: local widget-space quad centered around origin.
-    // UV: keep the same vertex order as 2D MeshFilter, but flip V because
-    // OpenGL render-target textures are sampled with (0,0) at the bottom-left.
-    struct QuadVertex {
-        float x, y, z;
-        float u, v;
-    };
-    const QuadVertex verts[4] = {
-        {-halfW, halfH, 0.0f, 0.0f, 1.0f},
-        {halfW, halfH, 0.0f, 1.0f, 1.0f},
-        {halfW, -halfH, 0.0f, 1.0f, 0.0f},
-        {-halfW, -halfH, 0.0f, 0.0f, 0.0f},
-    };
-    const int16_t indices[6] = {0, 1, 2, 0, 2, 3};
-
-    size_t posSize = 4 * sizeof(Vector3);
-    size_t uvSize = 4 * sizeof(Vector2);
-    vboData->vertexData.resize(posSize + uvSize);
-
-    // Pack positions
-    vboData->attributes.push_back({VertexAttributeType::Position, 0, sizeof(Vector3)});
-    vboData->attributes.push_back({VertexAttributeType::UV, posSize, sizeof(Vector2)});
-
-    for (int i = 0; i < 4; ++i) {
-        auto* p = reinterpret_cast<Vector3*>(vboData->vertexData.data() + i * sizeof(Vector3));
-        p->x = verts[i].x;
-        p->y = verts[i].y;
-        p->z = verts[i].z;
-        auto* uv = reinterpret_cast<Vector2*>(vboData->vertexData.data() + posSize + i * sizeof(Vector2));
-        uv->x = verts[i].u;
-        uv->y = verts[i].v;
+    if (!m_displayQuad) {
+        m_displayQuad = std::make_unique<SceneDisplayQuad>();
     }
-    vboData->indices.assign(indices, indices + 6);
-
-    // Store VBOData; the VBO will be created lazily in the first update() call.
-    m_displayQuadVBOData = std::move(vboData);
+    m_displayQuad->rebuild(displaySize.x, displaySize.y);
 }
 
 uint64_t MR3DSceneView::computeSceneRenderSignature() const {
@@ -493,9 +431,9 @@ void MR3DSceneView::update(FrameStateSharedPtr frameState) {
             m_local3DFrameState->perspectiveCamera = m_orbitCamera;
             m_local3DFrameState->batchManager = nullptr;
             m_local3DFrameState->scene3DPassContext = m_scene3DPassContext;
-            m_local3DFrameState->scene3DLighting = m_scene3DPassContext->lighting;
-            m_local3DFrameState->scene3DIBL = m_scene3DPassContext->ibl;
-            m_local3DFrameState->scene3DFrameUBO = m_scene3DPassContext->frameUBO;
+            m_local3DFrameState->scene3DLegacy->lighting = m_scene3DPassContext->lighting;
+            m_local3DFrameState->scene3DLegacy->ibl = m_scene3DPassContext->ibl;
+            m_local3DFrameState->scene3DLegacy->scene3DFrameUBO = m_scene3DPassContext->frameUBO;
             m_local3DFrameState->drawCallCount = 0;
 
             m_sceneRoot->update(m_local3DFrameState);
@@ -516,29 +454,10 @@ void MR3DSceneView::update(FrameStateSharedPtr frameState) {
 
     // 2D composite pass
     if (m_renderTarget->getColorTexture() && frameState->camera) {
-        // Bind the FBO colour texture to slot 0 and draw the display quad
-        RENDERINGTHREAD->useTexture2D(m_renderTarget->getColorTexture(), 0);
-
-        if (auto transform = getTransform()) {
-            m_displayMaterial->setMatrix4("projectionView", frameState->camera->getProjectionView());
-            m_displayMaterial->setMatrix4("model", transform->getWorldMatrix());
-        }
-        m_displayMaterial->setInt("texture", 0);
-        m_displayMaterial->apply();
-
-        auto shader = m_displayMaterial->getShader();
-        if (shader) {
-            if (!m_quadVBO.isValid()) {
-                m_quadVBO = RENDERINGTHREAD->createVBO();
-            }
-            if (!m_quadUploaded && m_displayQuadVBOData) {
-                RENDERINGTHREAD->updateVBO(shader, m_quadVBO, m_displayQuadVBOData);
-                m_quadUploaded = true;
-            }
-            if (m_quadVBO.isValid() && m_quadUploaded) {
-                frameState->drawCallCount++;
-                RENDERINGTHREAD->drawVBO(m_quadVBO, 1);
-            }
+        // Draw the display quad bound to the FBO colour texture on slot 0.
+        auto transform = getTransform();
+        if (m_displayQuad && m_displayQuad->draw(m_renderTarget->getColorTexture(), frameState->camera.get(), transform.get())) {
+            frameState->drawCallCount++;
         }
     }
 

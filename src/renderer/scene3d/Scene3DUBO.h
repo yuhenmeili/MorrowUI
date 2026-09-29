@@ -7,7 +7,7 @@
 #include "morrow/GLTFTypes.h"
 #include "Matrix4.h"
 #include "morrow/PerspectiveCamera.h"
-#include "morrow/scene3d/Scene3DPassContext.h"
+#include "Scene3DPassContext.h"
 
 namespace morrow {
 constexpr int kScene3DMaxIBLMips = 8;

@@ -8,8 +8,8 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "morrow/GpuTypes.h"
-#include "morrow/SSBOFieldBinding.h"
+#include "GpuTypes.h"
+#include "ssbo/SSBOFieldBinding.h"
 
 namespace morrow {
 class SSBOData;

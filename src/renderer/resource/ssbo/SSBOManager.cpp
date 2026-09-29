@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #include "morrow/utils/Log.h"
-#include "morrow/SSBOFieldBinding.h"
+#include "ssbo/SSBOFieldBinding.h"
 
 namespace morrow {
 

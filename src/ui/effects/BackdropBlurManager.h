@@ -36,10 +36,11 @@
 #include <memory>
 #include <vector>
 
-#include "morrow/BatchDataDefine.h"
+#include "BatchDataDefine.h"
+#include "morrow/effects/BackdropBlur.h"
 #include "morrow/Material.h"
 #include "Matrix4.h"
-#include "morrow/OffscreenRenderTarget.h"
+#include "OffscreenRenderTarget.h"
 #include "Vector2.h"
 #include "Vector4.h"
 #include "morrow/utils/Singleton.h"
@@ -47,13 +48,6 @@
 namespace morrow {
 struct FrameState;
 using FrameStateSharedPtr = std::shared_ptr<FrameState>;
-
-/// 启动 / 运行档位（§5.7 三级开关的档位层）。
-enum class BackdropBlurQuality : uint8_t {
-    Off = 0,      ///< 全程退化路径，RT 链不分配（等价 setEnabled(false)）
-    Standard = 1, ///< 1/2 基准链（L0/L1/L2 = 1/2、1/4、1/8 分辨率）
-    LowCost = 2,  ///< 1/4 基准链（L0/L1/L2 = 1/4、1/8、1/16 分辨率）
-};
 
 class BackdropBlurManager : public Singleton<BackdropBlurManager> {
     friend class Singleton<BackdropBlurManager>;

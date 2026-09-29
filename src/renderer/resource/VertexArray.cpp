@@ -2,12 +2,14 @@
 // Created by lance on 2023/12/4.
 //
 
-#include "morrow/VertexArray.h"
+#include "VertexArray.h"
+#include "GpuTypes.h"
 
 #include <algorithm>
 
-#include "morrow/BatchDataDefine.h"
+#include "BatchDataDefine.h"
 #include "GlobalObject.h"
+#include "morrow/utils/Log.h"
 #include "morrow/utils/Log.h"
 #include "RenderDeviceProxy.h"
 #include "morrow/base/Mesh.h"
@@ -16,7 +18,15 @@
 namespace morrow {
 VertexArray::~VertexArray() {
     if (m_vbo.isValid()) {
-        RENDERINGTHREAD->deleteVBO(m_vbo);
+        // 销毁顺序防护：引擎关闭后渲染线程可能已先于 UI 树析构，
+        // 此时 GPU 资源已随设备销毁，跳过删除命令即可。
+        auto renderingThread = GlobalObject::getInstance().getRenderingThread();
+        LOG_I("VA_DTOR: renderingThread={} device={}",
+              static_cast<bool>(renderingThread),
+              renderingThread ? static_cast<bool>(renderingThread->getDevice()) : false);
+        if (renderingThread && renderingThread->getDevice()) {
+            renderingThread->getDevice()->deleteVBO(m_vbo);
+        }
         m_vbo = HwVBO{0};
     }
 }

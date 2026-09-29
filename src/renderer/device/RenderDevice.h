@@ -5,10 +5,10 @@
 #ifndef MORROW_RENDERER_ESDEVICE_H_
 #define MORROW_RENDERER_ESDEVICE_H_
 
-#include "morrow/GPUBufferDevice.h"
-#include "morrow/GPUTextureDevice.h"
-#include "morrow/GPUShaderDevice.h"
-#include "morrow/GPURenderPassDevice.h"
+#include "GPUBufferDevice.h"
+#include "GPUTextureDevice.h"
+#include "GPUShaderDevice.h"
+#include "GPURenderPassDevice.h"
 
 namespace morrow {
 

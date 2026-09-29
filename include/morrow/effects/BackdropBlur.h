@@ -24,6 +24,14 @@
 
 namespace morrow {
 
+/// 启动 / 运行档位（§5.7 三级开关的档位层）。
+enum class BackdropBlurQuality : uint8_t {
+    Off = 0,      ///< 全程退化路径，RT 链不分配（等价 setEnabled(false)）
+    Standard = 1, ///< 1/2 基准链（L0/L1/L2 = 1/2、1/4、1/8 分辨率）
+    LowCost = 2,  ///< 1/4 基准链（L0/L1/L2 = 1/4、1/8、1/16 分辨率）
+};
+
+
 class BackdropBlur : public Component {
 public:
     BackdropBlur();

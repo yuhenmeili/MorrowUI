@@ -27,7 +27,8 @@
 #include "panels/ViewportPanel.h"
 #include "ui/CreateAssetDialog.h"
 #include "ui/RenameNodeDialog.h"
-#include "morrow/Window.h"
+#include "morrow/base/Root2D.h"
+#include "InputEventsManager.h"
 
 namespace {
 std::shared_ptr<morrow::UIWidget> makePanel(float x, float y, float width, float height, const morrow::Math::Vector4& color = morrow::Math::Vector4(0.12f, 0.14f, 0.17f, 1.0f)) {
@@ -73,9 +74,9 @@ std::string narrow(const std::wstring& text) {
 
 namespace morrow::editor {
 
-EditorShell::EditorShell(const std::shared_ptr<Window>& window, const std::shared_ptr<Engine>& engine, std::filesystem::path projectPath, std::filesystem::path scenePath,
+EditorShell::EditorShell(const std::shared_ptr<Root2D>& root, const std::shared_ptr<Engine>& engine, std::filesystem::path projectPath, std::filesystem::path scenePath,
                          std::filesystem::path assetRoot) :
-    m_window(window), m_engine(engine), m_projectPath(std::move(projectPath)), m_scenePath(std::move(scenePath)), m_assetRoot(std::move(assetRoot)),
+    m_root2D(root), m_engine(engine), m_projectPath(std::move(projectPath)), m_scenePath(std::move(scenePath)), m_assetRoot(std::move(assetRoot)),
     m_inspector(std::make_unique<InspectorPanel>(*this)), m_sceneTree(std::make_unique<SceneTreePanel>(*this)), m_viewport(std::make_unique<ViewportPanel>(*this)),
     m_toolbar(std::make_unique<ToolbarPanel>(*this)), m_assetsPanel(std::make_unique<AssetBrowserPanel>(*this)), m_output(std::make_unique<OutputPanel>(*this)),
     m_build(std::make_unique<BuildPanel>(*this)), m_layout(std::make_unique<EditorLayoutController>(*this)), m_session(std::make_shared<EditorSession>(m_scenePath)),
@@ -159,8 +160,8 @@ void EditorShell::buildLayout() {
     m_shellRoot->getTransform()->setPosition(0.0f, 0.0f, 100.0f);
     float windowWidth = 1280.0f;
     float windowHeight = 720.0f;
-    if (m_window) {
-        const Vector2 framebuffer = m_window->framebufferSize();
+    if (m_engine) {
+        const Vector2 framebuffer = m_engine ? m_engine->framebufferSize() : Vector2{0.0f, 0.0f};
         if (framebuffer.x > 0 && framebuffer.y > 0) {
             windowWidth = framebuffer.x;
             windowHeight = framebuffer.y;
@@ -332,7 +333,7 @@ void EditorShell::buildLayout() {
     m_assetsPanel->createAssetDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
     m_assetsPanel->nameDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
     m_viewport->panel->addChild(m_viewport->previewRoot);
-    m_window->addChild(m_shellRoot);
+    m_root2D->addChild(m_shellRoot);
 
     const auto connectSplit = [this](const std::string& id, const std::shared_ptr<MRSplitContainer>& split) {
         m_splitConnections.emplace_back(split->events().onSplitRatioChanged.connect([this, id](MRSplitContainer&, float ratio) {
@@ -398,9 +399,9 @@ void EditorShell::buildLayout() {
         if (auto interaction = edit->getComponent<Interaction>())
             interaction->setClickEnabled(false);
         m_copyConnections.emplace_back(edit->events().onCopyRequested.connect([this](MRTextEdit&, const std::wstring& selected) {
-            if (!m_window)
+            if (!m_engine)
                 return;
-            m_window->setClipboardText(narrow(selected));
+            m_engine->setClipboardText(narrow(selected));
         }));
         panel->addChild(edit);
         return edit;
@@ -712,14 +713,14 @@ bool EditorShell::initialize(std::string& error) {
         return false;
     }
     buildLayout();
-    if (m_window) {
-        m_framebufferSizeConnection = m_window->events().onFramebufferSizeChanged.connect([this](const Vector2& size) { handleFramebufferResize(size); });
+    if (m_engine) {
+        m_framebufferSizeConnection = m_engine->events().onFramebufferSizeChanged.connect([this](const Vector2& size) { handleFramebufferResize(size); });
     }
     m_assetsPanel->importAssets();
     m_sceneTree->refresh();
     m_viewport->rebuildRuntime();
-    if (m_window) {
-        m_rawKeyConnection = m_window->events().onRawKeyboardInput.connect([this](const TouchEvent& event) {
+    if (m_engine) {
+        m_rawKeyConnection = m_engine->events().onRawKeyboardInput.connect([this](const TouchEvent& event) {
             if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN) {
                 handleKeyEvent(event);
             } else if (event.eventType == TOUCH_EVENT_TYPE_CHARACTER) {

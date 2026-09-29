@@ -10,21 +10,32 @@
 #include <vector>
 #include <memory>
 
-#include "morrow/BatchStatistics.h"
 #include "morrow/ClipRect.h"
-#include "morrow/scene3d/Scene3DPassContext.h"
 #include "Vector3.h"
 #include "Vector4.h"
 
 namespace morrow {
+using namespace Math;
 class PerspectiveCamera;
 class Widget;
 class InputEventsManager;
 class OrthographicCamera;
 class BatchManager;
 class SSBOManager;
+class BatchStatistics;
+class Scene3DPassContext;
+using Scene3DPassContextSharedPtr = std::shared_ptr<Scene3DPassContext>;
 
 struct FrameState {
+    /// 3D legacy 镜像成员（lighting/IBL/frameUBO），实现内部定义。
+    struct Scene3DLegacy;
+
+    FrameState();
+    ~FrameState();
+
+    /// 拷贝赋值仅复制公共字段（Scene3DLegacy 为内部实现，不参与拷贝）。
+    FrameState& operator=(const FrameState& other);
+
     uint64_t frameNumber = 0;
     float screenAlpha = 1.0f;
     double deltaTime = 0.0;
@@ -49,14 +60,12 @@ struct FrameState {
     uint32_t drawCallCount = 0;
     uint32_t fps = 0;
     bool isSSBOSupport = false;
-    BatchStatistics batchStatistics;
+    std::shared_ptr<BatchStatistics> batchStatistics;
 
     std::shared_ptr<PerspectiveCamera> perspectiveCamera;  // null=2D path
     Scene3DPassContextSharedPtr scene3DPassContext;
     // Legacy mirrors kept temporarily while 3D code migrates to scene3DPassContext.
-    Scene3DLightingState scene3DLighting;
-    Scene3DIBLState scene3DIBL;
-    HwUBO scene3DFrameUBO{0};
+    std::unique_ptr<Scene3DLegacy> scene3DLegacy;
 };
 
 using FrameStateSharedPtr = std::shared_ptr<FrameState>;

@@ -8,7 +8,7 @@
 #include <memory>
 #include <vector>
 #include "BatchBuilder.h"
-#include "morrow/BatchDataDefine.h"
+#include "BatchDataDefine.h"
 #include "morrow/BatchStatistics.h"
 
 namespace morrow {

@@ -3,13 +3,14 @@
 //
 
 #include "GLRenderDevice.h"
+#include "GpuTypes.h"
 
 #include <algorithm>
 #include <fstream>
 
 #include "GlResourceObjects.h"
 #include "PixelFormat.h"
-#include "morrow/ShaderReflection.h"
+#include "ShaderReflection.h"
 #include "TextureLoader.h"
 #include "ToolUtils.h"
 #include "utils/OpenglUtils.h"

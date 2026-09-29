@@ -16,7 +16,7 @@
 // #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
-#include "morrow/FontGlyph.h"
+#include "FontGlyph.h"
 #include "FontTexture.h"
 #include "morrow/debug/ObjectRegistry.h"
 

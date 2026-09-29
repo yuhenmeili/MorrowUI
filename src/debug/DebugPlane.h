@@ -4,6 +4,7 @@
 
 #ifndef DEBUGPLANE_H
 #define DEBUGPLANE_H
+#include "morrow/base/Root2D.h"
 #include <memory>
 
 namespace morrow {
@@ -13,7 +14,7 @@ class MRLabel;
 
 class DebugPlane {
 public:
-    void initialize(std::shared_ptr<Window> window);
+    void initialize(std::shared_ptr<Root2D> root);
 
     void update(std::shared_ptr<FrameState> frame_state);
 

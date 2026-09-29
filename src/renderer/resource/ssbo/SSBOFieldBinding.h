@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <string>
 
-#include "morrow/BatchDataDefine.h"
+#include "BatchDataDefine.h"
 
 namespace morrow {
 // Shader 属性/字段数据类型（与 GLSL 类型对应）

@@ -6,10 +6,32 @@
 
 > 更新记录：
 >
+> - v4.6（2026-09-29）：第三轮收敛（GpuTypes/FontManager 全量内部化）——
+>   公共面 104 → 101 头：GpuTypes.h 整体迁回 `src/renderer/`（Texture.h 以
+>   pimpl 复用其 TextureData；GLTFTypes 的 `GLTFPrimitive::vboData` 降级为
+>   前向声明不透明字段，加载/消费两侧均内部）；FontManager.h/FontGlyph.h
+>   迁回 `src/fonts/`（samples 零使用已确认，editor 经豁免路径 PRIVATE 引用）；
+>   `FontInfo` 从 Engine.h 抽为独立公共头 `FontInfo.h`（addFonts 参数模型，
+>   单类一头）；MR3DSceneView 显示四边形抽取为内部工具 `SceneDisplayQuad`
+>   （公共头不再持 VBOData 成员）；MRLabel::renderGlyphQuad 下沉 .cpp（公共头
+>   去 FontGlyph 前向声明）。断裂 API 清理：`MR3DSceneView::getLighting/getIBL`
+>   （返回不可达内部类型，零使用者）删除；`MeshRenderer::getVertexArray` 转
+>   private + friend BatchManager（内部批处理通道）。M3 白名单同步
+>   （FontManager.h 入口移除）。
 > - v4（2026-09-29）：合入 API 稳定性评审结论——明确**源码兼容**目标、新增
 >   **公共路径与内部结构解耦**硬规则、**薄头厚 cpp** 原则、semver + 废弃缓冲
 >   演进策略（§2.1 G6、§7.5）、新增门禁 M5（公共 API 一致性测试）与
 >   `version.h`（§7.2、§8）。
+> - v4.5（2026-09-29）：Phase 2.5 实施完成——公共面 125 → 104 头；**Root2D** 落地
+>   （Window 去 UIWidget 继承，Engine::getRootWidget 公共入口）；Engine 公共事件面
+>   （onRawKeyboardInput/onFramebufferSizeChanged）与 setClearColor/剪贴板/
+>   framebufferSize/setCursorShape/背景模糊运行时 API 落地；GpuTypes 拆分
+>   （公开只留 TextureData/VBOData/VertexAttribute）；M3 升级为入口白名单 +
+>   可达性双检（cmake/morrow_public_entries.cmake 冻结清单）。保留公共的偏差：
+>   ObjectRegistry/GLTFTypes/BatchStatistics（公共数据模型与诊断面依赖，§5.4 注）。
+> - v4.4（2026-09-29）：第二轮公共面收敛提案（§5.4/§6.7/§9 Phase 2.5）——
+>   对外只保留「引擎入口 + UI 组件 + 材质/纹理 + 相机」；Window/Platform 及全部
+>   机械部件（设备接口、批处理 DTO、SSBO 布局、反射）内部化，单窗口假设入档。
 > - v4.3（2026-09-29）：按评审决策移除临时验证设施——M5 一致性测试、M3/M4
 >   include 图门禁（Python 工具）与整个 tests/ 目录删除；保留 M1/M2 构建门禁
 >   （自包含、随构建执行）。源码兼容验证已在删除前完成（构建/ctest/渲染全绿）。
@@ -204,12 +226,12 @@ Engine.h:10 → Window.h:10 → UIWidget.h:9-10 → MeshRenderer.h:12
 | 模块 | 头文件（迁移后路径示意） | 说明 |
 |---|---|---|
 | 引擎生命周期 | `Engine.h`、`EngineEvents.h` | `EngineOptions` 含窗口、线程模式、按需渲染 |
-| 窗口 | `Window.h`、`WindowInfo` | `getSurface()` 收敛（§6.3） |
+| 窗口 | ~~`Window.h`~~ | 第二轮收敛改为内部化（§5.4/§6.7）：`WindowInfo` 仍公共（配置），Window 由引擎维护 |
 | UI 树 | `UIWidget.h`、`elements/*`、`layout/*`、`controllers/*` | 现有 MR* 控件全量保留 |
 | 组件 | `Transform.h`、`Interaction.h`、`MeshFilter.h`/`MeshRenderer.h`（引擎控件标准路径） | 自定义几何提交不对外（§6.5） |
 | 事件 | `TouchEvent.h`、`EventDispatcher/EventConnection`、`Observable` | |
 | 资源 | `Texture.h`（加载/内存/更新，Hw 化）、`TextureAtlas.h`、`StaticAtlasManager.h` | |
-| 文本 | `FontManager.h`、`MRLabel` 等（需 pimpl 切断 stb_truetype 传递，见 §6.6） | |
+| 文本 | `MRLabel` 等文本控件（v4.6 修订：FontManager/FontGlyph 内部化，字体加载与管理为引擎内部能力） | |
 | 动画 | `Tween.h` | |
 | 帧上下文 | `FrameState.h`（只读视图） | |
 | 数学 | `math/`（无 GL 依赖，维持现状） | |
@@ -245,6 +267,65 @@ Engine.h:10 → Window.h:10 → UIWidget.h:9-10 → MeshRenderer.h:12
 - `extern/`（stb、nlohmann、basis_universal）与 `includes/`（vendor GL/GLFW 头、
   `eglextQCOM.h`）；
 - `core/` 内部（`MainThreadDispatcher`、`BatchBuilder` 等）。
+
+### 5.4 公共面收敛（第二轮）
+
+Phase 2 之后 include/morrow 共 125 头，其中约 26 个是机械部件（设备接口、批处理
+DTO、SSBO 布局、反射、平台编排），经公共头 include 链被被动拽入。本轮目标：
+**对外只保留「引擎入口 + UI 组件 + 材质/纹理 + 相机」四类产品面**；默认单窗口
+应用，Window/Platform 不对外。
+
+#### 5.4.1 三层收敛法
+
+1. **链切断**：对每类被拽入的内头，在拽入它的公共头上切断依赖
+   （pimpl / 前向声明 / const-ref 参数前向声明），逐头清单见 5.4.2；
+2. **孤儿迁回**：切断后不可达的内头物理迁回 src/（以消费者入口可达闭包计算，
+   工具化）；
+3. **门禁硬化**：M3 升级为「入口白名单 + 可达性」双检——include/morrow 下每个
+   头必须 ∈ 入口白名单 ∪ 入口可达闭包，孤儿滞留即构建失败。白名单即冻结的
+   对外清单，新增公共头必须修改白名单（评审动作）。
+
+#### 5.4.2 内部化清单（拽入链 → 切断点）
+
+| 内部头 | 拽入链 | 切断技术 |
+|---|---|---|
+| `Platform.h`、`InputEventsManager.h`、`InputProvider.h`、`core/EventDispatcherBackUp.h` | `Engine.h` 成员（PlatformSharedPtr 等） | Engine pimpl |
+| `Window.h` | `Engine.h` 成员 + `Engine::getWindow()` | Engine pimpl + §6.7 事件面 |
+| `MainThreadDispatcher.h`、`FPSController.h` | `Engine.h` 成员 | Engine pimpl |
+| `RenderDevice.h`、`RenderDeviceProxyBase.h`、`GPUBufferDevice/GPURenderPassDevice/GPUShaderDevice/GPUTextureDevice.h`、`PlatformSemaphore.h`、`OffscreenRenderTarget.h` | `elements/MR3DSceneView.h` 成员 | 前向声明 + 成员 pimpl |
+| `BatchDataDefine.h`、`BatchStatistics.h` | `GpuTypes.h`、`scene3d/FrameState.h`、`effects/BackdropBlurManager.h` | GpuTypes 去统计字段耦合、FrameState 瘦身 pimpl、BackdropBlurManager 成员 pimpl |
+| `SSBOFieldBinding.h`、`ShaderStorageBuffer.h`、`ShaderReflection.h` | `scene3d/FrameState.h`（SSBOManager 成员）与材质/SSBO 链 | FrameState 瘦身 + 材质 pimpl |
+| `scene3d/Scene3DUBO.h`、`Scene3DPassContext.h`、`gltf/GLTFTypes.h` | `Material.h`（Scene3DMaterialUBO 参数与成员）、`FrameState.h` | const-ref 参数前向声明 + Material pimpl |
+| `VertexArray.h` | `base/MeshRenderer.h` 成员 | 前向声明 + 成员 pimpl |
+| `debug/ObjectRegistry.h` | `Texture.h`、`base/Widget.h` 等 | 注册宏/成员下沉 impl |
+| `utils/Singleton.h` | `utils/GlobalTools.h` | 若仅实现用则迁回 |
+
+**保留**（公共签名的一部分或独立产品面）：`DriverEnums.h`、`GpuTypes.h`
+（Hw 句柄 + GraphicsPipelineState + TextureData）、`ResourceHandle.h`、
+`RenderDeviceOptions.h`（部署调优 POD）、`GlobalDefine.h`、`utils/{Log,
+GlobalTools}`、`math/`（morrow_math 目标）、`base/TouchEvent.h`、相机三头、
+全部 elements/layout/controllers/effects/helpers、材质/纹理/字体/图集、
+`scene3d/FrameState.h`（瘦身，见 Phase 2.5b）。
+
+#### 5.4.3 保留公共的偏差（实施修订，2026-09-29）
+
+- `debug/ObjectRegistry.h`、`GLTFTypes.h`、`BatchStatistics.h`：分别被
+  Widget/Component 调试身份 API、3D 场景公共数据模型
+  （MR3DSceneView/Scene3DAsyncLoader/MeshRenderer3D）与 DebugDemo 验收报告
+  依赖——均为无 GL 的数据模型/诊断面，保留公共并在门禁白名单中登记；
+- `GLTFPrimitive::vboData`（v4.6 修订）：GpuTypes 全量内部化后降级为前向声明
+  不透明字段——GLTF 场景由加载器装填、场景构建器消费，两侧均引擎内部；
+  用户只整场景传递，无需解引用；
+- `utils/Singleton.h`：Log/GlobalTools 依赖，随 utils 目标交付；
+- 实际规模：125 → 104 → **101 头**（v4.6：GpuTypes/FontManager/FontGlyph
+  内部化 + FontInfo 独立成头；Window/Platform/设备接口/批定义/SSBO/反射/
+  OffscreenRenderTarget/VertexArray/Scene3DUBO/Scene3DPassContext/
+  BackdropBlurManager/Singleton 等机械部件全部内部化）。
+
+#### 5.4.3 目标规模
+
+125 → 约 95~100 头；公共头不再包含任何引擎机械部件 include。M1/M2 语义不变，
+M3 升级后孤儿滞留公共面即失败。
 
 ## 6. 关键设计点
 
@@ -338,6 +419,25 @@ Engine.h:10 → Window.h:10 → UIWidget.h:9-10 → MeshRenderer.h:12
   `FontManager`/字体入口使用 pimpl 或接口拆分，stb 留在 .cpp；
 - 公共 API 当前无 json 依赖面（ObjectRegistry 快照为内部调试能力），nlohmann 无需
   对外暴露。
+
+### 6.7 Window 内部化与 Engine 公共事件面（单窗口假设）
+
+决策：**默认单窗口，Window/Platform 全内部化**。公共面不再有 `Window.h`；
+窗口经 `EngineOptions::windowInfo`（公共 POD：名称/尺寸/采样数等）配置，由引擎
+创建并维护。未来多窗口/嵌入式 Surface 需求出现时，再按需求把 Window 提升回
+公共面（符合 ARCHITECTURE §2.1 需求驱动原则）。
+
+Engine 公共 API 补位（当前 samples 对 Window 的全部真实用途）：
+
+1. `Engine::setClearColor(r, g, b, a)`——8 个 demo 现有的唯一 Window 调用
+   （`engine->getWindow()->setClearColor(...)`）平移；
+2. `EngineEvents` 增加 `onRawKeyboardInput`（`const TouchEvent&`）与
+   `onFramebufferSizeChanged`（`const Vector2&`）——Engine 转播内部
+   WindowEvents，替代经 `getWindow()->events()` 的用法；
+3. `Engine::getWindow()` 从公共面移除（Window 类型内部化后无法公开返回）。
+
+迁移影响：samples 逐个把 `getWindow()` 用法迁移到上述两个入口；editor 属仓库内
+工具，经 PRIVATE src 路径直接使用实现头（豁免清单，同 §6.6 stb 先例）。
 
 ## 7. 构建与交付形态
 
@@ -545,6 +645,89 @@ M1/M2 成本极低（纯 CMake/脚本），Phase 1 结束即可上线，长期�
 风险：本阶段触碰公共头物理位置，属破坏性布局变更——转发头过渡期内外部用户
 include 路径兼容；`FontManager`/字体 pimpl 切断 stb 传递若牵扯较大，可单独子阶段。
 
+### Phase 2.5 — 公共面第二轮收敛（§5.4 / §6.7）
+
+> 状态：✅ 已完成（2026-09-29）。Windows/MinGW(Ninja) 全量构建通过；
+> DebugDemo 渲染结果与收敛前逐项一致；BackblurDemo（模糊运行时控制展示）经
+> Engine 公共 API 迁移后运行正常。公共面 125 → 104 头。QNX/Linux 交叉编译待验证。
+
+实施要点与偏差：
+
+1. **Root2D 落地**（评审设计的命名确认）：Window 不再继承 UIWidget，持有
+   `Root2D`（UIWidget 轻量子类）作为 2D UI 根；输入命中根、窗口尺寸→根
+   Transform 同步、DebugPlane/编辑器壳挂载全部改走 Root2D。
+2. **Engine 公共 API 补位**：`getRootWidget()/setClearColor()/framebufferSize()/
+   setClipboardText()/clipboardText()/setCursorShape()/setBackdropBlurEnabled()/
+   isBackdropBlurEnabled()/getBackdropBlurQuality()/setBackdropBlurQuality()`；
+   EngineEvents 增加 `onRawKeyboardInput`/`onFramebufferSizeChanged` 转播；
+   `mainThreadDispatcher()` 保留（返回不透明引用）。
+3. **GpuTypes 拆分修订**（按评审：公开只留 TextureData）：公开 GpuTypes.h 保留
+   `TextureData` + `VBOData`/`VertexAttribute`（GLTF 公共数据模型依赖）；
+   `GraphicsPipelineState`/UBOData/SSBOData 进入 `src/renderer/GpuTypesInternal.h`；
+   Hw 句柄（ResourceHandle.h）保留公共（Material/Texture 签名一部分）。
+4. **保留公共偏差**：ObjectRegistry/GLTFTypes/BatchStatistics（见 §5.4.3）；
+   utils/{Log,GlobalTools,Singleton} 随 morrow_utils 交付。
+5. **门禁**：M3 升级完成——`cmake/CheckPublicApiSurface.cmake`（入口白名单
+   `cmake/morrow_public_entries.cmake` + 可达闭包，随 morrow 构建执行）；
+   M1/M2 不变。M5 已按此前评审移除，兼容性由 M3 白名单冻结 + samples 编译保障。
+
+任务：
+
+1. **2.5a Engine pimpl + Window/Platform 内部化**：Engine.h 公共成员只剩
+   Options/Events 值类型；EngineEvents 增加输入/帧尺寸转播；samples 的
+   `getWindow()` 用法迁移到 `Engine::setClearColor`/`EngineEvents`；editor 切
+   实现路径（豁免）。验收：Platform/Window/InputEventsManager/InputProvider/
+   MainThreadDispatcher/FPSController/EventDispatcherBackUp 退出 include/morrow。
+2. **2.5b 机械部件链切断**：MR3DSceneView（OffscreenRenderTarget/设备接口链）、
+   GpuTypes+FrameState+BackdropBlurManager（BatchDataDefine/BatchStatistics/
+   SSBO*/ShaderReflection 链）、Material（Scene3DUBO/Scene3DPassContext/
+   GLTFTypes 前向声明 + pimpl）、MeshRenderer（VertexArray 前向声明）、
+   Texture/Widget（ObjectRegistry 下沉）、FrameState 瘦身 pimpl。验收：上述头
+   全部孤儿化并迁回 src/，公共头不再包含机械部件 include。
+3. **2.5c 门禁硬化**：M3 升级为「入口白名单 + 可达性」双检（孤儿滞留公共面即
+   构建失败）；冻结的对外清单写入文档与 CMake 变量。
+
+风险与取舍：Engine pimpl 触碰 Engine.cpp/编辑器启动路径（编译期可验证）；
+FrameState 采用瘦身 pimpl 的保守方案——不采用「改 Component 虚签名」的激进
+方案（破坏覆写 API，违背源码兼容目标 G6）。
+
+### Phase 2.6 — 第三轮收敛：GpuTypes/FontManager 全量内部化（§5.4.3 修订）
+
+> 状态：✅ 已完成（2026-09-29）。Windows/MinGW(Ninja) 全量构建通过；
+> DebugDemo 渲染指标与基线逐项一致（14 items → 5 batches / 5 draw calls）；
+> GLTFDemo/TextDemo 目检运行正常（3D 合成与文本路径）。公共面 104 → 101 头
+> （GpuTypes/FontManager/FontGlyph 内部化 −4，FontInfo 独立成头 +1）。
+> QNX/Linux 交叉编译待验证。
+
+实施要点：
+
+1. **GpuTypes.h 整体内部化**（推翻 v4.5「公开留 TextureData/VBOData/
+   VertexAttribute」的拆分方案）：`src/renderer/GpuTypes.h` 为实现专用；
+   `Texture.h` 以 pimpl（`std::unique_ptr<TextureData>`）复用其 TextureData；
+   `GLTFTypes.h` 的 `GLTFPrimitive::vboData` 降级为前向声明不透明字段；
+   `VertexAttribute/VertexAttributeType` 仍由公共 `DriverEnums.h` 承载。
+2. **SceneDisplayQuad 内部工具**：MR3DSceneView 的显示四边形（材质构建、
+   VBOData 打包、延迟上传、绘制）收进 `src/ui/elements/SceneDisplayQuad.h/.cpp`，
+   公共头不再持有 VBOData/HwVBO/材质成员，仅留 `unique_ptr<SceneDisplayQuad>`
+   前向声明成员。
+3. **FontManager.h/FontGlyph.h 内部化**：迁回 `src/fonts/`；samples 零使用
+   （公共文字面 = MRLabel/MRRichTextLabel 等控件 + `setText(fontName)` 字体名
+   参数）；editor 经豁免路径 PRIVATE 引用。`MRLabel::renderGlyphQuad` 下沉
+   .cpp 文件内函数，公共头去掉 FontGlyph 前向声明。`FontInfo`（addFonts
+   参数模型）从 Engine.h 抽为独立公共头 `FontInfo.h`，Engine.h 反向 include。
+4. **断裂 API 清理**（内部化遗留的「签名公共、类型不可达」）：
+   `MR3DSceneView::getLighting/getIBL`（返回 `Scene3DLightingState&`/
+   `Scene3DIBLState&`，类型随 Scene3DPassContext 内部化，零使用者）删除——
+   setSunLight/setAmbientLight/setIBL(FromDirectory)/clearIBL 为完整公共面；
+   `MeshRenderer::getVertexArray`（返回内部 VertexArraySharedPtr）转
+   private + friend BatchManager（内部批处理通道）。
+5. **门禁同步**：M3 入口白名单移除失效的 FontManager.h；M1/M3 复验通过
+   （100 头，零 GL 词汇，无孤儿滞留）。
+
+验收：公共面零 GpuTypes/FontManager/FontGlyph 可达；`grep -rn "VBOData"
+include/morrow` 仅剩 GLTFTypes.h 的不透明字段与 Texture.h pimpl；全量构建 +
+渲染回归全绿。
+
 ### Phase 3 — 契约固化
 
 - 对外 shader 契约固化为"仅具名内置 shader + Material 参数接口"文档；
@@ -589,6 +772,7 @@ include 路径兼容；`FontManager`/字体 pimpl 切断 stb 传递若牵扯较�
 | 3 | `Window::getSurface()` | **直接删除**，以能力 API 替代（§6.3） |
 | 4 | Tier A/B 白名单 | 维持 §5 清单，无增删 |
 | 5 | 公共头粒度 | 保持**单类一头 + 子目录**结构，不引入 umbrella 头（§7.2） |
+| 7 | 公共面第二轮收敛（追加评审） | **单窗口假设**：Window/Platform 内部化，Engine 提供公共事件与 setClearColor 补位；机械部件（设备接口/批处理 DTO/SSBO/反射）全部内部化；对外 = 引擎入口 + UI 组件 + 材质/纹理 + 相机（§5.4/§6.7/Phase 2.5） |
 | 6 | API 稳定性策略（追加评审） | 源码兼容目标 + 公共路径与内部结构解耦 + 薄头厚 cpp + 只加不改/semver/废弃两版本缓冲 + M5 一致性测试门禁（§2.1 G6、§7.5） |
 
 ---

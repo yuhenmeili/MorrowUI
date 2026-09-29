@@ -5,7 +5,7 @@
 
 #include "morrow/effects/BackdropBlur.h"
 
-#include "morrow/effects/BackdropBlurManager.h"
+#include "ui/effects/BackdropBlurManager.h"
 #include "BatchManager.h"
 #include "GlobalObject.h"
 #include "base/Component.inl"

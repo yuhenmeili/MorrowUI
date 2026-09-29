@@ -1,5 +1,4 @@
 #include "morrow/Engine.h"
-#include "morrow/FontManager.h"
 #include "morrow/Texture.h"
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MRGearsIris.h"
@@ -27,8 +26,8 @@ std::shared_ptr<MRLabel> createLabel(const std::wstring& text, float x, float y,
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto window = engine->getWindow();
-    window->setClearColor(0.02f, 0.025f, 0.04f, 1.0f);
+    auto window = engine->getRootWidget();
+    engine->setClearColor(0.02f, 0.025f, 0.04f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",

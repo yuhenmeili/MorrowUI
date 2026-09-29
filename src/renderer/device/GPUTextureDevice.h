@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-#include "morrow/GpuTypes.h"
+#include "GpuTypes.h"
 
 namespace morrow {
 

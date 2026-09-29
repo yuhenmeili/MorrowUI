@@ -12,9 +12,9 @@
 #include <string>
 #include <vector>
 
-#include "morrow/GpuTypes.h"
+#include "GpuTypes.h"
 #include "Matrix4.h"
-#include "morrow/ShaderReflection.h"
+#include "ShaderReflection.h"
 
 namespace morrow {
 using namespace Math;
