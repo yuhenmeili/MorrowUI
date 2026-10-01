@@ -44,7 +44,7 @@ void addAlignmentSample(const Root2DSharedPtr& window, const std::string& fontNa
 
 int main() {
     EngineOptions engineOptions;
-    // engineOptions.multithread = false;
+    engineOptions.multithread = false;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
     auto window = engine->getRootWidget();

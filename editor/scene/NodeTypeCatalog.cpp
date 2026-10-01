@@ -15,7 +15,7 @@ std::string lowercase(std::string value) {
 std::string baseName(const std::string& type) {
     if (type.rfind("MR", 0) == 0)
         return type.substr(2);
-    if (type == "SceneNode")
+    if (type == "SceneNode3D")
         return "Node";
     return type;
 }
@@ -34,14 +34,14 @@ NodeTypeCatalog::NodeTypeCatalog() {
     };
     const auto add = [this, &common](const std::string& type, const std::string& name, const std::string& category, const std::string& description,
                                      std::map<std::string, std::string> properties = {}) {
-        if (type != "SceneNode") {
+        if (type != "SceneNode3D") {
             for (const auto& [key, value] : common)
                 properties.emplace(key, value);
         }
         m_types.push_back({type, name, category, description, std::move(properties)});
     };
 
-    add("SceneNode", "Node", "Core", "A non-rendering scene container used to organize child nodes.");
+    add("SceneNode3D", "Node", "Core", "A non-rendering scene container used to organize child nodes.");
 
     add("MRButton", "Button", "Basic Controls", "A clickable text button.",
         {{"background_color", "Color(0.16, 0.31, 0.63, 1.0)"}, {"font_size", "18"}, {"size", "Vector2(180.0, 48.0)"}, {"text", "Button"}});

@@ -210,7 +210,7 @@ editor/
 property background_color = Color(0.12, 0.18, 0.28, 1.0)
 property corner_radius = 6.0
 
-[node id="node_0001" type="SceneNode" name="Main"]
+[node id="node_0001" type="SceneNode3D" name="Main"]
 
 [node id="node_0002" type="MRButton" parent="node_0001" name="StartButton"]
 property text = "Start"
@@ -351,7 +351,7 @@ node reference
 
 建议按以下顺序接入：
 
-1. `Widget` / `UIWidget` / `SceneNode`；
+1. `Widget` / `UIWidget` / `SceneNode3D`；
 2. `Transform` / `Transform3D`；
 3. `MeshFilter` / `MeshRenderer` / `MeshRenderer3D`；
 4. `MRImage` / `MRLabel` / `MRButton`；
@@ -787,7 +787,7 @@ Continuous update requested
 - Asset ID 到源资源路径解析；
 - 节点稳定 ID、类型、名称和父子关系读取；
 - 基础属性读取：`visible`、`display_layer`、`position`、`size`、`text`、`font_size`、`background_color`；
-- `SceneNode`、`MRButton`、`MRImage`、`MRLabel` 的基础实例化；
+- `SceneNode3D`、`MRButton`、`MRImage`、`MRLabel` 的基础实例化；
 - 纹理 Asset ID 到 `Texture::setImageUrl()` 的运行时加载路径；
 - `Style` 子资源到 `MRButton` 圆角和背景色的应用；
 - `MorrowEditor` 从 `editor/morrow.gui/scenes/main.scene` 创建预览对象；

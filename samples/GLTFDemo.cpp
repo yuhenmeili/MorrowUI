@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
     loadOptions.sceneOptions.cameraFit.enabled = true;
     loadOptions.sceneOptions.cameraFit.paddingScale = 1.25f;
     loadOptions.sceneOptions.onError = [modelPath](const std::string& error) { LOG_E("Failed to load GLTF '{}': {}", modelPath, error); };
-    loadOptions.onSceneBuilt = [modelPath, iblDirectory](const std::shared_ptr<GLTFScene>& gltfScene, const std::shared_ptr<SceneNode>& sceneRoot) {
+    loadOptions.onSceneBuilt = [modelPath, iblDirectory](const std::shared_ptr<GLTFScene>& gltfScene, const std::shared_ptr<SceneNode3D>& sceneRoot) {
         if (!gltfScene || !sceneRoot) {
             return;
         }

@@ -126,18 +126,18 @@ MR3DSceneView::~MR3DSceneView() {
 // Public API
 // ---------------------------------------------------------------------------
 
-void MR3DSceneView::setSceneRoot(std::shared_ptr<SceneNode> sceneRoot) {
+void MR3DSceneView::setSceneRoot(std::shared_ptr<SceneNode3D> sceneRoot) {
     m_sceneRoot = std::move(sceneRoot);
     invalidateSceneRender();
 }
 
-void MR3DSceneView::setSceneRoot(std::shared_ptr<SceneNode> sceneRoot, const Vector3& boundsMin, const Vector3& boundsMax, const Scene3DCameraFitOptions& fitOptions) {
+void MR3DSceneView::setSceneRoot(std::shared_ptr<SceneNode3D> sceneRoot, const Vector3& boundsMin, const Vector3& boundsMax, const Scene3DCameraFitOptions& fitOptions) {
     m_sceneRoot = std::move(sceneRoot);
     fitCameraToBounds(boundsMin, boundsMax, fitOptions);
     invalidateSceneRender();
 }
 
-const std::shared_ptr<SceneNode>& MR3DSceneView::getSceneRoot() const {
+const std::shared_ptr<SceneNode3D>& MR3DSceneView::getSceneRoot() const {
     return m_sceneRoot;
 }
 

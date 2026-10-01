@@ -42,7 +42,7 @@ if (layout.name == "button") {
 
 > **实施状态（2026-08-05）**
 >
-> - P0（安全性修复）、P1（注册表重构）、P2（字段绑定）、P3（shader reflection 校验）**已实施完成**，详见第 15 节 ✅ 标记；
+> - P0（安全性修复）、P1（注册表重构）、P2（字段绑定）、P3（shader reflection 校验）**已实施完成**，详见 `OPTIMIZATION_DIRECTIONS.md` 第 19 条 ✅ 标记；
 > - P4（代码生成）仍为建议方案，暂未实施；
 > - P1 的独立命名 filler 已在 P2 中演进为声明式字段绑定（`SSBOLayoutFillers.h` 已删除），`SSBOLayout::filler` 仍保留为 custom packer 通道；
 > - 本节背景代码示例为重构前形态，仅供参考。

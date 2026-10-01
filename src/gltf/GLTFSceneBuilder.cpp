@@ -10,7 +10,7 @@
 
 #include "morrow/Texture.h"
 #include "morrow/base/MeshRenderer3D.h"
-#include "morrow/base/SceneNode.h"
+#include "morrow/base/SceneNode3D.h"
 
 namespace morrow {
 namespace {
@@ -43,7 +43,7 @@ void accumulatePrimitiveBounds(const GLTFPrimitive& primitive, const Matrix4& wo
 }
 }  // namespace
 
-std::shared_ptr<SceneNode> GLTFSceneBuilder::build(const std::shared_ptr<GLTFScene>& scene, const std::string& shaderName) {
+std::shared_ptr<SceneNode3D> GLTFSceneBuilder::build(const std::shared_ptr<GLTFScene>& scene, const std::string& shaderName) {
     if (!scene)
         return nullptr;
 
@@ -65,8 +65,8 @@ std::shared_ptr<SceneNode> GLTFSceneBuilder::build(const std::shared_ptr<GLTFSce
         textures[i] = std::move(texture);
     }
 
-    // Create an invisible root SceneNode that groups all top-level nodes.
-    auto root = std::make_shared<SceneNode>();
+    // Create an invisible root SceneNode3D that groups all top-level nodes.
+    auto root = std::make_shared<SceneNode3D>();
     root->setWidgetName("GLTFSceneRoot");
 
     for (int rootIdx : scene->rootNodes) {
@@ -127,13 +127,13 @@ bool GLTFSceneBuilder::computeBounds(const std::shared_ptr<GLTFScene>& scene, Ve
     return hasBounds;
 }
 
-std::shared_ptr<SceneNode> GLTFSceneBuilder::buildNode(const GLTFScene& scene, const std::vector<TextureSharedPtr>& textures, int nodeIndex, const std::string& shaderName) {
+std::shared_ptr<SceneNode3D> GLTFSceneBuilder::buildNode(const GLTFScene& scene, const std::vector<TextureSharedPtr>& textures, int nodeIndex, const std::string& shaderName) {
     if (nodeIndex < 0 || nodeIndex >= int(scene.nodes.size()))
         return nullptr;
 
     const GLTFNode& node = scene.nodes[nodeIndex];
 
-    auto sceneNode = std::make_shared<SceneNode>();
+    auto sceneNode = std::make_shared<SceneNode3D>();
     sceneNode->setWidgetName(node.name.empty() ? ("GLTFNode_" + std::to_string(nodeIndex)) : node.name);
 
     auto transform = sceneNode->getTransform();

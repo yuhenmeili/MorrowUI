@@ -17,10 +17,10 @@
 #include "morrow/helpers/Scene3DNormalization.h"
 
 namespace morrow {
-class SceneNode;
+class SceneNode3D;
 
 struct Scene3DAsyncLoadResult {
-    std::shared_ptr<SceneNode> sceneRoot;
+    std::shared_ptr<SceneNode3D> sceneRoot;
     bool hasBounds = false;
     Vector3 boundsMin = {};
     Vector3 boundsMax = {};
@@ -57,7 +57,7 @@ public:
         /// a consistent scene size. Set enabled=false to preserve source units.
         Scene3DNormalizationOptions normalization;
         Scene3DAsyncLoadOptions sceneOptions;
-        std::function<void(const std::shared_ptr<GLTFScene>& scene, const std::shared_ptr<SceneNode>& sceneRoot)> onSceneBuilt;
+        std::function<void(const std::shared_ptr<GLTFScene>& scene, const std::shared_ptr<SceneNode3D>& sceneRoot)> onSceneBuilt;
     };
 
     static std::shared_ptr<Scene3DAsyncLoader> create(const EngineSharedPtr& engine, const std::shared_ptr<MR3DSceneView>& scene3DView);

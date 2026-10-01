@@ -141,7 +141,7 @@ drawMode = mesh->getDrawMode(); // 使用最后一个有效的mesh的绘制模�
 | **实测瓶颈** | 未见 profiler 数据显示此处为热点 |
 | **代码质量** | 存在明显的反模式（循环 memcpy 单值） |
 | **鲁棒性** | 若未来接入大顶点数的 3D mesh，当前实现会明显退化 |
-| **项目原则** | 符合"优化前应先建立基线"（ARCHITECTURE.md §16） |
+| **项目原则** | 符合"优化前应先建立基线"（`OPTIMIZATION_DIRECTIONS.md` 优化决策标准） |
 
 ### 4.2 预期收益
 
@@ -264,7 +264,7 @@ Mesh 直接持有 VBOData 兼容格式 → 零拷贝引用传递
 ```
 
 **代价**：Mesh 类与 VBOData 格式耦合；需要引入格式抽象层。
-**决策依据**：当前项目原则 §3.3 鼓励"避免每帧复制"，但 ARCHITECTURE.md §15.1 已将此列为后续优化方向。可在 RenderItem 紧凑化时一并进行。
+**决策依据**：当前项目原则 §3.3 鼓励"避免每帧复制"，但 `OPTIMIZATION_DIRECTIONS.md` 第 7 条（RenderItem 热路径紧凑化）已将此列为后续优化方向，可在该项中一并推进。
 
 #### 5.3.3 索引转换 SIMD
 
@@ -336,5 +336,5 @@ Phase 3（需 Profiler 支撑）
 
 **建议行动**：
 1. 立即修复 P0 级代码反模式（`memcpy` 循环 → `std::fill_n`），提升代码质量；
-2. 后续随 RenderItem 紧凑化（ARCHITECTURE.md §15.1）和合批 Key 优化（§15.3）统一考虑数据布局改进；
+2. 后续随 RenderItem 紧凑化（`OPTIMIZATION_DIRECTIONS.md` 第 7 条）和合批 Key 优化（第 6 条）统一考虑数据布局改进；
 3. 在当前阶段，将精力集中在 SSBO 路径、Dirty 标记完善和合批 Key 缓存等更高优先级的优化项上。

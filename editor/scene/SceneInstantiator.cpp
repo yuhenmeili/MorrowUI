@@ -68,7 +68,7 @@ using morrow::Math::Vector4;
 class SceneContainer2D final : public morrow::UIWidget {
 public:
     SceneContainer2D() : UIWidget(false) {
-        setWidgetType("SceneNode");
+        setWidgetType("SceneNode3D");
     }
 };
 
@@ -121,7 +121,7 @@ std::wstring toWide(const std::string& value) {
 }
 
 std::shared_ptr<morrow::Widget> createNode(const morrow::editor::SceneNodeRecord& record, std::string& error) {
-    if (record.type == "SceneNode") {
+    if (record.type == "SceneNode3D") {
         // Phase 1 scenes are 2D editor documents. Use a non-rendering 2D
         // container so UI descendants retain the normal Transform chain.
         return std::make_shared<SceneContainer2D>();

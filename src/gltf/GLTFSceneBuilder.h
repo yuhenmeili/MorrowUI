@@ -12,17 +12,17 @@
 #include "morrow/Texture.h"
 
 namespace morrow {
-class SceneNode;
+class SceneNode3D;
 class RenderDeviceProxyBase;
 
 class GLTFSceneBuilder {
 public:
-    static std::shared_ptr<SceneNode> build(const std::shared_ptr<GLTFScene>& scene, const std::string& shaderName = "gltf_pbr");
+    static std::shared_ptr<SceneNode3D> build(const std::shared_ptr<GLTFScene>& scene, const std::string& shaderName = "gltf_pbr");
 
     static bool computeBounds(const std::shared_ptr<GLTFScene>& scene, Vector3& outMin, Vector3& outMax);
 
 private:
-    static std::shared_ptr<SceneNode> buildNode(const GLTFScene& scene, const std::vector<TextureSharedPtr>& textures, int nodeIndex, const std::string& shaderName);
+    static std::shared_ptr<SceneNode3D> buildNode(const GLTFScene& scene, const std::vector<TextureSharedPtr>& textures, int nodeIndex, const std::string& shaderName);
 };
 }  // namespace morrow
 

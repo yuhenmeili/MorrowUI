@@ -6,6 +6,11 @@
 
 > 更新记录：
 >
+> - v4.8（2026-09-30）：Phase 3 契约固化完成——`docs/INTEGRATION.md` 对外集成
+>   指南落地（最小接口说明、shader 契约冻结清单、迁移对照表、演进策略）；
+>   ARCHITECTURE.md §14 增补不变量 15~19；§8 门禁表现状同步（M3 为
+>   CheckPublicApiSurface 实现，M4/M5 按评审已移除）；Phase 3 的「M5 覆盖补全」
+>   条目按 v4.3 评审决策修订为白名单冻结 + samples 编译保障。
 > - v4.7（2026-09-30）：第三方头目录收口——`src/includes` 并入 `src/extern`
 >   （`extern/common/`：stb/nlohmann/eglextQCOM；`extern/opengl/wgl/`：glad/GLFW/KHR，
 >   与 basis_universal/tinygltf 同置），外部代码统一单目录管理；§5.3/§6.6 路径同步。
@@ -547,9 +552,9 @@ install(EXPORT morrowConfig DESTINATION lib/cmake/morrow)
 |---|---|---|
 | M1 | 公共头零 GL 词汇 | 脚本扫描 `include/morrow/**`：禁止出现 `#include` GLES/EGL/gl/glfw/glad 及 token `GLuint|GLint|GLenum|GLbitfield|EGL[A-Z]|GLFW`；命中即失败 |
 | M2 | 负向编译测试 | CMake `try_compile` 一个 `#include "renderer/device/GLRenderDevice.h"`（及 EGLWindow.h、OpenglUtils.h 等代表样本）的 TU，**必须编译失败**，否则配置失败 |
-| M3 | include 图校验 | 公共头不得 include `include/morrow` 之外的任何引擎头（脚本沿 `#include "` 递归校验，防止转发头/相对路径绕过） |
-| M4 | 边界回归样板 | samples/editor 全量仅 include 公共面；samples 中出现 `src/` 相对路径 include（如 `GLTFDemo.cpp:1` 的 `../src/ui/helpers/...`）视为失败 |
-| M5 | 公共 API 一致性测试 | 独立测试目标，覆盖全部公开类/方法/枚举的使用方式，随引擎每次构建编译；任何破坏源码兼容的改动（删类、改签名、移除枚举值、公共路径变更）使其编译失败，发版前拦截 |
+| M3 | 公共面冻结 | `cmake/CheckPublicApiSurface.cmake`（随 morrow 构建）：include/morrow 每头 ∈ 入口白名单（`cmake/morrow_public_entries.cmake`）∪ 入口可达闭包，孤儿滞留即失败（Phase 2.5c 升级版实现，取代原 Python include 图校验） |
+| M4 | ~~边界回归样板~~ | 已随 v4.3 评审移除（临时验证设施）；现状：samples 仅 include 公共面（编译即回归），editor 为评审豁免的仓库内工具 |
+| M5 | ~~公共 API 一致性测试~~ | 已随 v4.3 评审移除；源码兼容由 M3 白名单冻结 + samples 编译保障 |
 
 M1/M2 成本极低（纯 CMake/脚本），Phase 1 结束即可上线，长期防止边界回退。
 （编号 M* 为 CI 门禁，与 §2 的目标 G* 相互独立。）
@@ -733,12 +738,27 @@ include/morrow` 仅剩 GLTFTypes.h 的不透明字段与 Texture.h pimpl；全�
 
 ### Phase 3 — 契约固化
 
-- 对外 shader 契约固化为"仅具名内置 shader + Material 参数接口"文档；
-- 验证 `setShaderFromMemory`/自定义几何入口在公共面已不可达（配合 M1~M5 门禁）；
-- M5 覆盖补全至 Tier B（3D 场景、诊断入口）；
-- API 演进策略（§7.5：只加不改、semver、废弃两版本缓冲）写入对外集成指南并生效；
-- ARCHITECTURE.md §14 增补不变量（§10）；
-- 对外集成指南（`docs/` 下新增：最小接口说明 + 迁移对照表）。
+> 状态：✅ 已完成（2026-09-30）。对外集成指南 `docs/INTEGRATION.md` 落地（最小
+> 接口说明、shader 契约与内置清单、迁移对照表、演进策略）；ARCHITECTURE.md §14
+> 增补不变量 15~19（本文档 §10）；`setShaderFromMemory`/`getSurface`/废弃 Shader
+> 类全仓零残留（grep 验证），自定义几何面收口为「控件基础设施、非承诺面」
+> （Mesh/MeshFilter 物理可达但不在入口白名单，演进不受兼容约束）；全量构建 +
+> M1/M2/M3 门禁 + DebugDemo 渲染回归通过（14 items → 5 batches / 5 draw calls）。
+
+任务：
+
+1. ✅ 对外 shader 契约固化为"仅具名内置 shader + Material 参数接口"文档
+   （`docs/INTEGRATION.md` §3：内置 32 名冻结清单 + 契约规则）；
+2. ✅ 验证 `setShaderFromMemory`/自定义几何入口在公共面已不可达（全仓 grep
+   零残留；门禁以现行 M1/M2/M3 为准，M4/M5 已按 v4.3 评审移除）；
+3. ~~M5 覆盖补全至 Tier B（3D 场景、诊断入口）~~（修订：M5 已按 v4.3 评审
+   决策移除，不重建；Tier B 入口——MR3DSceneView/Scene3DAsyncLoader/
+   IBLPrecompute/FrameState/ObjectRegistry/BatchStatistics——已全部冻结在
+   M3 入口白名单，兼容性由白名单 + samples 编译保障）；
+4. ✅ API 演进策略（§7.5：只加不改、semver、废弃两版本缓冲）写入
+   `docs/INTEGRATION.md` §6 并生效；
+5. ✅ ARCHITECTURE.md §14 增补不变量（§10）；
+6. ✅ 对外集成指南（`docs/` 下新增：最小接口说明 + 迁移对照表）。
 
 ## 10. 拟新增架构不变量（并入 ARCHITECTURE.md §14）
 

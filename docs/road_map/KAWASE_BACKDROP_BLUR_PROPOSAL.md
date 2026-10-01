@@ -129,7 +129,7 @@ RT_L2 (1/8)  ──kawase(offset=2.5)──▶ RT_L2'   ← "特大半径"采样
    参数使用（如 `bounce.vert:16`），模糊面片需要"自身矩形 → backdrop 采样 UV"
    的每实例数据（4 个 float），需要扩展实例布局（涉及
    `SSBOLayoutBuilder.h` 的 `static_assert` 偏移约束，须与
-   `SSBO_LAYOUT_AUTOMATION.md` 的机制协同）。
+   `performance/SSBO_LAYOUT_AUTOMATION.md` 的机制协同）。
 
 ---
 
@@ -230,7 +230,7 @@ float tintMix  = ...;                    // acrylic 混色强度（可并入 col
 ```
 
 `SSBOLayoutBuilder.h` 的偏移 `static_assert` 需同步更新，非 SSBO 回退路径
-（`u_extraAttr` uniform）同步补齐——这条改动要对照 `SSBO_LAYOUT_AUTOMATION.md`
+（`u_extraAttr` uniform）同步补齐——这条改动要对照 `performance/SSBO_LAYOUT_AUTOMATION.md`
 的流程走，避免破坏布局自动化测试。
 
 ### 5.4 组件 API（沿用 Shadow 模式）
@@ -416,7 +416,7 @@ iOS"降低透明度"——视觉层级与可读性保留，成本归零（无 RT
    （premultiplied 与否）要与背景恢复拷贝、模糊面片混色一致，防止发灰。
 4. **实例布局变更**：`UIInstanceData` 加字段触发布局偏移约束
    （`SSBOLayoutBuilder.h:50`）与所有宿主 shader 的 `instance.glsl` 同步，
-   走 `SSBO_LAYOUT_AUTOMATION.md` 的校验流程。
+   走 `performance/SSBO_LAYOUT_AUTOMATION.md` 的校验流程。
 5. **`areRenderItemListsEquivalent` 比较深度**：若不含 Transform 位置变化，
    S2 的脏标记需补位置校验，否则纯位移动画下 backdrop 会用到过期内容。
 6. **QNX tile-based GPU 的 resolve 行为**：频繁 bind/unbind FBO 会触发
@@ -427,12 +427,12 @@ iOS"降低透明度"——视觉层级与可读性保留，成本归零（无 RT
 
 ## 9. 与现有文档的关系
 
-- `PERFORMANCE_OPTIMIZATION_ROADMAP.md` 第 3 节"已经做对的部分"清单
+- `performance/PERFORMANCE_OPTIMIZATION_ROADMAP.md` 第 3 节"已经做对的部分"清单
   （按需渲染、增量合批、SSBO 实例化、版本号缓存）是本方案的前提，设计
   全程不破坏这些机制；
 - `UI_SHADOW_DESIGN_PROPOSAL.md` 确立的"组件复用属主 mesh/transform + 普通
   通道自然顺序"模式被 `BackdropBlur` 组件直接沿用；其 S2/S3（重叠合并、
   SSBO 变体）与本方案的层级材质分批思路可互相借鉴；
-- `SSBO_LAYOUT_AUTOMATION.md` 约束实例布局扩展的实施方式；
+- `performance/SSBO_LAYOUT_AUTOMATION.md` 约束实例布局扩展的实施方式；
 - `OES_TEXTURE_FENCE_DESIGN.md` 的 fence 回收机制覆盖模糊链 RT 的生命周期
   管理（异步销毁复用现有通道）。

@@ -12,7 +12,7 @@
 #include "morrow/OrbitCamera.h"
 #include "morrow/controllers/OrbitController.h"
 #include "morrow/base/UIWidget.h"
-#include "morrow/base/SceneNode.h"
+#include "morrow/base/SceneNode3D.h"
 
 namespace morrow {
 class OffscreenRenderTarget;
@@ -41,17 +41,17 @@ public:
 
     /// 替换当前视图渲染的 3D 场景根节点。
     /// Replace the 3D scene subtree rendered by this view.
-    void setSceneRoot(std::shared_ptr<SceneNode> sceneRoot);
+    void setSceneRoot(std::shared_ptr<SceneNode3D> sceneRoot);
 
     /// 替换 3D 场景根节点，并按需根据包围盒自动适配环绕相机。
     /// Replace the 3D scene subtree and optionally auto-fit the orbit camera.
-    void setSceneRoot(std::shared_ptr<SceneNode> sceneRoot,
+    void setSceneRoot(std::shared_ptr<SceneNode3D> sceneRoot,
                       const Vector3& boundsMin,
                       const Vector3& boundsMax,
                       const Scene3DCameraFitOptions& fitOptions = {});
 
     /// 获取当前渲染的 3D 场景根节点。
-    const std::shared_ptr<SceneNode>& getSceneRoot() const;
+    const std::shared_ptr<SceneNode3D>& getSceneRoot() const;
 
     /// 根据世界空间轴对齐包围盒调整环绕相机。
     /// Fit the orbit camera to a world-space axis-aligned bounding box.
@@ -132,7 +132,7 @@ private:
     std::shared_ptr<OrbitCamera> m_orbitCamera;
     OrbitControllerSharedPtr m_orbitController;
     std::unique_ptr<OffscreenRenderTarget> m_renderTarget;
-    std::shared_ptr<SceneNode> m_sceneRoot;
+    std::shared_ptr<SceneNode3D> m_sceneRoot;
     std::unique_ptr<SceneDisplayQuad> m_displayQuad;
 
     Vector4 m_sceneClearColor = {0.22f, 0.23f, 0.31f, 1.0f};

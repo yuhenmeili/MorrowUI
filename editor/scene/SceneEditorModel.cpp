@@ -31,7 +31,7 @@ std::map<std::string, std::string> effectiveProperties(const SceneNodeRecord& no
     properties.emplace("scale", "Vector3(1.0, 1.0, 1.0)");
     properties.emplace("size", "Vector2(100.0, 40.0)");
     properties.emplace("visible", "true");
-    if (node.type != "SceneNode") {
+    if (node.type != "SceneNode3D") {
         properties.emplace("mesh", "Generated UI Quad");
         properties.emplace("renderer_enabled", "true");
         properties.emplace("material", "Default UI Material");

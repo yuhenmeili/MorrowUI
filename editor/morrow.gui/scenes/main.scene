@@ -6,7 +6,7 @@
 property background_color = Color(0.18, 0.42, 0.78, 1.0)
 property corner_radius = 8.0
 
-[node id="node_0001" type="SceneNode" name="Main"]
+[node id="node_0001" type="SceneNode3D" name="Main"]
 
 [node id="node_0002" type="MRButton" parent="node_0001" name="StartButton"]
 property position = Vector3(66.000, 48.000, 0.000)
