@@ -122,7 +122,7 @@ elseif(MORROW_PLATFORM STREQUAL "Linux")
     message(STATUS "Building for Linux platform")
     file(GLOB_RECURSE WGL_SOURCES "platform/wgl/*.cpp" "platform/wgl/*.c")
     list(APPEND PLATFORM_SRC ${WGL_SOURCES})
-    list(APPEND PLATFORM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/includes/opengl/wgl)
+    list(APPEND PLATFORM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/extern/opengl/wgl)
 
     list(APPEND MORROW_PRIVATE_PLATFORM_DEFINES OPENGL_GLFW)
     set(MORROW_HAS_GLFW FALSE)
@@ -173,7 +173,7 @@ elseif(MORROW_PLATFORM STREQUAL "Windows")
     message(STATUS "Building for Windows platform")
     file(GLOB_RECURSE WGL_SOURCES "platform/wgl/*.cpp" "platform/wgl/*.c")
     list(APPEND PLATFORM_SRC ${WGL_SOURCES})
-    list(APPEND PLATFORM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/includes/opengl/wgl)
+    list(APPEND PLATFORM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/extern/opengl/wgl)
 
     list(APPEND MORROW_PRIVATE_PLATFORM_DEFINES OPENGL_GLFW)
 
@@ -298,7 +298,7 @@ target_include_directories(${MORROW_LIB_NAME}
     PUBLIC ${CMAKE_SOURCE_DIR}/include
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/includes/common
+    ${CMAKE_CURRENT_SOURCE_DIR}/extern/common
     ${CMAKE_CURRENT_SOURCE_DIR}/core
     ${CMAKE_CURRENT_SOURCE_DIR}/loader
     ${CMAKE_CURRENT_SOURCE_DIR}/extern

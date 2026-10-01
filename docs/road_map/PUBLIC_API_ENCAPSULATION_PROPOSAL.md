@@ -6,6 +6,9 @@
 
 > 更新记录：
 >
+> - v4.7（2026-09-30）：第三方头目录收口——`src/includes` 并入 `src/extern`
+>   （`extern/common/`：stb/nlohmann/eglextQCOM；`extern/opengl/wgl/`：glad/GLFW/KHR，
+>   与 basis_universal/tinygltf 同置），外部代码统一单目录管理；§5.3/§6.6 路径同步。
 > - v4.6（2026-09-29）：第三轮收敛（GpuTypes/FontManager 全量内部化）——
 >   公共面 104 → 101 头：GpuTypes.h 整体迁回 `src/renderer/`（Texture.h 以
 >   pimpl 复用其 TextureData；GLTFTypes 的 `GLTFPrimitive::vboData` 降级为
@@ -264,8 +267,8 @@ Engine.h:10 → Window.h:10 → UIWidget.h:9-10 → MeshRenderer.h:12
   EGLWindow、QNXPlatform）、`wgl/*`（OpenglHeader、WGLPlatform、WGLWindow、glad）、
   `OpenglUtils`；
 - 废弃 `Shader` 类（`renderer/resource/Shader.h`）——**删除**；
-- `extern/`（stb、nlohmann、basis_universal）与 `includes/`（vendor GL/GLFW 头、
-  `eglextQCOM.h`）；
+- `extern/` 统一收口全部第三方/外部头：basis_universal、tinygltf、stb、nlohmann、
+  vendor GL/GLFW 头（`extern/opengl/wgl/`）与 `eglextQCOM.h`（`extern/common/`）；
 - `core/` 内部（`MainThreadDispatcher`、`BatchBuilder` 等）。
 
 ### 5.4 公共面收敛（第二轮）
@@ -412,7 +415,7 @@ M3 升级后孤儿滞留公共面即失败。
 
 ### 6.6 第三方头内部化
 
-- `includes/common/`（stb_*、nlohmann、**eglextQCOM.h**）与 `includes/opengl/wgl/`
+- `extern/common/`（stb_*、nlohmann、**eglextQCOM.h**）与 `extern/opengl/wgl/`
   （glad、GLFW、KHR）全部退出 PUBLIC include；
 - `eglextQCOM.h` 属于芯片扩展定义，尤其不应外流；
 - 字体公共面检查传递依赖：`DynamicFont.h:17 → stb_truetype.h`，公共化时对
@@ -617,7 +620,7 @@ M1/M2 成本极低（纯 CMake/脚本），Phase 1 结束即可上线，长期�
    退出公共面；`FontManager` pimpl 化（`fonts_internal::getFont` 内部入口），
    stb_truetype 不再可达；`MRLabel.h` 改 DynamicFont 前向声明。
 5. **白名单例外（文档化）**：`src/math`（morrow_math 目标，GL-free 产品头）
-   仍以自身目录交付；editor 作为仓库内工具 PRIVATE 引入 `src/includes/common`
+   仍以自身目录交付；editor 作为仓库内工具 PRIVATE 引入 `src/extern/common`
    （stb_image 缩略图用），不进入引擎公共接口。
 6. **门禁**：M1（include/morrow 全量扫描，随 morrow 构建）与 M2（configure 期
    try_compile 负向编译，内部头不可从公共路径触及）**长期保留**；M3/M4

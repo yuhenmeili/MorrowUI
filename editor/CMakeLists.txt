@@ -12,7 +12,7 @@ set(MORROW_EDITOR_IMPL_DIRS
     ${CMAKE_SOURCE_DIR}/src/fonts
     ${CMAKE_SOURCE_DIR}/src/gltf
     ${CMAKE_SOURCE_DIR}/src/debug
-    ${CMAKE_SOURCE_DIR}/src/includes/common)
+    ${CMAKE_SOURCE_DIR}/src/extern/common)
 
 add_library(morrow_editor_document STATIC
     ProjectSettings.cpp
@@ -75,7 +75,7 @@ target_include_directories(morrow_editor_runtime PRIVATE
     ${CMAKE_SOURCE_DIR}/src/gltf
     ${CMAKE_SOURCE_DIR}/src/debug)
 # 仓库内工具豁免：编辑器缩略图直接用 stb_image（vendor 头不进入引擎公共接口）。
-target_include_directories(morrow_editor_runtime PRIVATE ${CMAKE_SOURCE_DIR}/src/includes/common)
+target_include_directories(morrow_editor_runtime PRIVATE ${CMAKE_SOURCE_DIR}/src/extern/common)
 
 add_executable(MorrowEditor Editor.cpp)
 target_link_libraries(MorrowEditor PRIVATE morrow_editor_runtime)
