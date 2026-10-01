@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
     engineOptions.objectSnapshotCommandPath = objectSnapshotCommandPath;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     // ---------------------------------------------------------------------
@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
         transform->setPosition(index * 100, 100, 0);
         transform->setSize(100.0f, 100.0f + std::abs(std::sin(index) * 100.0f));
         image->getComponent<MeshRenderer>()->getMaterial()->setTexture("texture", textAtlas);
-        window->addChild(image);
+        scene->addChild(image);
     }
 
     auto colorBlock = MRColor::create();
@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
         shadow->setShadowOffset(Vector2(5.0f, 5.0f));
         shadow->setShadowColor(Vector4(0.0f, 0.0f, 0.0f, 0.5f));
     }
-    window->addChild(colorBlock);
+    scene->addChild(colorBlock);
 
     auto shadowedImage = MRImage::create();
     shadowedImage->setTexture(textAtlas);
@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
         shadow->setShadowOffset(Vector2(5.0f, 5.0f));
         shadow->setShadowColor(Vector4(0.0f, 0.0f, 0.0f, 0.5f));
     }
-    window->addChild(shadowedImage);
+    scene->addChild(shadowedImage);
 
     LOG_I("DebugDemo started — press F3 to toggle the debug overlay");
     if (enableRequestRender) {

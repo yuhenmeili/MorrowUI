@@ -4,13 +4,13 @@
 
 #include "DebugPlane.h"
 
-#include "morrow/base/Root2D.h"
+#include "morrow/base/Scene2D.h"
 #include "morrow/BatchStatistics.h"
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MRLabel.h"
 
 namespace morrow {
-void DebugPlane::initialize(std::shared_ptr<Root2D> root) {
+void DebugPlane::initialize(std::shared_ptr<Scene2D> root) {
     if (!root) {
         return;
     }

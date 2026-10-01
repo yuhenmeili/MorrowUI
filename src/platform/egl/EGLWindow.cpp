@@ -189,7 +189,7 @@ void EGLWindow::beginRenderPass(FrameStateSharedPtr frameState)
 {
     if (!m_windowInited) return;
 
-    if (auto transform = m_root2D->getComponent<Transform>()) {
+    if (auto transform = m_scene2D->getComponent<Transform>()) {
         const Vector3 size = transform->getSize();
         if (size.x != m_windowSize.x || size.y != m_windowSize.y) {
             transform->setSize(m_windowSize.x, m_windowSize.y);

@@ -24,7 +24,7 @@ std::shared_ptr<MRLabel> createLabel(const std::wstring& text, const std::string
     return label;
 }
 
-void addAlignmentSample(const Root2DSharedPtr& window, const std::string& fontName, const std::wstring& text, float x, float y, HorizontalAlignment horizontal,
+void addAlignmentSample(const Scene2DSharedPtr& scene, const std::string& fontName, const std::wstring& text, float x, float y, HorizontalAlignment horizontal,
                         VerticalAlignment vertical) {
     constexpr float width = 280.0f;
     constexpr float height = 105.0f;
@@ -34,10 +34,10 @@ void addAlignmentSample(const Root2DSharedPtr& window, const std::string& fontNa
     background->setRounding(8.0f);
     background->getComponent<Transform>()->setPosition(x, y, -0.1f);
     background->getComponent<Transform>()->setSize(width, height);
-    window->addChild(background);
+    scene->addChild(background);
 
     auto label = createLabel(text, fontName, x, y, width, height, 20.0f, horizontal, vertical);
-    window->addChild(label);
+    scene->addChild(label);
 }
 
 }  // namespace
@@ -47,7 +47,7 @@ int main() {
     engineOptions.multithread = false;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     FontInfo fontInfo = {.name = "debug_morrow_20", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
@@ -55,7 +55,7 @@ int main() {
 
     const std::string fontName = fontInfo.name;
 
-    window->addChild(createLabel(L"文本输入组件", fontName, 120.0f, 90.0f, 620.0f, 48.0f, 30.0f));
+    scene->addChild(createLabel(L"文本输入组件", fontName, 120.0f, 90.0f, 620.0f, 48.0f, 30.0f));
 
     auto multiLineEdit = MRTextEdit::create();
     multiLineEdit->getComponent<Transform>()->setPosition(120.0f, 160.0f, 0.0f);
@@ -68,7 +68,7 @@ int main() {
             [](MRTextEdit&, const std::wstring& text) {
                 LOG_I("multi-line text length = {}", text.size());
             });
-    window->addChild(multiLineEdit);
+    scene->addChild(multiLineEdit);
 
     auto userNameEdit = MRLineEdit::create();
     userNameEdit->getComponent<Transform>()->setPosition(120.0f, 470.0f, 0.0f);
@@ -82,7 +82,7 @@ int main() {
             [](MRTextEdit&, const std::wstring& text) {
                 LOG_I("user name submitted, length = {}", text.size());
             });
-    window->addChild(userNameEdit);
+    scene->addChild(userNameEdit);
 
     auto passwordEdit = MRLineEdit::create();
     passwordEdit->getComponent<Transform>()->setPosition(120.0f, 550.0f, 0.0f);
@@ -97,17 +97,17 @@ int main() {
             [](MRTextEdit&, const std::wstring& text) {
                 LOG_I("password submitted, length = {}", text.size());
             });
-    window->addChild(passwordEdit);
+    scene->addChild(passwordEdit);
 
-    window->addChild(createLabel(L"MRLabel 对齐与排版", fontName, 820.0f, 52.0f, 900.0f, 48.0f, 30.0f));
-    window->addChild(createLabel(L"同一固定区域内展示水平和垂直对齐组合", fontName, 820.0f, 92.0f, 900.0f, 34.0f, 18.0f));
+    scene->addChild(createLabel(L"MRLabel 对齐与排版", fontName, 820.0f, 52.0f, 900.0f, 48.0f, 30.0f));
+    scene->addChild(createLabel(L"同一固定区域内展示水平和垂直对齐组合", fontName, 820.0f, 92.0f, 900.0f, 34.0f, 18.0f));
 
-    addAlignmentSample(window, fontName, L"左上 LEFT / TOP", 820.0f, 135.0f, HorizontalAlignment::LEFT, VerticalAlignment::TOP);
-    addAlignmentSample(window, fontName, L"居上 CENTER / TOP", 1120.0f, 135.0f, HorizontalAlignment::CENTER, VerticalAlignment::TOP);
-    addAlignmentSample(window, fontName, L"右上 RIGHT / TOP", 1420.0f, 135.0f, HorizontalAlignment::RIGHT, VerticalAlignment::TOP);
-    addAlignmentSample(window, fontName, L"左下 LEFT / BOTTOM", 820.0f, 260.0f, HorizontalAlignment::LEFT, VerticalAlignment::BOTTOM);
-    addAlignmentSample(window, fontName, L"完全居中", 1120.0f, 260.0f, HorizontalAlignment::CENTER, VerticalAlignment::CENTER);
-    addAlignmentSample(window, fontName, L"右下 RIGHT / BOTTOM", 1420.0f, 260.0f, HorizontalAlignment::RIGHT, VerticalAlignment::BOTTOM);
+    addAlignmentSample(scene, fontName, L"左上 LEFT / TOP", 820.0f, 135.0f, HorizontalAlignment::LEFT, VerticalAlignment::TOP);
+    addAlignmentSample(scene, fontName, L"居上 CENTER / TOP", 1120.0f, 135.0f, HorizontalAlignment::CENTER, VerticalAlignment::TOP);
+    addAlignmentSample(scene, fontName, L"右上 RIGHT / TOP", 1420.0f, 135.0f, HorizontalAlignment::RIGHT, VerticalAlignment::TOP);
+    addAlignmentSample(scene, fontName, L"左下 LEFT / BOTTOM", 820.0f, 260.0f, HorizontalAlignment::LEFT, VerticalAlignment::BOTTOM);
+    addAlignmentSample(scene, fontName, L"完全居中", 1120.0f, 260.0f, HorizontalAlignment::CENTER, VerticalAlignment::CENTER);
+    addAlignmentSample(scene, fontName, L"右下 RIGHT / BOTTOM", 1420.0f, 260.0f, HorizontalAlignment::RIGHT, VerticalAlignment::BOTTOM);
 
     auto richText = MRRichTextLabel::create();
     richText->getComponent<Transform>()->setPosition(820.0f, 455.0f, 0.0f);
@@ -123,21 +123,21 @@ int main() {
         L"标签可以[color=#7C3AED]嵌套 [font_size=36]组合[/font_size][/color]，"
         L"并根据组件宽度自动换行。",
         fontName);
-    window->addChild(richText);
+    scene->addChild(richText);
 
     // 文字阴影（SDF 图集）：柔光与投影两种典型用法
-    window->addChild(createLabel(L"文字阴影（SDF 图集）", fontName, 120.0f, 650.0f, 620.0f, 40.0f, 26.0f));
+    scene->addChild(createLabel(L"文字阴影（SDF 图集）", fontName, 120.0f, 650.0f, 620.0f, 40.0f, 26.0f));
     auto glowLabel = createLabel(L"Glow：黑色柔光，零偏移", fontName, 120.0f, 700.0f, 620.0f, 44.0f, 26.0f);
     glowLabel->setTextShadowColor(Vector4(0.0f, 0.0f, 0.0f, 0.7f));
     glowLabel->setTextShadowOffset(Vector2(0.0f, 0.0f));
     glowLabel->setTextShadowBlur(6.0f);
-    window->addChild(glowLabel);
+    scene->addChild(glowLabel);
 
     auto dropLabel = createLabel(L"Drop：偏移 (3, 3) 软投影", fontName, 120.0f, 755.0f, 620.0f, 44.0f, 26.0f);
     dropLabel->setTextShadowColor(Vector4(0.0f, 0.0f, 0.0f, 0.7f));
     dropLabel->setTextShadowOffset(Vector2(3.0f, 3.0f));
     dropLabel->setTextShadowBlur(4.0f);
-    window->addChild(dropLabel);
+    scene->addChild(dropLabel);
 
     LOG_I("TextDemo started: text input, rich text and label alignment");
     engine->render();

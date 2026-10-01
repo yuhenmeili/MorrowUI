@@ -243,9 +243,9 @@ SceneNode3D 级局部 Dirty 更新。
 
 ### 15. Window 与 UI 根节点解耦 ✅
 
-已完成：Window 不再继承 UIWidget，持有独立 `Root2D`（公共 UIWidget 轻量子类）
+已完成：Window 不再继承 UIWidget，持有独立 `Scene2D`（公共 UIWidget 轻量子类）
 作为 2D UI 树根；平台窗口职责（surface、context、size、Present）与 UI 树职责
-分离；`Engine::getRootWidget()` 是对外挂载入口。Window 本体随公共面收敛内部化
+分离；`Engine::getScene2D()` 是对外挂载入口。Window 本体随公共面收敛内部化
 （公共面无 Window 类型，单窗口假设，见 ARCHITECTURE.md §11.2）。
 
 剩余方向（⏸️ 需求驱动）：

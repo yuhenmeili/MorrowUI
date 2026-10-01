@@ -126,7 +126,7 @@ Engine::~Engine() {
     m_mainThreadDispatcher->shutdown();
 
     // 销毁顺序（GPU 资源删除依赖存活的渲染线程，必须先于 GlobalObject::destroy）：
-    //   调试覆盖层 → 帧上下文 → 平台窗口（含 Root2D UI 树 / BatchManager）
+    //   调试覆盖层 → 帧上下文 → 平台窗口（含 Scene2D UI 树 / BatchManager）
     //   → 渲染线程与全局服务。
     LOG_I("ENGINE_DTOR: begin");
     m_debugPlane.reset();
@@ -140,8 +140,8 @@ Engine::~Engine() {
     LOG_I("ENGINE_DTOR: done");
 }
 
-Root2DSharedPtr Engine::getRootWidget() const {
-    return m_platform && m_platform->getWindow() ? m_platform->getWindow()->uiRoot() : nullptr;
+Scene2DSharedPtr Engine::getScene2D() const {
+    return m_platform && m_platform->getWindow() ? m_platform->getWindow()->scene2D() : nullptr;
 }
 
 void Engine::setClearColor(float r, float g, float b, float a) {
@@ -211,7 +211,7 @@ DebugPlane* Engine::ensureDebugPlane() {
     if (!m_debugPlane) {
         m_debugPlane = std::make_shared<DebugPlane>();
         if (auto window = m_platform->getWindow()) {
-            m_debugPlane->initialize(window->uiRoot());
+            m_debugPlane->initialize(window->scene2D());
         }
     }
     return m_debugPlane.get();
@@ -308,7 +308,7 @@ void Engine::render() {
 }
 
 bool Engine::writeObjectSnapshot(const std::string& path) const {
-    const auto root = m_platform && m_platform->getWindow() ? m_platform->getWindow()->uiRoot() : nullptr;
+    const auto root = m_platform && m_platform->getWindow() ? m_platform->getWindow()->scene2D() : nullptr;
     if (!root || path.empty()) return false;
     root->refreshDebugObjectTree();
     const uint64_t frame = m_frameState ? m_frameState->frameNumber : 0;

@@ -59,15 +59,15 @@ std::shared_ptr<MRButton> createListItem(
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(0.92f, 0.95f, 0.98f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
     }});
 
-    window->addChild(createLabel(L"List Navigation Showcase：ItemList / Tree / ScrollContainer", 60.0f, 30.0f, 1800.0f, 54.0f, 34.0f));
-    window->addChild(createLabel(L"列表选择、树形展开折叠和长列表滚动统一放在同一个导航场景中。", 60.0f, 84.0f, 1800.0f, 36.0f, 20.0f));
+    scene->addChild(createLabel(L"List Navigation Showcase：ItemList / Tree / ScrollContainer", 60.0f, 30.0f, 1800.0f, 54.0f, 34.0f));
+    scene->addChild(createLabel(L"列表选择、树形展开折叠和长列表滚动统一放在同一个导航场景中。", 60.0f, 84.0f, 1800.0f, 36.0f, 20.0f));
 
     constexpr float panelTop = 150.0f;
     constexpr float panelHeight = 760.0f;
@@ -78,16 +78,16 @@ int main() {
     constexpr float scrollPanelX = 1240.0f;
     constexpr float scrollPanelW = 620.0f;
 
-    window->addChild(createPanel(itemPanelX, panelTop, itemPanelW, panelHeight));
-    window->addChild(createPanel(treePanelX, panelTop, treePanelW, panelHeight));
-    window->addChild(createPanel(scrollPanelX, panelTop, scrollPanelW, panelHeight));
+    scene->addChild(createPanel(itemPanelX, panelTop, itemPanelW, panelHeight));
+    scene->addChild(createPanel(treePanelX, panelTop, treePanelW, panelHeight));
+    scene->addChild(createPanel(scrollPanelX, panelTop, scrollPanelW, panelHeight));
 
     // ---------------------------------------------------------------------
     // MRItemList
     // ---------------------------------------------------------------------
-    window->addChild(createLabel(L"MRItemList", itemPanelX + 24.0f, panelTop + 22.0f, itemPanelW - 48.0f, 42.0f, 25.0f));
+    scene->addChild(createLabel(L"MRItemList", itemPanelX + 24.0f, panelTop + 22.0f, itemPanelW - 48.0f, 42.0f, 25.0f));
     auto listStatus = createLabel(L"当前选择：未选择", itemPanelX + 24.0f, panelTop + 680.0f, itemPanelW - 48.0f, 42.0f, 18.0f);
-    window->addChild(listStatus);
+    scene->addChild(listStatus);
 
     auto itemList = MRItemList::create();
     itemList->getComponent<Transform>()->setPosition(itemPanelX + 24.0f, panelTop + 82.0f, 0.0f);
@@ -110,14 +110,14 @@ int main() {
                     L"当前选择：" + text + L"（ID " + std::to_wstring(id) + L"）",
                     "default");
             });
-    window->addChild(itemList);
+    scene->addChild(itemList);
 
     // ---------------------------------------------------------------------
     // MRTree
     // ---------------------------------------------------------------------
-    window->addChild(createLabel(L"MRTree", treePanelX + 24.0f, panelTop + 22.0f, treePanelW - 48.0f, 42.0f, 25.0f));
+    scene->addChild(createLabel(L"MRTree", treePanelX + 24.0f, panelTop + 22.0f, treePanelW - 48.0f, 42.0f, 25.0f));
     auto treeStatus = createLabel(L"当前节点：未选择", treePanelX + 24.0f, panelTop + 680.0f, treePanelW - 48.0f, 42.0f, 18.0f);
-    window->addChild(treeStatus);
+    scene->addChild(treeStatus);
 
     auto tree = MRTree::create();
     tree->getComponent<Transform>()->setPosition(treePanelX + 24.0f, panelTop + 82.0f, 0.0f);
@@ -153,12 +153,12 @@ int main() {
             [](MRTree&, int id, bool expanded) {
                 LOG_I("Tree node {} expanded = {}", id, expanded);
             });
-    window->addChild(tree);
+    scene->addChild(tree);
 
     // ---------------------------------------------------------------------
     // MRScrollContainer
     // ---------------------------------------------------------------------
-    window->addChild(createLabel(L"MRScrollContainer", scrollPanelX + 24.0f, panelTop + 22.0f, scrollPanelW - 48.0f, 42.0f, 25.0f));
+    scene->addChild(createLabel(L"MRScrollContainer", scrollPanelX + 24.0f, panelTop + 22.0f, scrollPanelW - 48.0f, 42.0f, 25.0f));
     constexpr float viewportX = scrollPanelX + 24.0f;
     constexpr float viewportY = panelTop + 82.0f;
     constexpr float viewportW = scrollPanelW - 48.0f;
@@ -179,8 +179,8 @@ int main() {
                 static_cast<float>(index - 1) * 56.0f,
                 scrollItemConnections));
     }
-    window->addChild(scroll);
-    window->addChild(createLabel(L"滚轮 / 拖动 / 右侧滚动条", scrollPanelX + 24.0f, panelTop + 680.0f, scrollPanelW - 48.0f, 42.0f, 18.0f));
+    scene->addChild(scroll);
+    scene->addChild(createLabel(L"滚轮 / 拖动 / 右侧滚动条", scrollPanelX + 24.0f, panelTop + 680.0f, scrollPanelW - 48.0f, 42.0f, 18.0f));
 
     LOG_I("ListNavigationDemo started");
     engine->render();

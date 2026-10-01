@@ -107,7 +107,7 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
             }
         }
         if (!isKeyboardEvent && !resolvedTarget) {
-            resolvedTarget = findTopmostInteractiveWidget(m_window->uiRoot(), touchEvent.positionX, touchEvent.positionY);
+            resolvedTarget = findTopmostInteractiveWidget(m_window->scene2D(), touchEvent.positionX, touchEvent.positionY);
         }
         touchEvent.target = resolvedTarget;
 
@@ -115,7 +115,7 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
             // Capture controls the MOVE target while dragging, whereas hover
             // transitions follow the widget physically under the cursor. 未捕获时
             // 二者在同一坐标下命中结果一致，直接复用 resolvedTarget，省一次全树遍历。
-            std::shared_ptr<Widget> hoverTarget = fromCapture ? findTopmostInteractiveWidget(m_window->uiRoot(), touchEvent.positionX, touchEvent.positionY) : resolvedTarget;
+            std::shared_ptr<Widget> hoverTarget = fromCapture ? findTopmostInteractiveWidget(m_window->scene2D(), touchEvent.positionX, touchEvent.positionY) : resolvedTarget;
             auto previousHover = m_hoverTarget.lock();
             if (previousHover != hoverTarget) {
                 if (previousHover) {

@@ -15,7 +15,7 @@ int main() {
 #ifdef QNX
     EngineSharedPtr engine = std::make_shared<Engine>();
 
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     void* pmem_hdl;
@@ -33,7 +33,7 @@ int main() {
     transform->setPosition(100, 100, 0);
 
     // 将按钮添加到窗口
-    window->addChild(image);
+    scene->addChild(image);
 
     engine->render();
 #endif

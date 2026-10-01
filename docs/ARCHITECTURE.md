@@ -123,7 +123,7 @@ Application / Samples（公共集成）
         │  实现头全部 PRIVATE include，对标准集成不可达
         ▼
 UI
-  Widget / UIWidget / Root2D / Elements / Layout
+  Widget / UIWidget / Scene2D / Elements / Layout
   Component / ComponentManager
   Transform / MeshFilter / MeshRenderer
         │
@@ -351,8 +351,8 @@ lateUpdate
 - 更新遍历；
 - 输入命中和事件派发。
 
-2D UI 树根是 `Root2D`——引擎 Window 持有的轻量 UIWidget 子类，经
-`Engine::getRootWidget()` 对外；Window 自身不参与 UI 树。应用通过创建 Widget、
+2D UI 树根是 `Scene2D`——引擎 Window 持有的轻量 UIWidget 子类，经
+`Engine::getScene2D()` 对外；Window 自身不参与 UI 树。应用通过创建 Widget、
 挂载 Component 和修改对象属性构建界面，不需要每帧由业务代码重新声明。
 
 ### 6.2 Component
@@ -743,13 +743,13 @@ initialize
 
 Platform 负责窗口系统、图形上下文和输入接入，不实现 UI 合批策略。
 
-### 11.2 Window 与 Root2D
+### 11.2 Window 与 Scene2D
 
 Window 是引擎内部对象（公共面无 Window 类型，默认单窗口），承担：
 
 - 平台窗口与图形上下文持有；
-- 持有 `Root2D` 作为 2D UI 树根（Window 不继承 UIWidget）；输入命中根、
-  窗口尺寸到根 Transform 的同步经 Root2D 完成；
+- 持有 `Scene2D` 作为 2D UI 树根（Window 不继承 UIWidget）；输入命中根、
+  窗口尺寸到根 Transform 的同步经 Scene2D 完成；
 - Widget 树更新入口；
 - 当前窗口 BatchManager 所有者；
 - framebuffer、viewport、clear 和 Present 协调。

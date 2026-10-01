@@ -32,7 +32,7 @@ std::shared_ptr<MRColor> createPanel(float x, float y, float width, float height
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(0.015f, 0.025f, 0.055f, 1.0f);
 
     FontInfo fontInfo = {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
@@ -44,10 +44,10 @@ int main() {
     constexpr float leftX = 180.0f;
     constexpr float rightX = 1040.0f;
 
-    window->addChild(createPanel(leftX, panelY, panelWidth, panelHeight));
-    window->addChild(createPanel(rightX, panelY, panelWidth, panelHeight));
-    window->addChild(createTitle(L"MRCPUParticles2D：CPU 飘落粒子", leftX, 86.0f, panelWidth));
-    window->addChild(createTitle(L"MRGPUParticles2D：GPU 发光氛围", rightX, 86.0f, panelWidth));
+    scene->addChild(createPanel(leftX, panelY, panelWidth, panelHeight));
+    scene->addChild(createPanel(rightX, panelY, panelWidth, panelHeight));
+    scene->addChild(createTitle(L"MRCPUParticles2D：CPU 飘落粒子", leftX, 86.0f, panelWidth));
+    scene->addChild(createTitle(L"MRGPUParticles2D：GPU 发光氛围", rightX, 86.0f, panelWidth));
 
     auto cpuParticles = MRCPUParticles2D::create();
     cpuParticles->getComponent<Transform>()->setPosition(leftX, panelY, 0.0f);
@@ -60,7 +60,7 @@ int main() {
     cpuParticles->setSizeRange(5.0f, 12.0f);
     cpuParticles->setColorGradient(Vector4(1.0f, 0.82f, 0.28f, 0.95f), Vector4(1.0f, 0.18f, 0.03f, 0.0f));
     cpuParticles->setAdditiveBlend(true);
-    window->addChild(cpuParticles);
+    scene->addChild(cpuParticles);
 
     auto gpuParticles = MRGPUParticles2D::create();
     gpuParticles->getComponent<Transform>()->setPosition(rightX, panelY, 0.0f);
@@ -73,7 +73,7 @@ int main() {
     gpuParticles->setParticleSize(13.0f);
     gpuParticles->setColorGradient(Vector4(0.25f, 0.9f, 1.0f, 0.95f), Vector4(0.28f, 0.18f, 1.0f, 0.0f));
     gpuParticles->setAdditiveBlend(true);
-    window->addChild(gpuParticles);
+    scene->addChild(gpuParticles);
 
     LOG_I("Particles2D demo started");
     engine->render();

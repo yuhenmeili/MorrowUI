@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
     engineOptions.windowInfo = windowInfo;
     engineOptions.samples = 4;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(0.15f, 0.15f, 0.15f, 1.0f);
 
     auto scene3DView = MR3DSceneView::create(windowInfo.width, windowInfo.height);
@@ -57,14 +57,14 @@ int main(int argc, char** argv) {
     };
     sceneLoader->loadGLTF(modelPath, loadOptions);
 
-    window->addChild(scene3DView);
+    scene->addChild(scene3DView);
 
     auto button = MRButton::create();
     button->setText(L"Button", "default");
     auto transform = button->getComponent<Transform>();
     transform->setPosition(100.0f, 100.0f, 0.0f);
     transform->setSize(100.0f, 100.0f);
-    window->addChild(button);
+    scene->addChild(button);
 
     auto buttonClickConnection =
         button->events().onClicked.connect(

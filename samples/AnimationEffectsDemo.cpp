@@ -27,30 +27,30 @@ std::shared_ptr<MRLabel> createLabel(const std::wstring& text, float x, float y,
     return label;
 }
 
-void addCard(const Root2DSharedPtr& window, const std::wstring& title, const std::wstring& description, float x, float y, float width, float height) {
+void addCard(const Scene2DSharedPtr& scene, const std::wstring& title, const std::wstring& description, float x, float y, float width, float height) {
     auto card = MRColor::create();
     card->setColor(0.99f, 0.995f, 1.0f, 1.0f);
     card->setRounding(14.0f);
     card->getComponent<Transform>()->setPosition(x, y, -0.2f);
     card->getComponent<Transform>()->setSize(width, height);
-    window->addChild(card);
-    window->addChild(createLabel(title, x + 24.0f, y + 16.0f, width - 48.0f, 38.0f, 24.0f));
-    window->addChild(createLabel(description, x + 24.0f, y + 54.0f, width - 48.0f, 34.0f, 17.0f));
+    scene->addChild(card);
+    scene->addChild(createLabel(title, x + 24.0f, y + 16.0f, width - 48.0f, 38.0f, 24.0f));
+    scene->addChild(createLabel(description, x + 24.0f, y + 54.0f, width - 48.0f, 34.0f, 17.0f));
 }
 
 }  // namespace
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(0.92f, 0.95f, 0.98f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
     }});
 
-    window->addChild(createLabel(L"Animation Effects Showcase", 60.0f, 26.0f, 1800.0f, 54.0f, 36.0f));
-    window->addChild(createLabel(L"集中展示 Transform/Tween、Shader 动画、流光和图集帧动画。", 60.0f, 80.0f, 1800.0f, 36.0f, 20.0f));
+    scene->addChild(createLabel(L"Animation Effects Showcase", 60.0f, 26.0f, 1800.0f, 54.0f, 36.0f));
+    scene->addChild(createLabel(L"集中展示 Transform/Tween、Shader 动画、流光和图集帧动画。", 60.0f, 80.0f, 1800.0f, 36.0f, 20.0f));
 
     constexpr float top = 140.0f;
     constexpr float cardWidth = 560.0f;
@@ -60,7 +60,7 @@ int main() {
     constexpr float right = 1300.0f;
 
     // MRAnchorPointScale
-    addCard(window, L"MRAnchorPointScale", L"左下 Pivot 驱动 Transform 缩放", left, top, cardWidth, cardHeight);
+    addCard(scene, L"MRAnchorPointScale", L"左下 Pivot 驱动 Transform 缩放", left, top, cardWidth, cardHeight);
     auto anchorTexture = Texture::create(ImageType::IMAGE);
     anchorTexture->setImageUrl("assets/textures/img.jpg");
     auto anchorScale = MRAnchorPointScale::create();
@@ -69,7 +69,7 @@ int main() {
     anchorTransform->setSize(180.0f, 180.0f);
     anchorTransform->setPivot(0.0f, 1.0f, 0.0f);
     anchorScale->getComponent<MeshRenderer>()->getMaterial()->setTexture("texture", anchorTexture);
-    window->addChild(anchorScale);
+    scene->addChild(anchorScale);
 
     auto scaleTween = Tween::create(0.15f, 1.0f, 1.5f);
     scaleTween->setLoop(-1);
@@ -80,7 +80,7 @@ int main() {
     TweenManager::getInstance().addTween(scaleTween);
 
     // MRBounce
-    addCard(window, L"MRBounce", L"Shader 参数与 Tween 联动的循环弹跳", middle, top, cardWidth, cardHeight);
+    addCard(scene, L"MRBounce", L"Shader 参数与 Tween 联动的循环弹跳", middle, top, cardWidth, cardHeight);
     auto bounceTexture = Texture::create(ImageType::IMAGE);
     bounceTexture->setImageUrl("assets/textures/bounce/aeb_r.png");
     auto bounce = MRBounce::create();
@@ -93,7 +93,7 @@ int main() {
     bounceMaterial->setFloat("scaleRange", 0.5f);
     bounceMaterial->setFloat("duration", 1.0f);
     bounceMaterial->setVector("meshCenter", bounceTransform->getCenter());
-    window->addChild(bounce);
+    scene->addChild(bounce);
 
     auto bounceTween = Tween::create(0.0f, 1.0f, 1.0f);
     bounceTween->setLoop(-1);
@@ -104,7 +104,7 @@ int main() {
     TweenManager::getInstance().addTween(bounceTween);
 
     // MRBrakePedal
-    addCard(window, L"MRBrakePedal", L"多纹理合成的制动踏板提示动画", right, top, cardWidth, cardHeight);
+    addCard(scene, L"MRBrakePedal", L"多纹理合成的制动踏板提示动画", right, top, cardWidth, cardHeight);
     auto brakePedalTexture = Texture::create(ImageType::IMAGE);
     brakePedalTexture->setImageUrl("assets/textures/brake_pedal/brakePedal.png");
     auto whiteTexture = Texture::create(ImageType::IMAGE);
@@ -119,7 +119,7 @@ int main() {
     brakeMaterial->setTexture("grayTexture", grayTexture);
     brakeMaterial->setTexture("whiteTexture", whiteTexture);
     brakeMaterial->setFloat("duration", 1.0f);
-    window->addChild(brakePedal);
+    scene->addChild(brakePedal);
 
     auto brakeTween = Tween::create(0.0f, 1.0f, 1.0f);
     brakeTween->setLoop(-1);
@@ -133,21 +133,21 @@ int main() {
     constexpr float wideCardWidth = 870.0f;
 
     // MRFlowingLight
-    addCard(window, L"MRFlowingLight", L"沿组件边缘循环移动的流光效果", left, bottom, wideCardWidth, 400.0f);
+    addCard(scene, L"MRFlowingLight", L"沿组件边缘循环移动的流光效果", left, bottom, wideCardWidth, 400.0f);
     auto flowingLight = MRFlowingLight::create();
     flowingLight->getComponent<Transform>()->setPosition(left + 105.0f, bottom + 145.0f, 0.0f);
     flowingLight->getComponent<Transform>()->setSize(660.0f, 120.0f);
     flowingLight->initialize();
-    window->addChild(flowingLight);
+    scene->addChild(flowingLight);
 
     // MRFrameAnimation
-    addCard(window, L"MRFrameAnimation", L"TextureAtlas 图集区域按 30 FPS 循环播放", 990.0f, bottom, wideCardWidth, 400.0f);
+    addCard(scene, L"MRFrameAnimation", L"TextureAtlas 图集区域按 30 FPS 循环播放", 990.0f, bottom, wideCardWidth, 400.0f);
     auto atlas = std::make_shared<TextureAtlas>("assets/textures/frame_animation/atlas_cube.atlas", "assets/textures/frame_animation/", false);
     auto frameAnimation = MRFrameAnimation::create();
     frameAnimation->setTextureAtlas(atlas);
     frameAnimation->getComponent<Transform>()->setPosition(1325.0f, bottom + 115.0f, 0.0f);
     frameAnimation->getComponent<Transform>()->setSize(200.0f, 200.0f);
-    window->addChild(frameAnimation);
+    scene->addChild(frameAnimation);
 
     LOG_I("AnimationEffectsDemo started");
     engine->render();

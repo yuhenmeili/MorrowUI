@@ -42,7 +42,7 @@ target_link_libraries(your_app PRIVATE morrow)
 | 域 | 头（省略 `morrow/` 前缀） | 说明 |
 | --- | --- | --- |
 | 引擎入口 | `Engine.h`、`EngineEvents.h`、`WindowInfo.h`、`FontInfo.h`、`RenderDeviceOptions.h`、`version.h` | 生命周期、窗口配置（`WindowInfo`）、字体注册（`FontInfo` + `Engine::addFonts`）、清屏色/剪贴板/光标/背景模糊运行时开关、原始键盘与帧尺寸事件 |
-| UI 树与控件 | `base/UIWidget.h`、`base/Root2D.h`、`base/{Transform,Interaction,Shadow,TouchEvent}.h`、`elements/MR*.h`、`layout/*.h`、`controllers/OrbitController.h`、`helpers/Tween.h` | 全部 MR* 控件、布局容器、Tween 动画；UI 挂载经 `Engine::getRootWidget()` |
+| UI 树与控件 | `base/UIWidget.h`、`base/Scene2D.h`、`base/{Transform,Interaction,Shadow,TouchEvent}.h`、`elements/MR*.h`、`layout/*.h`、`controllers/OrbitController.h`、`helpers/Tween.h` | 全部 MR* 控件、布局容器、Tween 动画；UI 挂载经 `Engine::getScene2D()` |
 | 事件 | `base/EventDispatcher.h`、`core/Observable.h` | 事件分发与可观察对象 |
 | 资源 | `Texture.h`、`Material.h`、`DriverEnums.h`、`ResourceHandle.h`、`StaticAtlasManager.h`、`atlas/TextureAtlas.h` | 纹理加载/内存构造/更新、材质参数、自研枚举与 Hw 句柄 |
 | 相机与 3D | `Camera.h`、`PerspectiveCamera.h`、`OrthographicCamera.h`、`OrbitCamera.h`、`elements/MR3DSceneView.h`、`helpers/Scene3DAsyncLoader.h`、`scene3d/{FrameState,IBLPrecompute}.h`、`GLTFTypes.h` | 3D 场景视图、异步加载、IBL 预计算、GLTF 公共数据模型 |
@@ -119,7 +119,8 @@ material->setFloat("u_alpha", 0.8f);
 | `Texture::basisData`（basisu 容器） | `std::vector<uint8_t>` 字节流（边界转换在加载器内） |
 | `MeshRenderer::getVertexArray()` | 内部化（批处理内部通道） |
 | `MR3DSceneView::getLighting()/getIBL()` | `setSunLight/setAmbientLight/setIBL(FromDirectory)/clearIBL` 公共设置面 |
-| `SceneNode`（3D 场景节点） | 重命名为 `SceneNode3D`（`morrow/base/SceneNode3D.h`，域后缀与 `Transform3D`/`MeshRenderer3D` 一致）；2D UI 树根仍为 `Root2D` |
+| `SceneNode`（3D 场景节点） | 重命名为 `SceneNode3D`（`morrow/base/SceneNode3D.h`，域后缀与 `Transform3D`/`MeshRenderer3D` 一致）；2D 场景根为 `Scene2D` |
+| `Root2D` / `Engine::getRootWidget()` | 重命名为 `Scene2D` / `Engine::getScene2D()`（场景词汇统一：对象添加到 Scene；`Scene2D` ↔ `SceneNode3D` 分列 2D/3D 两棵树） |
 | `renderer/device/*`、`platform/egl|wgl/*`、`BatchManager`、SSBO/反射、`OpenglUtils` | 无公共替代——引擎内部能力 |
 
 ## 6. API 演进策略

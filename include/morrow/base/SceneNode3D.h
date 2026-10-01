@@ -1,7 +1,7 @@
 //
 // SceneNode3D — 3D 场景图节点（公共）：持有 Transform3D 的场景树节点，
 // GLTF 加载与 3D 子场景构建的基本单元；场景根节点也是本类型的一个实例。
-// 2D UI 树根是 Root2D（Engine::getRootWidget()），两者分属不同树。
+// 2D UI 树根是 Scene2D（Engine::getScene2D()），两者分属不同树。
 //
 
 #ifndef MORROW_BASE_SCENENODE3D_H

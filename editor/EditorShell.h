@@ -36,7 +36,7 @@ class MRLineEdit;
 class MRTextEdit;
 class MRPopupMenu;
 class TouchEvent;
-class Root2D;
+class Scene2D;
 } // namespace morrow
 
 namespace morrow::editor {
@@ -53,7 +53,7 @@ class EditorLayoutController;
 
 class EditorShell {
 public:
-    EditorShell(const std::shared_ptr<Root2D>& root, const std::shared_ptr<Engine>& engine, std::filesystem::path projectPath, std::filesystem::path scenePath,
+    EditorShell(const std::shared_ptr<Scene2D>& root, const std::shared_ptr<Engine>& engine, std::filesystem::path projectPath, std::filesystem::path scenePath,
                 std::filesystem::path assetRoot);
 
     ~EditorShell();
@@ -109,7 +109,7 @@ private:
     std::shared_ptr<MRButton> addButton(const std::shared_ptr<UIWidget>& parent, const std::wstring& text, float x, float y, float width, float height,
                                         std::function<void()> callback);
 
-    std::shared_ptr<Root2D> m_root2D;
+    std::shared_ptr<Scene2D> m_scene2D;
     std::shared_ptr<Engine> m_engine;
     EditorEvents m_events;
     Observable<const SelectionState&>::Connection m_selectionChangedConnection;

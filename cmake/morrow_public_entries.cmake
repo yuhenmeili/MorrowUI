@@ -12,7 +12,7 @@ set(MORROW_PUBLIC_ENTRIES
     "base/MeshRenderer3D.h"
     "base/Interaction.h"
     "base/MeshRenderer.h"
-    "base/Root2D.h"
+    "base/Scene2D.h"
     "base/Shadow.h"
     "base/TouchEvent.h"
     "base/Transform.h"

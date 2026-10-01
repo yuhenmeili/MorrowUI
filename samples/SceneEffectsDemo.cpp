@@ -57,7 +57,7 @@ int main() {
     EngineOptions options;
     options.windowInfo.name = "SceneEffectsDemo";
     auto engine = std::make_shared<Engine>(options);
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(0.04f, 0.07f, 0.13f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
@@ -72,30 +72,30 @@ int main() {
     background->addLayer(createParallaxLayer(0.12f, Vector4(0.08f, 0.16f, 0.28f, 1.0f), 110.0f, 220.0f), 0.12f, 0.12f);
     background->addLayer(createParallaxLayer(0.35f, Vector4(0.12f, 0.32f, 0.48f, 1.0f), 330.0f, 180.0f), 0.35f, 0.35f);
     background->addLayer(createParallaxLayer(0.72f, Vector4(0.16f, 0.52f, 0.56f, 1.0f), 510.0f, 180.0f), 0.72f, 0.72f);
-    window->addChild(background);
+    scene->addChild(background);
 
-    window->addChild(createLabel(L"ParallaxBackground / Parallax2D", 50.0f, 42.0f, 700.0f, 46.0f, 30.0f));
-    window->addChild(createLabel(L"不同背景层使用不同滚动倍率", 50.0f, 88.0f, 620.0f, 38.0f, 18.0f));
+    scene->addChild(createLabel(L"ParallaxBackground / Parallax2D", 50.0f, 42.0f, 700.0f, 46.0f, 30.0f));
+    scene->addChild(createLabel(L"不同背景层使用不同滚动倍率", 50.0f, 88.0f, 620.0f, 38.0f, 18.0f));
 
     auto scrollLeft = createButton(L"向左滚动", 50.0f, 610.0f);
     auto scrollLeftConnection = scrollLeft->events().onClicked.connect([background](BaseButton&) {
         const auto offset = background->getScrollOffset();
         background->setScrollOffset(offset.x - 60.0f, offset.y);
     });
-    window->addChild(scrollLeft);
+    scene->addChild(scrollLeft);
 
     auto scrollRight = createButton(L"向右滚动", 320.0f, 610.0f);
     auto scrollRightConnection = scrollRight->events().onClicked.connect([background](BaseButton&) {
         const auto offset = background->getScrollOffset();
         background->setScrollOffset(offset.x + 60.0f, offset.y);
     });
-    window->addChild(scrollRight);
+    scene->addChild(scrollRight);
 
     // ---------------------------------------------------------------------
     // CanvasModulate
     // ---------------------------------------------------------------------
-    window->addChild(createLabel(L"MRCanvasModulate", 1330.0f, 42.0f, 500.0f, 46.0f, 30.0f));
-    window->addChild(createLabel(L"全局色调调制会同时影响背景、色块、文字和按钮", 1330.0f, 88.0f, 520.0f, 58.0f, 18.0f));
+    scene->addChild(createLabel(L"MRCanvasModulate", 1330.0f, 42.0f, 500.0f, 46.0f, 30.0f));
+    scene->addChild(createLabel(L"全局色调调制会同时影响背景、色块、文字和按钮", 1330.0f, 88.0f, 520.0f, 58.0f, 18.0f));
 
     const std::array<Vector4, 3> cardColors = {
         Vector4(1.0f, 0.62f, 0.24f, 1.0f),
@@ -115,33 +115,33 @@ int main() {
         card->setRounding(16.0f);
         card->getComponent<Transform>()->setPosition(x, y, 0.0f);
         card->getComponent<Transform>()->setSize(220.0f, 140.0f);
-        window->addChild(card);
-        window->addChild(createLabel(cardNames[index], x + 20.0f, y + 48.0f, 180.0f, 42.0f, 24.0f, Vector4(0.08f, 0.12f, 0.18f, 1.0f)));
+        scene->addChild(card);
+        scene->addChild(createLabel(cardNames[index], x + 20.0f, y + 48.0f, 180.0f, 42.0f, 24.0f, Vector4(0.08f, 0.12f, 0.18f, 1.0f)));
     }
 
     auto modulate = MRCanvasModulate::create();
     modulate->setModulateColor(Vector4(0.38f, 0.48f, 0.68f, 1.0f));
     modulate->setStrength(0.0f);
-    window->addChild(modulate);
+    scene->addChild(modulate);
 
     auto nightButton = createButton(L"切换夜间模式", 1330.0f, 570.0f, 460.0f);
     auto nightModeConnection = nightButton->events().onClicked.connect([modulate](BaseButton&) {
         modulate->setNightMode(!modulate->isNightMode());
         LOG_I("night mode = {}", modulate->isNightMode());
     });
-    window->addChild(nightButton);
+    scene->addChild(nightButton);
 
     // ---------------------------------------------------------------------
     // Tooltip / Dialog
     // ---------------------------------------------------------------------
     auto tooltip = MRTooltip::create();
     tooltip->setText(L"Tooltip：跟随目标区域定位的提示气泡。");
-    tooltip->attachTo(window);
+    tooltip->attachTo(scene);
     auto tooltipButton = createButton(L"显示 Tooltip", 590.0f, 610.0f);
     auto tooltipConnection = tooltipButton->events().onClicked.connect([tooltip, tooltipButton](BaseButton&) {
         tooltip->showFor(tooltipButton->getScreenSpaceAABB());
     });
-    window->addChild(tooltipButton);
+    scene->addChild(tooltipButton);
 
     auto dialog = MRDialog::create();
     dialog->setTitle(L"确认操作");
@@ -152,12 +152,12 @@ int main() {
     auto dialogCanceledConnection =
         dialog->dialogEvents().onCanceled.connect(
             [](MRDialog&) { LOG_I("Dialog canceled"); });
-    dialog->attachTo(window);
+    dialog->attachTo(scene);
     auto dialogButton = createButton(L"打开 Dialog", 860.0f, 610.0f);
     auto dialogButtonConnection =
         dialogButton->events().onClicked.connect(
             [dialog](BaseButton&) { dialog->popup(380.0f, 210.0f); });
-    window->addChild(dialogButton);
+    scene->addChild(dialogButton);
 
     LOG_I("SceneEffectsDemo started");
     engine->render();

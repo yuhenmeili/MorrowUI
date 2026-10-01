@@ -27,7 +27,7 @@
 #include "panels/ViewportPanel.h"
 #include "ui/CreateAssetDialog.h"
 #include "ui/RenameNodeDialog.h"
-#include "morrow/base/Root2D.h"
+#include "morrow/base/Scene2D.h"
 #include "InputEventsManager.h"
 
 namespace {
@@ -74,9 +74,9 @@ std::string narrow(const std::wstring& text) {
 
 namespace morrow::editor {
 
-EditorShell::EditorShell(const std::shared_ptr<Root2D>& root, const std::shared_ptr<Engine>& engine, std::filesystem::path projectPath, std::filesystem::path scenePath,
+EditorShell::EditorShell(const std::shared_ptr<Scene2D>& root, const std::shared_ptr<Engine>& engine, std::filesystem::path projectPath, std::filesystem::path scenePath,
                          std::filesystem::path assetRoot) :
-    m_root2D(root), m_engine(engine), m_projectPath(std::move(projectPath)), m_scenePath(std::move(scenePath)), m_assetRoot(std::move(assetRoot)),
+    m_scene2D(root), m_engine(engine), m_projectPath(std::move(projectPath)), m_scenePath(std::move(scenePath)), m_assetRoot(std::move(assetRoot)),
     m_inspector(std::make_unique<InspectorPanel>(*this)), m_sceneTree(std::make_unique<SceneTreePanel>(*this)), m_viewport(std::make_unique<ViewportPanel>(*this)),
     m_toolbar(std::make_unique<ToolbarPanel>(*this)), m_assetsPanel(std::make_unique<AssetBrowserPanel>(*this)), m_output(std::make_unique<OutputPanel>(*this)),
     m_build(std::make_unique<BuildPanel>(*this)), m_layout(std::make_unique<EditorLayoutController>(*this)), m_session(std::make_shared<EditorSession>(m_scenePath)),
@@ -333,7 +333,7 @@ void EditorShell::buildLayout() {
     m_assetsPanel->createAssetDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
     m_assetsPanel->nameDialog->getTransform()->setSize(m_shellRoot->getTransform()->getSize());
     m_viewport->panel->addChild(m_viewport->previewRoot);
-    m_root2D->addChild(m_shellRoot);
+    m_scene2D->addChild(m_shellRoot);
 
     const auto connectSplit = [this](const std::string& id, const std::shared_ptr<MRSplitContainer>& split) {
         m_splitConnections.emplace_back(split->events().onSplitRatioChanged.connect([this, id](MRSplitContainer&, float ratio) {

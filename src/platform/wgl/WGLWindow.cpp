@@ -110,7 +110,7 @@ void WGLWindow::beginRenderPass(FrameStateSharedPtr frameState) {
         m_framebufferSize.set(static_cast<float>(fbWidth), static_cast<float>(fbHeight));
     }
 
-    if (auto transform = m_root2D->getComponent<Transform>()) {
+    if (auto transform = m_scene2D->getComponent<Transform>()) {
         const Vector3 size = transform->getSize();
         if (size.x != m_framebufferSize.x || size.y != m_framebufferSize.y) {
             transform->setSize(m_framebufferSize.x, m_framebufferSize.y);

@@ -155,7 +155,7 @@ public:
         engineOptions.windowInfo.height = 1080;
 
         EngineSharedPtr engine = std::make_shared<morrow::Engine>(engineOptions);
-        auto window = engine->getRootWidget();
+        auto scene = engine->getScene2D();
         engine->setClearColor(0.12f, 0.14f, 0.17f, 1.0f);
 
         FontInfo fontInfo = {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
@@ -164,7 +164,7 @@ public:
         if (std::filesystem::exists(m_options.scenePath)) {
             std::string error;
             m_shell = std::make_shared<editor::EditorShell>(
-                window, engine, m_options.projectPath, m_options.scenePath,
+                scene, engine, m_options.projectPath, m_options.scenePath,
                 readProjectAssetRoot(m_options.projectPath));
             if (!m_shell->initialize(error)) {
                 std::cerr << "Failed to initialize editor shell: " << error << "\n";
@@ -178,7 +178,7 @@ public:
             transform->setPosition(80.0f, 80.0f, 0.0f);
             transform->setSize(280.0f, 64.0f);
 
-            window->addChild(button);
+            scene->addChild(button);
         }
         engine->render();
         return 0;

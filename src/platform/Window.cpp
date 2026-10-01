@@ -10,7 +10,7 @@
 namespace morrow {
 Window::Window() {
     m_batchManager = std::make_shared<BatchManager>();
-    m_root2D = std::make_shared<Root2D>();
+    m_scene2D = std::make_shared<Scene2D>();
 }
 
 bool Window::initializeIfNeeded() {
@@ -21,8 +21,8 @@ bool Window::isWindowShouldClose() {
     return false;
 }
 
-std::shared_ptr<Root2D> Window::uiRoot() const {
-    return m_root2D;
+std::shared_ptr<Scene2D> Window::scene2D() const {
+    return m_scene2D;
 }
 
 void Window::requestRender(const char* /*reason*/) {
@@ -37,11 +37,11 @@ void Window::beginRenderPass(FrameStateSharedPtr frameState) {
 }
 
 void Window::updateWidgets(FrameStateSharedPtr frameState) {
-    m_root2D->update(frameState);
+    m_scene2D->update(frameState);
 }
 
 void Window::lateUpdateWidgets(FrameStateSharedPtr frameState) {
-    m_root2D->lateUpdate(frameState);
+    m_scene2D->lateUpdate(frameState);
 }
 
 void Window::commitRenderPass(FrameStateSharedPtr frameState) {

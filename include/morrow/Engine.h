@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "morrow/base/TouchEvent.h"
-#include "morrow/base/Root2D.h"
+#include "morrow/base/Scene2D.h"
 #include "morrow/EngineEvents.h"
 #include "morrow/FontInfo.h"
 #include "morrow/OrthographicCamera.h"
@@ -60,7 +60,7 @@ struct EngineOptions {
 // Engine — 引擎入口（单窗口假设）。
 //
 // Window / Platform 为引擎内部对象（§6.7）：应用经 EngineOptions::windowInfo
-// 配置窗口，经 getRootWidget() 取得 2D UI 根搭建界面；窗口清屏色与原始键盘
+// 配置窗口，经 getScene2D() 取得 2D UI 根搭建界面；窗口清屏色与原始键盘
 // 输入、framebuffer 尺寸变化经下方公共接口/事件获得。
 // ---------------------------------------------------------------------------
 class Engine
@@ -71,7 +71,7 @@ public:
     virtual ~Engine();
 
     /// 2D UI 根节点：向其 addChild 搭建界面。
-    [[nodiscard]] Root2DSharedPtr getRootWidget() const;
+    [[nodiscard]] Scene2DSharedPtr getScene2D() const;
 
     /// 不透明帧上下文（deltaTime / 帧号等只读视图）。
     [[nodiscard]] FrameStateSharedPtr getFrameState() const;

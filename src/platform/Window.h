@@ -3,7 +3,7 @@
 //
 // Window — 引擎内部平台窗口（不再对外暴露，见 §6.7）。
 // 只负责 surface / swap / 输入泵 / 清屏色 / 剪贴板等窗口职责，并持有
-// 2D UI 根（Root2D）；UI 树经 Root2D 对外（Engine::getRootWidget）。
+// 2D UI 根（Scene2D）；UI 树经 Scene2D 对外（Engine::getScene2D）。
 //
 
 #ifndef WINDOW_H
@@ -12,7 +12,7 @@
 #include <string>
 
 #include "morrow/WindowInfo.h"
-#include "morrow/base/Root2D.h"
+#include "morrow/base/Scene2D.h"
 #include "morrow/base/TouchEvent.h"
 #include "morrow/core/Observable.h"
 #include "morrow/scene3d/FrameState.h"
@@ -47,7 +47,7 @@ public:
     WindowEvents& events();
 
     /// 2D UI 根（引擎内部挂载点：输入命中、调试覆盖层、编辑器壳）。
-    [[nodiscard]] std::shared_ptr<Root2D> uiRoot() const;
+    [[nodiscard]] std::shared_ptr<Scene2D> scene2D() const;
 
     /// ────────── 渲染阶段（替代原 update()）──────────
     /// GPU 准备：viewport、clear、framebuffer
@@ -74,7 +74,7 @@ public:
 
 protected:
     std::shared_ptr<BatchManager> m_batchManager;
-    std::shared_ptr<Root2D> m_root2D;
+    std::shared_ptr<Scene2D> m_scene2D;
     WindowEvents m_events;
 };
 

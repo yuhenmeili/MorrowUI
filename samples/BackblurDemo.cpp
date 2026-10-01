@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
     engineOptions.backdropBlur = quality;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(0.90f, 0.93f, 0.96f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
@@ -169,13 +169,13 @@ int main(int argc, char** argv) {
             card->setDisplayLayer(-5);
             card->getComponent<Transform>()->setPosition(x, y, 0.0f);
             card->getComponent<Transform>()->setSize(cardW, cardH);
-            window->addChild(card);
+            scene->addChild(card);
             wallCards.push_back(card);
 
             auto label = createLabel(L"卡片 " + std::to_wstring(index + 1), x + 20.0f, y + 18.0f, cardW - 40.0f, 34.0f, 22.0f);
             label->setFontColor(1.0f, 1.0f, 1.0f, 0.95f);
             label->setDisplayLayer(-5);
-            window->addChild(label);
+            scene->addChild(label);
         }
     }
     if (!staticBackground) {
@@ -194,14 +194,14 @@ int main(int argc, char** argv) {
         TweenManager::getInstance().addTween(wallTween);
     }
 
-    window->addChild(createLabel(L"BackblurDemo — Kawase 共享背景模糊（S1/S2）", 42.0f, 24.0f, 980.0f, 48.0f, 30.0f));
-    window->addChild(createLabel(L"卡片墙在边界以下；玻璃分三级半径（8/24/56 → L0/L1/L2）；按钮切换开关与档位", 42.0f, 76.0f, 1500.0f, 32.0f, 17.0f));
+    scene->addChild(createLabel(L"BackblurDemo — Kawase 共享背景模糊（S1/S2）", 42.0f, 24.0f, 980.0f, 48.0f, 30.0f));
+    scene->addChild(createLabel(L"卡片墙在边界以下；玻璃分三级半径（8/24/56 → L0/L1/L2）；按钮切换开关与档位", 42.0f, 76.0f, 1500.0f, 32.0f, 17.0f));
 
     // ---------------------------------------------------------------------
     // 2. 三级半径毛玻璃面板（displayLayer = 0，默认层即边界以上）
     // ---------------------------------------------------------------------
     auto panelA = createGlassPanel(260.0f, 320.0f, 560.0f, 420.0f, 28.0f, Vector4(0.97f, 0.98f, 1.0f, 0.45f), 8.0f);
-    window->addChild(panelA);
+    scene->addChild(panelA);
     {
         auto title = createLabel(L"轻模糊面板 A（半径 8 → L0'）", 32.0f, 26.0f, 500.0f, 42.0f, 24.0f);
         panelA->addChild(title);
@@ -210,7 +210,7 @@ int main(int argc, char** argv) {
     }
 
     auto panelB = createGlassPanel(760.0f, 200.0f, 480.0f, 340.0f, 44.0f, Vector4(0.30f, 0.46f, 0.85f, 0.50f), 24.0f);
-    window->addChild(panelB);
+    scene->addChild(panelB);
     {
         auto title = createLabel(L"面板 B（半径 24 → L1'）", 32.0f, 26.0f, 400.0f, 42.0f, 24.0f);
         title->setFontColor(1.0f, 1.0f, 1.0f, 0.98f);
@@ -221,14 +221,14 @@ int main(int argc, char** argv) {
     }
 
     auto panelB2 = createGlassPanel(820.0f, 560.0f, 400.0f, 240.0f, 20.0f, Vector4(0.42f, 0.62f, 0.42f, 0.42f), 24.0f);
-    window->addChild(panelB2);
+    scene->addChild(panelB2);
     {
         auto desc = createLabel(L"B2（同 L1'）", 28.0f, 20.0f, 320.0f, 40.0f, 20.0f);
         panelB2->addChild(desc);
     }
 
     auto pill = createGlassPanel(1330.0f, 620.0f, 500.0f, 120.0f, 60.0f, Vector4(0.16f, 0.18f, 0.24f, 0.42f), 56.0f);
-    window->addChild(pill);
+    scene->addChild(pill);
     {
         auto text = createLabel(L"重模糊胶囊（半径 56 → L2'）", 36.0f, 38.0f, 420.0f, 44.0f, 22.0f);
         text->setFontColor(1.0f, 1.0f, 1.0f, 0.98f);
@@ -240,7 +240,7 @@ int main(int argc, char** argv) {
     //     相邻层级间插值——层级固定、链不变，只有采样混合因子动画
     // ---------------------------------------------------------------------
     auto animPanel = createGlassPanel(1330.0f, 140.0f, 510.0f, 390.0f, 26.0f, Vector4(0.98f, 0.94f, 0.86f, 0.40f), 24.0f);
-    window->addChild(animPanel);
+    scene->addChild(animPanel);
     {
         auto title = createLabel(L"半径动画（双层混合插值）", 30.0f, 24.0f, 440.0f, 40.0f, 22.0f);
         animPanel->addChild(title);
@@ -273,7 +273,7 @@ int main(int argc, char** argv) {
     clipContainer->setClipChildren(true);
     clipContainer->getComponent<Transform>()->setPosition(60.0f, 700.0f, 0.0f);
     clipContainer->getComponent<Transform>()->setSize(660.0f, 330.0f);
-    window->addChild(clipContainer);
+    scene->addChild(clipContainer);
 
     auto clipPanel = createGlassPanel(30.0f, 16.0f, 900.0f, 300.0f, 22.0f, Vector4(0.95f, 0.97f, 1.0f, 0.40f), 24.0f);
     clipContainer->addChild(clipPanel);
@@ -301,7 +301,7 @@ int main(int argc, char** argv) {
     sharpBar->setDisplayLayer(3);
     sharpBar->getComponent<Transform>()->setPosition(180.0f, 250.0f, 0.0f);
     sharpBar->getComponent<Transform>()->setSize(760.0f, 60.0f);
-    window->addChild(sharpBar);
+    scene->addChild(sharpBar);
     {
         auto text = createLabel(L"边界以上的普通 UI：清晰压在玻璃之上（displayLayer = 3）", 24.0f, 14.0f, 700.0f, 32.0f, 18.0f);
         text->setFontColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -330,8 +330,8 @@ int main(int argc, char** argv) {
     toggleButton->getComponent<Transform>()->setPosition(1020.0f, 870.0f, 0.0f);
     toggleButton->getComponent<Transform>()->setSize(240.0f, 90.0f);
     // 状态文字独立于按钮（MRButton 内部 label 居中铺满，塞进按钮会叠印）
-    window->addChild(statusLabel);
-    window->addChild(toggleButton);
+    scene->addChild(statusLabel);
+    scene->addChild(toggleButton);
 
     const auto refreshStatus = [&statusLabel, &engine]() {
         std::wstring text = engine->isBackdropBlurEnabled() ? L"[模糊：开启 · " : L"[模糊：关闭（tint 降级）· ";
@@ -373,8 +373,8 @@ int main(int argc, char** argv) {
     qualityButton->setDisplayLayer(3);
     qualityButton->getComponent<Transform>()->setPosition(1290.0f, 870.0f, 0.0f);
     qualityButton->getComponent<Transform>()->setSize(240.0f, 90.0f);
-    window->addChild(qualityLabel);
-    window->addChild(qualityButton);
+    scene->addChild(qualityLabel);
+    scene->addChild(qualityButton);
 
     auto qualityConnection = qualityButton->events().onClicked.connect([&refreshStatus, &qualityLabel, &engine](BaseButton&) {
         

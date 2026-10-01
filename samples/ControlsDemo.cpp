@@ -87,23 +87,23 @@ std::shared_ptr<MRButton> createActionButton(const std::wstring& text) {
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(0.94f, 0.96f, 0.99f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
     }});
 
-    window->addChild(createLabel(L"Controls Showcase：按钮、选择、菜单、数值输入与布局", 60.0f, 30.0f, 1700.0f, 54.0f, 34.0f));
-    window->addChild(createLabel(L"统一展示常用交互控件及其回调、状态和容器组合方式。", 60.0f, 84.0f, 1700.0f, 36.0f, 20.0f));
+    scene->addChild(createLabel(L"Controls Showcase：按钮、选择、菜单、数值输入与布局", 60.0f, 30.0f, 1700.0f, 54.0f, 34.0f));
+    scene->addChild(createLabel(L"统一展示常用交互控件及其回调、状态和容器组合方式。", 60.0f, 84.0f, 1700.0f, 36.0f, 20.0f));
 
     // ---------------------------------------------------------------------
     // Button / TextureButton / HBoxContainer
     // ---------------------------------------------------------------------
     constexpr float buttonPanelX = 60.0f;
     constexpr float buttonPanelW = 420.0f;
-    window->addChild(createPanel(buttonPanelX, kPanelTop, buttonPanelW, 800.0f));
-    window->addChild(createLabel(L"Button / TextureButton", buttonPanelX + 24.0f, kPanelTop + 22.0f, buttonPanelW - 48.0f, 38.0f, 23.0f));
+    scene->addChild(createPanel(buttonPanelX, kPanelTop, buttonPanelW, 800.0f));
+    scene->addChild(createLabel(L"Button / TextureButton", buttonPanelX + 24.0f, kPanelTop + 22.0f, buttonPanelW - 48.0f, 38.0f, 23.0f));
 
     auto buttonRow = std::make_shared<HBoxContainer>();
     buttonRow->setSpacing(12.0f);
@@ -123,7 +123,7 @@ int main() {
     colorButton->setHoverColor(Vector4(0.96f, 0.48f, 0.38f, 1.0f));
     colorButton->setTextColor(1.0f, 1.0f, 1.0f, 1.0f);
     buttonRow->addChild(colorButton);
-    window->addChild(buttonRow);
+    scene->addChild(buttonRow);
 
     auto textureButton = MRTextureButton::create();
     auto normalTexture = Texture::create();
@@ -142,8 +142,8 @@ int main() {
             [](BaseButton&) { LOG_I("texture button clicked"); });
     textureButton->getComponent<Transform>()->setPosition(buttonPanelX + 110.0f, kPanelTop + 190.0f, 0.0f);
     textureButton->getComponent<Transform>()->setSize(200.0f, 200.0f);
-    window->addChild(textureButton);
-    window->addChild(createLabel(L"MRTextureButton\nNormal / Hover / Pressed / Disabled", buttonPanelX + 30.0f, kPanelTop + 405.0f, buttonPanelW - 60.0f, 80.0f, 18.0f,
+    scene->addChild(textureButton);
+    scene->addChild(createLabel(L"MRTextureButton\nNormal / Hover / Pressed / Disabled", buttonPanelX + 30.0f, kPanelTop + 405.0f, buttonPanelW - 60.0f, 80.0f, 18.0f,
                                  HorizontalAlignment::CENTER));
 
     // ---------------------------------------------------------------------
@@ -151,10 +151,10 @@ int main() {
     // ---------------------------------------------------------------------
     constexpr float selectionPanelX = 520.0f;
     constexpr float selectionPanelW = 540.0f;
-    window->addChild(createPanel(selectionPanelX, kPanelTop, selectionPanelW, 800.0f));
-    window->addChild(createLabel(L"Selection Controls", selectionPanelX + 24.0f, kPanelTop + 22.0f, selectionPanelW - 48.0f, 38.0f, 23.0f));
-    window->addChild(createLabel(L"多选与开关", selectionPanelX + 24.0f, kPanelTop + 82.0f, 230.0f, 32.0f, 18.0f));
-    window->addChild(createLabel(L"RadioGroup 单选", selectionPanelX + 278.0f, kPanelTop + 82.0f, 230.0f, 32.0f, 18.0f));
+    scene->addChild(createPanel(selectionPanelX, kPanelTop, selectionPanelW, 800.0f));
+    scene->addChild(createLabel(L"Selection Controls", selectionPanelX + 24.0f, kPanelTop + 22.0f, selectionPanelW - 48.0f, 38.0f, 23.0f));
+    scene->addChild(createLabel(L"多选与开关", selectionPanelX + 24.0f, kPanelTop + 82.0f, 230.0f, 32.0f, 18.0f));
+    scene->addChild(createLabel(L"RadioGroup 单选", selectionPanelX + 278.0f, kPanelTop + 82.0f, 230.0f, 32.0f, 18.0f));
 
     const float selectionLeft = selectionPanelX + 24.0f;
     const float selectionRight = selectionPanelX + 278.0f;
@@ -167,7 +167,7 @@ int main() {
             [](MRSelectableButton&, bool checked) {
                 LOG_I("CheckBox checked = {}", checked);
             });
-    window->addChild(checkBox);
+    scene->addChild(checkBox);
 
     auto checkButton = MRCheckButton::create();
     configureSelectionControl(checkButton, L"座椅加热", selectionLeft, selectionY + 62.0f);
@@ -177,7 +177,7 @@ int main() {
             [](MRSelectableButton&, bool checked) {
                 LOG_I("CheckButton checked = {}", checked);
             });
-    window->addChild(checkButton);
+    scene->addChild(checkButton);
 
     auto toggle = MRToggle::create();
     configureSelectionControl(toggle, L"自动大灯", selectionLeft, selectionY + 124.0f);
@@ -186,7 +186,7 @@ int main() {
             [](MRSelectableButton&, bool checked) {
                 LOG_I("Toggle value = {}", checked);
             });
-    window->addChild(toggle);
+    scene->addChild(toggle);
 
     auto group = std::make_shared<MRRadioGroup>();
     auto radioA = MRRadioButton::create();
@@ -196,7 +196,7 @@ int main() {
         if (checked)
             LOG_I("Radio selection = comfort");
     });
-    window->addChild(radioA);
+    scene->addChild(radioA);
 
     auto radioB = MRRadioButton::create();
     configureSelectionControl(radioB, L"运动模式", selectionRight, selectionY + 62.0f);
@@ -205,7 +205,7 @@ int main() {
         if (checked)
             LOG_I("Radio selection = sport");
     });
-    window->addChild(radioB);
+    scene->addChild(radioB);
 
     auto radioC = MRRadioButton::create();
     configureSelectionControl(radioC, L"节能模式", selectionRight, selectionY + 124.0f);
@@ -214,25 +214,25 @@ int main() {
         if (checked)
             LOG_I("Radio selection = eco");
     });
-    window->addChild(radioC);
+    scene->addChild(radioC);
     group->select(radioA);
 
-    window->addChild(
+    scene->addChild(
         createLabel(L"CheckBox 支持多选；CheckButton / Toggle 展示不同选中状态。", selectionPanelX + 24.0f, kPanelTop + 300.0f, selectionPanelW - 48.0f, 30.0f, 17.0f));
-    window->addChild(createLabel(L"RadioButton 通过 RadioGroup 实现互斥选择。", selectionPanelX + 24.0f, kPanelTop + 336.0f, selectionPanelW - 48.0f, 30.0f, 17.0f));
+    scene->addChild(createLabel(L"RadioButton 通过 RadioGroup 实现互斥选择。", selectionPanelX + 24.0f, kPanelTop + 336.0f, selectionPanelW - 48.0f, 30.0f, 17.0f));
 
     // ---------------------------------------------------------------------
     // OptionButton / MenuButton / PopupMenu
     // ---------------------------------------------------------------------
     constexpr float menuPanelX = 1120.0f;
     constexpr float menuPanelW = 740.0f;
-    window->addChild(createPanel(menuPanelX, kPanelTop, menuPanelW, 350.0f));
-    window->addChild(createLabel(L"Menu Controls", menuPanelX + 24.0f, kPanelTop + 22.0f, menuPanelW - 48.0f, 38.0f, 23.0f));
+    scene->addChild(createPanel(menuPanelX, kPanelTop, menuPanelW, 350.0f));
+    scene->addChild(createLabel(L"Menu Controls", menuPanelX + 24.0f, kPanelTop + 22.0f, menuPanelW - 48.0f, 38.0f, 23.0f));
 
     const float menuLeft = menuPanelX + 24.0f;
     const float menuRight = menuPanelX + 382.0f;
     const float menuWidth = 330.0f;
-    window->addChild(createLabel(L"OptionButton", menuLeft, kPanelTop + 76.0f, menuWidth, 30.0f, 18.0f));
+    scene->addChild(createLabel(L"OptionButton", menuLeft, kPanelTop + 76.0f, menuWidth, 30.0f, 18.0f));
     auto optionButton = MROptionButton::create();
     configureMenuButton(optionButton, L"请选择驾驶员", menuLeft, kPanelTop + 116.0f, menuWidth);
     optionButton->addOption(L"驾驶员 A", 101);
@@ -244,9 +244,9 @@ int main() {
             [](MROptionButton&, int id, const std::wstring&) {
                 LOG_I("OptionButton selected id = {}", id);
             });
-    window->addChild(optionButton);
+    scene->addChild(optionButton);
 
-    window->addChild(createLabel(L"MenuButton", menuRight, kPanelTop + 76.0f, menuWidth, 30.0f, 18.0f));
+    scene->addChild(createLabel(L"MenuButton", menuRight, kPanelTop + 76.0f, menuWidth, 30.0f, 18.0f));
     auto menuButton = MRMenuButton::create();
     configureMenuButton(menuButton, L"车辆操作", menuRight, kPanelTop + 116.0f, menuWidth);
     menuButton->addMenuItem(L"保存当前设置", 201);
@@ -258,7 +258,7 @@ int main() {
             [](MRMenuButton&, int id, const std::wstring&) {
                 LOG_I("MenuButton selected id = {}", id);
             });
-    window->addChild(menuButton);
+    scene->addChild(menuButton);
 
     auto popupMenu = MRPopupMenu::create();
     popupMenu->setMenuWidth(menuWidth);
@@ -270,7 +270,7 @@ int main() {
             [](MRPopupMenu&, int id, const std::wstring&) {
                 LOG_I("PopupMenu selected id = {}", id);
             });
-    popupMenu->attachTo(window);
+    popupMenu->attachTo(scene);
 
     auto popupButton = MRButton::create();
     configureMenuButton(popupButton, L"打开独立 PopupMenu", menuLeft, kPanelTop + 245.0f, menuWidth);
@@ -281,21 +281,21 @@ int main() {
             popupMenu->popupBelow(popupButton->getScreenSpaceAABB());
         }
     });
-    window->addChild(popupButton);
+    scene->addChild(popupButton);
 
     // ---------------------------------------------------------------------
     // SpinBox / Separator / Spacer / HBoxContainer
     // ---------------------------------------------------------------------
     constexpr float spinTop = 520.0f;
-    window->addChild(createPanel(menuPanelX, spinTop, menuPanelW, 420.0f));
-    window->addChild(createLabel(L"SpinBox / Separator / Spacer", menuPanelX + 24.0f, spinTop + 22.0f, menuPanelW - 48.0f, 38.0f, 23.0f));
+    scene->addChild(createPanel(menuPanelX, spinTop, menuPanelW, 420.0f));
+    scene->addChild(createLabel(L"SpinBox / Separator / Spacer", menuPanelX + 24.0f, spinTop + 22.0f, menuPanelW - 48.0f, 38.0f, 23.0f));
 
     auto topSeparator = MRHSeparator::create();
     topSeparator->getComponent<Transform>()->setPosition(menuPanelX + 24.0f, spinTop + 78.0f, 0.0f);
     topSeparator->getComponent<Transform>()->setSize(menuPanelW - 48.0f, 2.0f);
-    window->addChild(topSeparator);
+    scene->addChild(topSeparator);
 
-    window->addChild(createLabel(L"座舱温度", menuPanelX + 24.0f, spinTop + 110.0f, 150.0f, 42.0f));
+    scene->addChild(createLabel(L"座舱温度", menuPanelX + 24.0f, spinTop + 110.0f, 150.0f, 42.0f));
     auto temperature = MRSpinBox::create();
     temperature->getComponent<Transform>()->setPosition(menuPanelX + 180.0f, spinTop + 104.0f, 0.0f);
     temperature->getComponent<Transform>()->setSize(240.0f, 56.0f);
@@ -307,14 +307,14 @@ int main() {
     auto temperatureConnection =
         temperature->events().onValueChanged.connect(
             [](MRSpinBox&, double value) { LOG_I("temperature = {}", value); });
-    window->addChild(temperature);
+    scene->addChild(temperature);
 
     auto verticalSeparator = MRVSeparator::create();
     verticalSeparator->getComponent<Transform>()->setPosition(menuPanelX + 450.0f, spinTop + 100.0f, 0.0f);
     verticalSeparator->getComponent<Transform>()->setSize(2.0f, 150.0f);
-    window->addChild(verticalSeparator);
+    scene->addChild(verticalSeparator);
 
-    window->addChild(createLabel(L"预约时间", menuPanelX + 480.0f, spinTop + 110.0f, 140.0f, 42.0f));
+    scene->addChild(createLabel(L"预约时间", menuPanelX + 480.0f, spinTop + 110.0f, 140.0f, 42.0f));
     auto hour = MRSpinBox::create();
     hour->getComponent<Transform>()->setPosition(menuPanelX + 480.0f, spinTop + 158.0f, 0.0f);
     hour->getComponent<Transform>()->setSize(180.0f, 56.0f);
@@ -323,14 +323,14 @@ int main() {
     hour->setDecimals(0);
     hour->setSuffix(L" h");
     hour->setValue(8.0);
-    window->addChild(hour);
+    scene->addChild(hour);
 
     auto middleSeparator = MRHSeparator::create();
     middleSeparator->getComponent<Transform>()->setPosition(menuPanelX + 24.0f, spinTop + 260.0f, 0.0f);
     middleSeparator->getComponent<Transform>()->setSize(menuPanelW - 48.0f, 2.0f);
-    window->addChild(middleSeparator);
+    scene->addChild(middleSeparator);
 
-    window->addChild(createLabel(L"Spacer 弹性占位：按钮自动分布到容器两端", menuPanelX + 24.0f, spinTop + 278.0f, menuPanelW - 48.0f, 32.0f, 17.0f));
+    scene->addChild(createLabel(L"Spacer 弹性占位：按钮自动分布到容器两端", menuPanelX + 24.0f, spinTop + 278.0f, menuPanelW - 48.0f, 32.0f, 17.0f));
     auto actionRow = std::make_shared<HBoxContainer>();
     actionRow->setSpacing(12.0f);
     actionRow->getComponent<Transform>()->setPosition(menuPanelX + 24.0f, spinTop + 326.0f, 0.0f);
@@ -348,7 +348,7 @@ int main() {
     actionRow->addChild(cancel);
     actionRow->addChild(spacer);
     actionRow->addChild(apply);
-    window->addChild(actionRow);
+    scene->addChild(actionRow);
 
     LOG_I("ControlsDemo started");
     engine->render();

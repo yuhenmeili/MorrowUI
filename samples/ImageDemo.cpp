@@ -52,9 +52,9 @@ std::shared_ptr<MRColor> createCard(float x, float y, float width, float height)
     return card;
 }
 
-void addCardTitle(const Root2DSharedPtr& window, const std::wstring& title, const std::wstring& description, float x, float y, float width) {
-    window->addChild(createLabel(title, x + 24.0f, y + 14.0f, width - 48.0f, 36.0f, 23.0f));
-    window->addChild(createLabel(description, x + 24.0f, y + 50.0f, width - 48.0f, 30.0f, 16.0f));
+void addCardTitle(const Scene2DSharedPtr& scene, const std::wstring& title, const std::wstring& description, float x, float y, float width) {
+    scene->addChild(createLabel(title, x + 24.0f, y + 14.0f, width - 48.0f, 36.0f, 23.0f));
+    scene->addChild(createLabel(description, x + 24.0f, y + 50.0f, width - 48.0f, 30.0f, 16.0f));
 }
 
 std::shared_ptr<MRImage> createImage(const TextureSharedPtr& texture, float x, float y, float width, float height) {
@@ -117,15 +117,15 @@ int main() {
     EngineOptions engineOptions;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto window = engine->getRootWidget();
+    auto scene = engine->getScene2D();
     engine->setClearColor(0.92f, 0.95f, 0.98f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",
     }});
 
-    window->addChild(createLabel(L"Image Showcase", 60.0f, 26.0f, 1800.0f, 54.0f, 36.0f));
-    window->addChild(createLabel(L"MRImage 能力展示：圆角 / 裁剪 / 合批动画 / 阴影 / 图集区域 / 程序化纹理", 60.0f, 80.0f, 1800.0f, 36.0f, 20.0f));
+    scene->addChild(createLabel(L"Image Showcase", 60.0f, 26.0f, 1800.0f, 54.0f, 36.0f));
+    scene->addChild(createLabel(L"MRImage 能力展示：圆角 / 裁剪 / 合批动画 / 阴影 / 图集区域 / 程序化纹理", 60.0f, 80.0f, 1800.0f, 36.0f, 20.0f));
 
     constexpr float top = 140.0f;
     constexpr float bottom = 560.0f;
@@ -147,26 +147,26 @@ int main() {
     // ---------------------------------------------------------------------
     // 1. 圆角阶梯：同一张图，shader 圆角从 0 递增
     // ---------------------------------------------------------------------
-    window->addChild(createCard(left, top, cardWidth, cardHeight));
-    addCardTitle(window, L"圆角阶梯 setRounding", L"shader 圆角裁剪，无需预处理贴图", left, top, cardWidth);
+    scene->addChild(createCard(left, top, cardWidth, cardHeight));
+    addCardTitle(scene, L"圆角阶梯 setRounding", L"shader 圆角裁剪，无需预处理贴图", left, top, cardWidth);
     for (int index = 0; index < 5; ++index) {
         auto image = createImage(brickTexture, left + 42.0f + index * 100.0f, top + 130.0f, 84.0f, 84.0f);
         image->setRounding(static_cast<float>(index) * 14.0f);
-        window->addChild(image);
+        scene->addChild(image);
     }
-    window->addChild(createLabel(L"rounding = 0 / 14 / 28 / 42 / 56", left + 24.0f, top + 250.0f, cardWidth - 48.0f, 32.0f, 17.0f));
+    scene->addChild(createLabel(L"rounding = 0 / 14 / 28 / 42 / 56", left + 24.0f, top + 250.0f, cardWidth - 48.0f, 32.0f, 17.0f));
 
     // ---------------------------------------------------------------------
     // 2. UV 裁剪：setScissor 取源图子区域实现放大镜
     // ---------------------------------------------------------------------
-    window->addChild(createCard(left, bottom, cardWidth, cardHeight));
-    addCardTitle(window, L"UV 裁剪 setScissor", L"取源图子区域拉伸显示，实现放大镜效果", left, bottom, cardWidth);
-    window->addChild(createImage(brickTexture, left + 40.0f, bottom + 120.0f, 220.0f, 150.0f));
+    scene->addChild(createCard(left, bottom, cardWidth, cardHeight));
+    addCardTitle(scene, L"UV 裁剪 setScissor", L"取源图子区域拉伸显示，实现放大镜效果", left, bottom, cardWidth);
+    scene->addChild(createImage(brickTexture, left + 40.0f, bottom + 120.0f, 220.0f, 150.0f));
     auto zoomImage = createImage(brickTexture, left + 300.0f, bottom + 100.0f, 220.0f, 220.0f);
     zoomImage->setRounding(16.0f);
-    window->addChild(zoomImage);
-    window->addChild(createLabel(L"原图", left + 40.0f, bottom + 280.0f, 220.0f, 32.0f, 17.0f, HorizontalAlignment::CENTER));
-    window->addChild(createLabel(L"setScissor 4 倍放大", left + 300.0f, bottom + 330.0f, 220.0f, 32.0f, 17.0f, HorizontalAlignment::CENTER));
+    scene->addChild(zoomImage);
+    scene->addChild(createLabel(L"原图", left + 40.0f, bottom + 280.0f, 220.0f, 32.0f, 17.0f, HorizontalAlignment::CENTER));
+    scene->addChild(createLabel(L"setScissor 4 倍放大", left + 300.0f, bottom + 330.0f, 220.0f, 32.0f, 17.0f, HorizontalAlignment::CENTER));
     {
         // setImageUrl 在首次渲染时才同步解码，加载完成前 getWidth()/getHeight() 为 0，
         // 直接计算 UV 会得到 NaN（采样变黑）。订阅 onLoaded，尺寸就绪后再应用裁剪。
@@ -181,15 +181,15 @@ int main() {
     // ---------------------------------------------------------------------
     // 3. 图片墙：10 张图共享纹理，alpha 呼吸动画仍合并为 1 个 SSBO 批次
     // ---------------------------------------------------------------------
-    window->addChild(createCard(middle, top, cardWidth, cardHeight));
-    addCardTitle(window, L"图片墙与合批", L"同纹理同材质 → 1 个 SSBO 批次 / 1 次 draw call", middle, top, cardWidth);
+    scene->addChild(createCard(middle, top, cardWidth, cardHeight));
+    addCardTitle(scene, L"图片墙与合批", L"同纹理同材质 → 1 个 SSBO 批次 / 1 次 draw call", middle, top, cardWidth);
     std::vector<std::shared_ptr<MRImage>> wallImages;
     for (int index = 0; index < 10; ++index) {
         const int column = index % 5;
         const int row = index / 5;
         auto image = createImage(carTexture, middle + 42.0f + column * 100.0f, top + 130.0f + row * 110.0f, 90.0f, 90.0f);
         wallImages.push_back(image);
-        window->addChild(image);
+        scene->addChild(image);
     }
     {
         // 呼吸动画：alpha 是 SSBO 每实例属性，动画不影响合批；
@@ -210,8 +210,8 @@ int main() {
     // ---------------------------------------------------------------------
     // 4. 阴影：SDF 圆角软阴影（outer-only 裁剪，可投在卡片上）
     // ---------------------------------------------------------------------
-    window->addChild(createCard(middle, bottom, cardWidth, cardHeight));
-    addCardTitle(window, L"Shadow 投影", L"SDF 圆角软阴影，outer-only 裁剪可投在卡片上", middle, bottom, cardWidth);
+    scene->addChild(createCard(middle, bottom, cardWidth, cardHeight));
+    addCardTitle(scene, L"Shadow 投影", L"SDF 圆角软阴影，outer-only 裁剪可投在卡片上", middle, bottom, cardWidth);
     auto shadowColor = MRColor::create();
     shadowColor->setColor(Vector4(0.95f, 0.45f, 0.25f, 1.0f));
     shadowColor->setRounding(18.0f);
@@ -223,7 +223,7 @@ int main() {
         shadow->setShadowBlur(24.0f);
         // rounding 不设置 → 自动跟随属主的 18px 圆角
     }
-    window->addChild(shadowColor);
+    scene->addChild(shadowColor);
 
     auto shadowImage = createImage(brickTexture, middle + 320.0f, bottom + 150.0f, 170.0f, 170.0f);
     shadowImage->setRounding(20.0f);
@@ -232,14 +232,14 @@ int main() {
         shadow->setShadowBlur(32.0f);
         shadow->setShadowSpread(4.0f);
     }
-    window->addChild(shadowImage);
-    window->addChild(createLabel(L"默认黑色，blur 24 / 32，spread 4，圆角跟随属主", middle + 24.0f, bottom + 350.0f, cardWidth - 48.0f, 32.0f, 17.0f));
+    scene->addChild(shadowImage);
+    scene->addChild(createLabel(L"默认黑色，blur 24 / 32，spread 4，圆角跟随属主", middle + 24.0f, bottom + 350.0f, cardWidth - 48.0f, 32.0f, 17.0f));
 
     // ---------------------------------------------------------------------
     // 5. 图集区域：TextureAtlas 按名取子区域
     // ---------------------------------------------------------------------
-    window->addChild(createCard(right, top, cardWidth, cardHeight));
-    addCardTitle(window, L"图集区域 TextureAtlas", L".basis 图集内存装配（buffer 注入），同图集天然合批", right, top, cardWidth);
+    scene->addChild(createCard(right, top, cardWidth, cardHeight));
+    addCardTitle(scene, L"图集区域 TextureAtlas", L".basis 图集内存装配（buffer 注入），同图集天然合批", right, top, cardWidth);
     const char* regionNames[] = {"O_HundredDigit_1.png", "O_SingleDigit_3.png", "O_TensDigit_6.png"};
     for (int index = 0; index < 3; ++index) {
         auto image = MRImage::create();
@@ -247,21 +247,21 @@ int main() {
         auto transform = image->getComponent<Transform>();
         transform->setPosition(right + 42.0f + index * 170.0f, top + 130.0f, 0.0f);
         transform->setSize(120.0f, 190.0f);
-        window->addChild(image);
+        scene->addChild(image);
     }
-    window->addChild(createLabel(L"regions: O_*Digit_*.png，同图集天然合批", right + 24.0f, top + 340.0f, cardWidth - 48.0f, 32.0f, 17.0f));
+    scene->addChild(createLabel(L"regions: O_*Digit_*.png，同图集天然合批", right + 24.0f, top + 340.0f, cardWidth - 48.0f, 32.0f, 17.0f));
 
     // ---------------------------------------------------------------------
     // 6. 程序化纹理：CPU 数据直接上屏
     // ---------------------------------------------------------------------
-    window->addChild(createCard(right, bottom, cardWidth, cardHeight));
-    addCardTitle(window, L"程序化纹理 setTextureData", L"CPU 生成的 RGBA 数据直接创建纹理", right, bottom, cardWidth);
+    scene->addChild(createCard(right, bottom, cardWidth, cardHeight));
+    addCardTitle(scene, L"程序化纹理 setTextureData", L"CPU 生成的 RGBA 数据直接创建纹理", right, bottom, cardWidth);
     const auto proceduralTexture = createProceduralTexture();
-    window->addChild(createImage(proceduralTexture, right + 60.0f, bottom + 120.0f, 220.0f, 220.0f));
+    scene->addChild(createImage(proceduralTexture, right + 60.0f, bottom + 120.0f, 220.0f, 220.0f));
     auto proceduralRounded = createImage(proceduralTexture, right + 320.0f, bottom + 120.0f, 200.0f, 200.0f);
     proceduralRounded->setRounding(100.0f);
-    window->addChild(proceduralRounded);
-    window->addChild(createLabel(L"渐变 + 棋盘 + 圆环，右侧切圆形", right + 24.0f, bottom + 350.0f, cardWidth - 48.0f, 32.0f, 17.0f));
+    scene->addChild(proceduralRounded);
+    scene->addChild(createLabel(L"渐变 + 棋盘 + 圆环，右侧切圆形", right + 24.0f, bottom + 350.0f, cardWidth - 48.0f, 32.0f, 17.0f));
 
     LOG_I("ImageDemo started");
     engine->render();
