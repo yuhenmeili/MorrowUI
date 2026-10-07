@@ -12,12 +12,12 @@ namespace FontUtils {
 // stbtt__compute_crossings_x 与求距循环只覆盖 vline/vcurve，因此 CFF/OTF
 // 字体（MorrowSansCN 等，CJK 字形以三次曲线为主）的绕数判定错乱、产生
 // 碎片伪影；TrueType（.ttf/.ttc，二次曲线）则正常（msyh/simhei 实测通过，
-// 见 tools/sdf_compare.cpp）。另注意 stb 的 SDF 内容绘制在"字形框外扩
-// padding"处，与 MakeGlyphBitmap 路径（内容在字形框处）相差一个 padding，
-// 消费方需修正原点（DynamicFont 的 GlyphSdf 分支已处理）。
+// 见 tools/sdf_compare.cpp）。
 // 本路径对任意字体稳定，边缘定位误差 ≤ 0.5px（二值化阈值 128 + 亚像素
 // 校正），作为默认 SDF 生成方式；矢量亚像素精确的 GlyphSdf 方式作为
-// 可选项，由 DynamicFont::LoadFromFile 的 method 参数选择。
+// 可选项，由 DynamicFont::LoadFromFile 的 method 参数选择。两条路径的
+// 单元均为"字形框 ± SDF_SPREAD"、内容在 (SDF_SPREAD, SDF_SPREAD) 处，
+// bearing = 字形框 - SDF_SPREAD（墨迹落在字形框的度量位置）。
 
 constexpr int kEdtInf = 0x100000;
 

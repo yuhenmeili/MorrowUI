@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 #include "FontUtils.h"
 #include "morrow/utils/Log.h"
@@ -183,22 +184,33 @@ bool DynamicFont::GenerateGlyphToAtlas(int32_t codepoint, GlyphCache& cache) {
         }
         bitmap.assign(sdf, sdf + static_cast<size_t>(sdfWidth) * sdfHeight);
         stbtt_FreeSDF(sdf, nullptr);
-        // stb 的内容绘制在"字形框外扩 padding"处，而 MakeGlyphBitmap 路径因
-        // shift 与 box 原点抵消、内容绘制在字形框处；将原点回退一个 padding，
-        // 使两种方式的 bearing 语义一致（实测两路径内容位置因此对齐）。
-        sdfXoff -= SDF_SPREAD;
-        sdfYoff -= SDF_SPREAD;
+        // stb 返回的 xoff/yoff = 字形框 - padding，内容绘制在单元的
+        // (SDF_SPREAD, SDF_SPREAD) 处：象限放在 (sdfXoff, sdfYoff) 时墨迹正好
+        // 落在字形框位置，bearing 语义与修复后的 BitmapEdt 路径一致。
+        // （历史版本曾在此处回退一个 padding 以对齐 BitmapEdt 的内容错位，
+        // 该错位已修复，补偿须同步移除，否则两路径相差 8px。）
     } else {
         sdfWidth = (x1 - x0) + SDF_SPREAD * 2;
         sdfHeight = (y1 - y0) + SDF_SPREAD * 2;
         sdfXoff = x0 - SDF_SPREAD;
         sdfYoff = y0 - SDF_SPREAD;
+        // stbtt_MakeGlyphBitmapSubpixel 的位图原点 = floor(字形框 + shift)（内部
+        // 用 GetGlyphBitmapBoxSubpixel 抵消 shift），shift 只提供亚像素相位、不能
+        // 把内容平移进带 spread 的单元——若把 shift 当平移用，内容会落在单元
+        // (0,0)：字形上/左侧的负距离场被裁到单元边界，顶到字形框上/左缘的笔画
+        // （T 的横画等）重建时缺少外侧过渡，渲染成"两头细中间粗"的涂抹。
+        // 因此先按字形框尺寸光栅化（内容在框位图 (0,0)，经典语义），再拷入
+        // 单元的 (SDF_SPREAD, SDF_SPREAD) 处，保证四周 spread 完整。
+        const int boxWidth = x1 - x0;
+        const int boxHeight = y1 - y0;
+        std::vector<unsigned char> glyphCoverage(static_cast<size_t>(boxWidth) * boxHeight);
+        stbtt_MakeGlyphBitmap(&m_fontInfo, glyphCoverage.data(), boxWidth, boxHeight, boxWidth,
+                              cache.scale, cache.scale, glyphIndex);
         std::vector<unsigned char> coverage(static_cast<size_t>(sdfWidth) * sdfHeight, 0);
-        stbtt_MakeGlyphBitmapSubpixel(&m_fontInfo, coverage.data(),
-                                      sdfWidth, sdfHeight, sdfWidth,
-                                      cache.scale, cache.scale,
-                                      static_cast<float>(-sdfXoff), static_cast<float>(-sdfYoff),
-                                      glyphIndex);
+        for (int row = 0; row < boxHeight; ++row) {
+            memcpy(coverage.data() + (static_cast<size_t>(row + SDF_SPREAD) * sdfWidth + SDF_SPREAD),
+                   glyphCoverage.data() + static_cast<size_t>(row) * boxWidth, boxWidth);
+        }
         FontUtils::encodeSdfFromCoverage(coverage.data(), sdfWidth, sdfHeight,
                               SDF_ONEDGE, SDF_PIXEL_DIST_SCALE, bitmap);
     }
