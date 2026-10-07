@@ -13,10 +13,11 @@ namespace FontUtils {
 // 字体（MorrowSansCN 等，CJK 字形以三次曲线为主）的绕数判定错乱、产生
 // 碎片伪影；TrueType（.ttf/.ttc，二次曲线）则正常（msyh/simhei 实测通过，
 // 见 tools/sdf_compare.cpp）。
-// 本路径对任意字体稳定，边缘定位误差 ≤ 0.5px（二值化阈值 128 + 亚像素
-// 校正），作为默认 SDF 生成方式；矢量亚像素精确的 GlyphSdf 方式作为
-// 可选项，由 DynamicFont::LoadFromFile 的 method 参数选择。两条路径的
-// 单元均为"字形框 ± SDF_SPREAD"、内容在 (SDF_SPREAD, SDF_SPREAD) 处，
+// 本路径对任意字体稳定，边缘定位：平直边缘亚像素精确（边界纹素对锚定
+// 校正，整条距离剖面统一指向真实边缘），凸角/凹角处 ≤ 0.5px，作为默认
+// SDF 生成方式；矢量亚像素精确的 GlyphSdf 方式作为可选项，由
+// DynamicFont::LoadFromFile 的 method 参数选择。两条路径的单元均为
+// "字形框 ± SDF_SPREAD"、内容在 (SDF_SPREAD, SDF_SPREAD) 处，
 // bearing = 字形框 - SDF_SPREAD（墨迹落在字形框的度量位置）。
 
 constexpr int kEdtInf = 0x100000;
