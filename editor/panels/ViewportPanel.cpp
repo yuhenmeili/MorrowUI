@@ -235,9 +235,9 @@ void ViewportPanel::refreshGuides() {
 void ViewportPanel::resizeToPanel() {
     if (!panel)
         return;
-    const Math::Rect bounds = panel->getScreenSpaceAABB();
+    const Math::Rect bounds = panel->getWorldSpaceAABB();
     x = bounds.Min.x;
-    y = bounds.Min.y;
+    y = bounds.Max.y;
     width = std::max(1.0f, bounds.GetWidth());
     height = std::max(1.0f, bounds.GetHeight());
     if (previewRoot) {
@@ -248,13 +248,15 @@ void ViewportPanel::resizeToPanel() {
 }
 
 void ViewportPanel::handlePointer(const TouchEvent& event) {
-    const Math::Rect viewportBounds = panel->getScreenSpaceAABB();
+    const Math::Rect viewportBounds = panel->getWorldSpaceAABB();
     x = viewportBounds.Min.x;
-    y = viewportBounds.Min.y;
+    y = viewportBounds.Max.y;
     width = viewportBounds.GetWidth();
     height = viewportBounds.GetHeight();
+    // 世界系 Y 向上：panelX 从左缘向右量，panelY 从顶缘（Max.y）向下量，
+    // 与下方 32px 顶栏偏移、pan/zoom 公式的“左上原点 Y 向下”语义一致
     const float panelX = event.positionX - x;
-    const float panelY = event.positionY - y;
+    const float panelY = y - event.positionY;
     const float x = (panelX - panX) / zoom;
     const float y = (panelY - 32.0f - panY) / zoom;
     if (panelX < 0.0f || panelY < 32.0f || panelX > width || panelY > height)
@@ -309,7 +311,7 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
         if (screenTargetNodeId.empty()) {
             for (const auto& [nodeId, runtimeNode] : runtimeNodes) {
                 const auto uiNode = std::dynamic_pointer_cast<UIWidget>(runtimeNode);
-                if (uiNode && uiNode->getVisible() && uiNode->getScreenSpaceAABB().Contains(event.positionX, event.positionY)) {
+                if (uiNode && uiNode->getVisible() && uiNode->getWorldSpaceAABB().Contains(event.positionX, event.positionY)) {
                     screenTargetNodeId = nodeId;
                     break;
                 }

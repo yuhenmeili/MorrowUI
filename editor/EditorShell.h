@@ -76,6 +76,9 @@ private:
 
     bool handleAssetDrag(const TouchEvent& event);
 
+    /// 把世界系指针位置换算到 m_shellRoot 局部系并移动资产拖拽预览。
+    void positionAssetDragPreview(float worldX, float worldY);
+
     void handleInput(std::vector<TouchEvent>& events);
 
     void handleKeyEvent(const TouchEvent& event);

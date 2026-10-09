@@ -132,7 +132,8 @@ public:
 
     /// 设置提示文本。
     void setText(const std::wstring& text);
-    /// 在目标屏幕区域下方显示提示。
+    /// 在世界系目标区域下方显示提示（空间换算见实现，弹出位置仍按
+    /// 父容器局部系定位）。
     void showFor(const Math::Rect& targetBounds);
     /// 设置提示偏移。
     void setOffset(float x, float y);

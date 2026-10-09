@@ -242,7 +242,16 @@ void MRTooltip::setText(const std::wstring& text) {
 }
 
 void MRTooltip::showFor(const Math::Rect& targetBounds) {
-    popup(targetBounds.Min.x + m_offset.x, targetBounds.Max.y + m_offset.y);
+    // targetBounds 为世界系（Y 向上，Min.y 是目标底边），在目标下方偏移
+    // m_offset 处弹出；MRPopup::popup 按父容器局部系（左上原点、Y 向下）
+    // 定位，先换算。
+    if (const auto parent = std::dynamic_pointer_cast<UIWidget>(m_parent)) {
+        const Math::Rect parentBounds = parent->getWorldSpaceAABB();
+        popup(targetBounds.Min.x + m_offset.x - parentBounds.Min.x,
+              parentBounds.Max.y - targetBounds.Min.y + m_offset.y);
+        return;
+    }
+    popup(targetBounds.Min.x + m_offset.x, targetBounds.Min.y - m_offset.y);
 }
 
 void MRTooltip::setOffset(float x, float y) {

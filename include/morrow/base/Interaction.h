@@ -26,10 +26,11 @@ public:
         return m_enabled;
     }
 
-    // 自定义命中测试区域（默认使用 Widget 的包围盒）
+    // 自定义命中测试区域（默认使用 Widget 的世界系包围盒，与派发出的
+    // TouchEvent 坐标同系：中心原点、Y 向上）
     virtual Rect getHitTestRect() const;
 
-    // 检查点是否在交互区域内
+    // 检查世界系点是否在交互区域内
     virtual bool containsPoint(float x, float y) const;
 
     // ------------------ 行为配置 ------------------

@@ -141,7 +141,7 @@ std::string SceneTreePanel::nodeForWidget(const std::shared_ptr<Widget>& widget)
 
 std::string SceneTreePanel::nodeAt(float x, float y) const {
     for (const auto& row : rows) {
-        if (row.button && row.button->getScreenSpaceAABB().Contains(x, y)) {
+        if (row.button && row.button->getWorldSpaceAABB().Contains(x, y)) {
             return row.nodeId;
         }
     }

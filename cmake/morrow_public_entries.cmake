@@ -49,6 +49,7 @@ set(MORROW_PUBLIC_ENTRIES
     "elements/MRRichTextLabel.h"
     "elements/MRScrollBar.h"
     "elements/MRScrollContainer.h"
+    "elements/MRSegmentedButton.h"
     "elements/MRSeparator.h"
     "elements/MRSlider.h"
     "elements/MRSpacer.h"

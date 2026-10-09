@@ -58,7 +58,7 @@ protected:
     void onProgressChanged(float progress) override;
 
 private:
-    void updateValueFromPosition(float screenX, float screenY);
+    void updateValueFromPosition(float worldX, float worldY);
 
     void repositionThumb();
 

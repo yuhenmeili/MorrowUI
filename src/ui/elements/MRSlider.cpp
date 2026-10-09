@@ -95,8 +95,8 @@ void MRSlider::onProgressChanged(float progress) {
     m_events.onValueChanged.notify(*this, progress);
 }
 
-void MRSlider::updateValueFromPosition(float screenX, float screenY) {
-    const Math::Rect bounds = getScreenSpaceAABB();
+void MRSlider::updateValueFromPosition(float worldX, float worldY) {
+    const Math::Rect bounds = getWorldSpaceAABB();
     const float width = bounds.Max.x - bounds.Min.x;
     const float height = bounds.Max.y - bounds.Min.y;
     if (width <= 0.0f && height <= 0.0f) {
@@ -106,16 +106,17 @@ void MRSlider::updateValueFromPosition(float screenX, float screenY) {
     float value = 0.0f;
     switch (m_direction) {
         case ProgressDirection::LeftToRight:
-            value = (screenX - bounds.Min.x) / width;
+            value = (worldX - bounds.Min.x) / width;
             break;
         case ProgressDirection::RightToLeft:
-            value = (bounds.Max.x - screenX) / width;
+            value = (bounds.Max.x - worldX) / width;
             break;
         case ProgressDirection::TopToBottom:
-            value = (screenY - bounds.Min.y) / height;
+            // 世界系 Y 向上，Max.y 是轨道顶端
+            value = (bounds.Max.y - worldY) / height;
             break;
         case ProgressDirection::BottomToTop:
-            value = (bounds.Max.y - screenY) / height;
+            value = (worldY - bounds.Min.y) / height;
             break;
     }
     setValue(std::clamp(value, 0.0f, 1.0f));

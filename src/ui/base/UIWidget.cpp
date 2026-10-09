@@ -31,24 +31,10 @@ std::shared_ptr<Transform> UIWidget::getTransform() const {
     return getComponent<Transform>();
 }
 
-Math::Rect UIWidget::getScreenSpaceAABB() const {
+Math::Rect UIWidget::getWorldSpaceAABB() const {
     const auto transform = getTransform();
     if (!transform)
         return Math::Rect(0.0f, 0.0f, 0.0f, 0.0f);
-
-    // TouchEvent positions use framebuffer pixels with a top-left origin and
-    // Y increasing downwards. UI world space is centered with Y increasing
-    // upwards, so derive the screen extent from the root transform and map
-    // every transformed corner into the input coordinate system here.
-    const Widget* root = this;
-    while (root->m_parent) {
-        root = root->m_parent.get();
-    }
-
-    Vector3 screenSize;
-    if (const auto rootTransform = root->getComponent<Transform>()) {
-        screenSize = rootTransform->getSize();
-    }
 
     const Matrix4& worldMatrix = transform->getWorldMatrix();
     const Vector3 size = transform->getSize();
@@ -65,20 +51,43 @@ Math::Rect UIWidget::getScreenSpaceAABB() const {
     float minY = std::numeric_limits<float>::max();
     float maxX = std::numeric_limits<float>::lowest();
     float maxY = std::numeric_limits<float>::lowest();
-    const float halfScreenW = screenSize.x * 0.5f;
-    const float halfScreenH = screenSize.y * 0.5f;
-
     for (auto& corner : corners) {
         corner.apply(worldMatrix);
-        const float screenX = corner.x + halfScreenW;
-        const float screenY = halfScreenH - corner.y;
-        minX = std::min(minX, screenX);
-        minY = std::min(minY, screenY);
-        maxX = std::max(maxX, screenX);
-        maxY = std::max(maxY, screenY);
+        minX = std::min(minX, corner.x);
+        minY = std::min(minY, corner.y);
+        maxX = std::max(maxX, corner.x);
+        maxY = std::max(maxY, corner.y);
+    }
+    return Math::Rect(minX, minY, maxX, maxY);
+}
+
+Math::Rect UIWidget::getScreenSpaceAABB() const {
+    // 事件坐标已在 Platform::resolveInputTargets 统一转换为世界系，输入
+    // 命中请改用 getWorldSpaceAABB；本函数仅供需要 framebuffer 像素
+    // （左上原点、Y 向下）的渲染 clip / scissor 等路径使用。
+    if (!getTransform())
+        return Math::Rect(0.0f, 0.0f, 0.0f, 0.0f);
+
+    const Widget* root = this;
+    while (root->m_parent) {
+        root = root->m_parent.get();
     }
 
-    return Math::Rect(minX, minY, maxX, maxY);
+    Vector3 screenSize;
+    if (const auto rootTransform = root->getComponent<Transform>()) {
+        screenSize = rootTransform->getSize();
+    }
+
+    // 世界角点 → 输入坐标系：X 平移半宽，Y 翻转向下。Y 映射单调递减，
+    // min/max 交换角色后仍是外接矩形。
+    const Math::Rect worldBounds = getWorldSpaceAABB();
+    const float halfScreenW = screenSize.x * 0.5f;
+    const float halfScreenH = screenSize.y * 0.5f;
+    return Math::Rect(
+        worldBounds.Min.x + halfScreenW,
+        halfScreenH - worldBounds.Max.y,
+        worldBounds.Max.x + halfScreenW,
+        halfScreenH - worldBounds.Min.y);
 }
 
 void UIWidget::setClipChildren(bool clip) {

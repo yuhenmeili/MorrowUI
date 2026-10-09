@@ -263,6 +263,12 @@ InputProvider
     → Interaction Component
 ```
 
+`Platform::resolveInputTargets` 在派发前把每个事件的屏幕像素坐标（左上原点、
+Y 向下）统一转换为世界系（中心原点、Y 向上），并完成命中测试、把目标写入
+`event.target`。控件与监听器拿到的坐标与 `UIWidget::getWorldSpaceAABB()` 同系，
+无需再做换算；渲染裁剪（scissor）等屏幕像素消费者继续使用
+`getScreenSpaceAABB()`。
+
 事件导致的状态修改可以在同一帧进入 update、lateUpdate 和渲染提交。
 
 ### 5.2 UI 事件

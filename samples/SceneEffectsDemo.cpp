@@ -139,7 +139,7 @@ int main() {
     tooltip->attachTo(scene);
     auto tooltipButton = createButton(L"显示 Tooltip", 590.0f, 610.0f);
     auto tooltipConnection = tooltipButton->events().onClicked.connect([tooltip, tooltipButton](BaseButton&) {
-        tooltip->showFor(tooltipButton->getScreenSpaceAABB());
+        tooltip->showFor(tooltipButton->getWorldSpaceAABB());
     });
     scene->addChild(tooltipButton);
 

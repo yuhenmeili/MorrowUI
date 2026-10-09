@@ -11,6 +11,7 @@
 #include "GlobalObject.h"
 #include "RenderDeviceProxy.h"
 #include "Window.h"
+#include "morrow/OrthographicCamera.h"
 #include "morrow/base/Interaction.h"
 #include "morrow/base/TouchEvent.h"
 #include "morrow/base/UIWidget.h"
@@ -58,7 +59,7 @@ std::shared_ptr<Widget> Platform::findTopmostInteractiveWidget(
     ClipRect childClip = inheritedClip;
     if (const auto uiWidget = std::dynamic_pointer_cast<UIWidget>(root);
         uiWidget && uiWidget->getClipChildren()) {
-        const Math::Rect bounds = uiWidget->getScreenSpaceAABB();
+        const Math::Rect bounds = uiWidget->getWorldSpaceAABB();
         childClip = inheritedClip.intersected(
             ClipRect::fromBounds(
                 bounds.Min.x, bounds.Min.y, bounds.Max.x, bounds.Max.y));
@@ -79,7 +80,7 @@ std::shared_ptr<Widget> Platform::findTopmostInteractiveWidget(
 }
 
 void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
-    if (!frameState || !frameState->inputEventsManager) {
+    if (!frameState || !frameState->inputEventsManager || !frameState->camera) {
         return;
     }
 
@@ -88,6 +89,12 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
     resolvedEvents.reserve(inputEvents.size() * 3);
 
     for (auto& touchEvent : inputEvents) {
+        // 统一坐标：派发给控件层的事件一律为世界系（中心原点、Y 向上），
+        // 与控件 AABB / Interaction 命中矩形同系，处理器无需再做转换。
+        const auto worldPoint = frameState->camera->screenToWorld(touchEvent.positionX, touchEvent.positionY);
+        touchEvent.positionX = worldPoint.x;
+        touchEvent.positionY = worldPoint.y;
+
         touchEvent.target.reset();
         std::shared_ptr<Widget> resolvedTarget;
         bool fromCapture = false;

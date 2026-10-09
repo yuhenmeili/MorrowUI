@@ -138,7 +138,7 @@ private:
 
     void eraseSelection();
 
-    size_t textPositionAt(float screenX, float screenY) const;
+    size_t textPositionAt(float worldX, float worldY) const;
 
     void layoutChildren();
 

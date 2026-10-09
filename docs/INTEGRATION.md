@@ -55,6 +55,20 @@ target_link_libraries(your_app PRIVATE morrow)
 include 链的传递依赖——物理上可达，但**不作为独立承诺面**：它们是控件几何/图集
 基础设施，接口随引擎控件需要自由演进，业务代码不应直接依赖（见 §4）。
 
+### 2.1 事件坐标契约
+
+派发给控件层的 `TouchEvent` 坐标（`positionX/positionY`）一律为**世界系**：
+中心原点、X 向右、Y 向上，与 `UIWidget::getWorldSpaceAABB()` 同系。平台屏幕
+像素（左上原点、Y 向下）到世界系的转换在 `Platform::resolveInputTargets`
+派发前统一完成，业务监听器无需（也不应）再做 `screenToWorld` 换算。
+
+- 命中、拖动、相对位置计算：事件坐标与 `getWorldSpaceAABB()` 直接比较、做减法。
+  注意世界系 Y 向上，与布局局部系（左上原点、Y 向下）方向相反，换算局部量时
+  翻转 Y（`局部Y = 父Max.y - 世界Y`）。
+- `UIWidget::getScreenSpaceAABB()` 返回 framebuffer 像素系 AABB，仅供渲染裁剪
+  （scissor）等屏幕像素消费者使用，不参与事件处理。
+- `MRPopupMenu::popup/popupBelow`、`MRTooltip::showFor` 的坐标参数同为世界系。
+
 ## 3. Shader 契约（对外唯一 shader 入口）
 
 对外 shader 能力收敛为一个入口 + 一组参数接口：

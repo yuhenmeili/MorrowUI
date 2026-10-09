@@ -78,6 +78,8 @@ enum TouchEventType : int32_t {
 
 struct TouchEvent {
     int32_t touchID = -1;  // 0,1,2...
+    // 位置为世界系（中心原点、X 向右、Y 向上）：Platform::resolveInputTargets
+    // 派发前已把平台屏幕像素统一转换，监听器与控件世界 AABB 直接同系使用。
     float positionX = 0.0f;
     float positionY = 0.0f;
     TouchEventType eventType = TOUCH_EVENT_TYPE_NONE;

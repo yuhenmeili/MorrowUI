@@ -1,6 +1,10 @@
 #include "morrow/Engine.h"
 #include "morrow/Texture.h"
+
+#include <array>
+
 #include "morrow/base/Transform.h"
+#include "morrow/effects/BackdropBlur.h"
 #include "morrow/elements/MRButton.h"
 #include "morrow/elements/MRCheckBox.h"
 #include "morrow/elements/MRCheckButton.h"
@@ -11,6 +15,7 @@
 #include "morrow/elements/MRPopupMenu.h"
 #include "morrow/elements/MRRadioButton.h"
 #include "morrow/elements/MRSeparator.h"
+#include "morrow/elements/MRSegmentedButton.h"
 #include "morrow/elements/MRSpacer.h"
 #include "morrow/elements/MRSpinBox.h"
 #include "morrow/elements/MRTextureButton.h"
@@ -151,7 +156,11 @@ int main() {
     // ---------------------------------------------------------------------
     constexpr float selectionPanelX = 520.0f;
     constexpr float selectionPanelW = 540.0f;
-    scene->addChild(createPanel(selectionPanelX, kPanelTop, selectionPanelW, 800.0f));
+    // 面板下沉到模糊源（displayLayer -5 < 玻璃边界 0）：面板与条纹都会被
+    // 玻璃采样模糊，且不会在回屏后盖住模糊面片
+    auto selectionPanel = createPanel(selectionPanelX, kPanelTop, selectionPanelW, 800.0f);
+    selectionPanel->setDisplayLayer(-5);
+    scene->addChild(selectionPanel);
     scene->addChild(createLabel(L"Selection Controls", selectionPanelX + 24.0f, kPanelTop + 22.0f, selectionPanelW - 48.0f, 38.0f, 23.0f));
     scene->addChild(createLabel(L"多选与开关", selectionPanelX + 24.0f, kPanelTop + 82.0f, 230.0f, 32.0f, 18.0f));
     scene->addChild(createLabel(L"RadioGroup 单选", selectionPanelX + 278.0f, kPanelTop + 82.0f, 230.0f, 32.0f, 18.0f));
@@ -221,6 +230,50 @@ int main() {
         createLabel(L"CheckBox 支持多选；CheckButton / Toggle 展示不同选中状态。", selectionPanelX + 24.0f, kPanelTop + 300.0f, selectionPanelW - 48.0f, 30.0f, 17.0f));
     scene->addChild(createLabel(L"RadioButton 通过 RadioGroup 实现互斥选择。", selectionPanelX + 24.0f, kPanelTop + 336.0f, selectionPanelW - 48.0f, 30.0f, 17.0f));
 
+    scene->addChild(createLabel(L"MRSegmentedButton 分段选择", selectionPanelX + 24.0f, kPanelTop + 392.0f, selectionPanelW - 48.0f, 30.0f, 18.0f));
+    // 玻璃背后的彩色内容带：与分段按钮同矩形，displayLayer(-1) 沉入模糊源
+    //（严格小于玻璃边界 0 才会被采样，见 BackdropBlurManager 分段语义），
+    // 压在 -5 的面板之上
+    const std::array<Vector4, 6> stripeColors = {{
+        Vector4(0.91f, 0.36f, 0.32f, 1.0f),
+        Vector4(0.95f, 0.60f, 0.28f, 1.0f),
+        Vector4(0.94f, 0.80f, 0.32f, 1.0f),
+        Vector4(0.36f, 0.68f, 0.52f, 1.0f),
+        Vector4(0.32f, 0.52f, 0.82f, 1.0f),
+        Vector4(0.62f, 0.40f, 0.76f, 1.0f),
+    }};
+    const float stripeW = (selectionPanelW - 48.0f) / static_cast<float>(stripeColors.size());
+    for (size_t i = 0; i < stripeColors.size(); ++i) {
+        auto stripe = MRColor::create();
+        stripe->setColor(stripeColors[i]);
+        stripe->getComponent<Transform>()->setPosition(selectionPanelX + 24.0f + stripeW * static_cast<float>(i), kPanelTop + 432.0f, 0.0f);
+        stripe->getComponent<Transform>()->setSize(stripeW, 56.0f);
+        stripe->setDisplayLayer(-1);
+        scene->addChild(stripe);
+    }
+    // 毛玻璃底：透明 MRColor 作属主挂 BackdropBlur（模糊面片即背景，
+    // 圆角跟随属主的 setRounding），MRSegmentedButton 作为纯容器叠其上
+    auto segmentedGlass = MRColor::create();
+    segmentedGlass->setColor(0.0f, 0.0f, 0.0f, 0.0f);
+    // segmentedGlass->setRounding(12.0f);
+    segmentedGlass->getComponent<Transform>()->setPosition(selectionPanelX + 24.0f, kPanelTop + 432.0f, 0.0f);
+    segmentedGlass->getComponent<Transform>()->setSize(selectionPanelW - 48.0f, 56.0f);
+    auto glassBlur = segmentedGlass->addComponent<BackdropBlur>();
+    glassBlur->setBlurRadius(30.0f);
+    glassBlur->setTintColor(0.97f, 0.98f, 1.0f, 0.45f);
+    scene->addChild(segmentedGlass);
+    auto segmented = MRSegmentedButton::create();
+    segmented->getComponent<Transform>()->setPosition(selectionPanelX + 24.0f, kPanelTop + 432.0f, 0.0f);
+    segmented->getComponent<Transform>()->setSize(selectionPanelW - 48.0f, 56.0f);
+    segmented->addSegment(L"标准");
+    segmented->addSegment(L"柔和");
+    segmented->addSegment(L"运动");
+    segmented->setOnSelectionChanged([](int index) { LOG_I("segmented selection = {}", index); });
+    scene->addChild(segmented);
+    scene->addChild(
+        createLabel(L"N 选一分段按钮：选中段叠加程序生成的点状背景并高亮文字。\n组件为纯容器；毛玻璃背景 = 透明 MRColor 属主挂 BackdropBlur + 分段按钮叠上\n（层级：内容 -1 沉入模糊源，玻璃属主 0 为分段边界）。",
+                    selectionPanelX + 24.0f, kPanelTop + 506.0f, selectionPanelW - 48.0f, 78.0f, 17.0f));
+
     // ---------------------------------------------------------------------
     // OptionButton / MenuButton / PopupMenu
     // ---------------------------------------------------------------------
@@ -278,7 +331,7 @@ int main() {
         if (popupMenu->isOpen()) {
             popupMenu->hide();
         } else {
-            popupMenu->popupBelow(popupButton->getScreenSpaceAABB());
+            popupMenu->popupBelow(popupButton->getWorldSpaceAABB());
         }
     });
     scene->addChild(popupButton);

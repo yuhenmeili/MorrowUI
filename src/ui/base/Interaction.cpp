@@ -22,7 +22,7 @@ Rect Interaction::getHitTestRect() const {
     if (auto widget = getGameObject()) {
         auto uiWidget = std::dynamic_pointer_cast<UIWidget>(widget->shared_from_this());
         if (uiWidget) {
-            return uiWidget->getScreenSpaceAABB();
+            return uiWidget->getWorldSpaceAABB();
         }
     }
     return Rect(0.0f, 0.0f, 0.0f, 0.0f);

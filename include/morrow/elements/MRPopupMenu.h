@@ -46,10 +46,11 @@ public:
 
     Events& events();
 
-    /// 在根节点坐标中的指定位置显示菜单。
+    /// 在世界系坐标（中心原点、Y 向上，与 TouchEvent 同系）的指定位置
+    /// 显示菜单，y 按菜单顶端理解；内部换算为父容器局部坐标。
     void popup(float x, float y);
 
-    /// 在指定锚点区域下方显示菜单。
+    /// 在指定世界系锚点区域下方显示菜单（空间不足时改到上方）。
     void popupBelow(const Math::Rect& anchorBounds);
 
     /// 将菜单挂载到指定根节点。

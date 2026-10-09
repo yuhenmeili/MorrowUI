@@ -32,7 +32,7 @@ MRScrollBar::MRScrollBar() : UIWidget(false) {
     auto interaction = addComponent<Interaction>();
     interaction->setClickEnabled(false);
     m_touchConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_TOUCH, [this](TouchEvent& event) {
-        const auto bounds = m_thumb->getScreenSpaceAABB();
+        const auto bounds = m_thumb->getWorldSpaceAABB();
         if (bounds.Contains(event.positionX, event.positionY)) {
             m_dragging = true;
             m_dragCenterOffset = event.positionY - (bounds.Min.y + bounds.Max.y) * 0.5f;
@@ -89,13 +89,15 @@ void MRScrollBar::updateThumb() {
     m_thumb->getComponent<Transform>()->setSize(size.x, thumbHeight);
 }
 
-void MRScrollBar::updateValueFromThumbCenter(float screenY) {
-    const auto bounds = getScreenSpaceAABB();
+void MRScrollBar::updateValueFromThumbCenter(float worldY) {
+    const auto bounds = getWorldSpaceAABB();
     const float height = bounds.Max.y - bounds.Min.y;
     const float trackHeight = std::max(0.0f, height - 4.0f);
     const float thumbHeight = std::max(24.0f, trackHeight * m_pageRatio);
     const float travel = std::max(1.0f, trackHeight - thumbHeight);
-    const float position = std::clamp(screenY - bounds.Min.y - 2.0f - thumbHeight * 0.5f, 0.0f, travel);
+    // bounds 为世界系（Y 向上，Max.y 是可视顶端）；从可视顶端量到滑块中心，
+    // 与 updateThumb 的“值越大滑块越靠下”（本地系 Y 向下）方向一致
+    const float position = std::clamp(bounds.Max.y - worldY - 2.0f - thumbHeight * 0.5f, 0.0f, travel);
     setValue(position / travel);
 }
 

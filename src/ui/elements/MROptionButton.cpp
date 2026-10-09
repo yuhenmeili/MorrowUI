@@ -67,7 +67,7 @@ void MROptionButton::onActivated() {
     while (root->m_parent)
         root = root->m_parent;
     m_menu->attachTo(root);
-    m_menu->popupBelow(getScreenSpaceAABB());
+    m_menu->popupBelow(getWorldSpaceAABB());
 }
 
 void MROptionButton::handleSelection(int id, const std::wstring& text) {

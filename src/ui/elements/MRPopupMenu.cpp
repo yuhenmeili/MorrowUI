@@ -77,12 +77,14 @@ void MRPopupMenu::popup(float x, float y) {
     if (!m_parent)
         return;
     if (const auto parent = std::dynamic_pointer_cast<UIWidget>(m_parent)) {
-        const Math::Rect parentBounds = parent->getScreenSpaceAABB();
+        // x/y 为世界系（中心原点、Y 向上），y 按菜单顶端理解；clamp 保证
+        // 菜单完整落在父矩形内，再换算为父局部系（左上原点、Y 向下）。
+        const Math::Rect parentBounds = parent->getWorldSpaceAABB();
         const Vector3 menuSize = getComponent<Transform>()->getSize();
         x = std::clamp(x, parentBounds.Min.x, std::max(parentBounds.Min.x, parentBounds.Max.x - menuSize.x));
-        y = std::clamp(y, parentBounds.Min.y, std::max(parentBounds.Min.y, parentBounds.Max.y - menuSize.y));
+        y = std::clamp(y, parentBounds.Min.y + menuSize.y, std::max(parentBounds.Min.y + menuSize.y, parentBounds.Max.y));
         x -= parentBounds.Min.x;
-        y -= parentBounds.Min.y;
+        y = parentBounds.Max.y - y;
     }
     getComponent<Transform>()->setPosition(x, y, 0.0f);
     setVisible(true);
@@ -91,12 +93,13 @@ void MRPopupMenu::popup(float x, float y) {
 }
 
 void MRPopupMenu::popupBelow(const Math::Rect& anchorBounds) {
-    float y = anchorBounds.Max.y + 4.0f;
+    // anchorBounds 为世界系（Y 向上，Min.y 是锚点底边）：默认弹在锚点下方
+    float y = anchorBounds.Min.y - 4.0f;
     if (const auto parent = std::dynamic_pointer_cast<UIWidget>(m_parent)) {
-        const Math::Rect parentBounds = parent->getScreenSpaceAABB();
+        const Math::Rect parentBounds = parent->getWorldSpaceAABB();
         const float menuHeight = getComponent<Transform>()->getSize().y;
-        if (y + menuHeight > parentBounds.Max.y)
-            y = anchorBounds.Min.y - menuHeight - 4.0f;
+        if (y - menuHeight < parentBounds.Min.y)
+            y = anchorBounds.Max.y + menuHeight + 4.0f;
     }
     popup(anchorBounds.Min.x, y);
 }

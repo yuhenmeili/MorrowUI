@@ -112,7 +112,9 @@ void MRScrollContainer::attachInput(const std::shared_ptr<Widget>& widget) {
     m_inputConnections.emplace_back(interaction->addEventListener(TOUCH_EVENT_TYPE_MOVE, [this](TouchEvent& event) {
         if (!m_dragging)
             return;
-        const float delta = m_lastDragY - event.positionY;
+        // 事件坐标为世界系（Y 向上），手指下滑时 positionY 减小，差值符号
+        // 与屏幕系（Y 向下）时相反，此处取 now - last 保持内容跟手方向不变
+        const float delta = event.positionY - m_lastDragY;
         m_lastDragY = event.positionY;
         scrollBy(delta);
     }));

@@ -224,14 +224,15 @@ void MRSplitContainer::layoutChildren() {
 }
 
 void MRSplitContainer::updateRatioFromPointer(float x, float y) {
-    const Math::Rect bounds = getScreenSpaceAABB();
+    const Math::Rect bounds = getWorldSpaceAABB();
     const float total =
         (m_orientation == SplitOrientation::Horizontal ? bounds.GetWidth() : bounds.GetHeight()) -
         m_handleWidth;
     if (total <= 0.0f)
         return;
+    // 世界系 Y 向上（Max.y 是顶端），指针到顶部的距离与本地系 Y 向下一致
     const float pointer =
-        m_orientation == SplitOrientation::Horizontal ? x - bounds.Min.x : y - bounds.Min.y;
+        m_orientation == SplitOrientation::Horizontal ? x - bounds.Min.x : bounds.Max.y - y;
     setSplitRatio((pointer - m_handleWidth * 0.5f) / total);
 }
 

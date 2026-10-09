@@ -429,6 +429,19 @@ std::string EditorShell::tabGroupForWidget(const std::shared_ptr<Widget>& widget
 DockDropZone EditorShell::dropZoneAt(float x, float y) const {
     return m_layout->dropZoneAt(x, y);
 }
+
+void EditorShell::positionAssetDragPreview(float worldX, float worldY) {
+    if (!m_assetDragPreview)
+        return;
+    // 事件坐标为世界系（Y 向上），预览挂在全屏根 m_shellRoot 下，换算为
+    // 其局部系（左上原点、Y 向下）后右下偏移 12px 跟随光标
+    const Math::Rect rootBounds = m_shellRoot->getWorldSpaceAABB();
+    m_assetDragPreview->getTransform()->setPosition(
+        worldX - rootBounds.Min.x + 12.0f,
+        rootBounds.Max.y - worldY + 12.0f,
+        0.0f);
+}
+
 bool EditorShell::handleAssetDrag(const TouchEvent& event) {
     if (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_LEFT) {
         const auto* entry = m_assetsPanel->view ? m_assetsPanel->view->entryForWidget(event.target) : nullptr;
@@ -448,7 +461,7 @@ bool EditorShell::handleAssetDrag(const TouchEvent& event) {
         if (m_dragDrop.isActive() && m_dragDrop.state().payload.type == "editor/asset") {
             m_dragDrop.update(event.positionX, event.positionY);
             if (m_assetDragPreview)
-                m_assetDragPreview->getTransform()->setPosition(event.positionX + 12.0f, event.positionY + 12.0f, 0.0f);
+                positionAssetDragPreview(event.positionX, event.positionY);
             const auto* asset = m_assets.findById(m_dragDrop.state().payload.id);
             m_inspector->setAssetDropTarget(asset ? m_inspector->assetPropertyAt(event.positionX, event.positionY, *asset) : std::string{});
             return true;
@@ -475,11 +488,11 @@ bool EditorShell::handleAssetDrag(const TouchEvent& event) {
                     m_assetDragPreview->setPressedColor(Vector4(0.08f, 0.12f, 0.18f, 0.94f));
                     m_assetDragPreview->setCornerRadius(3.0f);
                     m_assetDragPreview->setDisplayLayer(10);
-                    m_assetDragPreview->getTransform()->setPosition(event.positionX + 12.0f, event.positionY + 12.0f, 0.0f);
                     m_assetDragPreview->getTransform()->setSize(240.0f, 28.0f);
                     if (auto interaction = m_assetDragPreview->getComponent<Interaction>())
                         interaction->setInteractionEnabled(false);
                     m_shellRoot->addChild(m_assetDragPreview);
+                    positionAssetDragPreview(event.positionX, event.positionY);
                 }
                 m_inspector->setAssetDropTarget(asset ? m_inspector->assetPropertyAt(event.positionX, event.positionY, *asset) : std::string{});
                 if (asset)
@@ -604,7 +617,7 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
         if (handleDockDrag(event))
             continue;
         const bool activeViewportGesture = m_viewport->dragging || m_viewport->resizing || m_viewport->panning;
-        const bool insideViewport = m_viewport->panel && m_viewport->panel->getScreenSpaceAABB().Contains(event.positionX, event.positionY);
+        const bool insideViewport = m_viewport->panel && m_viewport->panel->getWorldSpaceAABB().Contains(event.positionX, event.positionY);
         if (pointerEvent && (activeViewportGesture || insideViewport)) {
             m_viewport->handlePointer(event);
         }

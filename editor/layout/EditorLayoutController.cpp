@@ -89,11 +89,12 @@ void EditorLayoutController::resize(const Vector2& size) {
 DockDropZone EditorLayoutController::dropZoneAt(float x, float y) const {
     if (!workspace)
         return DockDropZone::None;
-    const Math::Rect bounds = workspace->getScreenSpaceAABB();
+    const Math::Rect bounds = workspace->getWorldSpaceAABB();
     if (!bounds.Contains(x, y))
         return DockDropZone::None;
     const float nx = (x - bounds.Min.x) / std::max(1.0f, bounds.GetWidth());
-    const float ny = (y - bounds.Min.y) / std::max(1.0f, bounds.GetHeight());
+    // 世界系 Y 向上（Max.y 是顶端），归一化保持“从顶部向下量”的语义
+    const float ny = (bounds.Max.y - y) / std::max(1.0f, bounds.GetHeight());
     if (nx < 0.20f)
         return DockDropZone::Left;
     if (nx > 0.80f)
@@ -134,7 +135,7 @@ void EditorLayoutController::completeDrop(float x, float y) {
     else if (zone == DockDropZone::Right || zone == DockDropZone::Top)
         target = centerTabs;
     else {
-        target = bottomTabs->getScreenSpaceAABB().Contains(x, y) ? bottomTabs : (leftTabs->getScreenSpaceAABB().Contains(x, y) ? leftTabs : centerTabs);
+        target = bottomTabs->getWorldSpaceAABB().Contains(x, y) ? bottomTabs : (leftTabs->getWorldSpaceAABB().Contains(x, y) ? leftTabs : centerTabs);
     }
     const auto source = tabContainerForId(m_pendingGroup);
     if (!target || !source)

@@ -176,6 +176,7 @@ void MRTree::rebuildVisibleNodes() {
             m_wheelConnections.emplace_back(interaction->addEventListener(
                 TOUCH_EVENT_TYPE_TOUCH, [this, nodeIndex](TouchEvent& event) {
                     if (event.button == TOUCH_MOUSE_BUTTON_RIGHT && nodeIndex < m_nodes.size())
+                        // 透传世界系事件坐标（见 TouchEvent::positionX 注释）
                         m_events.onNodeContextMenu.notify(*this, m_nodes[nodeIndex].id, m_nodes[nodeIndex].text, event.positionX, event.positionY);
                 }, 20));
         }

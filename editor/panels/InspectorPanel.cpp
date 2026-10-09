@@ -87,7 +87,7 @@ std::string InspectorPanel::assetPropertyAt(float x, float y, const AssetRecord&
     for (const auto& [property, binding] : bindings) {
         const auto target = binding.dropTarget ? binding.dropTarget : std::static_pointer_cast<Widget>(binding.button);
         const auto targetWidget = std::dynamic_pointer_cast<UIWidget>(target);
-        if (!targetWidget || !targetWidget->getScreenSpaceAABB().Contains(x, y))
+        if (!targetWidget || !targetWidget->getWorldSpaceAABB().Contains(x, y))
             continue;
         if (binding.type == "TextureAsset" && asset.type == "Texture")
             return property;
@@ -364,7 +364,7 @@ void InspectorPanel::refresh(bool force) {
                 assetEditProperty = property.name;
                 assetEditNodeIds = m_shell.m_session->model().selection().nodeIds;
                 assetMenu->attachTo(m_shell.m_shellRoot);
-                assetMenu->popupBelow(source.getScreenSpaceAABB());
+                assetMenu->popupBelow(source.getWorldSpaceAABB());
             }));
             panel->addChild(button);
             bindings[property.name] = {property.name, property.type, {}, button};

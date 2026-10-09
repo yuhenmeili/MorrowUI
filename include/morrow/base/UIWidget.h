@@ -21,8 +21,14 @@ public:
 
     std::shared_ptr<Transform> getTransform() const;
 
-    /// Framebuffer-pixel AABB matching TouchEvent::positionX/positionY:
-    /// top-left origin with X rightwards and Y downwards.
+    /// World-space AABB (center origin, X rightwards, Y upwards). Same space
+    /// as the TouchEvent coordinates dispatched to widgets (unified in
+    /// Platform::resolveInputTargets); use it for hit tests and pointer math.
+    Math::Rect getWorldSpaceAABB() const;
+
+    /// Framebuffer-pixel AABB, top-left origin with X rightwards and Y
+    /// downwards. Reserved for the render clip path (scissor) and other
+    /// screen-pixel consumers; event dispatch uses world coordinates.
     Math::Rect getScreenSpaceAABB() const;
 
     void setClipChildren(bool clip);

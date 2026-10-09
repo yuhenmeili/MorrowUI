@@ -337,13 +337,14 @@ void MRTextEdit::eraseSelection() {
     updateSelectionVisuals();
 }
 
-size_t MRTextEdit::textPositionAt(float screenX, float screenY) const {
-    const auto bounds = getScreenSpaceAABB();
+size_t MRTextEdit::textPositionAt(float worldX, float worldY) const {
+    const auto bounds = getWorldSpaceAABB();
     constexpr float padding = 12.0f;
     const float characterWidth = std::max(1.0f, m_fontSize * 0.58f);
     const float lineHeight = std::max(1.0f, m_fontSize * 1.2f);
-    const size_t requestedLine = m_multiline ? static_cast<size_t>(std::max(0.0f, std::floor((screenY - bounds.Min.y - 6.0f) / lineHeight))) : 0;
-    const size_t requestedColumn = static_cast<size_t>(std::max(0.0f, std::floor((screenX - bounds.Min.x - padding + characterWidth * 0.5f) / characterWidth)));
+    // 世界系 Y 向上（Max.y 是控件顶端），从顶端向下量行数与本地文字布局一致
+    const size_t requestedLine = m_multiline ? static_cast<size_t>(std::max(0.0f, std::floor((bounds.Max.y - worldY - 6.0f) / lineHeight))) : 0;
+    const size_t requestedColumn = static_cast<size_t>(std::max(0.0f, std::floor((worldX - bounds.Min.x - padding + characterWidth * 0.5f) / characterWidth)));
 
     size_t line = 0;
     size_t lineStart = 0;

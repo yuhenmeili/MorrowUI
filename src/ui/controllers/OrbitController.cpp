@@ -247,7 +247,7 @@ bool OrbitController::isEventInsideView(const TouchEvent& event, const FrameStat
         return false;
     }
 
-    return m_view->getScreenSpaceAABB().Contains(event.positionX, event.positionY);
+    return m_view->getWorldSpaceAABB().Contains(event.positionX, event.positionY);
 }
 
 void OrbitController::handleEvent(const TouchEvent& event, const FrameStateSharedPtr& frameState) {
