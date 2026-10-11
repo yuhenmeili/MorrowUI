@@ -17,6 +17,9 @@ std::shared_ptr<MRTree> MRTree::create() {
 
 MRTree::MRTree() : UIWidget(false) {
     setWidgetType("MRTree");
+    // 树行可展开增多并滚动超出视口，默认裁剪在自身边界内（scissor）：
+    // 半滚出的行只显示可见部分，与 layoutRows 的重叠剔除互补。
+    setClipChildren(true);
     getComponent<Transform>()->addSizeChangeListener([this]() { layoutRows(); });
 }
 

@@ -26,6 +26,9 @@ std::shared_ptr<MRScrollContainer> MRScrollContainer::create() {
 
 MRScrollContainer::MRScrollContainer() : UIWidget(false) {
     setWidgetType("MRScrollContainer");
+    // 滚动容器默认把内容裁剪在视口内（scissor）：半滚出的子组件只显示
+    // 可见部分，与 updateChildVisibility 的"完全滚出剔除"互补。
+    setClipChildren(true);
     m_scrollBar = MRScrollBar::create();
     m_scrollBar->setDisplayLayer(2);
     getComponent<Transform>()->addSizeChangeListener([this]() { m_metricsDirty = true; });
@@ -172,9 +175,12 @@ void MRScrollContainer::updateChildVisibility() {
             continue;
         const Vector3 position = child->getComponent<Transform>()->getPosition();
         const Vector3 size = child->getComponent<Transform>()->getSize();
-        const float top = position.y - m_scrollOffset;
-        const float bottom = top + size.y;
-        child->setVisible(top >= 0.0f && bottom <= viewportHeight);
+        // 世界系 Y 向上：position.y 是下缘。与视口 [0, viewportHeight] 有重叠
+        // 即保持可见，完全滚出视口才剔除（像素级裁剪由 setClipChildren 的
+        // scissor 负责，此处只做整节点剔除）。
+        const float bottom = position.y - m_scrollOffset;
+        const float top = bottom + size.y;
+        child->setVisible(top > 0.0f && bottom < viewportHeight);
     }
 }
 

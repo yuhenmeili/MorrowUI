@@ -17,6 +17,9 @@ std::shared_ptr<MRItemList> MRItemList::create() {
 
 MRItemList::MRItemList() : UIWidget(false) {
     setWidgetType("MRItemList");
+    // 列表内容可滚动超出视口，默认裁剪在自身边界内（scissor）：
+    // 半滚出的条目只显示可见部分，与 layoutItems 的重叠剔除互补。
+    setClipChildren(true);
     getComponent<Transform>()->addSizeChangeListener([this]() { layoutItems(); });
 }
 
