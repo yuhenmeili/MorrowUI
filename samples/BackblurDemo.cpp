@@ -8,12 +8,17 @@
 //      重 56（L2'）+ 半径动画面板（S3 双层混合插值，层级 0↔2 往返）+
 //      裁剪容器内面板（S3 clipRect 专项，溢出部分被剪掉）；
 //   3. 前景清晰条（displayLayer = 3，边界以上）：压在玻璃上保持锐利；
-//   4. 运行中开/关切换与档位循环。
+//   4. 运行中开/关切换与档位循环；
+//   5. 动态纹理用例（面板 A 下方，layer -5）：同一 Texture、同一 buffer
+//      指针逐帧原地换内容，复现视频/相机帧提交路径——纹理内容修订必须
+//      独立驱动 backdrop dirty，否则玻璃下画面冻结。
 //
 // 验收断言（--report-json，统计取末帧）：
-//   默认（呼吸 + 半径动画 → 每帧脏）：backdropQuads=6、backdropDraws=11~12
-//     （链 3 级 × 2 + 合成 1 + 面片 5 组：L0/L1/L2 单层各 1 + 动画双层组 1 +
-//      裁剪组 1；动画恰落在整数层级时并入同层组少 1）
+//   默认（呼吸 + 半径动画 + 动态纹理 → 每帧脏）：backdropQuads=6、
+//     backdropDraws=11~12（链 3 级 × 2 + 合成 1 + 面片 5 组：L0/L1/L2 单层
+//     各 1 + 动画双层组 1 + 裁剪组 1；动画恰落在整数层级时并入同层组少 1）
+//   --dynamic-only（仅动态纹理，wall/radius/裁剪滑动全停）：backdropQuads=6、
+//     backdropDraws=11~12——纹理内容修订独立触发 dirty（动态视频冻结回归）
 //   --static（全部动画停 → 缓存命中）：backdropQuads=6、backdropDraws=6
 //     （链与 backdrop 段整段跳过，仅合成 1 + 面片 5 组）
 //   --quality off：backdropQuads=0、backdropDraws=0（退化路径，零成本）
@@ -35,6 +40,7 @@
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MRButton.h"
 #include "morrow/elements/MRColor.h"
+#include "morrow/elements/MRImage.h"
 #include "morrow/elements/MRLabel.h"
 #include "morrow/helpers/Tween.h"
 
@@ -87,6 +93,7 @@ int main(int argc, char** argv) {
     uint32_t maxFrames = 0;
     bool reportJson = false;
     bool staticBackground = false;
+    bool dynamicTextureOnly = false;
     BackdropBlurQuality quality = BackdropBlurQuality::Standard;
     bool showOverlay = false;
     for (int index = 1; index < argc; ++index) {
@@ -94,6 +101,8 @@ int main(int argc, char** argv) {
             reportJson = true;
         } else if (std::strcmp(argv[index], "--static") == 0) {
             staticBackground = true;
+        } else if (std::strcmp(argv[index], "--dynamic-only") == 0) {
+            dynamicTextureOnly = true; // 仅动态纹理动画，其余背景动画全停
         } else if (std::strcmp(argv[index], "--no-blur") == 0) {
             quality = BackdropBlurQuality::Off; // 兼容别名：等价 --quality off
         } else if (std::strcmp(argv[index], "--quality") == 0 && index + 1 < argc) {
@@ -113,6 +122,7 @@ int main(int argc, char** argv) {
             std::cout << "BackblurDemo [options]\n"
                          "  --report-json          print batch statistics JSON and assert S2 acceptance\n"
                          "  --static               no background animation (backdrop cache stays clean)\n"
+                         "  --dynamic-only         only the dynamic-texture case animates (wall/radius/clip stop)\n"
                          "  --quality off|standard|lowcost   startup quality tier (default standard)\n"
                          "  --no-blur              alias of --quality off\n"
                          "  --overlay              start with the debug overlay visible (F3 toggles)\n"
@@ -123,6 +133,9 @@ int main(int argc, char** argv) {
     if (reportJson && maxFrames == 0) {
         maxFrames = 5;
     }
+    // wall 呼吸 / 半径动画 / 裁剪滑动仅在默认模式跑；--static 全停，
+    // --dynamic-only 让 backdrop dirty 只能由纹理内容修订驱动
+    const bool animateBackground = !staticBackground && !dynamicTextureOnly;
 
     EngineOptions engineOptions;
     engineOptions.multithread = false;
@@ -178,7 +191,7 @@ int main(int argc, char** argv) {
             scene->addChild(label);
         }
     }
-    if (!staticBackground) {
+    if (animateBackground) {
         // 中间一行做 alpha 呼吸：模糊背景持续变化，验证链跟随更新
         //（呼吸只改每实例 alpha，不破坏卡片合批）
         auto wallTween = Tween::create(0.0f, 1.0f, 2.4f);
@@ -196,6 +209,46 @@ int main(int argc, char** argv) {
 
     scene->addChild(createLabel(L"BackblurDemo — Kawase 共享背景模糊（S1/S2）", 42.0f, 24.0f, 980.0f, 48.0f, 30.0f));
     scene->addChild(createLabel(L"卡片墙在边界以下；玻璃分三级半径（8/24/56 → L0/L1/L2）；按钮切换开关与档位", 42.0f, 76.0f, 1500.0f, 32.0f, 17.0f));
+
+    // ---------------------------------------------------------------------
+    // 1b. 动态纹理用例（displayLayer = -5，面板 A 下方）：同一 Texture、
+    //     同一 buffer 指针逐帧原地换内容（视频/相机帧提交路径）。除纹理
+    //     内容修订外无任何变化 → backdrop 必须持续判脏，否则玻璃下画面
+    //     冻结（--dynamic-only 断言该项）
+    // ---------------------------------------------------------------------
+    constexpr int kDynamicSize = 96;
+    std::vector<unsigned char> dynamicPixels(static_cast<size_t>(kDynamicSize) * kDynamicSize * 4, 0);
+    auto dynamicTexture = Texture::create(ImageType::IMAGE);
+    dynamicTexture->setTextureName("backblur_dynamic");
+    dynamicTexture->setTextureData(static_cast<void*>(dynamicPixels.data()), kDynamicSize, kDynamicSize, PixelDataFormat::RGBA);
+
+    auto dynamicImage = MRImage::create();
+    dynamicImage->setTexture(dynamicTexture);
+    dynamicImage->setDisplayLayer(-5);
+    dynamicImage->getComponent<Transform>()->setPosition(330.0f, 430.0f, 0.0f);
+    dynamicImage->getComponent<Transform>()->setSize(180.0f, 130.0f);
+    scene->addChild(dynamicImage);
+
+    if (!staticBackground) {
+        auto dynamicTween = Tween::create(0.0f, 1.0f, 1.6f);
+        dynamicTween->setLoop(-1);
+        dynamicTween->setEase(EaseType::Linear).onUpdate([&dynamicPixels, dynamicTexture](float value) {
+            const auto phase = static_cast<int>(value * 16.0f);
+            for (int y = 0; y < kDynamicSize; ++y) {
+                for (int x = 0; x < kDynamicSize; ++x) {
+                    const bool stripe = (((x + y + phase) >> 3) & 1) != 0;
+                    auto* px = &dynamicPixels[(static_cast<size_t>(y) * kDynamicSize + x) * 4];
+                    px[0] = static_cast<unsigned char>(stripe ? 235 : 30);
+                    px[1] = static_cast<unsigned char>(stripe ? 90 : 120);
+                    px[2] = static_cast<unsigned char>(stripe ? 40 : 200);
+                    px[3] = 255;
+                }
+            }
+            dynamicTexture->setTextureData(static_cast<void*>(dynamicPixels.data()), kDynamicSize, kDynamicSize, PixelDataFormat::RGBA);
+        });
+        dynamicTween->play();
+        TweenManager::getInstance().addTween(dynamicTween);
+    }
 
     // ---------------------------------------------------------------------
     // 2. 三级半径毛玻璃面板（displayLayer = 0，默认层即边界以上）
@@ -249,8 +302,8 @@ int main(int argc, char** argv) {
     }
     {
         auto animBlur = animPanel->getComponent<BackdropBlur>();
-        animBlur->setBlurLevel(staticBackground ? 1.4f : 0.2f);
-        if (!staticBackground) {
+        animBlur->setBlurLevel(animateBackground ? 0.2f : 1.4f);
+        if (animateBackground) {
             // 三角波 0→2→0（循环 0..1 的 Tween 映射为往返）
             auto levelTween = Tween::create(0.0f, 1.0f, 3.2f);
             levelTween->setLoop(-1);
@@ -281,7 +334,7 @@ int main(int argc, char** argv) {
         auto text = createLabel(L"裁剪容器内的模糊：面板 900px 宽，容器 660px —— 溢出部分被剪掉", 50.0f, 120.0f, 780.0f, 36.0f, 19.0f);
         clipPanel->addChild(text);
     }
-    if (!staticBackground) {
+    if (animateBackground) {
         auto slideTween = Tween::create(0.0f, 1.0f, 4.0f);
         slideTween->setLoop(-1);
         slideTween->setEase(EaseType::Linear).onUpdate([clipPanel](float value) {
@@ -428,6 +481,13 @@ int main(int argc, char** argv) {
             // 面片 5 组：L0 / L1(B+B2) / L2 / 动画面板(1.4 → 双层 1↔2) / 裁剪组
             if (stats.backdropQuadCount != 6 || stats.backdropDrawCallCount != 6) {
                 std::cerr << "BackblurDemo --static cache acceptance failed" << std::endl;
+                return 2;
+            }
+        } else if (dynamicTextureOnly) {
+            // 仅动态纹理逐帧换内容（wall/radius/裁剪滑动全停）：纹理内容修订
+            // 必须独立驱动 dirty——漏掉该信号即动态视频冻结回归
+            if (stats.backdropQuadCount != 6 || stats.backdropDrawCallCount < 11 || stats.backdropDrawCallCount > 12) {
+                std::cerr << "BackblurDemo dynamic-texture acceptance failed" << std::endl;
                 return 2;
             }
         } else {

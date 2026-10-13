@@ -93,6 +93,11 @@ void Widget::addChild(std::shared_ptr<Widget> widget) {
     widget->m_debugObject.setParentId(getDebugObjectId());
     m_children.emplace_back(widget);
     std::stable_sort(m_children.begin(), m_children.end(), sortChildren);
+    // 层级跟随（挂载）：非零层父节点收编仍处于默认层的子节点，覆盖
+    // "先设置父层、后挂载子控件"的顺序；显式分层的子节点不受影响
+    if (m_displayLayer != 0 && widget->m_displayLayer == 0) {
+        widget->setDisplayLayer(m_displayLayer);
+    }
     requestRender("addChild");
 }
 
@@ -115,13 +120,31 @@ int32_t Widget::getDisplayLayer() const {
 }
 
 void Widget::setDisplayLayer(int32_t displayLayer) {
-    if (m_displayLayer != displayLayer) {
-        m_displayLayer = Math::clamp(displayLayer, -10, 10);
-        if (m_parent) {
-            std::stable_sort(m_parent->m_children.begin(), m_parent->m_children.end(), sortChildren);
+    const int32_t previousLayer = m_displayLayer;
+    if (previousLayer == displayLayer) {
+        return;
+    }
+    m_displayLayer = Math::clamp(displayLayer, -10, 10);
+    if (m_parent) {
+        std::stable_sort(m_parent->m_children.begin(), m_parent->m_children.end(), sortChildren);
+    }
+    // 层级跟随（传播）：仍处于父节点原层的子节点（未显式单独分层的默认
+    // 子节点）跟随父层变化；显式放在其它层的子节点（如滚动条相对 +2）
+    // 保持不变。传播内部不做任何排序，结束后统一排一次——否则逐子节点
+    // 的中间态排序会打乱同层兄弟的绘制顺序（如滚动条 track 压住 thumb）。
+    propagateDisplayLayer(previousLayer, m_displayLayer);
+    std::stable_sort(m_children.begin(), m_children.end(), sortChildren);
+    LOG_D("{}, {}", m_widgetName.c_str(), m_displayLayer);
+    requestRender("setDisplayLayer");
+}
+
+void Widget::propagateDisplayLayer(int32_t previousLayer, int32_t newLayer) {
+    // 递归期间没有任何路径会增删/重排 m_children，可直接遍历
+    for (const auto& child : m_children) {
+        if (child->m_displayLayer == previousLayer) {
+            child->m_displayLayer = newLayer; // 父层已 clamp，直接赋值
+            child->propagateDisplayLayer(previousLayer, newLayer);
         }
-        LOG_D("{}, {}", m_widgetName.c_str(), m_displayLayer);
-        requestRender("setDisplayLayer");
     }
 }
 

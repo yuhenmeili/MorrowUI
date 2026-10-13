@@ -118,8 +118,10 @@ bool BackdropBlurManager::computeBackdropDirty(const std::vector<RenderBatch>& b
     // 签名覆盖"backdrop 段会画出不同像素"的全部来源：
     //   帧参数（分辨率 / 清屏色 / 分段边界 / 档位）
     //   批次结构（层数 / underlay / 裁剪矩形 / 项数——Widget 增删与重排）
-    //   逐项内容（Transform 世界矩阵版本 → 位移动画；Material uniform 修订 →
-    //   颜色/alpha 动画；Mesh 几何修订 → 文本内容变化）
+    //   逐项内容（Transform 世界矩阵版本 → 位移动画；Material 渲染指纹 →
+    //   颜色/alpha 动画 + 纹理绑定与内容修订（同一 Texture 逐帧换内容的
+    //   视频/OES 帧必须触发 dirty，否则 backdrop 缓存持续复用旧帧）；
+    //   Mesh 几何修订 → 文本内容变化）
     uint64_t signature = 0xcbf29ce484222325ULL;
     combineHash(signature, static_cast<uint64_t>(frameState->framebufferWidth));
     combineHash(signature, static_cast<uint64_t>(frameState->framebufferHeight));
@@ -149,8 +151,9 @@ bool BackdropBlurManager::computeBackdropDirty(const std::vector<RenderBatch>& b
                 combineHash(signature, batch.transforms[i]->getWorldVersion());
             }
             if (batch.materials[i]) {
-                combineHash(signature, batch.materials[i]->getUniformRevision());
-                combineHash(signature, batch.materials[i]->getBatchCompatibilityRevision());
+                // 渲染指纹折叠 uniform 修订、批次兼容性与纹理绑定 + 内容修订
+                //（Texture::getRevision），后两项单独哈希会被其覆盖，无需重复
+                combineHash(signature, batch.materials[i]->getRenderRevisionHash());
             }
             if (batch.meshFilters[i]) {
                 combineHash(signature, batch.meshFilters[i]->getGeometryRevision());

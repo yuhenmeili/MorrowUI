@@ -29,6 +29,11 @@ public:
 
     virtual void setVisible(bool visible);
 
+    /// 设置显示层（clamp 到 [-10,10]）。层级跟随语义（复合控件的内部子节点
+    /// 因此无需逐个同步）：
+    /// 1) 挂载：addChild 到非零层父节点时，仍处于默认层 0 的子节点继承父层；
+    /// 2) 传播：父层变化时，与其原层一致的子节点跟随变化；显式放在其它层
+    ///    的子节点（如滚动条相对 +2）保持不变。
     virtual void setDisplayLayer(int32_t displayLayer);
 
     bool getVisible() const;
@@ -127,6 +132,11 @@ protected:
     std::unique_ptr<ComponentManager> m_componentManager;
 
 private:
+    /// 层级跟随传播的实现：把仍处于 previousLayer 的子节点直接改为
+    /// newLayer 并递归。刻意不触发逐子节点排序（中间态排序会打乱同层
+    /// 兄弟的绘制顺序），由 setDisplayLayer 在传播结束后统一排一次。
+    void propagateDisplayLayer(int32_t previousLayer, int32_t newLayer);
+
     DebugObjectHandle m_debugObject{DebugObjectCategory::Widget, "MRWidget"};
     std::string m_uniqueID = Math::generate_uuid();
 };
