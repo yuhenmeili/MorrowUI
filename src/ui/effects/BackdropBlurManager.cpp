@@ -25,6 +25,12 @@ void combineHash(uint64_t& seed, uint64_t value) {
 }
 }  // namespace
 
+// out-of-line 单例（见头文件注释）：跨 exe/DLL 边界只有这一份实例
+BackdropBlurManager& BackdropBlurManager::getInstance() {
+    static BackdropBlurManager instance;
+    return instance;
+}
+
 void BackdropBlurManager::setEnabled(bool enabled) {
     if (m_enabled == enabled) {
         return;
@@ -257,15 +263,18 @@ void BackdropBlurManager::destroy() {
 // ---------------------------------------------------------------------------
 
 void BackdropBlurManager::ensureResources(int32_t framebufferWidth, int32_t framebufferHeight) {
-    // 基准分辨率：Standard = 1/2，LowCost = 1/4（§5.7 档位）。链上层级逐级
-    // 减半（Standard → 1/2、1/4、1/8；LowCost → 1/4、1/8、1/16）。
+    // 链基准分辨率：Standard = 1/2，LowCost = 1/4（§5.7 档位）。链上层级逐级
+    // 减半（Standard → 1/2、1/4、1/8；LowCost → 1/4、1/8、1/16）。模糊强度
+    // 只由链层级尺寸决定。
     const int32_t baseShift = (m_quality == BackdropBlurQuality::LowCost) ? 2 : 1;
-    const int32_t baseWidth = std::max(1, framebufferWidth >> baseShift);
-    const int32_t baseHeight = std::max(1, framebufferHeight >> baseShift);
 
     if (!m_backdropRT || m_levels.size() < kLevelCount) {
+        // backdrop RT 必须保持全分辨率：它除了作链的模糊源，还要在回屏合成
+        // 时恢复边界以下的整个背景——半分辨率 RT 经线性拉伸回屏会把边界以下
+        // 的全部内容（视频/卡片/文字）整体变糊。全分辨率下合成为 1:1 拷贝，
+        // 背景与无模糊路径逐像素一致。
         m_backdropRT = std::make_unique<OffscreenRenderTarget>();
-        m_backdropRT->create(baseWidth, baseHeight);
+        m_backdropRT->create(framebufferWidth, framebufferHeight);
         m_levels.clear();
         m_levels.reserve(kLevelCount);
         for (uint8_t level = 0; level < kLevelCount; ++level) {
@@ -288,9 +297,9 @@ void BackdropBlurManager::ensureResources(int32_t framebufferWidth, int32_t fram
         m_blurQuadMaterial = Material::create("backdrop");
 
         buildPassQuad();
-    } else if (baseWidth != m_backdropRT->getWidth() || baseHeight != m_backdropRT->getHeight()) {
+    } else if (framebufferWidth != m_backdropRT->getWidth() || framebufferHeight != m_backdropRT->getHeight()) {
         // 窗口 resize：RT 链重建（尺寸变化经签名比对自动触发全量重渲）
-        m_backdropRT->resize(baseWidth, baseHeight);
+        m_backdropRT->resize(framebufferWidth, framebufferHeight);
         for (uint8_t level = 0; level < kLevelCount; ++level) {
             const int32_t width = std::max(1, framebufferWidth >> (baseShift + level));
             const int32_t height = std::max(1, framebufferHeight >> (baseShift + level));

@@ -53,6 +53,12 @@ class BackdropBlurManager : public Singleton<BackdropBlurManager> {
     friend class Singleton<BackdropBlurManager>;
 
 public:
+    /// 必须用 .cpp 里的 out-of-line 定义，不能用基类 Singleton 的内联
+    /// getInstance——内联模板静态会在 exe 与 DLL 各实例化一份，宿主应用
+    /// 直接调 getInstance 改的是 exe 侧副本，渲染器读的 DLL 侧副本纹丝不动
+    /// （表现为 demo 档位/开关点了没反应）。
+    static BackdropBlurManager& getInstance();
+
     /// 全局运行时开关（§5.7）：关闭后模糊面片降级为 tint 面板、帧结构退化为
     /// 现有单段路径；组件不销毁，重开即恢复。翻转只改标志位，下一帧生效。
     /// RT 链短暂保留以便快速重开；重开时缓存签名失效，强制重渲一次 backdrop。
