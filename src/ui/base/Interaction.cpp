@@ -58,6 +58,7 @@ void Interaction::handleTouchEvent(TouchEvent& event) {
                 m_pressStartTime = event.touchTime;
                 m_pressPosition = Vector2(event.positionX, event.positionY);
                 m_longPressEventTriggered = false;
+                m_pressAbandoned = false;
                 dispatchEvent(TOUCH_EVENT_TYPE_TOUCH, event);
             }
             break;
@@ -67,6 +68,11 @@ void Interaction::handleTouchEvent(TouchEvent& event) {
             // still preserved for drag gestures, but an unpressed move must
             // reach the current hit target as well.
             if (!m_isPressed || event.touchID == m_activeTouchID) {
+                // 按压中拖出控件：废弃本次 click（拖出又拖回也算，
+                // click 语义 = 原地按下、原地松开）
+                if (m_isPressed && !containsPoint(event.positionX, event.positionY)) {
+                    m_pressAbandoned = true;
+                }
                 dispatchEvent(TOUCH_EVENT_TYPE_MOVE, event);
             }
             break;
@@ -97,8 +103,8 @@ void Interaction::handleTouchEvent(TouchEvent& event) {
                 m_activeTouchID = -1;
                 dispatchEvent(TOUCH_EVENT_TYPE_RELEASE, event);
 
-                // 触发 Click（如果位置偏移不大）
-                if (m_clickEnabled) {
+                // 触发 Click（位置偏移小且按压期间未拖出过控件）
+                if (m_clickEnabled && !m_pressAbandoned) {
                     float dx = event.positionX - m_pressPosition.x;
                     float dy = event.positionY - m_pressPosition.y;
                     if (dx * dx + dy * dy < 25.0f) {
@@ -118,6 +124,7 @@ void Interaction::reset() {
     m_isPressed = false;
     m_activeTouchID = -1;
     m_longPressEventTriggered = false;
+    m_pressAbandoned = false;
 }
 
 void Interaction::setClickEnabled(bool enabled) {

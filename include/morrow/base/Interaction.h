@@ -74,6 +74,9 @@ private:
 
     // 长按计时器（避免重复触发）
     bool m_longPressEventTriggered = false;
+    /// 按压期间指针曾离开控件（拖出又拖回也算）：置位后本次手势不再触发
+    /// CLICK——click 语义 = 原地按下、原地松开
+    bool m_pressAbandoned = false;
 };
 }  // namespace morrow
 

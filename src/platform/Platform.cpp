@@ -118,10 +118,13 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
         }
         touchEvent.target = resolvedTarget;
 
-        if (touchEvent.eventType == TOUCH_EVENT_TYPE_MOVE && touchEvent.deviceType == TOUCH_DEVICE_TYPE_MOUSE) {
+        if (touchEvent.deviceType == TOUCH_DEVICE_TYPE_MOUSE &&
+            (touchEvent.eventType == TOUCH_EVENT_TYPE_MOVE || touchEvent.eventType == TOUCH_EVENT_TYPE_WHEEL)) {
             // Capture controls the MOVE target while dragging, whereas hover
             // transitions follow the widget physically under the cursor. 未捕获时
             // 二者在同一坐标下命中结果一致，直接复用 resolvedTarget，省一次全树遍历。
+            // 滚轮也要刷新 hover：指针不动但内容已从指针下滚走，否则按钮
+            // hover 状态卡在滚走的控件上。
             std::shared_ptr<Widget> hoverTarget = fromCapture ? findTopmostInteractiveWidget(m_window->scene2D(), touchEvent.positionX, touchEvent.positionY) : resolvedTarget;
             auto previousHover = m_hoverTarget.lock();
             if (previousHover != hoverTarget) {
