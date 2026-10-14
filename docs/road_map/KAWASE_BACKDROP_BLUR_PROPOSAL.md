@@ -164,7 +164,7 @@ RT_L2 (1/8)  ──kawase(offset=2.5)──▶ RT_L2'   ← "特大半径"采样
 updateWidgets / lateUpdateWidgets          // 不变：收集 RenderItem（含模糊面片标记）
 
 ── 阶段 3a：backdrop 段 ──────────────────────────────────────────
-bindRenderTarget(RT_backdrop)               // 全屏或 1/2 分辨率
+bindRenderTarget(RT_backdrop)               // 全分辨率（2026-10-14 修订，见下）
   绘制 underlay 批次（阴影等，语义不变）
   绘制 displayLayer < BLUR_BOUNDARY 的普通批次
 unbindRenderTarget()
@@ -174,7 +174,8 @@ downsample + kawase × K → RT_L0' / L1' / L2'（分辨率 1/2、1/4、1/8）
 （backdrop 脏标记为 clean 时，本阶段整段跳过）
 
 ── 阶段 3c：回屏合成 ────────────────────────────────────────────
-全屏面片拷贝 RT_backdrop → 默认帧缓冲（恢复背景，等价于背景直接画屏）
+全屏面片拷贝 RT_backdrop → 默认帧缓冲（恢复背景，等价于背景直接画屏；
+RGBA 原样恢复，2026-10-14 修订，见下）
 绘制 displayLayer ≥ BLUR_BOUNDARY 的普通批次，其中：
   模糊面片 = backdrop 采样材质，UV = 自身屏幕矩形映射到 RT 的 UV，
              采样层级由每实例半径决定，圆角走 instanceRounding()
@@ -185,6 +186,21 @@ downsample + kawase × K → RT_L0' / L1' / L2'（分辨率 1/2、1/4、1/8）
 
 - **背景恢复用拷贝而不是画两遍**：阶段 3a 的内容只画一次（进 RT），回屏
   用一次全屏面片拷贝（GLES 上避免依赖 `glBlitFramebuffer` 的格式限制）。
+- **修订（2026-10-14，AIM 全景整体变糊 / 透明背景变黑两项回归）**：
+  1. `RT_backdrop` 必须全分辨率（原"全屏或 1/2"的取舍作废）。它除作链的
+     模糊源外还承担"恢复边界以下清晰背景"的职责——低分辨率 RT 经回屏
+     线性放大会把边界以下**全部**内容整体软化；该损失只在模糊面片内部
+     被模糊掩盖，面片之外无所遁形。链层级（L0/L1/L2）仍按档位降采样，
+     模糊强度不变；代价是 backdrop RT 显存与 backdrop 段写入带宽升到
+     全分辨率（1080p RGBA ≈ 8.3MB 常驻，下文带宽表的旧估算作废）。
+  2. 回屏合成 `backdrop_composite.frag` 改为 RGBA 原样恢复（原"alpha
+     强制 1"的结论作废）。RT 与默认帧缓冲经历相同的清屏与 backdrop 段
+     绘制，其 alpha 就是"无模糊路径"本应写出的值：不透明窗口恒为 1，
+     透明窗口（透明清屏 + 渐变 alpha 背景图）保留渐变透明；强制 1 会把
+     透明区域变成不透明黑。模糊面片保持"不透明替换"语义（alpha=1），
+     与此处互不影响。链内部（downsample/kawase）仍输出 alpha=1——当前
+     唯一消费者（模糊面片）只采样 RGB；将来若需"半透明内容的模糊"
+     （面片透出底下的透明区），须先明确 premultiplied 约定再改。
 - **模糊面片与属主的次序**：沿用 `Shadow` 组件的成熟模式——组件复用属主
   的 `MeshFilter` 与 `Transform`，仅材质不同；组件先于属主注册渲染项，同层
   内收集顺序即绘制顺序，模糊面片自然垫在面板内容之下（与
