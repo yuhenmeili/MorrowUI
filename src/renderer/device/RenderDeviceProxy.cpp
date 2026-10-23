@@ -313,10 +313,11 @@ RenderDeviceProxy::RenderDeviceProxy(PlatformSharedPtr platform, bool returnResI
       m_commandBuffers{CommandBuffer(resolveCommandBufferCapacity(options)),
                        CommandBuffer(resolveCommandBufferCapacity(options)),
                        CommandBuffer(resolveCommandBufferCapacity(options))} {
-    m_vboRecyclePool = std::make_unique<VBODataRecyclePool>();
-    m_uboRecyclePool = std::make_unique<UBODataRecyclePool>();
-    m_ssboRecyclePool = std::make_unique<SSBODataRecyclePool>();
-    m_pixelDataRecyclePool = std::make_unique<PixelDataRecyclePool>();
+    m_vboRecyclePool = std::make_unique<VBODataRecyclePool>(256);
+    m_uboRecyclePool = std::make_unique<UBODataRecyclePool>(256);
+    m_ssboRecyclePool = std::make_unique<SSBODataRecyclePool>(64);
+    // 像素缓冲为大对象（全分辨率 RGBA 可达数 MB），只保留少量复用
+    m_pixelDataRecyclePool = std::make_unique<PixelDataRecyclePool>(16);
 
     // Prime the free-slots semaphore so the main thread can be (kRingSize-1)
     // frames ahead without blocking.

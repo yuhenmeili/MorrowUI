@@ -18,6 +18,9 @@ class RecyclePool {
 public:
     using Ptr = std::shared_ptr<T>;
 
+    /// maxIdleObjects：池中闲置对象上限，归还超出部分直接析构（兜底防止无界积累）
+    explicit RecyclePool(size_t maxIdleObjects = kDefaultMaxIdleObjects) : m_maxIdleObjects(maxIdleObjects) {}
+
     /// 主线程：从池中取出一块（无则新建）
     Ptr acquire() {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -28,17 +31,25 @@ public:
         return p;
     }
 
-    /// 渲染线程：GPU 已完成使用后，将多块归还池中
+    /// 渲染线程：GPU 已完成使用后，将多块归还池中（超出容量的直接释放）
     void release(std::vector<Ptr>&& list) {
         if (list.empty()) return;
         std::lock_guard<std::mutex> lock(m_mutex);
-        for (auto& p : list)
+        for (auto& p : list) {
+            if (m_pool.size() >= m_maxIdleObjects)
+                break;
             m_pool.push(std::move(p));
+        }
     }
 
 private:
+    // 稳态需求 ≈ 每帧上传批次数 × kRingSize(3)，该默认值覆盖复杂场景；
+    // 大对象池（如 PixelData）应在创建处传入更小的上限
+    static constexpr size_t kDefaultMaxIdleObjects = 128;
+
     std::queue<Ptr> m_pool;
     std::mutex m_mutex;
+    size_t m_maxIdleObjects;
 };
 
 } // morrow

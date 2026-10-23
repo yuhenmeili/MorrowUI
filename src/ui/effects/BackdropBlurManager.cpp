@@ -497,7 +497,12 @@ VBODataSharedPtr BackdropBlurManager::buildQuadVBOData(const std::vector<const B
     //   Position = 世界空间角点；UV = backdrop 采样 UV；Normal = (objX, objY, rounding)；
     //   Tangent = (displaySize.x, displaySize.y, 0, 双层插值因子)；Color = tint。
     const uint32_t vertexCount = static_cast<uint32_t>(quads.size()) * 4;
-    auto vboData = std::make_shared<VBOData>();
+    // 从回收池获取或新建 VBOData（GPU Fence 完成后回池）：每帧新建会使
+    // 回收池只进不出、对象数随帧数无界增长
+    auto* pool = RENDERINGTHREAD->getVBODataRecyclePool();
+    auto vboData = pool ? pool->acquire() : std::make_shared<VBOData>();
+    // 回收池中的 VBOData 可能保留上一次上传的数据，任何路径都必须先清空。
+    vboData->reset();
     vboData->vertexCount = vertexCount;
     vboData->indexCount = static_cast<uint32_t>(quads.size()) * 6;
     vboData->drawMode = PrimitiveType::TRIANGLES;
