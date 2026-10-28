@@ -1,157 +1,233 @@
-# morrow.gui
-A cross-platform 3D GUI framework for automotive cockpits. Optimized for QNX and Windows, MorrowUI features an extensible architecture that supports custom platform integration and high-fidelity 3D model rendering.
+<div align="center">
 
-platform backends:
-- QNX: EGL/GLES (`OPENGL_EGL`)
-- Linux: GLFW + desktop OpenGL (`OPENGL_GLFW`)
-- Windows: GLFW + desktop OpenGL (`OPENGL_GLFW`)
+# MorrowUI
+
+_A cross-platform 3D GUI framework for automotive cockpits._
+
+[![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)](docs/INTEGRATION.md)
+[![CMake](https://img.shields.io/badge/CMake-%E2%89%A53.10-064F8C?logo=cmake&logoColor=white)](#build-instructions)
+[![Platform](https://img.shields.io/badge/Platform-QNX%20%7C%20Windows%20%7C%20Linux-2D6CDF)](#platform-support)
+[![License](https://img.shields.io/badge/License-MIT-3FB950)](LICENSE)
+
+### ▶ [MORROW Showreel — Live Demo Gallery](https://yuhenmeili.github.io/videos/?cat=morrowui)
+
+</div>
+
+---
+
+## About
+
+MorrowUI uses a **retained-mode UI model** (widget tree + component composition,
+not immediate mode) and keeps the path from widget state to GPU draw calls as
+short as possible: every frame it collects renderables directly, builds
+batches, and encodes GPU commands — with no scene snapshot in between.
+
+The engine ships as a static library. Its only public surface is the
+`include/morrow/` header directory plus the `morrow` library; GL/EGL/GLFW and
+all implementation headers are unreachable from standard integrations
+(enforced by build-time gates). See [docs/INTEGRATION.md](docs/INTEGRATION.md)
+for the API contract and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the
+architecture and design constraints.
 
 ## Features
 
-1. Multiple windows
-2. Multi-threaded architecture
-3. Component-based design
-4. GUI layout and animation
-5. Custom shaders
-6. Dynamic font rendering
-7. Right-handed coordinate system
-8. GUI shadow support
-9. Batch rendering
-10. Touch input support
+**Rendering core**
+
+- Retained widget tree with component-based design and a short widget-to-draw path
+- Batch rendering: batch-compatibility keys, an SSBO instanced path, and an
+  order-safe fallback, with batch-break statistics
+- Single-threaded / render-thread modes: fixed-capacity command-buffer frame
+  slots with fence-based recycling
+- On-demand rendering (request-render gate) — zero frame cost for static UI
+
+**Controls & layout**
+
+- `MR*` control family: text/texture/check/radio/segmented/menu buttons,
+  sliders, progress bars, spin boxes, scroll containers, lists, trees,
+  popups & menus, rich text, single-/multi-line input
+- Layout containers: Center / Margin / HBox / VBox / Grid / Split / Tab, with drag-and-drop
+
+**Effects**
+
+- Frosted glass: shared Kawase backdrop-blur chain with 3-level radius
+  quantization, Standard/LowCost/Off quality tiers, and dirty-signature
+  caching that makes static backgrounds free
+- Shadows (underlay channel), flowing light, bounce, gear-shift effects,
+  parallax, global color modulation
+- CPU and GPU 2D particle systems
+
+**Text**
+
+- Runtime SDF glyph atlas (stb_truetype) — any font size without re-rasterization,
+  dirty-region atlas uploads
+- Rich text, single-/multi-line/password input, text metrics from the same
+  source as rendering
+
+**Media & assets**
+
+- Video stream component (`FrameProvider` per-frame callback) and OES external
+  textures (EGLImage / pmem zero-copy)
+- png / jpg / Basis / KTX2 textures (magic-byte sniffing, one-shot in-memory construction)
+- Texture atlases (file / in-memory assembly / frame animation) and
+  application-registered static atlases
+
+**3D**
+
+- GLTF/GLB loading (PBR + IBL), skinning animation, async loading, bounding-box normalization
+- `MR3DSceneView`: offscreen-rendered 3D scenes composited into the UI, with orbit-camera interaction
+
+**Tooling**
+
+- F3 debug overlay: FPS, batch/draw statistics, batch-break reasons (compile-time removable)
+- Object registry with JSON snapshot export (`Engine::writeObjectSnapshot`)
+- MorrowEditor scene editor (Windows): scene tree / inspector / asset browser /
+  undo-redo / standalone scene runtime
+
+---
+
+## ✨ Showcase
+
+<div align="center">
+
+**[▶ Watch all live demos in the MORROW Showreel](https://yuhenmeili.github.io/videos/?cat=morrowui)**
+
+Controls · Frosted glass · Scrolling · Typography · Sliders & progress · Gear effects · Particles · Video streaming · GLTF 3D · Animation · Scene components · 3D AVM (real vehicle)
+
+</div>
+
+All demo recordings live in the [MORROW Showreel](https://yuhenmeili.github.io/videos/)
+gallery: a dark card wall with hover-to-preview and click-to-play in the modal
+viewer. The gallery ingests videos automatically — a new recording only needs
+to be dropped into the site repo under `public/videos/MorrowUI/` followed by one
+run of the ingest script; posters and metadata are generated and published
+automatically. **This README does not maintain per-demo video links.**
+
+Deep links (share straight to a view):
+
+- [`videos/?cat=morrowui`](https://yuhenmeili.github.io/videos/?cat=morrowui) — jump straight to the MorrowUI category
+- [`videos/?v=<title>`](https://yuhenmeili.github.io/videos/?v=液态玻璃) — open a specific video directly (e.g. "液态玻璃" / Liquid Glass)
+
+## Demos
+
+Every sample under `samples/` is executable documentation for one engine
+capability; assets are copied next to the binaries at build time. Each demo has
+a walkthrough in `docs/samples/<Demo>.md` (index:
+[docs/README.md](docs/README.md) — in Chinese).
+
+| Demo | Focus | Key components |
+|---|---|---|
+| **AnimationEffectsDemo** | Animation toolkit: anchor scale, bounce, brake pedal, flowing light, frame animation | `MRAnchorPointScale` `MRBounce` `MRFlowingLight` `Tween` |
+| **BackblurDemo** | Kawase backdrop blur: segmented rendering, shared blur chain, tint fallback | `BackdropBlur` `BackdropBlurManager` |
+| **ControlsDemo** | Interactive controls: buttons, selection, menus, numeric input | `MRButton` `MRCheckBox` `MRRadioButton` `MRSpinBox` |
+| **DebugDemo** | Debug facilities: batch-statistics acceptance, on-demand rendering, F3 overlay, object snapshots | `BatchStatistics` `ObjectRegistry` |
+| **GLTFDemo** | GLTF/GLB 3D model loading and interaction | `MR3DSceneView` `Scene3DAsyncLoader` `OrbitController` |
+| **GearsDemo** | Gear-shift effects: iris, opening, shine, selection | `MRGearsIris` `MRGearsOpening` `MRGearsShine` `MRGearsSelect` |
+| **IBLPrecomputeDemo** | IBL map precomputation (CLI, no window) | `IBLPrecompute` |
+| **ImageDemo** | Images: rounded corners, UV cropping, batched animation, shadows, atlas regions | `MRImage` `Shadow` `TextureAtlas` |
+| **ListNavigationDemo** | List selection, tree expansion, long-list scrolling | `MRItemList` `MRTree` `MRScrollContainer` |
+| **PMemoryDemo** | QNX PMEM/OES zero-copy texture ingestion | `Texture(OES)` `loadPmemData` |
+| **Particles2DDemo** | CPU vs. GPU 2D particle systems | `MRCPUParticles2D` `MRGPUParticles2D` |
+| **RangeControlsDemo** | Sliders & progress bars: linking, vertical, tween loops | `MRSlider` `MRProgressBar` `Tween` |
+| **SceneEffectsDemo** | Parallax background, global color modulation, tooltip, dialog | `MRParallaxBackground` `MRCanvasModulate` |
+| **TextDemo** | Text input (multi-line/single-line/password), alignment, rich text | `MRTextEdit` `MRLineEdit` `MRLabel` `MRRichTextLabel` |
+| **VideoStreamPlayerDemo** | Video playback: in-memory frame source, speed control, event echo | `MRVideoStreamPlayer` |
+
+Build and run a demo:
+
+```bash
+cmake --build cmake-build-linux --target ImageDemo -j
+./cmake-build-linux/ImageDemo
+```
+
+---
 
 ## Platform Support
 
-- `QNX`
-- `Linux`
-- `Windows`
+| Platform | Backend | Macro branch |
+|---|---|---|
+| QNX | EGL / GLES (screen) | `OPENGL_EGL` |
+| Linux | GLFW + desktop OpenGL | `OPENGL_GLFW` |
+| Windows | GLFW + desktop OpenGL | `OPENGL_GLFW` |
 
-Platform-specific CMake/toolchain helper files are organized under:
+Platform-specific CMake / toolchain helpers live in `cmake/`; for
+Windows-hosted QNX cross-compilation see
+[cmake/qnx/windows/README.md](cmake/qnx/windows/README.md).
 
-- `cmake/`
-
-Windows host + QNX SDP 8.0 instructions are available at:
-
-- `cmake/qnx/windows/README.md`
-
-`src/CMakeLists.txt` now uses explicit platform branches:
-
-- `if(QNX)`
-- `elseif(Linux)`
-- `elseif(Windows)`
-
-## Prerequisites
+## Build Instructions
 
 ### Common
 
 - CMake >= 3.10
 - C++17 compiler
+- Options: `MORROW_ENABLE_BASISU` (default ON; turn OFF to shrink the binary
+  when assets are png/jpg only), `MORROW_ENABLE_DEBUG_OVERLAY` and
+  `MORROW_ENABLE_OBJECT_DIAGNOSTICS` (ON in Debug, OFF in Release by default)
 
-### Linux
+### 1) Linux
 
-Install GLFW and pkg-config:
+Install GLFW and pkg-config, then:
 
 ```bash
-sudo apt update
 sudo apt install -y libglfw3-dev pkg-config
-```
-
-### Windows
-
-- CLion + MinGW (or MSVC with equivalent adaptation)
-- Prebuilt GLFW library is expected under `libs/GLFW`
-
-### QNX (SDP 8.0 example)
-
-- Installed SDP, e.g. `/home/lance/qnx800`
-- Valid QNX license
-- Environment script available, e.g. `/home/lance/qnx800/qnxsdp-env.sh`
-
-## Build Instructions
-
-### Runtime debug overlay
-
-The FPS/batch debug overlay is compiled by default but starts hidden.
-
-- Press `F3` to toggle it at runtime on Windows desktop and in MorrowEditor.
-- Set `EngineOptions::debugOverlayVisible = true` to show it on startup.
-- Configure with `-DMORROW_ENABLE_DEBUG_OVERLAY=OFF` to remove the overlay
-  implementation and shortcut handling from the runtime build.
-
-### 1) Linux (native)
-
-```bash
 cmake -S . -B cmake-build-linux -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug
 cmake --build cmake-build-linux -j
 ```
 
-Run sample:
-
-```bash
-./cmake-build-linux/ImageDemo
-```
-
 ### 2) QNX (cross-compile)
+
+Requires an installed QNX SDP (e.g. `/home/lance/qnx800`) with the environment
+script sourced:
 
 ```bash
 cmake -S . -B cmake-build-qnx -G "Unix Makefiles" \
   -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_TOOLCHAIN_FILE=/home/lance/workspace/morrow.gui/qnx/qnx.toolchain.cmake \
-  -DCMAKE_C_COMPILER=/home/lance/workspace/morrow.gui/qnx/qcc-wrapper.sh \
-  -DCMAKE_CXX_COMPILER=/home/lance/workspace/morrow.gui/qnx/qpp-wrapper.sh \
-  -DCMAKE_MAKE_PROGRAM=/home/lance/workspace/morrow.gui/qnx/make-wrapper.sh
+  -DCMAKE_TOOLCHAIN_FILE=<repo>/qnx/qnx.toolchain.cmake \
+  -DCMAKE_C_COMPILER=<repo>/qnx/qcc-wrapper.sh \
+  -DCMAKE_CXX_COMPILER=<repo>/qnx/qpp-wrapper.sh \
+  -DCMAKE_MAKE_PROGRAM=<repo>/qnx/make-wrapper.sh
 cmake --build cmake-build-qnx -j
 ```
 
-> Linux/QNX helper files above remain unchanged. For Windows-hosted QNX cross-compilation,
-> use the new files under `cmake/qnx/windows/` instead of the legacy `qnx/` directory.
+> For Windows-hosted QNX cross-compilation, use the newer files under
+> `cmake/qnx/windows/` instead of the legacy `qnx/` directory.
 
 ### 3) Windows
 
-Use CLion with a Windows toolchain and configure/build normally.
-
-If CMake cannot find GLFW on Windows, place the proper Windows `glfw` library in:
-
-- `libs/GLFW`
-
-## CLion Notes
-
-- Keep separate CMake profiles/build directories per platform.
-- Do not run QNX binaries on Linux directly.
-  - If you run a QNX binary on Linux, process may exit with code `127` because Linux cannot load the QNX runtime loader.
-
-Recommended build dirs:
-
-- Linux: `cmake-build-linux`
-- QNX: `cmake-build-qnx`
-- Windows: `cmake-build-win`
-
-## Demos
-
-Sample programs are under `samples/`. Each demo has a corresponding preview video in `docs/videos/`.
-
-| Demo | Preview |
-|------|---------|
-| **AlignmentDemo** — UI alignment & layout | [YouTube](https://youtu.be/hR8fqLVYb5A) |
-| **AnchorPointScaleDemo** — Anchor point & scaling transforms | [YouTube](https://youtu.be/ds0m9caIC8c) |
-| **BounceDemo** — Bounce / spring animation | [YouTube](https://youtu.be/wN-XgnSASAQ) |
-| **ButtonDemo** — Interactive button | [YouTube](https://youtu.be/XGHhMJtFE9M) |
-| **FlowlightDemo** — Flowing light sweep effect | [YouTube](https://youtu.be/LMnJ4pSsuXI) |
-| **FrameAnimation** — Sprite-sheet frame animation | [YouTube](https://youtube.com/shorts/jNGcAjbaqbY) |
-| **GLTFDemo** — glTF 3D model rendering | [YouTube](https://youtu.be/iYuxrmHrVYU) |
-| **ImageDemo** — Image rendering | [YouTube](https://youtu.be/Zfcw5YjlUx4) |
-| **SafeDynamicVectorCanvasDemo** — Thread-safe dynamic vector canvas | [YouTube](https://youtu.be/CI3M9PRZUKg) |
-| **SafeStaticSpriteDemo** — Thread-safe static sprite | [YouTube](https://youtu.be/x2Yrn_60MK4) |
-| **ShadowDemo** — GUI shadow rendering | [YouTube](https://youtu.be/cupMykeVMkc) |
-| **TextDemo** — Text rendering | [YouTube](https://youtu.be/6QiIDjNzsUc) |
-
-> Demo previews are hosted on YouTube. Click the links above to watch each demo.
-
-## Usage
-
-Build a specific sample target:
+The MSYS2 CLANG64 toolchain (`clang` + `ninja`) is recommended; CLion with the
+same toolchain works as well:
 
 ```bash
-cmake --build cmake-build-debug --target ImageDemo
+pacman -S mingw-w64-clang-x86_64-toolchain mingw-w64-clang-x86_64-ninja
+cmake -S . -B build-win -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-win
 ```
 
-Then run the executable directly, or use the CMake Tools debug/launch buttons in VS Code's status bar.
+If CMake cannot find GLFW, place the platform's prebuilt GLFW library under
+`libs/GLFW`.
+
+> QNX binaries cannot run on Linux/Windows directly (incompatible loader; the
+> process exits with code 127). Keep a separate build directory per platform
+> (`cmake-build-linux` / `cmake-build-qnx` / `build-win`).
+
+## Debug Overlay
+
+The FPS / batch-statistics overlay is compiled in by default but starts hidden:
+
+- Press `F3` at runtime to toggle it (Windows desktop and MorrowEditor);
+- Set `EngineOptions::debugOverlayVisible = true` to show it on startup;
+- Configure `-DMORROW_ENABLE_DEBUG_OVERLAY=OFF` to remove the overlay from the
+  runtime build entirely.
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture: layering, frame loop, batching, GPU resource model, threading boundaries, invariants (Chinese) |
+| [docs/INTEGRATION.md](docs/INTEGRATION.md) | Integration guide: public API contract, build options, migration & compatibility promises (Chinese) |
+| [docs/README.md](docs/README.md) | Samples index: how to run each demo and which components it exercises (Chinese) |
+| `docs/performance/` | Performance optimization directions and roadmap |
+| `editor/` | MorrowEditor scene editor (Windows) |
+
+## License
+
+[MIT](LICENSE)

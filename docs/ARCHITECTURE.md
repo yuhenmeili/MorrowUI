@@ -118,8 +118,11 @@ Application / Samples（公共集成）
         │  仅依赖 include/morrow 公共面（零 GL/EGL/GLFW，门禁 M1/M2/M3）
         ▼
 公共 API（include/morrow/）
-  Engine / EngineEvents / UIWidget / elements / layout
-  Material(具名 shader) / Texture / 相机 / 诊断
+  Engine / EngineEvents / UIWidget / Scene2D
+  elements（MR* 控件 / 特效 / 媒体）/ layout
+  Material(具名 shader) / Texture / atlas / effects(BackdropBlur)
+  helpers(Tween, Scene3DAsyncLoader) / scene3d(IBLPrecompute)
+  相机 / 诊断(BatchStatistics, ObjectRegistry)
         │  实现头全部 PRIVATE include，对标准集成不可达
         ▼
 UI
@@ -157,7 +160,7 @@ OpenGL / OpenGL ES / Window System
 |---|---|
 | `include/morrow/` | 对外唯一公共 API 面；入口清单由 `cmake/morrow_public_entries.cmake` 冻结（M3 门禁） |
 | `src/core/` | Engine 实现、相机、合批、公共管理器和运行时服务 |
-| `src/ui/` | Widget 树、Component、控件、布局、交互和 3D UI 元素 |
+| `src/ui/` | Widget 树、Component、控件、布局、交互、特效和 3D UI 元素 |
 | `src/renderer/` | GPU 抽象、材质、纹理、具名内置 shader、Buffer、命令编码和渲染线程 |
 | `src/platform/` | 窗口、图形上下文、输入、Present 和平台生命周期 |
 | `src/loader/` | 资源文件加载（png/jpg、Basis/KTX2、图集等） |
@@ -209,8 +212,11 @@ Application
 - Present 和退出。
 
 Engine 对外面位于 `include/morrow/Engine.h`：`EngineOptions`（窗口、线程模式、
-按需渲染）、`EngineEvents`（`onFrameBegin`/`onFrameEnd`/`onRawKeyboardInput`/
-`onFramebufferSizeChanged`）与清屏色、剪贴板、光标、背景模糊等运行时 API；
+按需渲染、调试覆盖层、对象快照路径、渲染设备配置 `RenderDeviceOptions`，以及
+启动成本项——默认字体跳过/异步预读、字形图集初始尺寸、背景模糊启动档位）、
+`EngineEvents`（`onFrameBegin`/`onFrameEnd`/`onRawKeyboardInput`/
+`onFramebufferSizeChanged`）与清屏色、剪贴板、光标、字体注册（`addFonts`）、
+背景模糊运行档位、调试覆盖层开关、`writeObjectSnapshot` 等运行时 API；
 实现成员以前向声明隐藏，Window/Platform 类型不出公共面（单窗口假设）。
 
 主帧循环为：
@@ -370,7 +376,13 @@ Widget 的功能通过 Component 组合，主要包括：
 - `MeshRenderer`：材质、绘制状态和渲染收集；
 - `MeshRenderer3D`：3D 几何提交；
 - `Interaction`：输入交互；
-- 布局、文本、图片和控件专用组件。
+- `Shadow`：投影（复用属主几何，underlay 通道，见 7.7）；
+- `BackdropBlur`：毛玻璃背景模糊（共享 Kawase 链，见 7.8）；
+- 布局容器（Center / Margin / HBox / VBox / Grid / Split / Tab）与 `MR*`
+  控件组件（按钮、滑杆、进度条、列表、树、滚动容器、文本输入、菜单、弹窗等）；
+- 媒体与动效组件：`MRVideoStreamPlayer`、`MRFrameAnimation`、
+  `MRCPUParticles2D` / `MRGPUParticles2D`、`MRFlowingLight`、`MRBounce`、
+  `MRGears*` 等特效组件（见 6.6）。
 
 Component 之间通过明确的数据依赖协作，避免把所有逻辑集中到 Widget 基类。
 
@@ -401,6 +413,47 @@ ChildrenDirty
 ```
 
 Dirty 用于跳过不必要的布局、矩阵计算、几何更新和 GPU 数据上传，但不引入完整渲染快照。
+
+### 6.5 文本与字体
+
+公共文字面 = 文本控件（`MRLabel` / `MRRichTextLabel` / `MRTextEdit` /
+`MRLineEdit`）+ `Engine::addFonts(FontInfo)`；字体加载与字形管理是引擎内部
+能力（FontManager 以 pimpl 隐藏实现），不进入公共 API。
+
+文本渲染基于运行时生成的 SDF 字形图集：
+
+```text
+addFonts 注册 ttf/otf
+    → stb_truetype 光栅化（参考字号 44px，每字形一次）
+    → 每字体一张 SDF 字形图集（BitmapEdt 距离变换，可选 stbtt_GetGlyphSDF）
+    → 脏区增量上传（FontTexture）
+    → MRLabel 布局后按 FontSSBOLayout 逐字形实例提交
+      （font shader 及 shadow 变体）
+```
+
+约束与配套：
+
+- 目标字号在 shader 内按距离场缩放，任意字号不再重新光栅化；
+- 文本测量（宽高）由 FontManager 提供，与渲染同源，保证布局与绘制一致；
+- 图集扩容触发整图重建，`EngineOptions::fontAtlasInitialSize` 可预分配
+  （CJK 首屏文案多时建议 2048）避免首帧抖动；
+- `skipDefaultFont` / `asyncFontPreload` 控制默认字体（约 8.4MB）的启动成本。
+
+### 6.6 动画与效果组件
+
+- **Tween**：`helpers/Tween.h` 提供数值补间（`create` / `setEase` /
+  `setLoop` / `onUpdate` / `onComplete`，Linear 与 Quad/Cubic 的
+  In·Out·InOut 缓动），`TweenManager` 由帧循环统一驱动（见第 5 节）。
+- **图集帧动画**：`MRFrameAnimation` 基于 `atlas/Animation` 播放图集帧序列
+  （NORMAL / LOOP / PINGPONG / RANDOM 等 PlayMode）。
+- **Shader 特效组件**：`MRFlowingLight`（流光）、`MRBounce`（弹跳）、
+  `MRBrakePedal`（制动踏板）、`MRGearsIris/Opening/Select/Shine`（档位特效）、
+  `MRAnchorPointScale`（锚点缩放）、`MRCanvasModulate`（全局色调调制）、
+  `MRParallax2D` / `MRParallaxBackground`（视差）。特效组件统一沿用
+  "复用属主几何 + 组件自持特效材质"模式（与 Shadow、BackdropBlur 一致），
+  经 `BatchManager` 正常提交，不绕过合批管线。
+- **2D 粒子**：`MRCPUParticles2D`（CPU 模拟，动态网格重传）与
+  `MRGPUParticles2D`（静态种子网格 + 顶点着色器轨迹，CPU 只推进时间）。
 
 ---
 
@@ -496,6 +549,10 @@ A → B → A
 - 标准路径：按普通 Uniform、VBO 和纹理接口提交；
 - 安全回退路径：无法正确实例化的对象保持顺序逐项绘制。
 
+SSBO 路径按控件族维护实例布局（Button、Image、Font、ProgressBar、
+TextureButton、Bounce、DefaultColor、DefaultImage 等 layout），shader 名称
+决定实例数据布局与提交方式；新增可实例化控件时同步扩展对应 layout。
+
 所有路径必须产生一致的视觉结果。性能优化不能改变材质、变换、透明度和绘制顺序语义。
 
 ### 7.7 Underlay（底层渲染项）
@@ -511,6 +568,36 @@ A → B → A
 - 不会绕过 `BatchManager` 直接绘制，draw call 与批次受统一管理；
 - 保证先于原对象绘制，半透明阴影被主对象正确覆盖；
 - 与原对象使用不同 shader，合批 key 自动隔离，不会与普通 UI 混批。
+
+### 7.8 背景模糊（毛玻璃）
+
+毛玻璃由 `BackdropBlur` 组件 + `BackdropBlurManager` 共享模糊链实现。它是分段绘制，不是全局后处理：
+
+- **组件 opt-in**：`BackdropBlur` 挂在面板 Widget 上，update 阶段把属主世界
+  矩阵、尺寸、圆角和 tint 提交给共享管理器；面板本体保持透明背景，模糊面片
+  即面板背景。关闭（全局 Off 或本面板半径 0）时组件降级为 tint 半透明面板，
+  复用属主几何走普通通道（与 Shadow 同款），模糊子系统零成本。
+- **半径分级量化**：≤12px → L0（轻）、≤40px → L1（中）、>40px → L2（重）；
+  `setBlurLevel(0..2)` 用整数层级 + 小数双层混合支持半径动画——层级固定、
+  链不变，只动画采样混合因子。
+- **分段渲染**：分段边界取本帧全部模糊面片的最小 `displayLayer`。渲染帧内依次完成：
+
+  ```text
+  （脏时）绘制边界以下批次 → 全分辨率 backdrop RT
+  （脏时）逐级降采样 + Kawase 迭代 → L0/L1/L2 模糊链
+  （每帧）backdrop RT 拷回默认帧缓冲
+          → 按（层级， clipRect）分组合并绘制模糊面片（每层级 ≤1 次 draw）
+          → 绘制边界以上普通批次
+  ```
+
+  模糊源只包含边界以下内容：模糊面板之间不会互相出现在对方的模糊背景里，
+  既有 painter's order 语义不变。
+- **脏签名缓存**：批次结构 + 聚合的 Transform/Material/Mesh 版本号构成签名；
+  静态背景下降采样与迭代整帧跳过，只有面片合成执行。
+- **档位与资源**：`EngineOptions::backdropBlur`（Off / Standard / LowCost）
+  选择基准链（Standard：1/2、1/4、1/8；LowCost：1/4、1/8、1/16 分辨率），
+  运行时经 `Engine::setBackdropBlurQuality` / `setBackdropBlurEnabled` 切换
+  （懒重建）；RT 链按窗口尺寸懒分配，释放经渲染命令流执行（fence 安全）。
 
 ---
 
@@ -529,20 +616,27 @@ GPU 资源由对应的高层对象或专用管理器直接持有：
 | SSBO | SSBOManager / Batch 路径 |
 | RenderTarget | OffscreenRenderTarget |
 
-对象通过 `RenderDevice` 接口创建、更新、绑定和删除 GPU 资源。
+对象通过 `RenderDevice` 接口创建、更新、绑定和删除 GPU 资源。接口以整数句柄
+（`Hw*`，`ResourceHandle.h`）为不透明身份，GL 后端在图形上下文线程用
+`ResourceRegistry` 维护句柄 → 本地对象映射。
 
-资源生命周期保持显式，不通过通用 Registry 建立第二套资源身份和状态。
+资源生命周期保持显式：`ResourceRegistry` 只是后端内部的句柄映射表，不承担
+跨模块资源状态中心的职责，公共资源对象不暴露句柄语义，也不建立第二套资源
+身份和状态。
 
 ### 8.2 Texture
 
-Texture 负责：
+Texture 是声明式 CPU 状态 + 惰性 GPU 上传：
 
-- CPU 图像描述和像素数据；
-- 文件或 Basis 数据加载；
-- Texture2D 创建；
-- 上传状态；
-- 纹理绑定；
-- GPU 纹理销毁。
+- `setImageUrl`：文件路径加载（png/jpg 走 stb）；
+- `setImageBuffer`：内存编码缓冲一次构造（png/jpg/Basis/KTX2 按魔数嗅探，
+  首次渲染前解码）；
+- `setTextureData`：原始像素（RGBA 等）直接构造；
+- `setOESTextureData`：外部 OES 纹理（EGLImage，见 8.6）；
+- Basis/KTX2 经 basis_universal 转码为硬件压缩格式（`MORROW_ENABLE_BASISU`
+  可整体裁剪）；
+- `onLoaded()` Observable 在解码完成后广播，`getRevision()` 供批次兼容判断；
+- Texture2D 创建、上传状态、纹理绑定与 GPU 纹理销毁。
 
 纹理更新直接编码到 RenderDeviceProxy。
 
@@ -551,6 +645,9 @@ Texture 负责：
 - 由 `shared_ptr` 保持所有权；
 - 复制到可复用上传缓冲；
 - 由 CommandBuffer payload 明确持有。
+
+应用还可经 `StaticAtlasManager` 注册静态图集（RGBA 像素 + 精灵表定义），
+引擎懒创建共享 GPU 纹理，不内置任何硬编码图集数据。
 
 ### 8.3 Material 与 Shader
 
@@ -586,6 +683,23 @@ CPU 几何数据变化时，通过 revision 或 Dirty 状态触发 VBO 更新。
 + 命令 FIFO 顺序
 + Fence 和回收队列
 ```
+
+### 8.6 外部纹理与视频流
+
+外部像素源经两条路径进入 UI：
+
+- **OES 外部纹理**：`Texture::setOESTextureData` 注入 EGLImage，纹理标记为
+  `ImageType::OES`；GL 端以 `GL_TEXTURE_EXTERNAL_OES` 绑定，图像生命周期由
+  生产方（多媒体线程 / 共享缓冲）持有，引擎侧维护 fence 感知的图像映射
+  （见 `road_map/OES_TEXTURE_FENCE_DESIGN.md`）。`MRImage` 检测到 OES 纹理
+  时自动切换 `image_oes` shader。典型用途：QNX pmem 共享缓冲零拷贝直显
+  （`global_tools::loadPmemData`，见 PMemoryDemo）。
+- **视频流组件**：`MRVideoStreamPlayer` 面向 CPU 帧源——应用以
+  `FrameProvider` 回调逐帧填充 RGBA，组件负责播放控制（play / pause / seek /
+  倍速 / 循环）、`PlaybackState` 事件与帧纹理更新，内部经 `MRImage` 呈现。
+
+OES / 视频流像素与普通上传数据遵循同一多线程规则（8.2、8.5）：命令执行前
+所需数据必须由明确所有者保持到执行完成。
 
 ---
 
@@ -703,6 +817,15 @@ VBO、UBO、SSBO 和像素上传数据使用可复用缓冲或对象池。
 - GLTF 场景和 3D Mesh。
 
 `MR3DSceneView` 是 Widget 树中的 3D 视图入口，可将 3D 场景渲染到 Offscreen RenderTarget，再作为 UI 内容参与组合。
+
+配套能力：
+
+- `Scene3DAsyncLoader`：GLTF 场景后台加载，结果经主线程回调接管；
+- `Scene3DNormalization`：按包围盒归一化 / 缩放适配视图；
+- `GLTFAnimationController`：蒙皮与关键帧动画 Component；
+- `IBLPrecompute::bake`：HDR 全景图离线烘焙 irradiance / specular mip 图集 /
+  BRDF LUT（RGBm 编码），运行时经 `Scene3DIBLState` 进入 PBR 材质；
+- `OrbitCamera` + `OrbitController`：轨道相机与拖拽 / 双指交互。
 
 ### 10.3 Offscreen 渲染
 
@@ -833,16 +956,39 @@ Present
 
 当前公共服务包括：
 
-- RenderingThread；
-- TextureManager；
-- FontManager（引擎内部能力；公共文字面 = 文本控件 + `Engine::addFonts`）；
-- SSBOManager。
+| 服务 | 职责 |
+|---|---|
+| RenderingThread / RenderDeviceProxy | 渲染线程与命令编码（见 9） |
+| MainThreadDispatcher | worker → 主线程一次性任务队列（见 5） |
+| TextureManager | name → Texture 注册表（主线程） |
+| FontManager | 字体与字形图集（内部能力，见 6.5） |
+| SSBOManager | 实例数据上传与按 shader 分发（见 7.6） |
+| BackdropBlurManager | 共享 Kawase 背景模糊链（见 7.8） |
+| TweenManager | 补间动画驱动（见 6.6） |
+| StaticAtlasManager | 应用注册的静态图集（见 8.2） |
+| RenderBatchPool / RecyclePool 族 | 批次对象与上传 payload 的有界复用 |
+| ObjectRegistry | 对象注册与快照（诊断，见 13.1） |
 
-`GlobalObject` 提供现有全局访问入口。
+`GlobalObject` 提供渲染线程等全局访问入口。
 
 公共服务只应保存真正跨模块共享的长期对象，不应演变为任意状态的全局存储。
 
 高频渲染路径应优先通过明确参数、Window 上下文或 FrameState 获取依赖，减少重复全局查询。
+
+### 13.1 调试与诊断
+
+- **调试覆盖层（F3）**：`DebugPlane` 显示 FPS 与 `BatchStatistics`
+  （items / batches / draws、SSBO 与标准路径批次、缓存命中、断批原因
+  `[L/M/G/O]`、模糊面片与绘制统计），懒创建，经
+  `MORROW_ENABLE_DEBUG_OVERLAY` 可整体编译移除。
+- **对象快照**：`ObjectRegistry` 记录运行时对象，`Engine::writeObjectSnapshot`
+  导出 JSON；支持命令文件触发（`EngineOptions::objectSnapshotCommandPath`），
+  经 `MORROW_ENABLE_OBJECT_DIAGNOSTICS` 编译门控。
+- **合批统计验收**：`BatchStatistics` 与断批原因枚举（DisplayLayer /
+  MaterialState / Geometry / OrderBarrier）是合批回归的验收面；DebugDemo
+  演示 `--report-json` / `--frames` / `--request-render` 无头验收。
+- 固定容量缓冲（CommandBuffer、RecyclePool）必须输出峰值与溢出诊断
+  （不变量 13、20）。
 
 ---
 
@@ -875,4 +1021,8 @@ Present
     为公开 API；
 19. 公共头路径是独立的产品面：目录只允许产品域词汇，src/ 内部重构永不映射到公共
     路径；公共头只放声明（薄头厚 cpp）；API 演进遵循"只加不改 + 语义化版本 +
-    废弃两版本缓冲"（`docs/INTEGRATION.md`）。
+    废弃两版本缓冲"（`docs/INTEGRATION.md`）；
+20. 可复用缓冲与对象池必须有界：设置 idle 上限与峰值诊断，多 MB 级 payload 池
+    （像素上传、模糊 VBO 等）单独收紧，禁止无界增长的回收池；
+21. 背景模糊是分段绘制而非全局后处理：模糊源仅包含分段边界以下内容，分段与
+    面片绘制不得改变既有 painter's order 和 displayLayer 语义。
