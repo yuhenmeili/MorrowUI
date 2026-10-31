@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <chrono>
 #include <codecvt>
+#include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <locale>
+#include <tuple>
 #include <utility>
 
 #include "morrow/Engine.h"
@@ -16,6 +18,8 @@
 #include "morrow/elements/MRLabel.h"
 #include "morrow/elements/MRLineEdit.h"
 #include "morrow/elements/MRPopupMenu.h"
+#include "morrow/elements/MRPopup.h"
+#include "morrow/elements/MROptionButton.h"
 #include "layout/EditorLayoutController.h"
 #include "assets/AssetTypeCatalog.h"
 #include "panels/AssetBrowserPanel.h"
@@ -68,6 +72,39 @@ std::string narrow(const std::wstring& text) {
     } catch (...) {
         return std::string(text.begin(), text.end());
     }
+}
+
+/// 解析 "VectorN(a, b, ...)" 形态的属性值。
+bool parseVectorValue(const std::string& value, const char* type, std::vector<float>& components) {
+    const std::string prefix = std::string(type) + "(";
+    if (value.rfind(prefix, 0) != 0 || value.empty() || value.back() != ')')
+        return false;
+    const std::string body = value.substr(prefix.size(), value.size() - prefix.size() - 1);
+    size_t start = 0;
+    while (start <= body.size()) {
+        const auto separator = body.find(',', start);
+        try {
+            components.push_back(std::stof(body.substr(start, separator == std::string::npos ? std::string::npos : separator - start)));
+        } catch (...) {
+            return false;
+        }
+        if (separator == std::string::npos)
+            break;
+        start = separator + 1;
+    }
+    return true;
+}
+
+std::string vector2Value(float x, float y) {
+    char buffer[64];
+    std::snprintf(buffer, sizeof(buffer), "Vector2(%.3f, %.3f)", x, y);
+    return buffer;
+}
+
+std::string vector4Value(float x, float y, float z, float w) {
+    char buffer[96];
+    std::snprintf(buffer, sizeof(buffer), "Vector4(%.3f, %.3f, %.3f, %.3f)", x, y, z, w);
+    return buffer;
 }
 
 }  // namespace
@@ -205,6 +242,237 @@ void EditorShell::editClearGuides() {
     }
     m_viewport->refreshGuides();
     setStatus("Cleared all guides");
+}
+
+void EditorShell::editAlign(AlignMode mode) {
+    struct AlignItem {
+        std::string id;
+        float wx = 0.0f;
+        float wy = 0.0f;
+        float ww = 0.0f;
+        float wh = 0.0f;
+        float lx = 0.0f;
+        float ly = 0.0f;
+        float lz = 0.0f;
+        float dx = 0.0f;
+        float dy = 0.0f;
+    };
+    const auto selection = m_session->model().selection().nodeIds;
+    const bool distribute = mode == AlignMode::DistributeH || mode == AlignMode::DistributeV;
+    if (selection.size() < (distribute ? 3u : 2u)) {
+        setStatus(distribute ? "Select at least 3 nodes to distribute" : "Select at least 2 nodes to align");
+        return;
+    }
+    std::vector<AlignItem> items;
+    for (const auto& nodeId : selection) {
+        AlignItem item;
+        item.id = nodeId;
+        const auto* node = m_session->document().findNode(nodeId);
+        if (!node)
+            continue;
+        // 文档局部 position（写入空间）
+        const auto position = node->properties.find("position");
+        std::vector<float> values;
+        if (position != node->properties.end() && m_session->document().findNode(nodeId)) {
+            // parseVector 不可用，这里手工解析 Vector3
+            const std::string& value = position->second;
+            if (value.rfind("Vector3(", 0) == 0 && !value.empty() && value.back() == ')') {
+                const std::string body = value.substr(8, value.size() - 9);
+                size_t start = 0;
+                while (start <= body.size()) {
+                    const auto separator = body.find(',', start);
+                    try {
+                        values.push_back(std::stof(body.substr(start, separator == std::string::npos ? std::string::npos : separator - start)));
+                    } catch (...) {
+                        break;
+                    }
+                    if (separator == std::string::npos)
+                        break;
+                    start = separator + 1;
+                }
+            }
+        }
+        if (values.size() != 3)
+            continue;
+        item.lx = values[0];
+        item.ly = values[1];
+        item.lz = values[2];
+        // 视口世界矩形（对齐计算空间）
+        if (!m_viewport->runtimeNodeRect(nodeId, item.wx, item.wy, item.ww, item.wh))
+            continue;
+        items.push_back(item);
+    }
+    if (items.size() < (distribute ? 3u : 2u)) {
+        setStatus("Not enough nodes with valid transforms");
+        return;
+    }
+
+    if (!distribute) {
+        // 对齐：以选中并集为基准
+        float minX = items.front().wx, maxX = items.front().wx + items.front().ww;
+        float minY = items.front().wy, maxY = items.front().wy + items.front().wh;
+        for (const auto& item : items) {
+            minX = std::min(minX, item.wx);
+            maxX = std::max(maxX, item.wx + item.ww);
+            minY = std::min(minY, item.wy);
+            maxY = std::max(maxY, item.wy + item.wh);
+        }
+        for (auto& item : items) {
+            switch (mode) {
+                case AlignMode::Left:
+                    item.dx = minX - item.wx;
+                    break;
+                case AlignMode::CenterH:
+                    item.dx = (minX + maxX) * 0.5f - (item.wx + item.ww * 0.5f);
+                    break;
+                case AlignMode::Right:
+                    item.dx = maxX - (item.wx + item.ww);
+                    break;
+                case AlignMode::Top:
+                    item.dy = minY - item.wy;
+                    break;
+                case AlignMode::MiddleV:
+                    item.dy = (minY + maxY) * 0.5f - (item.wy + item.wh * 0.5f);
+                    break;
+                case AlignMode::Bottom:
+                    item.dy = maxY - (item.wy + item.wh);
+                    break;
+                default:
+                    break;
+            }
+        }
+    } else {
+        // 分布：按主轴排序后等距排列
+        const bool horizontal = mode == AlignMode::DistributeH;
+        std::sort(items.begin(), items.end(), [horizontal](const AlignItem& left, const AlignItem& right) {
+            return horizontal ? left.wx < right.wx : left.wy < right.wy;
+        });
+        float first = horizontal ? items.front().wx : items.front().wy;
+        float last = 0.0f;
+        float totalSize = 0.0f;
+        for (const auto& item : items) {
+            last = std::max(last, horizontal ? item.wx + item.ww : item.wy + item.wh);
+            totalSize += horizontal ? item.ww : item.wh;
+        }
+        const float gap = (last - first - totalSize) / static_cast<float>(items.size() - 1);
+        float cursor = first;
+        for (auto& item : items) {
+            if (horizontal)
+                item.dx = cursor - item.wx;
+            else
+                item.dy = cursor - item.wy;
+            cursor += (horizontal ? item.ww : item.wh) + gap;
+        }
+    }
+
+    std::vector<std::pair<std::string, std::string>> positions;
+    for (const auto& item : items) {
+        char buffer[96];
+        std::snprintf(buffer, sizeof(buffer), "Vector3(%.3f, %.3f, %.3f)", item.lx + item.dx, item.ly + item.dy, item.lz);
+        positions.emplace_back(item.id, buffer);
+    }
+    std::string error;
+    if (!m_session->setNodePositions(positions, error)) {
+        setStatus(error.empty() ? "Alignment failed" : error);
+        return;
+    }
+    m_viewport->syncSelectedRuntimeNodes(true);
+    m_viewport->refreshSelectionOverlay();
+    m_inspector->refresh();
+    static const char* names[] = {"left", "center", "right", "top", "middle", "bottom", "distributed horizontally", "distributed vertically"};
+    setStatus(std::string("Aligned ") + names[static_cast<int>(mode)] + " (" + std::to_string(items.size()) + " nodes)");
+}
+
+void EditorShell::applyAnchorPreset(int presetIndex) {
+    struct Preset {
+        const char* name;
+        float minX;
+        float minY;
+        float maxX;
+        float maxY;
+    };
+    static const Preset presets[] = {
+        {"Top Left", 0.0f, 0.0f, 0.0f, 0.0f},     {"Top Center", 0.5f, 0.0f, 0.5f, 0.0f},  {"Top Right", 1.0f, 0.0f, 1.0f, 0.0f},
+        {"Middle Left", 0.0f, 0.5f, 0.0f, 0.5f},   {"Center", 0.5f, 0.5f, 0.5f, 0.5f},      {"Middle Right", 1.0f, 0.5f, 1.0f, 0.5f},
+        {"Bottom Left", 0.0f, 1.0f, 0.0f, 1.0f},   {"Bottom Center", 0.5f, 1.0f, 0.5f, 1.0f}, {"Bottom Right", 1.0f, 1.0f, 1.0f, 1.0f},
+        {"Full Rect", 0.0f, 0.0f, 1.0f, 1.0f},     {"Stretch Horizontal", 0.0f, 0.5f, 1.0f, 0.5f}, {"Stretch Vertical", 0.5f, 0.0f, 0.5f, 1.0f},
+    };
+    if (presetIndex < 0 || presetIndex >= static_cast<int>(sizeof(presets) / sizeof(presets[0])))
+        return;
+    const Preset& preset = presets[presetIndex];
+    const auto selection = m_session->model().selection().nodeIds;
+    if (selection.empty()) {
+        setStatus("Select a node to apply an anchor preset");
+        return;
+    }
+
+    const Vector3 rootSize = m_viewport->previewRoot ? m_viewport->previewRoot->getTransform()->getSize() : Vector3(1280.0f, 720.0f, 0.0f);
+    std::vector<std::tuple<std::string, std::string, std::string>> assignments;
+    size_t appliedCount = 0;
+    for (const auto& nodeId : selection) {
+        const auto* node = m_session->document().findNode(nodeId);
+        if (!node)
+            continue;
+        // 当前局部矩形（文档空间，缺省值兜底）
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 100.0f;
+        float height = 40.0f;
+        std::vector<float> position;
+        std::vector<float> size;
+        const auto positionEntry = node->properties.find("position");
+        if (positionEntry != node->properties.end())
+            parseVectorValue(positionEntry->second, "Vector3", position);
+        const auto sizeEntry = node->properties.find("size");
+        if (sizeEntry != node->properties.end())
+            parseVectorValue(sizeEntry->second, "Vector2", size);
+        if (position.size() == 3) {
+            x = position[0];
+            y = position[1];
+        }
+        if (size.size() == 2) {
+            width = size[0];
+            height = size[1];
+        }
+        // 父尺寸：文档父节点 size；根节点退回视口画布
+        float parentWidth = rootSize.x;
+        float parentHeight = rootSize.y;
+        if (!node->parentId.empty()) {
+            const auto* parent = m_session->document().findNode(node->parentId);
+            std::vector<float> parentSize;
+            if (parent) {
+                const auto parentSizeEntry = parent->properties.find("size");
+                if (parentSizeEntry != parent->properties.end())
+                    parseVectorValue(parentSizeEntry->second, "Vector2", parentSize);
+                if (parentSize.size() == 2) {
+                    parentWidth = parentSize[0];
+                    parentHeight = parentSize[1];
+                }
+            }
+        }
+        // 保持视觉矩形不变换算边距
+        const float left = x - preset.minX * parentWidth;
+        const float top = y - preset.minY * parentHeight;
+        const float right = preset.maxX * parentWidth - (x + width);
+        const float bottom = preset.maxY * parentHeight - (y + height);
+        assignments.emplace_back(nodeId, "anchor_min", vector2Value(preset.minX, preset.minY));
+        assignments.emplace_back(nodeId, "anchor_max", vector2Value(preset.maxX, preset.maxY));
+        assignments.emplace_back(nodeId, "anchor_offset", vector4Value(left, top, right, bottom));
+        ++appliedCount;
+    }
+    if (assignments.empty()) {
+        setStatus("Selected nodes no longer exist");
+        return;
+    }
+    std::string error;
+    if (!m_session->setNodeProperties(assignments, error)) {
+        setStatus(error.empty() ? "Anchor preset failed" : error);
+        return;
+    }
+    m_viewport->syncSelectedRuntimeNodes(false);
+    m_viewport->refreshSelectionOverlay();
+    m_inspector->refresh();
+    setStatus(std::string("Anchor preset '") + preset.name + "' applied to " + std::to_string(appliedCount) + " node(s)");
 }
 
 void EditorShell::addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height) {
@@ -491,6 +759,78 @@ void EditorShell::buildLayout() {
     m_sceneTree->createButtonConnection = m_sceneTree->createButton->events().onClicked.connect([this](BaseButton&) { m_sceneTree->showCreateDialog(); });
     m_sceneTree->panel->addChild(m_sceneTree->createButton);
     addLabel(m_viewport->panel, "2D Viewport", 8.0f, 6.0f, 220.0f, 28.0f);
+    // 多选对齐/分布按钮（选中 ≥2 时可见，分布在视口顶栏标题右侧）
+    {
+        struct AlignEntry {
+            const wchar_t* label;
+            AlignMode mode;
+        };
+        const AlignEntry entries[] = {
+            {L"L", AlignMode::Left},        {L"C", AlignMode::CenterH},  {L"R", AlignMode::Right},      {L"T", AlignMode::Top},
+            {L"M", AlignMode::MiddleV},     {L"B", AlignMode::Bottom},   {L"\u2261H", AlignMode::DistributeH}, {L"\u2261V", AlignMode::DistributeV},
+        };
+        float buttonX = 118.0f;
+        for (const auto& entry : entries) {
+            auto button = addButton(m_viewport->panel, entry.label, buttonX, 5.0f, 30.0f, 22.0f, [this, mode = entry.mode] { editAlign(mode); });
+            button->setTextFontSize(12.0f);
+            button->setBackgroundColor(Vector4(0.16f, 0.20f, 0.26f, 1.0f));
+            button->setHoverColor(Vector4(0.22f, 0.30f, 0.40f, 1.0f));
+            button->setPressedColor(Vector4(0.10f, 0.14f, 0.20f, 1.0f));
+            button->setCornerRadius(3.0f);
+            button->setVisible(false);
+            m_viewport->alignButtons.push_back(button);
+            buttonX += 33.0f;
+        }
+    }
+    // 锚点预设下拉（选中节点后设置 anchor 三键，保持视觉矩形换算 offsets）
+    {
+        auto label = std::make_shared<MRLabel>();
+        label->setText(L"Anchors:", "default");
+        label->setFontSize(12.0f);
+        label->setFontColor(0.55f, 0.60f, 0.68f, 1.0f);
+        label->setAlign(HorizontalAlignment::RIGHT, VerticalAlignment::CENTER);
+        label->getTransform()->setPosition(384.0f, 5.0f, 0.0f);
+        label->getTransform()->setSize(64.0f, 22.0f);
+        m_viewport->panel->addChild(label);
+        auto presetButton = MROptionButton::create();
+        presetButton->setText(L"Anchor Preset", "default");
+        presetButton->setTextFontSize(12.0f);
+        presetButton->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
+        presetButton->setBackgroundColor(Vector4(0.16f, 0.20f, 0.26f, 1.0f));
+        presetButton->setHoverColor(Vector4(0.22f, 0.30f, 0.40f, 1.0f));
+        presetButton->setPressedColor(Vector4(0.10f, 0.14f, 0.20f, 1.0f));
+        presetButton->setCornerRadius(3.0f);
+        presetButton->getTransform()->setPosition(452.0f, 5.0f, 0.0f);
+        presetButton->getTransform()->setSize(150.0f, 22.0f);
+        const wchar_t* presetNames[] = {L"Top Left", L"Top Center", L"Top Right", L"Middle Left", L"Center", L"Middle Right",
+                                        L"Bottom Left", L"Bottom Center", L"Bottom Right", L"Full Rect", L"Stretch Horizontal", L"Stretch Vertical"};
+        for (int index = 0; index < 12; ++index)
+            presetButton->addOption(presetNames[index], index);
+        m_anchorPresetConnection = presetButton->selectionEvents().onSelected.connect([this](MROptionButton& source, int id, const std::wstring&) {
+            applyAnchorPreset(id);
+            source.setText(L"Anchor Preset", "default");
+        });
+        m_viewport->panel->addChild(presetButton);
+        // 画布分辨率预设：固定尺寸预览触发容器/锚点真实重排（含安全区红条）
+        auto canvasButton = MROptionButton::create();
+        canvasButton->setText(L"Canvas: Fit", "default");
+        canvasButton->setTextFontSize(12.0f);
+        canvasButton->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
+        canvasButton->setBackgroundColor(Vector4(0.16f, 0.20f, 0.26f, 1.0f));
+        canvasButton->setHoverColor(Vector4(0.22f, 0.30f, 0.40f, 1.0f));
+        canvasButton->setPressedColor(Vector4(0.10f, 0.14f, 0.20f, 1.0f));
+        canvasButton->setCornerRadius(3.0f);
+        canvasButton->getTransform()->setPosition(614.0f, 5.0f, 0.0f);
+        canvasButton->getTransform()->setSize(150.0f, 22.0f);
+        const wchar_t* canvasNames[] = {L"Fit", L"1920 x 1080", L"1280 x 720", L"800 x 480", L"480 x 800", L"1920 x 720"};
+        for (int index = 0; index < 6; ++index)
+            canvasButton->addOption(canvasNames[index], index);
+        m_canvasPresetConnection = canvasButton->selectionEvents().onSelected.connect([this](MROptionButton& source, int id, const std::wstring&) {
+            m_viewport->applyCanvasPreset(id);
+            source.setText(L"Canvas: " + source.getSelectedText(), "default");
+        });
+        m_viewport->panel->addChild(canvasButton);
+    }
     addLabel(m_inspector->panel, "Inspector", 8.0f, 6.0f, 260.0f, 28.0f);
     addLabel(m_output->panel, "Output / Assets / Build", 8.0f, 2.0f, 360.0f, 22.0f);
     addLabel(m_build->panel, "Build / Run", 8.0f, 2.0f, 260.0f, 22.0f);
@@ -694,6 +1034,9 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
             }
             if (m_inspector->assetMenu && m_inspector->assetMenu->isOpen() && !isDescendantOf(event.target, m_inspector->assetMenu)) {
                 m_inspector->assetMenu->hide();
+            }
+            if (m_inspector->colorPopup && m_inspector->colorPopup->isOpen() && !isDescendantOf(event.target, m_inspector->colorPopup)) {
+                m_inspector->colorPopup->hide();
             }
             if (m_assetsPanel->contextMenu && m_assetsPanel->contextMenu->isOpen() && !isDescendantOf(event.target, m_assetsPanel->contextMenu))
                 m_assetsPanel->contextMenu->hide();

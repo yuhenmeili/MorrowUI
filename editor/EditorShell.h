@@ -34,6 +34,7 @@ class MRButton;
 class MRLabel;
 class MRLineEdit;
 class MRTextEdit;
+class MROptionButton;
 class MRPopupMenu;
 class TouchEvent;
 class Scene2D;
@@ -41,6 +42,9 @@ class Scene2D;
 
 namespace morrow::editor {
 enum class PreviewState { Stopped, Starting, Running, Outdated, Failed };
+
+/// 多选对齐/分布模式（视口顶栏按钮）。
+enum class AlignMode { Left, CenterH, Right, Top, MiddleV, Bottom, DistributeH, DistributeV };
 
 class InspectorPanel;
 class SceneTreePanel;
@@ -120,8 +124,13 @@ private:
     /// 清空视口参考线（场景树右键菜单）。
     void editClearGuides();
 
-    bool notifySelectionChanged();
+    /// 多选对齐/分布：基于选中并集的世界矩形计算逐节点位移，单条撤销。
+    void editAlign(AlignMode mode);
 
+    /// 锚点预设（视口顶栏下拉）：保持当前视觉矩形换算 offsets，写 anchor 三键。
+    void applyAnchorPreset(int presetIndex);
+
+    bool notifySelectionChanged();
     void addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height);
 
     std::shared_ptr<MRButton> addButton(const std::shared_ptr<UIWidget>& parent, const std::wstring& text, float x, float y, float width, float height,
@@ -173,6 +182,8 @@ private:
     std::vector<Observable<MRTabContainer&, const std::string&>::Connection> m_tabConnections;
     std::vector<Observable<MRTabContainer&>::Connection> m_tabOrderConnections;
     std::vector<Observable<BaseButton&>::Connection> m_buttonConnections;
+    Observable<MROptionButton&, int, const std::wstring&>::Connection m_anchorPresetConnection;
+    Observable<MROptionButton&, int, const std::wstring&>::Connection m_canvasPresetConnection;
     std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> m_copyConnections;
     std::string m_status;
     std::string m_selectedNodeId;

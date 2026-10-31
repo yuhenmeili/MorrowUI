@@ -10,10 +10,11 @@
 
 namespace morrow {
 using namespace Math;
-// 锚点定义，用于相对定位
+// 锚点定义，用于相对定位。锚点值为父矩形比例（0-1），
+// 原点取父矩形左上角、Y 向下，与 UI 局部坐标系一致。
 struct Anchor {
-    Vector2 min; // 左下角锚点 (0-1 相对值)
-    Vector2 max; // 右上角锚点 (0-1 相对值)
+    Vector2 min; // 左上角锚点 (0-1 相对父 size)
+    Vector2 max; // 右下角锚点 (0-1 相对父 size)
 
     Anchor() : min(0.0f, 0.0f), max(1.0f, 1.0f) {
     }
@@ -24,12 +25,12 @@ struct Anchor {
     Anchor(const Vector2& min, const Vector2& max) : min(min), max(max) {
     }
 
-    // 常用锚点预设
-    static Anchor TopLeft() { return Anchor(0.0f, 1.0f, 0.0f, 1.0f); }
+    // 常用锚点预设（左上原点、Y 向下语义）
+    static Anchor TopLeft() { return Anchor(0.0f, 0.0f, 0.0f, 0.0f); }
 
-    static Anchor TopCenter() { return Anchor(0.5f, 1.0f, 0.5f, 1.0f); }
+    static Anchor TopCenter() { return Anchor(0.5f, 0.0f, 0.5f, 0.0f); }
 
-    static Anchor TopRight() { return Anchor(1.0f, 1.0f, 1.0f, 1.0f); }
+    static Anchor TopRight() { return Anchor(1.0f, 0.0f, 1.0f, 0.0f); }
 
     static Anchor MiddleLeft() { return Anchor(0.0f, 0.5f, 0.0f, 0.5f); }
 
@@ -37,11 +38,11 @@ struct Anchor {
 
     static Anchor MiddleRight() { return Anchor(1.0f, 0.5f, 1.0f, 0.5f); }
 
-    static Anchor BottomLeft() { return Anchor(0.0f, 0.0f, 0.0f, 0.0f); }
+    static Anchor BottomLeft() { return Anchor(0.0f, 1.0f, 0.0f, 1.0f); }
 
-    static Anchor BottomCenter() { return Anchor(0.5f, 0.0f, 0.5f, 0.0f); }
+    static Anchor BottomCenter() { return Anchor(0.5f, 1.0f, 0.5f, 1.0f); }
 
-    static Anchor BottomRight() { return Anchor(1.0f, 0.0f, 1.0f, 0.0f); }
+    static Anchor BottomRight() { return Anchor(1.0f, 1.0f, 1.0f, 1.0f); }
 
     static Anchor StretchAll() { return Anchor(0.0f, 0.0f, 1.0f, 1.0f); }
 
@@ -102,6 +103,22 @@ public:
 
     Anchor getAnchor() const;
 
+    /// 边距（Godot 语义）：left/top/right/bottom 相对锚点的偏移。
+    /// point 锚点时 left/top 为位置偏移；stretch 锚点时四值决定内缩。
+    void setAnchorOffset(float left, float top, float right, float bottom);
+
+    Vector4 getAnchorOffset() const;
+
+    /// 锚点生效开关：默认关闭保持既有绝对布局行为；开启后每帧按父尺寸
+    /// 重算 position/size（updateAnchoredPosition）。
+    void setAnchorEnabled(bool enabled);
+
+    bool isAnchorEnabled() const;
+
+    /// 立即按当前锚点+父尺寸重算一次（场景实例化/属性应用后调用；
+    /// 帧循环 update 内部也会自动调用）。
+    void updateAnchoredPosition();
+
     // 父子关系相关方法
     // void setParent(Transform* parent);
     //
@@ -133,10 +150,6 @@ private:
 
     void updateMatrix();
 
-    void updateAnchoredPosition(); // 根据锚点更新位置和尺寸
-
-    void updateFromParent(); // 父节点变化时更新
-
 private:
     ///基础变换属性
     Vector3 m_localPosition; // 相对于锚点的局部位置
@@ -145,6 +158,7 @@ private:
     Quaternion m_localRotation;
     Anchor m_anchor;
     Vector4 m_offset;
+    bool m_anchorEnabled = false;
     Vector3 m_pivotScreen = {0.5f, 0.5f, 0.0f};
 
     // 父子关系

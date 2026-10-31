@@ -3,6 +3,8 @@
 
 #include <filesystem>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "commands/CommandHistory.h"
@@ -62,6 +64,12 @@ public:
     bool rotateGizmo(const std::string& nodeId, float zDegrees, bool continuous, std::string& error);
 
     bool setNodeRect(const std::string& nodeId, float x, float y, float z, float width, float height, bool continuous, std::string& error);
+
+    /// 批量写 position（对齐/分布工具用），单条撤销记录。value 为序列化 Vector3。
+    bool setNodePositions(const std::vector<std::pair<std::string, std::string>>& positions, std::string& error);
+
+    /// 通用批量属性写（锚点预设等），(nodeId, property, value)，单条撤销记录。
+    bool setNodeProperties(const std::vector<std::tuple<std::string, std::string, std::string>>& assignments, std::string& error);
 
     bool moveSelection(float dx, float dy, bool continuous, std::string& error);
 

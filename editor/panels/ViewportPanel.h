@@ -9,6 +9,7 @@
 #include "panels/EditorPanel.h"
 
 namespace morrow {
+class MRButton;
 class MRColor;
 class MRLabel;
 class TouchEvent;
@@ -55,6 +56,12 @@ public:
     /// 平移/缩放视口使选中节点并集矩形居中适配（F 键）。
     void focusSelection();
 
+    /// 画布预设：0 = Fit（随面板自适应），>0 固定分辨率并按内容缩放居中，
+    /// 触发容器/锚点真实重排（多分辨率预览）。
+    void applyCanvasPreset(int presetIndex);
+
+    int currentCanvasPreset() const;
+
     void handlePointer(const TouchEvent& event);
 
 private:
@@ -75,6 +82,9 @@ private:
     bool rubberBanding = false;
     bool rubberAdditive = false;
     bool transformChanged = false;
+    // ---- 锚定节点的 gizmo 行为 ----
+    bool dragAnchored = false;
+    bool resizeAnchored = false;
     // ---- 吸附（网格 + 智能对齐） ----
     bool snapEnabled = true;
     float snapStep = 10.0f;
@@ -92,6 +102,14 @@ private:
     std::vector<std::shared_ptr<morrow::MRColor>> smartLines;
     std::vector<std::shared_ptr<morrow::MRColor>> rulerBackgrounds;
     std::vector<std::shared_ptr<morrow::MRLabel>> rulerLabels;
+    /// 多选对齐/分布按钮（挂在 panel 顶栏，选中 ≥2 时可见）。
+    std::vector<std::shared_ptr<morrow::MRButton>> alignButtons;
+    /// 锚点指示方块（选中锚定节点时显示在父矩形上，最多 4 个角）。
+    std::vector<std::shared_ptr<morrow::MRColor>> anchorIndicators;
+    // ---- 分辨率/安全区预览 ----
+    int canvasPreset = 0;
+    std::vector<std::shared_ptr<morrow::MRColor>> canvasBorders;
+    std::vector<std::shared_ptr<morrow::MRColor>> safeAreaBars;
     bool draggingGuide = false;
     bool draggingGuideHorizontal = false;
     bool draggingExistingGuide = false;
@@ -164,6 +182,15 @@ private:
 
     /// 现有参考线命中（画布系）；命中时 horizontal/value 给出该线。
     bool guideAt(float canvasX, float canvasY, bool& horizontal, float& value) const;
+
+    /// 文档中节点是否带完整锚点键（anchor_min + anchor_max）。
+    bool nodeAnchored(const std::string& nodeId) const;
+
+    /// 锚定节点的目标矩形 → 换算 anchor_offset 写回文档（保持锚点不变）。
+    bool applyAnchoredRect(const std::string& nodeId, float x, float y, float width, float height, bool continuous);
+
+    /// 读取节点锚点（画布/文档空间换算用），无锚点返回 false。
+    bool nodeAnchorValues(const std::string& nodeId, float& minX, float& minY, float& maxX, float& maxY, float& parentWidth, float& parentHeight) const;
 
     /// 重建标尺刻度（panel 子控件，随 pan/zoom 更新）。
     void rebuildRulers();

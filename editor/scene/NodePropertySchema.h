@@ -16,6 +16,11 @@ struct PropertyDescriptor {
     std::string component;    // Inspector 分组（Transform / Mesh Filter / Mesh Renderer / Properties）
     std::string displayName;  // 显示名；空 = 由 name 推导
     bool editable = true;
+    /// number 属性的取值范围：Inspector 渲染为滑块+数值输入。
+    bool hasRange = false;
+    float minValue = 0.0f;
+    float maxValue = 0.0f;
+    float stepValue = 1.0f;
 };
 
 /// 所有可编辑节点共享的基础属性（Transform + 可见性 + 锁定）。

@@ -346,6 +346,25 @@ bool EditorSession::setNodeRect(const std::string& nodeId, float x, float y, flo
     return changed;
 }
 
+bool EditorSession::setNodePositions(const std::vector<std::pair<std::string, std::string>>& positions, std::string& error) {
+    std::vector<std::tuple<std::string, std::string, std::string>> assignments;
+    assignments.reserve(positions.size());
+    for (const auto& [nodeId, value] : positions)
+        assignments.emplace_back(nodeId, "position", value);
+    return setNodeProperties(assignments, error);
+}
+
+bool EditorSession::setNodeProperties(const std::vector<std::tuple<std::string, std::string, std::string>>& assignments, std::string& error) {
+    std::vector<std::unique_ptr<SceneCommand>> commands;
+    commands.reserve(assignments.size());
+    for (const auto& [nodeId, property, value] : assignments)
+        commands.push_back(std::make_unique<SetNodePropertyCommand>(nodeId, property, value));
+    const bool changed = m_history.execute(std::make_unique<MacroCommand>(std::move(commands)), m_document, error);
+    if (changed)
+        m_dirty = true;
+    return changed;
+}
+
 bool EditorSession::undo(std::string& error) {
     const bool changed = m_history.undo(m_document, error);
     if (changed)

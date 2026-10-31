@@ -35,11 +35,11 @@ const std::vector<PropertyDescriptor>& meshRendererTable() {
 const std::vector<PropertyDescriptor>* typeTable(const std::string& nodeType) {
     static const std::vector<PropertyDescriptor> button = {
         {"text", "string", "Button", "Properties", "Text", true},
-        {"font_size", "number", "18", "Properties", "Font Size", true},
+        {"font_size", "number", "18", "Properties", "Font Size", true, true, 8.0f, 72.0f, 1.0f},
     };
     static const std::vector<PropertyDescriptor> label = {
         {"text", "string", "Label", "Properties", "Text", true},
-        {"font_size", "number", "22", "Properties", "Font Size", true},
+        {"font_size", "number", "22", "Properties", "Font Size", true, true, 8.0f, 72.0f, 1.0f},
     };
     static const std::vector<PropertyDescriptor> image = {
         {"texture_asset", "TextureAsset", "", "Properties", "Source Image", true},

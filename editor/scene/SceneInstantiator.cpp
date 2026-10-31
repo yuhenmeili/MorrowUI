@@ -495,9 +495,54 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
     if (key == "locked") {
         return true;
     }
+    // 锚点三键由 updateNode 的 applyAnchors 组合应用，逐键循环里跳过
+    if (key == "anchor_min" || key == "anchor_max" || key == "anchor_offset") {
+        return true;
+    }
 
     error = "unsupported property '" + key + "' on node '" + record.type + "'";
     return false;
+}
+
+/// 组合应用锚点：anchor_min + anchor_max 同时存在才启用，缺失则显式关闭。
+void applyAnchors(const morrow::editor::SceneNodeRecord& record, const std::shared_ptr<morrow::Widget>& instance) {
+    auto uiWidget = std::dynamic_pointer_cast<morrow::UIWidget>(instance);
+    if (!uiWidget)
+        return;
+    const auto transform = uiWidget->getTransform();
+    const auto& properties = record.properties;
+    const auto minEntry = properties.find("anchor_min");
+    const auto maxEntry = properties.find("anchor_max");
+    if (minEntry == properties.end() || maxEntry == properties.end()) {
+        transform->setAnchorEnabled(false);
+        return;
+    }
+    std::vector<float> minComponents;
+    std::vector<float> maxComponents;
+    if (!parseVector(minEntry->second, "Vector2", minComponents) || minComponents.size() != 2 || !parseVector(maxEntry->second, "Vector2", maxComponents) ||
+        maxComponents.size() != 2) {
+        transform->setAnchorEnabled(false);
+        return;
+    }
+    transform->setAnchor(minComponents[0], minComponents[1], maxComponents[0], maxComponents[1]);
+    float left = 0.0f;
+    float top = 0.0f;
+    float right = 0.0f;
+    float bottom = 0.0f;
+    const auto offsetEntry = properties.find("anchor_offset");
+    if (offsetEntry != properties.end()) {
+        std::vector<float> offsets;
+        if (parseVector(offsetEntry->second, "Vector4", offsets) && offsets.size() == 4) {
+            left = offsets[0];
+            top = offsets[1];
+            right = offsets[2];
+            bottom = offsets[3];
+        }
+    }
+    transform->setAnchorOffset(left, top, right, bottom);
+    transform->setAnchorEnabled(true);
+    // 已挂父级时立即生效（live 更新路径）；instantiate 阶段挂父后由帧循环应用
+    transform->updateAnchoredPosition();
 }
 
 }  // namespace
@@ -552,6 +597,8 @@ bool SceneInstantiator::updateNode(const SceneDocument& document, const SceneNod
         return false;
     }
     instance->setWidgetName(record.name);
+    // 锚点三键（anchor_min/anchor_max/anchor_offset）需组合应用，先于逐键循环
+    applyAnchors(record, instance);
     for (const auto& [key, value] : record.properties) {
         if (!applyProperty(record, instance, key, value, document, assets, error)) {
             return false;

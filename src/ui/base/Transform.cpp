@@ -1,5 +1,6 @@
 #include "morrow/base/Transform.h"
 #include "morrow/base/Widget.h"
+#include <algorithm>
 #include <cmath>
 #include "Component.inl"
 #include "GlobalObject.h"
@@ -114,15 +115,38 @@ Vector3 Transform::getPivot() const {
 
 void Transform::setAnchor(const Anchor& anchor) {
     m_anchor = anchor;
+    markDirty();
 }
 
 void Transform::setAnchor(float minX, float minY, float maxX, float maxY) {
     m_anchor.min.set(minX, minY);
     m_anchor.max.set(maxX, maxY);
+    markDirty();
 }
 
 Anchor Transform::getAnchor() const {
     return m_anchor;
+}
+
+void Transform::setAnchorOffset(float left, float top, float right, float bottom) {
+    m_offset.set(left, top, right, bottom);
+    markDirty();
+}
+
+Vector4 Transform::getAnchorOffset() const {
+    return m_offset;
+}
+
+void Transform::setAnchorEnabled(bool enabled) {
+    if (m_anchorEnabled == enabled)
+        return;
+    m_anchorEnabled = enabled;
+    if (enabled)
+        markDirty();
+}
+
+bool Transform::isAnchorEnabled() const {
+    return m_anchorEnabled;
 }
 
 const Matrix4& Transform::getLocalMatrix() {
@@ -171,6 +195,11 @@ const Matrix4& Transform::getWorldMatrix() {
 }
 
 void Transform::update(FrameStateSharedPtr /*frameState*/) {
+    // 锚点启用时每帧按父尺寸重算 position/size（父 Widget 的 update 先于子，
+    // 树递归顺序保证父尺寸已就绪）。未启用时零开销，保持绝对布局行为。
+    if (m_anchorEnabled) {
+        updateAnchoredPosition();
+    }
     if (m_localMatrixVersion != m_localVersion) {
         updateMatrix();
     }
@@ -227,57 +256,39 @@ void Transform::updateMatrix() {
 }
 
 void Transform::updateAnchoredPosition() {
-    if (!m_parent) return;
-
-    Vector3 parentSize = m_parent->getSize();
-
-    Vector2 anchorMinWorld(
-        m_anchor.min.x * parentSize.x,
-        m_anchor.min.y * parentSize.y
-    );
-    Vector2 anchorMaxWorld(
-        m_anchor.max.x * parentSize.x,
-        m_anchor.max.y * parentSize.y
-    );
-
-    if (m_anchor.min.x == m_anchor.max.x && m_anchor.min.y == m_anchor.max.y) {
-        m_localPosition = Vector3(
-            anchorMinWorld.x + m_offset.x,
-            anchorMinWorld.y + m_offset.y,
-            m_localPosition.z
-        );
-    } else {
-        m_localPosition = Vector3(
-            anchorMinWorld.x + m_offset.x,
-            anchorMinWorld.y + m_offset.y,
-            m_localPosition.z
-        );
-        m_size = Vector3(
-            (anchorMaxWorld.x - anchorMinWorld.x) - (m_offset.x + m_offset.z),
-            (anchorMaxWorld.y - anchorMinWorld.y) - (m_offset.y + m_offset.w),
-            m_size.z
-        );
-    }
-
-    setDirty();
-}
-
-void Transform::updateFromParent() {
-    if (!m_parent) {
-        m_worldMatrix = m_localMatrix;
+    // 父 Transform 通过组件链查找（Widget 树单层向上），锚点基于父 size 重算
+    auto parentTransform = getComponentInParent<Transform>();
+    if (!parentTransform)
         return;
+    const Vector3 parentSize = parentTransform->getSize();
+
+    // 锚点像素（父矩形左上原点、Y 向下，与 UI 局部系一致）
+    const float anchorMinX = m_anchor.min.x * parentSize.x;
+    const float anchorMinY = m_anchor.min.y * parentSize.y;
+    const float anchorMaxX = m_anchor.max.x * parentSize.x;
+    const float anchorMaxY = m_anchor.max.y * parentSize.y;
+
+    Vector3 newPosition = m_localPosition;
+    Vector3 newSize = m_size;
+    newPosition.x = anchorMinX + m_offset.x;
+    newPosition.y = anchorMinY + m_offset.y;
+    if (m_anchor.min.x != m_anchor.max.x || m_anchor.min.y != m_anchor.max.y) {
+        // stretch 锚点：尺寸 = 锚点跨度 - 左右/上下边距
+        newSize.x = std::max(0.0f, (anchorMaxX - anchorMinX) - (m_offset.x + m_offset.z));
+        newSize.y = std::max(0.0f, (anchorMaxY - anchorMinY) - (m_offset.y + m_offset.w));
     }
 
-    const Matrix4& parentWorldMatrix = m_parent->getWorldMatrix();
+    // 值未变化时早退，避免逐帧 markDirty/notify 抖动
+    const bool positionChanged = newPosition.x != m_localPosition.x || newPosition.y != m_localPosition.y || newPosition.z != m_localPosition.z;
+    const bool sizeChanged = newSize.x != m_size.x || newSize.y != m_size.y || newSize.z != m_size.z;
+    if (!positionChanged && !sizeChanged)
+        return;
 
-    if (m_anchor.min != m_anchor.max) {
-        updateAnchoredPosition();
-    }
-
-    m_worldMatrix = parentWorldMatrix * m_localMatrix;
-
-    for (auto& child : m_children) {
-        child->setDirty();
-    }
+    m_localPosition = newPosition;
+    m_size = newSize;
+    markDirty();
+    // 尺寸变化级联：mesh 重建、孙代锚点在各自 update 中重算
+    if (sizeChanged)
+        notifySizeChange();
 }
 } // namespace morrow

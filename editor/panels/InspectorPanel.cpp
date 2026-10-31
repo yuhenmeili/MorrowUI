@@ -16,9 +16,12 @@
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MRButton.h"
 #include "morrow/elements/MRCheckBox.h"
+#include "morrow/elements/MRColor.h"
 #include "morrow/elements/MRLabel.h"
 #include "morrow/elements/MRLineEdit.h"
 #include "morrow/elements/MRPopupMenu.h"
+#include "morrow/elements/MRPopup.h"
+#include "morrow/elements/MRSlider.h"
 #include "filesystem/ProjectFileSystemModel.h"
 #include "panels/AssetBrowserPanel.h"
 #include "panels/SceneTreePanel.h"
@@ -64,6 +67,24 @@ std::wstring wide(const std::string& text) {
     } catch (...) {
         return std::wstring(text.begin(), text.end());
     }
+}
+
+/// number 范围属性：实际值 ↔ 滑块 0..1 归一化与步长量化。
+float rangeNormalize(float value, const morrow::editor::InspectorProperty& property) {
+    const float span = property.maxValue - property.minValue;
+    return span > 0.0f ? std::clamp((value - property.minValue) / span, 0.0f, 1.0f) : 0.0f;
+}
+
+float rangeQuantize(const morrow::editor::InspectorProperty& property, float normalized) {
+    const float raw = property.minValue + normalized * (property.maxValue - property.minValue);
+    const float step = property.stepValue > 0.0f ? property.stepValue : 1.0f;
+    return std::round(raw / step) * step;
+}
+
+std::string formatNumber(float value) {
+    char buffer[32];
+    std::snprintf(buffer, sizeof(buffer), "%.6g", value);
+    return buffer;
 }
 
 void addInspectorText(morrow::editor::InspectorPanel& inspector, const std::string& text, float y) {
@@ -253,6 +274,7 @@ void InspectorPanel::refresh(bool force) {
     }
     editConnections.clear();
     checkConnections.clear();
+    sliderConnections.clear();
     bindings.clear();
     if (searchBox) {
         searchBox->setVisible(true);
@@ -268,7 +290,7 @@ void InspectorPanel::refresh(bool force) {
     const float controlX = 12.0f + labelWidth;
     const float controlWidth = std::max(70.0f, fieldWidth - labelWidth);
     float y = 72.0f;
-    const std::vector<std::string> componentPriority = {"Transform", "Mesh Filter", "Mesh Renderer", "Properties"};
+    const std::vector<std::string> componentPriority = {"Transform", "Layout", "Mesh Filter", "Mesh Renderer", "Properties"};
     const std::vector<std::string> propertyPriority = {"position",       "rotation",      "scale",        "size",    "mesh",          "renderer_enabled", "material",
                                                        "material_color", "blend_enabled", "double_sided", "visible", "locked",        "display_layer",    "texture_asset"};
     std::stable_sort(properties.begin(), properties.end(), [&componentPriority, &propertyPriority](const InspectorProperty& left, const InspectorProperty& right) {
@@ -337,9 +359,10 @@ void InspectorPanel::refresh(bool force) {
         propertyLabel->getTransform()->setSize(labelWidth - 8.0f, 28.0f);
         panel->addChild(propertyLabel);
 
-        // 偏离默认值的可重置行右侧留出 ↺ 按钮，其余行占满整行
+        // 偏离默认值的可重置行右侧留出 ↺ 按钮，Color 行再留色板按钮，其余行占满整行
+        const bool isColorRow = property.type == "Color" && !property.mixed && property.editable;
         const bool hasReset = !property.defaultValue.empty() && !property.mixed && property.type != "TextureAsset" && property.type != "MaterialAsset";
-        const float rowControlWidth = controlWidth - (hasReset ? 30.0f : 0.0f);
+        const float rowControlWidth = controlWidth - ((hasReset ? 1u : 0u) + (isColorRow ? 1u : 0u)) * 30.0f;
         if (hasReset) {
             auto reset = MRButton::create();
             reset->setText(L"R", "default");
@@ -496,6 +519,77 @@ void InspectorPanel::refresh(bool force) {
                 bindings[property.name].type = property.type;
                 bindings[property.name].edits.push_back(edit);
             }
+            if (property.type == "Color") {
+                // 当前颜色色板：点击弹出取色器（色板 MVP），位于 R 按钮左侧
+                auto swatch = MRColor::create();
+                Vector4 current(1.0f, 1.0f, 1.0f, 1.0f);
+                std::vector<std::string> rgba;
+                if (parseTypedComponents(property.value, "Color", rgba) && rgba.size() == 4) {
+                    try {
+                        current = Vector4(std::stof(rgba[0]), std::stof(rgba[1]), std::stof(rgba[2]), std::stof(rgba[3]));
+                    } catch (...) {
+                    }
+                }
+                swatch->setColor(current);
+                swatch->setRounding(3.0f);
+                const float swatchX = controlX + controlWidth - (hasReset ? 56.0f : 26.0f);
+                swatch->getTransform()->setPosition(swatchX, y, 0.0f);
+                swatch->getTransform()->setSize(26.0f, 28.0f);
+                if (auto interaction = swatch->getComponent<Interaction>()) {
+                    interactionConnections.emplace_back(interaction->addEventListener(
+                        TOUCH_EVENT_TYPE_RELEASE, [this, property](TouchEvent& event) { openColorPicker(property, event.positionX, event.positionY); }));
+                }
+                panel->addChild(swatch);
+            }
+        } else if (property.type == "number" && property.hasRange && !property.mixed && property.editable) {
+            // 带范围的数值：滑块 + 紧凑数值输入，拖动连续合并为单条撤销
+            const float sliderWidth = std::max(60.0f, rowControlWidth - 58.0f);
+            float currentValue = property.minValue;
+            try {
+                currentValue = std::stof(property.value);
+            } catch (...) {
+            }
+            auto slider = MRSlider::create();
+            slider->getTransform()->setPosition(controlX, y + 2.0f, 0.0f);
+            slider->getTransform()->setSize(sliderWidth, 24.0f);
+            slider->setValue(rangeNormalize(currentValue, property));
+            sliderConnections.emplace_back(slider->events().onValueChanged.connect([this, property](MRSlider& source, float value) {
+                if (m_applyingInspectorValue)
+                    return;
+                m_applyingInspectorValue = true;
+                const float stepped = rangeQuantize(property, value);
+                applyValue(property.name, formatNumber(stepped), true);
+                source.setValue(rangeNormalize(stepped, property));
+                m_applyingInspectorValue = false;
+            }));
+            panel->addChild(slider);
+            auto edit = MRLineEdit::create();
+            edit->setFontSize(13.0f);
+            edit->setText(wide(property.value));
+            edit->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
+            edit->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+            edit->setFocusedBackgroundColor(Vector4(0.10f, 0.13f, 0.18f, 1.0f));
+            edit->getTransform()->setPosition(controlX + sliderWidth + 4.0f, y, 0.0f);
+            edit->getTransform()->setSize(52.0f, 28.0f);
+            editConnections.emplace_back(edit->events().onSubmitted.connect([this, propertyName = property.name](MRTextEdit&, const std::wstring& text) {
+                const std::string value(text.begin(), text.end());
+                try {
+                    size_t consumed = 0;
+                    std::stof(value, &consumed);
+                    if (consumed != value.size())
+                        throw std::invalid_argument("number");
+                } catch (...) {
+                    m_shell.setStatus("Property must be numeric");
+                    return;
+                }
+                m_shell.m_engine->mainThreadDispatcher().post([this, propertyName, value] { applyValue(propertyName, value); });
+            }));
+            panel->addChild(edit);
+            InspectorBinding& binding = bindings[property.name];
+            binding.property = property.name;
+            binding.type = property.type;
+            binding.edits.push_back(edit);
+            binding.slider = std::move(slider);
         } else {
             auto edit = MRLineEdit::create();
             edit->setFontSize(13.0f);
@@ -567,6 +661,16 @@ void InspectorPanel::updateValues(const std::vector<InspectorProperty>& properti
             }
             continue;
         }
+        if (binding.slider) {
+            float value = 0.0f;
+            try {
+                value = std::stof(property->value);
+            } catch (...) {
+            }
+            m_applyingInspectorValue = true;
+            binding.slider->setValue(rangeNormalize(value, *property));
+            m_applyingInspectorValue = false;
+        }
         if (!binding.edits.empty()) {
             const std::string value = property->mixed ? std::string{} : property->value;
             binding.edits.front()->setText(std::wstring(value.begin(), value.end()));
@@ -575,7 +679,7 @@ void InspectorPanel::updateValues(const std::vector<InspectorProperty>& properti
     }
 }
 
-void InspectorPanel::applyValue(const std::string& property, const std::string& value) {
+void InspectorPanel::applyValue(const std::string& property, const std::string& value, bool continuous) {
     if (!selectedAssetId.empty() && property == "material_shader") {
         const auto* asset = m_shell.m_assets.findById(selectedAssetId);
         if (!asset)
@@ -603,7 +707,7 @@ void InspectorPanel::applyValue(const std::string& property, const std::string& 
     std::string error;
     bool changed = false;
     for (const auto& nodeId : m_shell.m_session->model().selection().nodeIds) {
-        if (!m_shell.m_session->setProperty(nodeId, property, value, false, error)) {
+        if (!m_shell.m_session->setProperty(nodeId, property, value, continuous, error)) {
             break;
         }
         changed = true;
@@ -617,8 +721,13 @@ void InspectorPanel::applyValue(const std::string& property, const std::string& 
         property == "position" || property == "size" || property == "scale" || property == "rotation" || property == "visible" || property == "display_layer";
     m_shell.m_viewport->syncSelectedRuntimeNodes(transformOnly);
     m_shell.m_viewport->refreshSelectionOverlay();
-    refresh();
-    m_shell.setStatus("Applied " + property + " = " + value);
+    if (!continuous) {
+        refresh();
+        m_shell.setStatus("Applied " + property + " = " + value);
+    } else {
+        // 拖动中只轻量回填既有控件值，整面板重建会销毁正在交互的滑块
+        updateValues(m_shell.m_session->model().inspectSelected());
+    }
 }
 
 void InspectorPanel::beginLegacyPropertyEdit(const std::string& property, const std::string& value) {
@@ -673,6 +782,127 @@ void InspectorPanel::appendLegacyCharacter(unsigned int codepoint) {
         return;
     legacyEditValue.push_back(static_cast<char>(codepoint));
     m_shell.setStatus("Editing " + legacyEditProperty + ": " + legacyEditValue);
+}
+
+namespace {
+/// 取色器预设色板（UI 常用色，两行 × 8）。
+const Vector4 (&colorPalette())[16] {
+    static const Vector4 palette[16] = {
+        Vector4(1.00f, 1.00f, 1.00f, 1.0f), Vector4(0.75f, 0.77f, 0.80f, 1.0f), Vector4(0.50f, 0.52f, 0.56f, 1.0f), Vector4(0.25f, 0.27f, 0.30f, 1.0f),
+        Vector4(0.06f, 0.07f, 0.09f, 1.0f), Vector4(0.86f, 0.20f, 0.20f, 1.0f), Vector4(0.95f, 0.55f, 0.15f, 1.0f), Vector4(0.98f, 0.75f, 0.19f, 1.0f),
+        Vector4(0.93f, 0.90f, 0.30f, 1.0f), Vector4(0.30f, 0.70f, 0.30f, 1.0f), Vector4(0.20f, 0.70f, 0.65f, 1.0f), Vector4(0.30f, 0.80f, 0.95f, 1.0f),
+        Vector4(0.25f, 0.45f, 0.90f, 1.0f), Vector4(0.40f, 0.35f, 0.80f, 1.0f), Vector4(0.65f, 0.35f, 0.80f, 1.0f), Vector4(0.95f, 0.55f, 0.75f, 1.0f),
+    };
+    return palette;
+}
+
+std::string colorValue(const Vector4& color, float alpha) {
+    char buffer[96];
+    std::snprintf(buffer, sizeof(buffer), "Color(%.3f, %.3f, %.3f, %.3f)", color.x, color.y, color.z, alpha);
+    return buffer;
+}
+
+Vector4 parseColorValue(const std::string& value) {
+    std::vector<std::string> rgba;
+    if (value.rfind("Color(", 0) == 0 && value.back() == ')') {
+        std::istringstream stream(value.substr(6, value.size() - 7));
+        std::string component;
+        while (std::getline(stream, component, ','))
+            rgba.push_back(component);
+    }
+    if (rgba.size() != 4)
+        return Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+    try {
+        return Vector4(std::stof(rgba[0]), std::stof(rgba[1]), std::stof(rgba[2]), std::stof(rgba[3]));
+    } catch (...) {
+        return Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+}
+}  // namespace
+
+void InspectorPanel::pushRecentColor(const std::string& value) {
+    recentColors.erase(std::remove(recentColors.begin(), recentColors.end(), value), recentColors.end());
+    recentColors.insert(recentColors.begin(), value);
+    if (recentColors.size() > 8)
+        recentColors.resize(8);
+}
+
+void InspectorPanel::ensureColorPopup() {
+    if (colorPopup || !m_shell.m_shellRoot)
+        return;
+    colorPopup = MRPopup::create();
+    colorPopup->getTransform()->setSize(248.0f, 208.0f);
+    colorPopup->attachTo(m_shell.m_shellRoot);
+    // 内容容器：重建取色器时只清它，不触碰 MRPopup 自身的背景子节点
+    colorPopupContent = std::make_shared<UIWidget>(false);
+    colorPopupContent->getTransform()->setSize(248.0f, 208.0f);
+    colorPopup->addChild(colorPopupContent);
+}
+
+void InspectorPanel::openColorPicker(const InspectorProperty& property, float worldX, float worldY) {
+    ensureColorPopup();
+    if (!colorPopup)
+        return;
+    colorEditProperty = property.name;
+    colorEditAlpha = parseColorValue(property.value).w;
+    const Vector4 current = parseColorValue(property.value);
+
+    // 重建弹窗内容：预设两行 + 当前色预览 + 最近使用行（只清内容容器）
+    colorPopupConnections.clear();
+    colorPopupContent->m_children.clear();
+    auto backdrop = MRColor::create();
+    backdrop->setColor(Vector4(0.13f, 0.15f, 0.19f, 0.98f));
+    backdrop->setRounding(6.0f);
+    backdrop->getTransform()->setSize(248.0f, 208.0f);
+    colorPopupContent->addChild(backdrop);
+    const auto pick = [this](const Vector4& color) {
+        const std::string value = colorValue(color, colorEditAlpha);
+        applyValue(colorEditProperty, value, false);
+        pushRecentColor(value);
+        colorPopup->hide();
+        m_shell.setStatus("Picked " + value);
+    };
+    auto addSwatch = [this, &pick](const Vector4& color, float x, float y) {
+        auto swatch = MRColor::create();
+        swatch->setColor(color);
+        swatch->setRounding(3.0f);
+        swatch->getTransform()->setPosition(x, y, 0.0f);
+        swatch->getTransform()->setSize(24.0f, 24.0f);
+        if (auto interaction = swatch->getComponent<Interaction>()) {
+            colorPopupConnections.emplace_back(interaction->addEventListener(TOUCH_EVENT_TYPE_RELEASE, [pick, color](TouchEvent&) { pick(color); }));
+        }
+        colorPopupContent->addChild(swatch);
+    };
+    const auto& palette = colorPalette();
+    for (size_t index = 0; index < 16; ++index)
+        addSwatch(palette[index], 10.0f + static_cast<float>(index % 8) * 29.0f, 8.0f + static_cast<float>(index / 8) * 29.0f);
+
+    auto preview = MRColor::create();
+    preview->setColor(current);
+    preview->setRounding(3.0f);
+    preview->getTransform()->setPosition(10.0f, 68.0f, 0.0f);
+    preview->getTransform()->setSize(24.0f, 24.0f);
+    colorPopupContent->addChild(preview);
+    auto caption = std::make_shared<MRLabel>();
+    caption->setText(L"Current / Recent", "default");
+    caption->setFontSize(12.0f);
+    caption->setFontColor(0.70f, 0.74f, 0.80f, 1.0f);
+    caption->setAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
+    caption->getTransform()->setPosition(42.0f, 68.0f, 0.0f);
+    caption->getTransform()->setSize(160.0f, 24.0f);
+    colorPopupContent->addChild(caption);
+    for (size_t index = 0; index < recentColors.size() && index < 8; ++index)
+        addSwatch(parseColorValue(recentColors[index]), 10.0f + static_cast<float>(index) * 29.0f, 98.0f);
+
+    // 定位：世界坐标换算 shellRoot 局部系（左上原点），向左展开并夹在窗口内
+    const Math::Rect rootBounds = m_shell.m_shellRoot->getWorldSpaceAABB();
+    float localX = worldX - rootBounds.Min.x - 248.0f;
+    float localY = rootBounds.Max.y - worldY;
+    localX = std::clamp(localX, 4.0f, std::max(4.0f, rootBounds.GetWidth() - 252.0f));
+    localY = std::clamp(localY, 4.0f, std::max(4.0f, rootBounds.GetHeight() - 212.0f));
+    colorPopup->getTransform()->setSize(248.0f, 208.0f);
+    colorPopup->popup(localX, localY);
+    m_shell.setStatus("Pick a color for " + property.displayName);
 }
 
 }  // namespace morrow::editor

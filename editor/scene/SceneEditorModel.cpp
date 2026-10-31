@@ -48,6 +48,8 @@ std::map<std::string, std::string> effectiveProperties(const SceneNodeRecord& no
 std::string inspectorComponent(const std::string& name) {
     if (name == "position" || name == "rotation" || name == "scale" || name == "size")
         return "Transform";
+    if (name.rfind("anchor_", 0) == 0)
+        return "Layout";
     if (name == "mesh")
         return "Mesh Filter";
     if (name == "renderer_enabled" || name == "material" || name == "material_color" || name == "blend_enabled" || name == "double_sided")
@@ -61,6 +63,9 @@ std::string inspectorDisplayName(const std::string& name) {
         {"rotation", "Rotation"},
         {"scale", "Scale"},
         {"size", "Size"},
+        {"anchor_min", "Anchor Min"},
+        {"anchor_max", "Anchor Max"},
+        {"anchor_offset", "Anchor Offsets"},
         {"mesh", "Mesh"},
         {"renderer_enabled", "Enabled"},
         {"material", "Material"},
@@ -211,6 +216,8 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
                 type = "Vector2";
             else if (value.find("Vector3(") == 0)
                 type = "Vector3";
+            else if (value.find("Vector4(") == 0)
+                type = "Vector4";
             else if (value.find("Color(") == 0)
                 type = "Color";
             else if (!value.empty() && (std::isdigit(static_cast<unsigned char>(value.front())) || value.front() == '-'))
@@ -235,8 +242,15 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
         std::string defaultValue;
         if (descriptor && !descriptor->defaultValue.empty() && descriptor->defaultValue != value && !mixed)
             defaultValue = descriptor->defaultValue;
-        result.push_back({name, mixed ? "<mixed>" : value, type, editable, mixed, descriptor ? descriptor->component : inspectorComponent(name),
-                          descriptor && !descriptor->displayName.empty() ? descriptor->displayName : inspectorDisplayName(name), std::move(defaultValue)});
+        InspectorProperty entry = {name, mixed ? "<mixed>" : value, type, editable, mixed, descriptor ? descriptor->component : inspectorComponent(name),
+                                   descriptor && !descriptor->displayName.empty() ? descriptor->displayName : inspectorDisplayName(name), std::move(defaultValue)};
+        if (descriptor && descriptor->hasRange) {
+            entry.hasRange = true;
+            entry.minValue = descriptor->minValue;
+            entry.maxValue = descriptor->maxValue;
+            entry.stepValue = descriptor->stepValue > 0.0f ? descriptor->stepValue : 1.0f;
+        }
+        result.push_back(std::move(entry));
     }
     return result;
 }

@@ -25,6 +25,18 @@ constexpr float kRotateHandleGap = 26.0f;
 constexpr float kGuideHitPixels = 6.0f;
 constexpr float kSmartSnapPixels = 6.0f;
 
+/// 画布预设表：index 0 = Fit（面板自适应），其余固定分辨率（宽,高）。
+struct CanvasPresetEntry {
+    const char* name;
+    float width;
+    float height;
+};
+const CanvasPresetEntry kCanvasPresets[] = {
+    {"Fit", 0.0f, 0.0f}, {"1920 x 1080", 1920.0f, 1080.0f}, {"1280 x 720", 1280.0f, 720.0f},
+    {"800 x 480", 800.0f, 480.0f},   {"480 x 800", 480.0f, 800.0f},     {"1920 x 720", 1920.0f, 720.0f},
+};
+constexpr int kCanvasPresetCount = sizeof(kCanvasPresets) / sizeof(kCanvasPresets[0]);
+
 std::string rotationZValue(float zDegrees) {
     char buffer[96];
     std::snprintf(buffer, sizeof(buffer), "Vector3(0.000, 0.000, %.3f)", zDegrees);
@@ -114,6 +126,8 @@ void ViewportPanel::rebuildRuntime() {
         previewRoot->removeChild(border);
     for (const auto& handle : selectionHandles)
         previewRoot->removeChild(handle);
+    for (const auto& indicator : anchorIndicators)
+        previewRoot->removeChild(indicator);
     previewRoot->m_children.clear();
     guideLines.clear();
     gridLines.clear();
@@ -148,6 +162,8 @@ void ViewportPanel::refreshSelectionOverlay() {
             border->setVisible(false);
         for (const auto& handle : selectionHandles)
             handle->setVisible(false);
+        for (const auto& indicator : anchorIndicators)
+            indicator->setVisible(false);
         return;
     }
 
@@ -202,6 +218,63 @@ void ViewportPanel::refreshSelectionOverlay() {
         selectionHandles[index]->getTransform()->setSize(handleSize, handleSize);
     }
     (void)kRotateHandleIndex;
+
+    // 对齐/分布按钮可见性：多选时出现
+    const size_t selectionCount = m_shell.m_session->model().selection().nodeIds.size();
+    for (const auto& button : alignButtons)
+        button->setVisible(selectionCount >= 2);
+
+    // 锚点指示：选中锚定节点时，在其父矩形的锚点位置画绿色角标（4 个角）
+    float anchorMinX = 0.0f;
+    float anchorMinY = 0.0f;
+    float anchorMaxX = 0.0f;
+    float anchorMaxY = 0.0f;
+    float parentWidth = 0.0f;
+    float parentHeight = 0.0f;
+    const bool anchored = !m_shell.m_selectedNodeId.empty() && nodeAnchorValues(m_shell.m_selectedNodeId, anchorMinX, anchorMinY, anchorMaxX, anchorMaxY, parentWidth, parentHeight);
+    if (anchored) {
+        // 父矩形 preview-local：优先父 runtime 矩形，根父级用画布 (0,0)
+        float baseX = 0.0f;
+        float baseY = 0.0f;
+        float rectW = parentWidth;
+        float rectH = parentHeight;
+        const auto* node = m_shell.m_session->document().findNode(m_shell.m_selectedNodeId);
+        if (node && !node->parentId.empty()) {
+            float ignoredX = 0.0f;
+            float ignoredY = 0.0f;
+            if (runtimeNodeRect(node->parentId, ignoredX, ignoredY, rectW, rectH)) {
+                baseX = ignoredX;
+                baseY = ignoredY;
+            } else {
+                rectW = parentWidth;
+                rectH = parentHeight;
+            }
+        }
+        while (anchorIndicators.size() < 4) {
+            auto indicator = MRColor::create();
+            indicator->setColor(Vector4(0.25f, 0.85f, 0.45f, 1.0f));
+            indicator->setDisplayLayer(10);
+            anchorIndicators.push_back(indicator);
+        }
+        for (const auto& indicator : anchorIndicators) {
+            if (indicator->m_parent != previewRoot)
+                previewRoot->addChild(indicator);
+        }
+        const float indicatorSize = 8.0f / std::max(0.2f, zoom);
+        const float corners[4][2] = {{anchorMinX, anchorMinY}, {anchorMaxX, anchorMinY}, {anchorMaxX, anchorMaxY}, {anchorMinX, anchorMaxY}};
+        for (size_t index = 0; index < 4; ++index) {
+            const float pointX = baseX + corners[index][0] * rectW;
+            const float pointY = baseY + corners[index][1] * rectH;
+            anchorIndicators[index]->setVisible(true);
+            if (auto indicator = std::dynamic_pointer_cast<MRColor>(anchorIndicators[index]))
+                indicator->setRounding(indicatorSize * 0.5f);
+            anchorIndicators[index]->getTransform()->setPosition(pointX - indicatorSize * 0.5f, pointY - indicatorSize * 0.5f, 0.0f);
+            anchorIndicators[index]->getTransform()->setSize(indicatorSize, indicatorSize);
+        }
+    } else {
+        for (const auto& indicator : anchorIndicators)
+            indicator->setVisible(false);
+    }
 }
 
 bool ViewportPanel::runtimeNodeRect(const std::string& nodeId, float& x, float& y, float& width, float& height) const {
@@ -527,6 +600,55 @@ bool ViewportPanel::guideAt(float canvasX, float canvasY, bool& horizontal, floa
     return false;
 }
 
+bool ViewportPanel::nodeAnchored(const std::string& nodeId) const {
+    const auto* node = m_shell.m_session->document().findNode(nodeId);
+    if (!node)
+        return false;
+    return node->properties.count("anchor_min") != 0 && node->properties.count("anchor_max") != 0;
+}
+
+bool ViewportPanel::nodeAnchorValues(const std::string& nodeId, float& minX, float& minY, float& maxX, float& maxY, float& parentWidth, float& parentHeight) const {
+    const auto* node = m_shell.m_session->document().findNode(nodeId);
+    if (!node)
+        return false;
+    if (node->properties.find("anchor_min") == node->properties.end() || node->properties.find("anchor_max") == node->properties.end())
+        return false;
+    if (!parseVector2Property(node, "anchor_min", minX, minY) || !parseVector2Property(node, "anchor_max", maxX, maxY))
+        return false;
+    // 父尺寸：文档父节点 size，根节点退回画布尺寸
+    parentWidth = previewRoot ? previewRoot->getTransform()->getSize().x : 1280.0f;
+    parentHeight = previewRoot ? previewRoot->getTransform()->getSize().y : 720.0f;
+    if (!node->parentId.empty()) {
+        float sizeX = 0.0f;
+        float sizeY = 0.0f;
+        const auto* parent = m_shell.m_session->document().findNode(node->parentId);
+        if (parent && parseVector2Property(parent, "size", sizeX, sizeY) && sizeX > 0.0f) {
+            parentWidth = sizeX;
+            parentHeight = sizeY;
+        }
+    }
+    return true;
+}
+
+bool ViewportPanel::applyAnchoredRect(const std::string& nodeId, float x, float y, float width, float height, bool continuous) {
+    float minX = 0.0f;
+    float minY = 0.0f;
+    float maxX = 0.0f;
+    float maxY = 0.0f;
+    float parentWidth = 0.0f;
+    float parentHeight = 0.0f;
+    if (!nodeAnchorValues(nodeId, minX, minY, maxX, maxY, parentWidth, parentHeight))
+        return false;
+    const float left = x - minX * parentWidth;
+    const float top = y - minY * parentHeight;
+    const float right = maxX * parentWidth - (x + width);
+    const float bottom = maxY * parentHeight - (y + height);
+    char buffer[96];
+    std::snprintf(buffer, sizeof(buffer), "Vector4(%.3f, %.3f, %.3f, %.3f)", left, top, right, bottom);
+    std::string error;
+    return m_shell.m_session->setProperty(nodeId, "anchor_offset", buffer, continuous, error);
+}
+
 void ViewportPanel::updateGuideDragPreview(float value) {
     if (!previewRoot)
         return;
@@ -559,8 +681,14 @@ void ViewportPanel::refreshGuides() {
         previewRoot->removeChild(line);
     for (const auto& line : guideLines)
         previewRoot->removeChild(line);
+    for (const auto& bar : canvasBorders)
+        previewRoot->removeChild(bar);
+    for (const auto& bar : safeAreaBars)
+        previewRoot->removeChild(bar);
     gridLines.clear();
     guideLines.clear();
+    canvasBorders.clear();
+    safeAreaBars.clear();
 
     const Vector3 previewSize = previewRoot->getTransform()->getSize();
     const float canvasLeft = -panX / zoom;
@@ -611,6 +739,30 @@ void ViewportPanel::refreshGuides() {
         line->getTransform()->setSize(canvasRight - canvasLeft, thickness);
         previewRoot->addChild(line);
         guideLines.push_back(line);
+    }
+
+    if (canvasPreset > 0) {
+        // 固定画布：白边框标示画布范围 + 安全区红条（左右 3%、上 6%、下 9% 模拟刘海/仪表遮挡）
+        const auto addBar = [this](const Vector4& color, float x, float y, float w, float h, std::vector<std::shared_ptr<MRColor>>& target) {
+            auto bar = MRColor::create();
+            bar->setColor(color);
+            bar->setDisplayLayer(12);
+            bar->getTransform()->setPosition(x, y, 0.0f);
+            bar->getTransform()->setSize(w, h);
+            previewRoot->addChild(bar);
+            target.push_back(std::move(bar));
+        };
+        const float borderThickness = 2.0f / std::max(0.05f, zoom);
+        const Vector4 borderColor(0.92f, 0.95f, 1.0f, 0.85f);
+        addBar(borderColor, 0.0f, 0.0f, previewSize.x, borderThickness, canvasBorders);
+        addBar(borderColor, 0.0f, previewSize.y - borderThickness, previewSize.x, borderThickness, canvasBorders);
+        addBar(borderColor, 0.0f, 0.0f, borderThickness, previewSize.y, canvasBorders);
+        addBar(borderColor, previewSize.x - borderThickness, 0.0f, borderThickness, previewSize.y, canvasBorders);
+        const Vector4 safeColor(0.95f, 0.25f, 0.30f, 0.15f);
+        addBar(safeColor, 0.0f, 0.0f, previewSize.x * 0.03f, previewSize.y, safeAreaBars);
+        addBar(safeColor, previewSize.x * 0.97f, 0.0f, previewSize.x * 0.03f, previewSize.y, safeAreaBars);
+        addBar(safeColor, 0.0f, 0.0f, previewSize.x, previewSize.y * 0.06f, safeAreaBars);
+        addBar(safeColor, 0.0f, previewSize.y * 0.91f, previewSize.x, previewSize.y * 0.09f, safeAreaBars);
     }
 
     rebuildRulers();
@@ -685,6 +837,11 @@ void ViewportPanel::resizeToPanel() {
     width = std::max(1.0f, bounds.GetWidth());
     height = std::max(1.0f, bounds.GetHeight());
     if (previewRoot) {
+        if (canvasPreset > 0) {
+            // 固定画布：面板变化后重新居中缩放
+            applyCanvasPreset(canvasPreset);
+            return;
+        }
         previewRoot->getTransform()->setSize(width, std::max(1.0f, height - kViewportTopInset));
         refreshGuides();
         refreshSelectionOverlay();
@@ -694,6 +851,10 @@ void ViewportPanel::resizeToPanel() {
 void ViewportPanel::focusSelection() {
     if (!previewRoot)
         return;
+    if (canvasPreset > 0) {
+        m_shell.setStatus("Focus is unavailable in fixed-canvas preview");
+        return;
+    }
     float minX = std::numeric_limits<float>::max();
     float minY = std::numeric_limits<float>::max();
     float maxX = std::numeric_limits<float>::lowest();
@@ -730,6 +891,46 @@ void ViewportPanel::focusSelection() {
     refreshGuides();
     refreshSelectionOverlay();
     m_shell.setStatus("Focused selection");
+}
+
+int ViewportPanel::currentCanvasPreset() const {
+    return canvasPreset;
+}
+
+void ViewportPanel::applyCanvasPreset(int presetIndex) {
+    if (!previewRoot || !panel)
+        return;
+    if (presetIndex < 0 || presetIndex >= kCanvasPresetCount)
+        presetIndex = 0;
+    canvasPreset = presetIndex;
+    const Math::Rect bounds = panel->getWorldSpaceAABB();
+    const float panelWidth = std::max(1.0f, bounds.GetWidth());
+    const float panelHeight = std::max(1.0f, bounds.GetHeight() - kViewportTopInset);
+    if (presetIndex == 0) {
+        // Fit：恢复面板自适应
+        zoom = 1.0f;
+        panX = 0.0f;
+        panY = 0.0f;
+        previewRoot->getTransform()->setSize(panelWidth, panelHeight);
+        previewRoot->getTransform()->setPosition(0.0f, kViewportTopInset, 0.0f);
+        previewRoot->getTransform()->setScale(1.0f, 1.0f, 1.0f);
+        m_shell.setStatus("Canvas: fit to panel");
+    } else {
+        // 固定分辨率：previewRoot 改为预设尺寸并整体缩放居中，
+        // 容器与锚点在真实画布尺寸下重排
+        const float canvasWidth = kCanvasPresets[presetIndex].width;
+        const float canvasHeight = kCanvasPresets[presetIndex].height;
+        zoom = std::min((panelWidth - 16.0f) / canvasWidth, (panelHeight - 16.0f) / canvasHeight);
+        zoom = std::clamp(zoom, 0.05f, 1.0f);
+        previewRoot->getTransform()->setSize(canvasWidth, canvasHeight);
+        panX = (panelWidth - canvasWidth * zoom) * 0.5f;
+        panY = (panelHeight - canvasHeight * zoom) * 0.5f;
+        previewRoot->getTransform()->setPosition(panX, kViewportTopInset + panY, 0.0f);
+        previewRoot->getTransform()->setScale(zoom, zoom, 1.0f);
+        m_shell.setStatus(std::string("Canvas: ") + kCanvasPresets[presetIndex].name + " (anchors/containers relayout)");
+    }
+    refreshGuides();
+    refreshSelectionOverlay();
 }
 
 void ViewportPanel::handlePointer(const TouchEvent& event) {
@@ -803,6 +1004,11 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
 
     if (panelX < 0.0f || panelY < kViewportTopInset || panelX > width || panelY > height)
         return;
+    if (canvasPreset > 0) {
+        // 固定画布模式下保持 fit 视图：禁用滚轮缩放与平移（预览分辨率由预设决定）
+        if (event.eventType == TOUCH_EVENT_TYPE_WHEEL || (event.eventType == TOUCH_EVENT_TYPE_TOUCH && event.button == TOUCH_MOUSE_BUTTON_MIDDLE))
+            return;
+    }
     if (event.eventType == TOUCH_EVENT_TYPE_WHEEL) {
         const float oldZoom = zoom;
         zoom = std::clamp(zoom * (event.wheelDeltaY > 0.0f ? 1.1f : 0.9f), 0.2f, 5.0f);
@@ -845,6 +1051,7 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
                     transformChanged = false;
                     resizePointerStartX = canvasX;
                     resizePointerStartY = canvasY;
+                    resizeAnchored = nodeAnchored(m_shell.m_selectedNodeId);
                     return;
                 }
             }
@@ -903,6 +1110,8 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
             dragStartPointerY = panelY;
             dragAppliedDx = 0.0f;
             dragAppliedDy = 0.0f;
+            // 单选锚定节点：拖拽/缩放改写 anchor_offset 而非 position/size
+            dragAnchored = nodeAnchored(m_shell.m_selectedNodeId) && m_shell.m_session->model().selection().nodeIds.size() == 1;
             if (selectionChanged)
                 m_shell.setStatus("Selected " + screenTargetNodeId);
         } else if (screenTargetNodeId.empty()) {
@@ -959,6 +1168,15 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
                 nodeY -= 1.0f - nodeHeight;
             nodeHeight = 1.0f;
         }
+        if (resizeAnchored) {
+            // 锚定节点：新矩形换算为 anchor_offset（保持锚点），position/size 由锚点推导
+            if (applyAnchoredRect(m_shell.m_selectedNodeId, nodeX, nodeY, nodeWidth, nodeHeight, true)) {
+                syncRuntimeNode(m_shell.m_selectedNodeId, false);
+                refreshSelectionOverlay();
+                transformChanged = true;
+            }
+            return;
+        }
         std::string error;
         if (m_shell.m_session->setNodeRect(m_shell.m_selectedNodeId, nodeX, nodeY, resizeNodeStartZ, nodeWidth, nodeHeight, true, error)) {
             syncRuntimeNode(m_shell.m_selectedNodeId, true);
@@ -998,6 +1216,17 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
             showSmartLines(matchedLines);
         else
             hideSmartLines();
+        if (dragAnchored) {
+            // 锚定单节点：吸附后的目标矩形换算 anchor_offset 写回（保持锚点不变）
+            if (applyAnchoredRect(m_shell.m_selectedNodeId, dragPrimaryStartX + dx, dragPrimaryStartY + dy, dragPrimaryStartWidth, dragPrimaryStartHeight, true)) {
+                syncRuntimeNode(m_shell.m_selectedNodeId, false);
+                refreshSelectionOverlay();
+                transformChanged = true;
+            }
+            lastPointerX = panelX;
+            lastPointerY = panelY;
+            return;
+        }
         const float incDx = dx - dragAppliedDx;
         const float incDy = dy - dragAppliedDy;
         if (incDx != 0.0f || incDy != 0.0f) {

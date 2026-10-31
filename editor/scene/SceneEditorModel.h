@@ -26,6 +26,11 @@ struct InspectorProperty {
     std::string displayName;
     /// 与 schema 默认不同时的默认值（非空 → Inspector 显示重置按钮）。
     std::string defaultValue;
+    /// number 属性的取值范围（渲染为滑块）。
+    bool hasRange = false;
+    float minValue = 0.0f;
+    float maxValue = 0.0f;
+    float stepValue = 1.0f;
 };
 
 struct SelectionState {
