@@ -58,6 +58,7 @@ NodeTypeCatalog::NodeTypeCatalog() {
     add("MRTextEdit", "Text Edit", "Input Controls", "A multi-line text editor.");
     add("MRSpinBox", "Spin Box", "Input Controls", "A numeric input with increment and decrement controls.");
     add("MRSlider", "Slider", "Input Controls", "A draggable value slider.");
+    add("MRSegmentedButton", "Segmented Button", "Input Controls", "A segmented one-of-N selection control.");
     add("MRMenuButton", "Menu Button", "Input Controls", "A button that opens a popup menu.");
     add("MROptionButton", "Option Button", "Input Controls", "A button used to choose one option.");
     add("MRTextureButton", "Texture Button", "Input Controls", "A button whose states are represented by textures.");
@@ -71,6 +72,7 @@ NodeTypeCatalog::NodeTypeCatalog() {
     add("CenterContainer", "Center Container", "Layout", "Centers its children inside the available area.");
     add("HBoxContainer", "HBox Container", "Layout", "Places children from left to right.");
     add("VBoxContainer", "VBox Container", "Layout", "Places children from top to bottom.");
+    add("GridContainer", "Grid Container", "Layout", "Arranges children in equal-sized grid cells.", {{"columns", "2"}, {"spacing", "8"}});
     add("MarginContainer", "Margin Container", "Layout", "Adds margins around a child.");
     add("MRScrollContainer", "Scroll Container", "Layout", "Provides a scrollable content area.");
     add("MRSplitContainer", "Split Container", "Layout", "Divides an area into two resizable panes.");

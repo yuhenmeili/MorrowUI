@@ -24,6 +24,9 @@ public:
 
     void resize();
 
+    /// 清空输出（Clear 按钮）。
+    void clear();
+
     std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<MRTextEdit> log;
     std::vector<std::string> lines;

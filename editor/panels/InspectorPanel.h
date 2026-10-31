@@ -17,6 +17,7 @@ class MRButton;
 class MRCheckBox;
 class MRColor;
 class MRLineEdit;
+class MROptionButton;
 class MRPopupMenu;
 class MRPopup;
 class MRSelectableButton;
@@ -42,6 +43,7 @@ struct InspectorBinding {
     std::shared_ptr<Widget> dropTarget;
     std::shared_ptr<MRCheckBox> checkBox;
     std::shared_ptr<MRSlider> slider;
+    std::shared_ptr<MROptionButton> optionButton;
 };
 
 class InspectorPanel : public EditorPanel {
@@ -101,6 +103,8 @@ private:
     std::vector<EventConnection> colorPopupConnections;
     /// number 范围属性的滑块连接（随 refresh 重建）。
     std::vector<Observable<MRSlider&, float>::Connection> sliderConnections;
+    /// enum 属性下拉的连接（随 refresh 重建）。
+    std::vector<Observable<MROptionButton&, int, const std::wstring&>::Connection> optionConnections;
     std::string selectedAssetId;
     std::string selectedAssetType;
     bool m_applyingInspectorValue = false;

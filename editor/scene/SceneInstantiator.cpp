@@ -1,5 +1,6 @@
 #include "SceneInstantiator.h"
 
+#include <algorithm>
 #include <cstring>
 #include <sstream>
 #include <unordered_map>
@@ -37,28 +38,31 @@
 #include "morrow/elements/MRParallax2D.h"
 #include "morrow/elements/MRParallaxBackground.h"
 #include "morrow/elements/MRParticles2D.h"
-#include "morrow/elements/MRPopup.h"
-#include "morrow/elements/MRPopupMenu.h"
 #include "morrow/elements/MRProgressBar.h"
-#include "morrow/elements/MRRadioButton.h"
-#include "morrow/elements/MRRichTextLabel.h"
-#include "morrow/elements/MRScrollBar.h"
 #include "morrow/elements/MRScrollContainer.h"
-#include "morrow/elements/MRSeparator.h"
-#include "morrow/elements/MRSlider.h"
+#include "morrow/elements/MRSelectableButton.h"
+#include "morrow/elements/MRSegmentedButton.h"
 #include "morrow/elements/MRSpacer.h"
 #include "morrow/elements/MRSpinBox.h"
 #include "morrow/elements/MRTextEdit.h"
+#include "morrow/layout/HBoxContainer.h"
+#include "morrow/layout/GridContainer.h"
+#include "morrow/layout/MarginContainer.h"
+#include "morrow/layout/MRSplitContainer.h"
+#include "morrow/layout/VBoxContainer.h"
+#include "morrow/elements/MRPopup.h"
+#include "morrow/elements/MRPopupMenu.h"
+#include "morrow/elements/MRRadioButton.h"
+#include "morrow/elements/MRRichTextLabel.h"
+#include "morrow/elements/MRScrollBar.h"
+#include "morrow/elements/MRSeparator.h"
+#include "morrow/elements/MRSlider.h"
 #include "morrow/elements/MRTextureButton.h"
 #include "morrow/elements/MRToggle.h"
 #include "morrow/elements/MRTree.h"
 #include "morrow/elements/MRVideoStreamPlayer.h"
 #include "morrow/layout/CenterContainer.h"
-#include "morrow/layout/HBoxContainer.h"
-#include "morrow/layout/MRSplitContainer.h"
 #include "morrow/layout/MRTabContainer.h"
-#include "morrow/layout/MarginContainer.h"
-#include "morrow/layout/VBoxContainer.h"
 
 namespace {
 
@@ -114,6 +118,87 @@ bool parseBool(const std::string& value, bool& result) {
         return true;
     }
     return false;
+}
+
+/// 控件属性通用解析辅助（5.11 属性覆盖面）。
+bool parseFloatInto(const std::string& value, float& result) {
+    try {
+        result = std::stof(value);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool parseIntInto(const std::string& value, int& result) {
+    try {
+        result = std::stoi(value);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool parseColorInto(const std::string& value, Vector4& color) {
+    std::vector<float> components;
+    if (!parseVector(value, "Color", components) || components.size() != 4)
+        return false;
+    color = Vector4(components[0], components[1], components[2], components[3]);
+    return true;
+}
+
+bool parseHorizontalAlign(const std::string& value, HorizontalAlignment& align) {
+    if (value == "left")
+        align = HorizontalAlignment::LEFT;
+    else if (value == "center")
+        align = HorizontalAlignment::CENTER;
+    else if (value == "right")
+        align = HorizontalAlignment::RIGHT;
+    else
+        return false;
+    return true;
+}
+
+bool parseVerticalAlign(const std::string& value, VerticalAlignment& align) {
+    if (value == "top")
+        align = VerticalAlignment::TOP;
+    else if (value == "center")
+        align = VerticalAlignment::CENTER;
+    else if (value == "bottom")
+        align = VerticalAlignment::BOTTOM;
+    else
+        return false;
+    return true;
+}
+
+bool parseProgressDirection(const std::string& value, morrow::ProgressDirection& direction) {
+    if (value == "left_to_right")
+        direction = morrow::ProgressDirection::LeftToRight;
+    else if (value == "right_to_left")
+        direction = morrow::ProgressDirection::RightToLeft;
+    else if (value == "bottom_to_top")
+        direction = morrow::ProgressDirection::BottomToTop;
+    else if (value == "top_to_bottom")
+        direction = morrow::ProgressDirection::TopToBottom;
+    else
+        return false;
+    return true;
+}
+
+bool parseSplitOrientation(const std::string& value, morrow::SplitOrientation& orientation) {
+    if (value == "horizontal")
+        orientation = morrow::SplitOrientation::Horizontal;
+    else if (value == "vertical")
+        orientation = morrow::SplitOrientation::Vertical;
+    else
+        return false;
+    return true;
+}
+
+/// 读取节点上另一枚举键的当前值（组合 setter 用，如 setAlign 需要同时两轴）。
+std::string siblingPropertyValue(const morrow::editor::SceneNodeRecord& record, const std::string& key, const std::string& fallback) {
+    const auto entry = record.properties.find(key);
+    return entry == record.properties.end() ? fallback : entry->second;
 }
 
 std::wstring toWide(const std::string& value) {
@@ -185,8 +270,12 @@ std::shared_ptr<morrow::Widget> createNode(const morrow::editor::SceneNodeRecord
         return std::make_shared<morrow::HBoxContainer>();
     if (record.type == "VBoxContainer")
         return std::make_shared<morrow::VBoxContainer>();
+    if (record.type == "GridContainer")
+        return std::make_shared<morrow::GridContainer>();
     if (record.type == "MarginContainer")
         return std::make_shared<morrow::MarginContainer>();
+    if (record.type == "MRSegmentedButton")
+        return morrow::MRSegmentedButton::create();
     if (record.type == "MRSplitContainer")
         return morrow::MRSplitContainer::create();
     if (record.type == "MRTabContainer")
@@ -399,6 +488,67 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
             button->setBackgroundColor(Vector4(components[0], components[1], components[2], components[3]));
             return true;
         }
+        if (key == "hover_color" || key == "pressed_color" || key == "text_color" || key == "border_color") {
+            Vector4 color;
+            if (!parseColorInto(value, color)) {
+                error = "property '" + key + "' must be Color(r, g, b, a)";
+                return false;
+            }
+            if (key == "hover_color")
+                button->setHoverColor(color);
+            else if (key == "pressed_color")
+                button->setPressedColor(color);
+            else if (key == "text_color")
+                button->setTextColor(color);
+            else
+                button->setBorderColor(color);
+            return true;
+        }
+        if (key == "corner_radius") {
+            float radius = 0.0f;
+            if (!parseFloatInto(value, radius)) {
+                error = "property 'corner_radius' must be a number";
+                return false;
+            }
+            button->setCornerRadius(radius);
+            return true;
+        }
+        if (key == "border_width") {
+            float width = 0.0f;
+            if (!parseFloatInto(value, width)) {
+                error = "property 'border_width' must be a number";
+                return false;
+            }
+            button->setBorderWidth(width);
+            return true;
+        }
+        if (key == "text_align_h" || key == "text_align_v") {
+            HorizontalAlignment horizontal = HorizontalAlignment::CENTER;
+            VerticalAlignment vertical = VerticalAlignment::CENTER;
+            bool parsed = true;
+            if (key == "text_align_h") {
+                parsed = parseHorizontalAlign(value, horizontal);
+                parseVerticalAlign(siblingPropertyValue(record, "text_align_v", "center"), vertical);
+            } else {
+                parsed = parseVerticalAlign(value, vertical);
+                parseHorizontalAlign(siblingPropertyValue(record, "text_align_h", "center"), horizontal);
+            }
+            if (!parsed) {
+                error = "property '" + key + "' must be left/center/right or top/center/bottom";
+                return false;
+            }
+            button->setTextAlign(horizontal, vertical);
+            return true;
+        }
+        if (key == "auto_wrap") {
+            bool enabled = false;
+            if (!parseBool(value, enabled)) {
+                error = "property 'auto_wrap' must be true or false";
+                return false;
+            }
+            button->setAutoWrap(enabled);
+            return true;
+        }
         if (key == "background_texture") {
             constexpr const char* prefix = "resource(\"";
             if (value.compare(0, std::strlen(prefix), prefix) != 0 || value.size() <= std::strlen(prefix) + 2 || value.back() != ')') {
@@ -473,6 +623,15 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
             image->setTexture(texture);
             return true;
         }
+        if (key == "rounding") {
+            float rounding = 0.0f;
+            if (!parseFloatInto(value, rounding)) {
+                error = "property 'rounding' must be a number";
+                return false;
+            }
+            image->setRounding(rounding);
+            return true;
+        }
     }
 
     if (auto label = std::dynamic_pointer_cast<morrow::MRLabel>(widget)) {
@@ -487,6 +646,339 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
                 error = "property 'font_size' must be a number";
                 return false;
             }
+            return true;
+        }
+        if (key == "font_color") {
+            Vector4 color;
+            if (!parseColorInto(value, color)) {
+                error = "property 'font_color' must be Color(r, g, b, a)";
+                return false;
+            }
+            label->setFontColor(color);
+            return true;
+        }
+        if (key == "align_h" || key == "align_v") {
+            HorizontalAlignment horizontal = HorizontalAlignment::LEFT;
+            VerticalAlignment vertical = VerticalAlignment::TOP;
+            bool parsed = true;
+            if (key == "align_h") {
+                parsed = parseHorizontalAlign(value, horizontal);
+                parseVerticalAlign(siblingPropertyValue(record, "align_v", "top"), vertical);
+            } else {
+                parsed = parseVerticalAlign(value, vertical);
+                parseHorizontalAlign(siblingPropertyValue(record, "align_h", "left"), horizontal);
+            }
+            if (!parsed) {
+                error = "property '" + key + "' must be left/center/right or top/center/bottom";
+                return false;
+            }
+            label->setAlign(horizontal, vertical);
+            return true;
+        }
+        if (key == "auto_wrap") {
+            bool enabled = false;
+            if (!parseBool(value, enabled)) {
+                error = "property 'auto_wrap' must be true or false";
+                return false;
+            }
+            label->setAutoWrap(enabled);
+            return true;
+        }
+        if (key == "max_lines") {
+            int maxLines = 0;
+            if (!parseIntInto(value, maxLines)) {
+                error = "property 'max_lines' must be an integer";
+                return false;
+            }
+            label->setMaxLines(maxLines);
+            return true;
+        }
+        if (key == "line_spacing") {
+            float spacing = 1.0f;
+            if (!parseFloatInto(value, spacing)) {
+                error = "property 'line_spacing' must be a number";
+                return false;
+            }
+            label->setLineSpacing(spacing);
+            return true;
+        }
+    }
+
+    // ---- 5.11 属性覆盖面：按控件类型分发的外观/行为属性 ----
+    if (auto selectable = std::dynamic_pointer_cast<morrow::MRSelectableButton>(widget)) {
+        if (key == "checked") {
+            bool checked = false;
+            if (!parseBool(value, checked)) {
+                error = "property 'checked' must be true or false";
+                return false;
+            }
+            selectable->setChecked(checked);
+            return true;
+        }
+    }
+
+    if (auto progress = std::dynamic_pointer_cast<morrow::MRProgressBar>(widget)) {
+        if (key == "progress") {
+            float ratio = 0.0f;
+            if (!parseFloatInto(value, ratio)) {
+                error = "property 'progress' must be a number in 0..1";
+                return false;
+            }
+            progress->setProgress(std::clamp(ratio, 0.0f, 1.0f));
+            return true;
+        }
+        if (key == "direction") {
+            morrow::ProgressDirection direction = morrow::ProgressDirection::LeftToRight;
+            if (!parseProgressDirection(value, direction)) {
+                error = "property 'direction' is not a known progress direction";
+                return false;
+            }
+            progress->setDirection(direction);
+            return true;
+        }
+        if (key == "track_color" || key == "fill_color") {
+            Vector4 color;
+            if (!parseColorInto(value, color)) {
+                error = "property '" + key + "' must be Color(r, g, b, a)";
+                return false;
+            }
+            if (key == "track_color")
+                progress->setTrackColor(color);
+            else
+                progress->setFillColor(color);
+            return true;
+        }
+    }
+
+    if (auto spinBox = std::dynamic_pointer_cast<morrow::MRSpinBox>(widget)) {
+        if (key == "value" || key == "step") {
+            float number = 0.0f;
+            if (!parseFloatInto(value, number)) {
+                error = "property '" + key + "' must be a number";
+                return false;
+            }
+            if (key == "value")
+                spinBox->setValue(static_cast<double>(number));
+            else
+                spinBox->setStep(static_cast<double>(number));
+            return true;
+        }
+        if (key == "min" || key == "max") {
+            // min/max 组合生效：两键任一变化都按当前文档值重建区间
+            float minimum = 0.0f;
+            float maximum = 100.0f;
+            const auto minEntry = record.properties.find("min");
+            const auto maxEntry = record.properties.find("max");
+            if (minEntry != record.properties.end() && !parseFloatInto(minEntry->second, minimum)) {
+                error = "property 'min' must be a number";
+                return false;
+            }
+            if (maxEntry != record.properties.end() && !parseFloatInto(maxEntry->second, maximum)) {
+                error = "property 'max' must be a number";
+                return false;
+            }
+            if (minimum > maximum)
+                std::swap(minimum, maximum);
+            spinBox->setRange(static_cast<double>(minimum), static_cast<double>(maximum));
+            return true;
+        }
+        if (key == "decimals") {
+            int decimals = 0;
+            if (!parseIntInto(value, decimals)) {
+                error = "property 'decimals' must be an integer";
+                return false;
+            }
+            spinBox->setDecimals(decimals);
+            return true;
+        }
+        if (key == "prefix" || key == "suffix") {
+            if (key == "prefix")
+                spinBox->setPrefix(toWide(value));
+            else
+                spinBox->setSuffix(toWide(value));
+            return true;
+        }
+    }
+
+    if (auto textEdit = std::dynamic_pointer_cast<morrow::MRTextEdit>(widget)) {
+        if (key == "text") {
+            textEdit->setText(toWide(value));
+            return true;
+        }
+        if (key == "placeholder") {
+            textEdit->setPlaceholder(toWide(value));
+            return true;
+        }
+        if (key == "read_only") {
+            bool readOnly = false;
+            if (!parseBool(value, readOnly)) {
+                error = "property 'read_only' must be true or false";
+                return false;
+            }
+            textEdit->setReadOnly(readOnly);
+            return true;
+        }
+        if (key == "auto_wrap") {
+            bool enabled = false;
+            if (!parseBool(value, enabled)) {
+                error = "property 'auto_wrap' must be true or false";
+                return false;
+            }
+            textEdit->setAutoWrap(enabled);
+            return true;
+        }
+    }
+
+    if (auto lineEdit = std::dynamic_pointer_cast<morrow::MRLineEdit>(widget)) {
+        if (key == "password_mode") {
+            bool enabled = false;
+            if (!parseBool(value, enabled)) {
+                error = "property 'password_mode' must be true or false";
+                return false;
+            }
+            lineEdit->setPasswordMode(enabled);
+            return true;
+        }
+    }
+
+    if (auto scrollContainer = std::dynamic_pointer_cast<morrow::MRScrollContainer>(widget)) {
+        if (key == "scroll_step") {
+            float step = 48.0f;
+            if (!parseFloatInto(value, step)) {
+                error = "property 'scroll_step' must be a number";
+                return false;
+            }
+            scrollContainer->setScrollStep(step);
+            return true;
+        }
+    }
+
+    if (auto colorWidget = std::dynamic_pointer_cast<morrow::MRColor>(widget)) {
+        if (key == "color") {
+            Vector4 color;
+            if (!parseColorInto(value, color)) {
+                error = "property 'color' must be Color(r, g, b, a)";
+                return false;
+            }
+            colorWidget->setColor(color);
+            return true;
+        }
+        if (key == "rounding") {
+            float rounding = 0.0f;
+            if (!parseFloatInto(value, rounding)) {
+                error = "property 'rounding' must be a number";
+                return false;
+            }
+            colorWidget->setRounding(rounding);
+            return true;
+        }
+    }
+
+    if (auto hbox = std::dynamic_pointer_cast<morrow::HBoxContainer>(widget)) {
+        if (key == "spacing") {
+            float spacing = 0.0f;
+            if (!parseFloatInto(value, spacing)) {
+                error = "property 'spacing' must be a number";
+                return false;
+            }
+            hbox->setSpacing(spacing);
+            return true;
+        }
+    }
+
+    if (auto vbox = std::dynamic_pointer_cast<morrow::VBoxContainer>(widget)) {
+        if (key == "spacing") {
+            float spacing = 0.0f;
+            if (!parseFloatInto(value, spacing)) {
+                error = "property 'spacing' must be a number";
+                return false;
+            }
+            vbox->setSpacing(spacing);
+            return true;
+        }
+    }
+
+    if (auto grid = std::dynamic_pointer_cast<morrow::GridContainer>(widget)) {
+        if (key == "columns" || key == "rows") {
+            int number = 0;
+            if (!parseIntInto(value, number)) {
+                error = "property '" + key + "' must be an integer";
+                return false;
+            }
+            if (key == "columns")
+                grid->setColumns(number);
+            else
+                grid->setRows(number);
+            return true;
+        }
+        if (key == "spacing") {
+            float spacing = 0.0f;
+            if (!parseFloatInto(value, spacing)) {
+                error = "property 'spacing' must be a number";
+                return false;
+            }
+            grid->setSpacing(spacing);
+            return true;
+        }
+    }
+
+    if (auto marginContainer = std::dynamic_pointer_cast<morrow::MarginContainer>(widget)) {
+        if (key == "margin_left" || key == "margin_top" || key == "margin_right" || key == "margin_bottom") {
+            float number = 0.0f;
+            if (!parseFloatInto(value, number)) {
+                error = "property '" + key + "' must be a number";
+                return false;
+            }
+            if (key == "margin_left")
+                marginContainer->setMarginLeft(number);
+            else if (key == "margin_top")
+                marginContainer->setMarginTop(number);
+            else if (key == "margin_right")
+                marginContainer->setMarginRight(number);
+            else
+                marginContainer->setMarginBottom(number);
+            return true;
+        }
+    }
+
+    if (auto split = std::dynamic_pointer_cast<morrow::MRSplitContainer>(widget)) {
+        if (key == "split_ratio") {
+            float ratio = 0.5f;
+            if (!parseFloatInto(value, ratio)) {
+                error = "property 'split_ratio' must be a number";
+                return false;
+            }
+            split->setSplitRatio(std::clamp(ratio, 0.0f, 1.0f));
+            return true;
+        }
+        if (key == "handle_width") {
+            float width = 0.0f;
+            if (!parseFloatInto(value, width)) {
+                error = "property 'handle_width' must be a number";
+                return false;
+            }
+            split->setHandleWidth(width);
+            return true;
+        }
+        if (key == "orientation") {
+            morrow::SplitOrientation orientation = morrow::SplitOrientation::Horizontal;
+            if (!parseSplitOrientation(value, orientation)) {
+                error = "property 'orientation' must be horizontal or vertical";
+                return false;
+            }
+            split->setOrientation(orientation);
+            return true;
+        }
+    }
+
+    if (auto spacer = std::dynamic_pointer_cast<morrow::MRSpacer>(widget)) {
+        if (key == "flex") {
+            float flex = 1.0f;
+            if (!parseFloatInto(value, flex)) {
+                error = "property 'flex' must be a number";
+                return false;
+            }
+            spacer->setFlex(flex);
             return true;
         }
     }

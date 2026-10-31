@@ -139,7 +139,8 @@ EditorEvents& EditorShell::events() {
 void EditorShell::setStatus(const std::string& text) {
     m_status = text;
     m_outputLines.push_back(text);
-    if (m_outputLines.size() > 6)
+    // 环形缓冲：超出上限丢弃最旧行（构建/运行日志量大）
+    while (m_outputLines.size() > 500)
         m_outputLines.erase(m_outputLines.begin());
     m_output->lines = m_outputLines;
     m_output->refresh();
@@ -477,7 +478,7 @@ void EditorShell::applyAnchorPreset(int presetIndex) {
 
 void EditorShell::addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height) {
     auto label = std::make_shared<MRLabel>();
-    label->setText(std::wstring(text.begin(), text.end()), "default");
+    label->setText(wide(text), "default");
     label->setFontSize(16.0f);
     label->setFontColor(1.0f, 1.0f, 1.0f, 1.0f);
     auto transform = label->getComponent<Transform>();
@@ -854,6 +855,8 @@ void EditorShell::buildLayout() {
     };
     m_output->log = makeLogEdit(m_output->panel);
     m_build->log = makeLogEdit(m_build->panel);
+    // Output 面板 Clear 按钮（固定在标题右侧，避免随面板宽度错位）
+    addButton(m_output->panel, L"Clear", 370.0f, 2.0f, 64.0f, 20.0f, [this] { m_output->clear(); });
     applyDockLayout();
     m_viewport->resizeToPanel();
     m_output->lines = m_outputLines;

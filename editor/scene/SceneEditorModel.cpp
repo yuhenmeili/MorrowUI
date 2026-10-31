@@ -250,6 +250,8 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
             entry.maxValue = descriptor->maxValue;
             entry.stepValue = descriptor->stepValue > 0.0f ? descriptor->stepValue : 1.0f;
         }
+        if (descriptor && descriptor->type == "enum")
+            entry.enumOptions = descriptor->enumOptions;
         result.push_back(std::move(entry));
     }
     return result;

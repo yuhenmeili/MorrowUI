@@ -21,6 +21,7 @@
 #include "morrow/elements/MRLineEdit.h"
 #include "morrow/elements/MRPopupMenu.h"
 #include "morrow/elements/MRPopup.h"
+#include "morrow/elements/MROptionButton.h"
 #include "morrow/elements/MRSlider.h"
 #include "filesystem/ProjectFileSystemModel.h"
 #include "panels/AssetBrowserPanel.h"
@@ -275,6 +276,7 @@ void InspectorPanel::refresh(bool force) {
     editConnections.clear();
     checkConnections.clear();
     sliderConnections.clear();
+    optionConnections.clear();
     bindings.clear();
     if (searchBox) {
         searchBox->setVisible(true);
@@ -458,8 +460,8 @@ void InspectorPanel::refresh(bool force) {
                     const bool acceptable = property.type == "TextureAsset" ? asset.type == "Texture" : asset.type == "Material";
                     if (!acceptable || !asset.error.empty())
                         continue;
-                    const std::string pathText = asset.sourcePath.generic_string();
-                    assetMenu->addItem(std::wstring(pathText.begin(), pathText.end()), itemId);
+                const std::string pathText = asset.sourcePath.generic_string();
+                assetMenu->addItem(wide(pathText), itemId);
                     assetMenuIds[itemId] = asset.assetId;
                     ++itemId;
                 }
@@ -541,6 +543,33 @@ void InspectorPanel::refresh(bool force) {
                 }
                 panel->addChild(swatch);
             }
+        } else if (property.type == "enum" && !property.enumOptions.empty() && !property.mixed && property.editable) {
+            // 枚举属性：下拉选择，选中项 id 复用枚举表下标
+            auto option = MROptionButton::create();
+            option->setTextFontSize(13.0f);
+            option->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
+            option->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+            option->setHoverColor(Vector4(0.14f, 0.20f, 0.29f, 1.0f));
+            option->setCornerRadius(3.0f);
+            option->getTransform()->setPosition(controlX, y, 0.0f);
+            option->getTransform()->setSize(rowControlWidth, 28.0f);
+            for (size_t index = 0; index < property.enumOptions.size(); ++index) {
+                option->addOption(wide(property.enumOptions[index].second), static_cast<int>(index));
+                if (property.enumOptions[index].first == property.value)
+                    option->setSelected(static_cast<int>(index));
+            }
+            if (option->getSelectedId() < 0)
+                option->setText(property.value.empty() ? L"<unset>" : wide(property.value), "default");
+            optionConnections.emplace_back(option->selectionEvents().onSelected.connect([this, property](MROptionButton&, int id, const std::wstring&) {
+                if (id < 0 || id >= static_cast<int>(property.enumOptions.size()))
+                    return;
+                applyValue(property.name, property.enumOptions[static_cast<size_t>(id)].first);
+            }));
+            panel->addChild(option);
+            InspectorBinding& binding = bindings[property.name];
+            binding.property = property.name;
+            binding.type = property.type;
+            binding.optionButton = std::move(option);
         } else if (property.type == "number" && property.hasRange && !property.mixed && property.editable) {
             // 带范围的数值：滑块 + 紧凑数值输入，拖动连续合并为单条撤销
             const float sliderWidth = std::max(60.0f, rowControlWidth - 58.0f);
@@ -594,7 +623,7 @@ void InspectorPanel::refresh(bool force) {
             auto edit = MRLineEdit::create();
             edit->setFontSize(13.0f);
             const std::string initial = property.mixed ? std::string{} : property.value;
-            edit->setText(std::wstring(initial.begin(), initial.end()));
+            edit->setText(wide(initial));
             if (property.mixed)
                 edit->setPlaceholder(L"<mixed>");
             edit->setReadOnly(!property.editable);
@@ -657,7 +686,7 @@ void InspectorPanel::updateValues(const std::vector<InspectorProperty>& properti
                 continue;
             }
             for (size_t index = 0; index < binding.edits.size() && index < components.size(); ++index) {
-                binding.edits[index]->setText(std::wstring(components[index].begin(), components[index].end()));
+                binding.edits[index]->setText(wide(components[index]));
             }
             continue;
         }
@@ -670,6 +699,14 @@ void InspectorPanel::updateValues(const std::vector<InspectorProperty>& properti
             m_applyingInspectorValue = true;
             binding.slider->setValue(rangeNormalize(value, *property));
             m_applyingInspectorValue = false;
+        }
+        if (binding.optionButton && !property->enumOptions.empty()) {
+            for (size_t index = 0; index < property->enumOptions.size(); ++index) {
+                if (property->enumOptions[index].first == property->value) {
+                    binding.optionButton->setSelected(static_cast<int>(index));
+                    break;
+                }
+            }
         }
         if (!binding.edits.empty()) {
             const std::string value = property->mixed ? std::string{} : property->value;

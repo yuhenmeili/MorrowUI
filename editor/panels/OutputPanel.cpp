@@ -9,19 +9,37 @@
 #include "morrow/elements/MRTextEdit.h"
 #include "panels/BuildPanel.h"
 
+namespace {
+/// UTF-8 → wstring：codecvt 优先，失败退回逐字符（纯 ASCII 恒等）。
+std::wstring wide(const std::string& text) {
+    try {
+        std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+        return converter.from_bytes(text);
+    } catch (...) {
+        return std::wstring(text.begin(), text.end());
+    }
+}
+}  // namespace
+
 namespace morrow::editor {
 OutputPanel::OutputPanel(EditorShell& shell) : m_shell(shell) {
 }
 
 void OutputPanel::append(const std::string& line) {
     lines.push_back(line);
-    while (lines.size() > 6)
+    while (lines.size() > 500)
         lines.erase(lines.begin());
     m_shell.m_outputLines = lines;
     refresh();
 }
 
 void OutputPanel::resize() {
+    refresh();
+}
+
+void OutputPanel::clear() {
+    lines.clear();
+    m_shell.m_outputLines.clear();
     refresh();
 }
 
@@ -33,7 +51,7 @@ void OutputPanel::refresh() {
     for (size_t index = 0; index < lines.size(); ++index) {
         if (index > 0)
             text.push_back(L'\n');
-        text += std::wstring(lines[index].begin(), lines[index].end());
+        text += wide(lines[index]);
     }
     const auto updateLog = [&text](const std::shared_ptr<MRTextEdit>& edit, const std::shared_ptr<UIWidget>& panel) {
         if (!edit || !panel)

@@ -2,7 +2,7 @@
 
 > 状态:规划文档,不改动任何代码。结论基于 2026-10-31 的 `dev` 分支代码核查(文件:行号均以当日工作区为准)。
 >
-> **状态更新(2026-10-31,同日实施)**:阶段一(编辑手感)与阶段二(布局表达)主体已实施完成并通过 MSYS2 clang64 构建,详见第 6 节的阶段标记与实施记录。剩余:5.4 枚举下拉(待 5.11 属性覆盖面带来真实枚举属性后一并做)、5.10 安全区百分比自定义配置、锚点预设按钮的 Inspector 内入口。
+> **状态更新(2026-10-31 实施至 11-01)**:阶段一(编辑手感)、阶段二(布局表达)已完成;阶段三(内容质量)主体完成(2026-11-01)——属性覆盖面扩至 17 类控件、枚举下拉落地、GridContainer 补齐、Output 升级、UTF-8 修复。详见第 6 节阶段标记与实施记录。剩余:5.10 安全区百分比自定义、锚点 grow 方向、特效组件参数覆盖、Output 过滤与诊断跳转。
 >
 > 关联文档:
 > - `docs/road_map/GODOT_2D_COMPONENT_GAP.md` —— 运行时**组件**层面对照 Godot 2D 的缺口(本文不重复其内容);
@@ -54,16 +54,16 @@
 | 1 | 视口编辑手感 | 旋转 gizmo、方向键微调、框选、锁定、F 聚焦、点击穿透选择 | **P0** | 5~7 人日 | ✅ 已实施(除 Alt 穿透选择) |
 | 2 | 吸附与参考线 | 网格吸附、智能对齐线、标尺、可拖参考线(钩子已有死代码) | **P0** | 6~8 人日 | ✅ 已实施 |
 | 3 | 复制粘贴 | Ctrl+C/V/D、右键菜单(副本命令已写好未接 UI) | **P0** | 2~3 人日 | ✅ 已实施(含 Ctrl+X) |
-| 4 | Inspector 控件 | 颜色选择器、滑块、枚举下拉、重置默认、属性搜索、折叠记忆 | **P0** | 8~10 人日 | ✅ 已实施(枚举下拉待真实枚举属性出现后接入) |
+| 4 | Inspector 控件 | 颜色选择器、滑块、枚举下拉、重置默认、属性搜索、折叠记忆 | **P0** | 8~10 人日 | ✅ 已实施 |
 | 5 | 锚点与自适应布局 | anchors/margins/pivot/grow 全套缺失(最大结构差距) | **P0(分阶段)** | 20~30 人日 | ✅ 主体已实施(A 运行时 + B 编辑器 + C 可视化;grow 方向未做) |
-| 6 | 节点属性覆盖面 | 45+ 控件只有 3 个能在编辑器改自有属性 | **P1** | 10~15 人日 | 未开始(schema 表已就位,扩表即扩覆盖) |
+| 6 | 节点属性覆盖面 | 45+ 控件只有 3 个能在编辑器改自有属性 | **P1** | 10~15 人日 | ✅ 已实施(17 类控件 50+ 属性;特效组件参数未覆盖) |
 | 7 | 多选对齐/分布 | 对齐左右上下/居中、等距分布工具栏 | P1 | 2~3 人日 | ✅ 已实施 |
 | 8 | 多场景/实例化 | 多文档 Tab、场景嵌套实例化(instance 子场景) | P1 | 8~12 人日 | 未开始 |
 | 9 | 主题与样式 | Theme/StyleBox/九宫格/覆盖体系缺失 | P1 | 15~20 人日 | 未开始 |
 | 10 | 动画时间线 | 无关键帧/时间线/dope sheet(库已有 Tween) | P1 | 20~30 人日 | 未开始 |
 | 11 | 分辨率/安全区预览 | 设备预设、安全区叠加、横竖屏(车机刚需) | P1 | 4~6 人日 | ✅ 已实施(6 预设含横竖屏;安全区为固定百分比红条,自定义配置待做) |
 | 12 | 真实资源导入 | 目前导入=逐字节拷贝;Basis/字体/图集转换未做 | P1 | 10~15 人日 | 未开始 |
-| 13 | 日志与诊断 | Output 仅 6 行上限、无过滤、无跳转 | P1 | 2~3 人日 | 未开始 |
+| 13 | 日志与诊断 | Output 仅 6 行上限、无过滤、无跳转 | P1 | 2~3 人日 | ◐ 部分(500 行环形 + Clear;过滤/跳转待做) |
 | 14 | 远程调试 | 运行中场景树/属性检视(Godot Remote) | P2 | 8~12 人日 | 未开始 |
 | 15 | 编辑器基础设施 | 命令面板、快捷键自定义、编辑器设置、UTF-8、i18n | P2 | 6~10 人日 | 未开始 |
 
@@ -263,7 +263,7 @@ Godot 运行时可在 Debugger 检视远程场景树并修改属性。MorrowUI �
 |---|---|---|---|---|
 | **一:编辑手感** | 让日常摆放控件达到 Godot 基线 | 5.6 复制粘贴(2~3d)→ 5.1 视口手感(5~7d)→ 5.2 吸附参考线(6~8d)→ 5.4 Inspector 控件升级 + 属性描述符表(8~10d) | **21~28 人日** | ✅ 已实施(2026-10-31;5.4 剩颜色选择器/滑块/枚举下拉) |
 | **二:布局表达** | 多分辨率自适应的根本 | 5.3 锚点系统 A/B/C(20~30d)→ 5.10 分辨率/安全区预览(4~6d)→ 5.7 多选对齐分布(2~3d) | **26~39 人日** | ✅ 主体已实施(2026-10-31;grow 方向与安全区自定义待做) |
-| **三:内容质量** | 属性与序列化覆盖面 | 5.11 属性覆盖面(10~15d)→ 5.12 日志诊断(2~3d)→ UTF-8 修复 | **12~18 人日** | 未开始 |
+| **三:内容质量** | 属性与序列化覆盖面 | 5.11 属性覆盖面(10~15d)→ 5.12 日志诊断(2~3d)→ UTF-8 修复 | **12~18 人日** | ✅ 主体已实施(2026-11-01;Output 过滤/跳转与特效参数待做) |
 | **四:资产与主题** | 皮肤与管线 | 5.7 主题/StyleBox/九宫格(15~20d)→ 5.9 真实导入(10~15d)→ 5.5 多场景/实例化(8~12d) | **33~47 人日** | 未开始 |
 | **五:动画** | 让 UI 动起来 | 5.8 动画一期(20~30d) | **20~30 人日** | 未开始 |
 | **六:调试与生态** | 提效与全球化 | 5.13 远程调试(8~12d)→ 5.14 基础设施(6~10d) | **14~22 人日** | 未开始 |
@@ -287,6 +287,23 @@ Godot 运行时可在 Debugger 检视远程场景树并修改属性。MorrowUI �
   - **C 可视化**:选中锚定节点时父矩形上显示 4 个绿色锚点角标(锚点矩形四角,point 锚点时聚合为一点)。
   - 已知边界:容器(HBox 等)父级下锚点会被容器每帧整排覆盖(与 Godot 容器优先语义一致,建议容器内用容器属性);grow 方向未做;多选拖拽含锚定节点时锚定者仍走 position 路径(会被覆盖,建议单选调整)。
 - **5.10 分辨率/安全区预览**:视口顶栏 Canvas 下拉(Fit / 1920x1080 / 1280x720 / 800x480 / 480x800 竖屏 / 1920x720 仪表条);固定画布 = previewRoot 真实改为预设尺寸并整体缩放居中(**容器与锚点真实重排**,不是贴图缩放),白边框标示画布 + 安全区红条(左右 3%/上 6%/下 9% 固定模拟);固定画布下禁用滚轮缩放/平移/F 聚焦以保持 fit 视图。
+
+### 阶段三实施记录(2026-11-01,dev 分支,已通过 MSYS2 clang64 构建、未提交)
+
+- **5.11 属性覆盖面**(schema + SceneInstantiator 双侧同步扩表,17 类控件 50+ 属性,全部"编辑器能改=运行时生效"):
+  - **枚举下拉(5.4 收官)**:`PropertyDescriptor.enumOptions`(序列化小写值 + 显示名),Inspector 渲染 MROptionButton,选项 id 复用下标;四张枚举表(水平/垂直对齐、进度方向、分割方向)。
+  - **按钮系**(MRButton 及 CheckBox/CheckButton/Toggle/Radio/Menu/Option 共享):text、font_size(滑块)、background/hover/pressed/text/border 五色、corner_radius/border_width、text_align_h/v(枚举)、auto_wrap;可选中类另加 checked。
+  - **MRLabel**:text、font_size、font_color、align_h/v、auto_wrap、max_lines、line_spacing。
+  - **进度/滑杆**(MRProgressBar/MRSlider 共享):progress(0..1 滑块)、direction(4 向枚举)、track/fill 色。
+  - **MRSpinBox**:value/min/max/step/decimals/prefix/suffix;min/max 任一变更按文档双键组合 setRange。
+  - **输入类**:MRLineEdit(text/placeholder/password_mode/read_only)、MRTextEdit(text/placeholder/read_only/auto_wrap)。
+  - **容器类**:HBox/VBox(spacing)、GridContainer(columns/rows/spacing)、MarginContainer(四边 margin)、MRSplitContainer(split_ratio/handle_width/orientation 枚举)、MRSpacer(flex)。
+  - **其它**:MRImage(rounding)、MRColor 及分隔线(color/rounding)、MRScrollContainer(scroll_step)。
+  - 组合 setter(两轴对齐、SpinBox 区间)通过 `siblingPropertyValue` 读兄弟键解决"单键应用需要双值"的问题。
+  - **属性覆盖原则**:schema 只登记 SceneInstantiator 真正分发的键——不留"能改但不生效"的假属性。
+- **库侧 GridContainer 补齐**:原空壳类(连 Widget 都不继承)实现为完整容器——columns/rows(自动行数)/spacing,每帧 layoutChildren 单元格均分容器减间距,子节点写 position+size;进 NodeTypeCatalog(默认 columns=2/spacing=8)与 SceneInstantiator createNode。同批补 MRSegmentedButton 进目录(注:它继承 UIWidget 而非 MRButton,不在按钮属性表内)。
+- **5.12 日志(Output)升级**:6 行上限 → 500 行环形缓冲(OutputPanel.append 与 EditorShell::setStatus 两处);Output 标题右侧 Clear 按钮(同时清 m_outputLines 共享缓冲)。
+- **UTF-8 修复**:EditorShell::addLabel、InspectorPanel(资产菜单路径/分量回填/初始值)、OutputPanel(refresh 逐行)等处无条件逐字符 `std::wstring(begin, end)` 内联转换全部改走 codecvt 的 wide();中文路径/文案在面板不再乱码。
 
 依赖链:属性描述符表(阶段一)→ 属性覆盖面(阶段三)与关键帧化(阶段五)都靠它;锚点(阶段二)→ 分辨率预览(阶段二)与主题覆盖(阶段四)都受它约束;实例化(阶段四)建议在主题之前或并行,大型项目早受益。
 

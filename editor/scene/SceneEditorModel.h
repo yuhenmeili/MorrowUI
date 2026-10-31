@@ -31,6 +31,8 @@ struct InspectorProperty {
     float minValue = 0.0f;
     float maxValue = 0.0f;
     float stepValue = 1.0f;
+    /// enum 属性的取值表（渲染为下拉）。
+    std::vector<std::pair<std::string, std::string>> enumOptions;
 };
 
 struct SelectionState {
