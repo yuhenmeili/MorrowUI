@@ -65,6 +65,9 @@ public:
 
     void appendLegacyCharacter(unsigned int codepoint);
 
+    /// 取消进行中的 legacy 编辑（搜索/过滤/面板输入），清空状态不提交。
+    void cancelLegacyEdit();
+
     void inspectAsset(const ProjectFileEntry& entry);
 
     void clearAsset();

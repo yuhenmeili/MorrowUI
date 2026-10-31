@@ -67,6 +67,7 @@ public:
 private:
     friend class EditorShell;
     friend class ToolbarPanel;
+    friend class CommandPalette;
 
     std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<UIWidget> previewRoot;

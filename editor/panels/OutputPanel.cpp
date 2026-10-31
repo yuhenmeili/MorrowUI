@@ -6,6 +6,7 @@
 
 #include "EditorShell.h"
 #include "morrow/base/Transform.h"
+#include "morrow/elements/MRLineEdit.h"
 #include "morrow/elements/MRTextEdit.h"
 #include "panels/BuildPanel.h"
 
@@ -43,13 +44,22 @@ void OutputPanel::clear() {
     refresh();
 }
 
+void OutputPanel::setFilter(const std::string& filter) {
+    m_filter = filter;
+    if (filterEdit)
+        filterEdit->setText(wide(filter));
+    refresh();
+}
+
 void OutputPanel::refresh() {
     if (!panel || !m_shell.m_build->panel)
         return;
     std::wstring text;
     lines = m_shell.m_outputLines;
     for (size_t index = 0; index < lines.size(); ++index) {
-        if (index > 0)
+        if (!m_filter.empty() && lines[index].find(m_filter) == std::string::npos)
+            continue;
+        if (!text.empty())
             text.push_back(L'\n');
         text += wide(lines[index]);
     }

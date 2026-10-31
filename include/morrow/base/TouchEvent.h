@@ -44,6 +44,7 @@ enum TouchKeyCode : int32_t {
     TOUCH_KEY_X,
     TOUCH_KEY_D,
     TOUCH_KEY_F,
+    TOUCH_KEY_P,
 };
 
 enum TouchMouseButton : int32_t {

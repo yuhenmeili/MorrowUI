@@ -41,6 +41,7 @@ add_library(morrow_editor_runtime STATIC
     scene/SceneInstantiator.cpp
     filesystem/ThumbnailService.cpp
     ui/DockDropOverlay.cpp
+    ui/CommandPalette.cpp
     ui/CreateNodeDialog.cpp
     ui/CreateAssetDialog.cpp
     ui/RenameNodeDialog.cpp

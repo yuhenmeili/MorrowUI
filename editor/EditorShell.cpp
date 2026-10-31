@@ -32,6 +32,7 @@
 #include "panels/ToolbarPanel.h"
 #include "panels/ViewportPanel.h"
 #include "ui/CreateAssetDialog.h"
+#include "ui/CommandPalette.h"
 #include "ui/RenameNodeDialog.h"
 #include "morrow/base/Scene2D.h"
 #include "InputEventsManager.h"
@@ -297,6 +298,29 @@ void EditorShell::openScene(const std::filesystem::path& scenePath) {
     m_inspector->refresh(true);
     refreshSceneSwitcher();
     setStatus("Opened scene " + key.generic_string());
+}
+
+void EditorShell::printShortcuts() {
+    static const char* lines[] = {
+        "=== MorrowEditor Shortcuts ===",
+        "Ctrl+S      Save scene",
+        "Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z   Undo / Redo",
+        "Ctrl+C / Ctrl+X / Ctrl+V         Copy / Cut / Paste nodes",
+        "Ctrl+D      Duplicate selection",
+        "Ctrl+P      Command palette",
+        "Delete      Delete selected node/file",
+        "Arrows      Nudge selection (Shift = x10, step = snap step)",
+        "F           Focus selection in viewport",
+        "F3          Toggle engine debug overlay",
+        "Esc         Close palette/menu/dialog, cancel edit",
+        "Enter       Commit inline edit (rename/filter/palette)",
+        "Wheel / Middle-drag   Viewport zoom / pan",
+        "Left-drag on empty    Rubber-band multi-select (Ctrl = add)",
+        "Drag from ruler       Create guide (drag back to ruler = delete)",
+        "===============================",
+    };
+    for (const char* line : lines)
+        setStatus(line);
 }
 
 void EditorShell::refreshSceneSwitcher() {
@@ -799,6 +823,13 @@ void EditorShell::buildLayout() {
     m_viewport->panel->addChild(m_viewport->previewRoot);
     m_scene2D->addChild(m_shellRoot);
 
+    // 命令面板（Ctrl+P）：中央弹出，常驻隐藏
+    m_commandPalette = std::make_shared<CommandPalette>(*this);
+    m_commandPalette->setDisplayLayer(20);
+    m_commandPalette->getTransform()->setPosition((windowWidth - 520.0f) * 0.5f, (windowHeight - 360.0f) * 0.5f - 40.0f, 0.0f);
+    m_commandPalette->getTransform()->setSize(520.0f, 360.0f);
+    m_shellRoot->addChild(m_commandPalette);
+
     const auto connectSplit = [this](const std::string& id, const std::shared_ptr<MRSplitContainer>& split) {
         m_splitConnections.emplace_back(split->events().onSplitRatioChanged.connect([this, id](MRSplitContainer&, float ratio) {
             if (auto* state = m_dockLayout.findSplit(id))
@@ -962,8 +993,31 @@ void EditorShell::buildLayout() {
     };
     m_output->log = makeLogEdit(m_output->panel);
     m_build->log = makeLogEdit(m_build->panel);
-    // Output 面板 Clear 按钮（固定在标题右侧，避免随面板宽度错位）
+    // Output 面板 Clear 按钮与过滤框（固定在标题右侧，避免随面板宽度错位）
     addButton(m_output->panel, L"Clear", 370.0f, 2.0f, 64.0f, 20.0f, [this] { m_output->clear(); });
+    {
+        auto filterLabel = std::make_shared<MRLabel>();
+        filterLabel->setText(L"Filter:", "default");
+        filterLabel->setFontSize(12.0f);
+        filterLabel->setFontColor(0.55f, 0.60f, 0.68f, 1.0f);
+        filterLabel->setAlign(HorizontalAlignment::RIGHT, VerticalAlignment::CENTER);
+        filterLabel->getTransform()->setPosition(440.0f, 2.0f, 0.0f);
+        filterLabel->getTransform()->setSize(48.0f, 20.0f);
+        m_output->panel->addChild(filterLabel);
+        auto filterEdit = MRLineEdit::create();
+        filterEdit->setReadOnly(true);
+        filterEdit->setFontSize(12.0f);
+        filterEdit->setTextColor(Vector4(0.70f, 0.74f, 0.80f, 1.0f));
+        filterEdit->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+        filterEdit->setPlaceholder(L"(click, type, Enter)");
+        filterEdit->getTransform()->setPosition(492.0f, 2.0f, 0.0f);
+        filterEdit->getTransform()->setSize(120.0f, 20.0f);
+        if (auto interaction = filterEdit->getComponent<Interaction>()) {
+            interaction->addEventListener(TOUCH_EVENT_TYPE_RELEASE, [this](TouchEvent&) { m_inspector->beginLegacyPropertyEdit("__logfilter__", m_output->filter()); });
+        }
+        m_output->filterEdit = filterEdit;
+        m_output->panel->addChild(filterEdit);
+    }
     applyDockLayout();
     m_viewport->resizeToPanel();
     m_output->lines = m_outputLines;
@@ -1126,6 +1180,17 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
     for (const auto& event : events) {
         const bool pointerEvent = event.eventType == TOUCH_EVENT_TYPE_TOUCH || event.eventType == TOUCH_EVENT_TYPE_MOVE || event.eventType == TOUCH_EVENT_TYPE_RELEASE ||
                                   event.eventType == TOUCH_EVENT_TYPE_WHEEL;
+        if (m_commandPalette && m_commandPalette->isOpen()) {
+            // 命令面板模态：吞掉指针事件（背景点击关闭由 backdrop 自身监听处理），复位视口手势
+            m_viewport->dragging = false;
+            m_viewport->resizing = false;
+            m_viewport->rotating = false;
+            m_viewport->panning = false;
+            m_viewport->rubberBanding = false;
+            m_viewport->resizeHandle = ResizeHandle::None;
+            m_viewport->transformChanged = false;
+            continue;
+        }
         if (pointerEvent && m_sceneTree->createDialog && m_sceneTree->createDialog->isOpen()) {
             m_viewport->dragging = false;
             m_viewport->resizing = false;
@@ -1191,6 +1256,10 @@ void EditorShell::handleKeyEvent(const TouchEvent& rawEvent) {
     const uint32_t mods = rawEvent.modifiers;
     const bool press = rawEvent.keyRepeatCount == 0;
     if (key == TOUCH_KEY_ESCAPE && press) {
+        if (m_commandPalette && m_commandPalette->isOpen()) {
+            m_commandPalette->close();
+            return;
+        }
         if (m_assetsPanel->contextMenu && m_assetsPanel->contextMenu->isOpen()) {
             m_assetsPanel->contextMenu->hide();
             return;
@@ -1204,6 +1273,9 @@ void EditorShell::handleKeyEvent(const TouchEvent& rawEvent) {
             return;
         }
     }
+    // 命令面板模态：除 Esc/Enter/Backspace（legacy 输入链）外吞掉全部按键
+    if (m_commandPalette && m_commandPalette->isOpen() && key != TOUCH_KEY_ENTER && key != TOUCH_KEY_BACKSPACE)
+        return;
     if (m_sceneTree->createDialog && m_sceneTree->createDialog->isOpen() && key == TOUCH_KEY_ESCAPE && press) {
         m_sceneTree->createDialog->hideDialog();
         return;
@@ -1277,6 +1349,10 @@ void EditorShell::handleKeyEvent(const TouchEvent& rawEvent) {
         }
     }
     if ((mods & TOUCH_MODIFIER_CTRL) != 0 && press && m_inspector->legacyEditProperty.empty()) {
+        if (key == TOUCH_KEY_P && m_commandPalette) {
+            m_commandPalette->open();
+            return;
+        }
         if (key == TOUCH_KEY_C) {
             editCopy();
             return;

@@ -56,6 +56,7 @@ class AssetBrowserPanel;
 class OutputPanel;
 class BuildPanel;
 class AnimationPanel;
+class CommandPalette;
 class EditorLayoutController;
 
 class EditorShell {
@@ -78,6 +79,7 @@ private:
     friend class OutputPanel;
     friend class BuildPanel;
     friend class AnimationPanel;
+    friend class CommandPalette;
     friend class EditorLayoutController;
 
     void buildLayout();
@@ -140,6 +142,9 @@ private:
 
     /// 动画采样直写运行时 Widget（预览/播放共用）。
     void applyAnimationSample(const std::string& nodeId, const std::string& property, const std::string& value);
+
+    /// 快捷键清单输出到 Output 面板（命令面板入口）。
+    void printShortcuts();
 
     /// 多选对齐/分布：基于选中并集的世界矩形计算逐节点位移，单条撤销。
     void editAlign(AlignMode mode);
@@ -211,6 +216,7 @@ private:
     std::vector<std::pair<std::filesystem::path, std::shared_ptr<EditorSession>>> m_openScenes;
     std::shared_ptr<MROptionButton> m_sceneSwitcher;
     Observable<MROptionButton&, int, const std::wstring&>::Connection m_sceneSwitcherConnection;
+    std::shared_ptr<CommandPalette> m_commandPalette;
     std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> m_copyConnections;
     std::string m_status;
     std::string m_selectedNodeId;

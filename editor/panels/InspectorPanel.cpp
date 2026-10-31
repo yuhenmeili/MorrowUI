@@ -24,6 +24,8 @@
 #include "morrow/elements/MROptionButton.h"
 #include "morrow/elements/MRSlider.h"
 #include "filesystem/ProjectFileSystemModel.h"
+#include "ui/CommandPalette.h"
+#include "panels/OutputPanel.h"
 #include "panels/AssetBrowserPanel.h"
 #include "panels/SceneTreePanel.h"
 #include "panels/ViewportPanel.h"
@@ -793,6 +795,30 @@ void InspectorPanel::commitLegacyPropertyEdit() {
         m_shell.setStatus(searchFilter.empty() ? "Property filter cleared" : "Property filter: " + searchFilter);
         return;
     }
+    // 命令面板：Enter 先按新词过滤，词未变时执行首条命令
+    if (legacyEditProperty == "__palette__") {
+        const std::string value = legacyEditValue;
+        legacyEditProperty.clear();
+        legacyEditValue.clear();
+        if (m_shell.m_commandPalette && m_shell.m_commandPalette->isOpen()) {
+            if (value != m_shell.m_commandPalette->filter()) {
+                m_shell.m_commandPalette->setFilter(value);
+                m_shell.m_inspector->beginLegacyPropertyEdit("__palette__", value);
+            } else {
+                m_shell.m_commandPalette->executeFirst();
+            }
+        }
+        return;
+    }
+    // Output 过滤框
+    if (legacyEditProperty == "__logfilter__") {
+        const std::string value = legacyEditValue;
+        legacyEditProperty.clear();
+        legacyEditValue.clear();
+        m_shell.m_output->setFilter(value);
+        m_shell.setStatus(value.empty() ? "Output filter cleared" : "Output filter: " + value);
+        return;
+    }
     std::string error;
     bool changed = false;
     for (const auto& nodeId : m_shell.m_session->model().selection().nodeIds) {
@@ -819,6 +845,11 @@ void InspectorPanel::appendLegacyCharacter(unsigned int codepoint) {
         return;
     legacyEditValue.push_back(static_cast<char>(codepoint));
     m_shell.setStatus("Editing " + legacyEditProperty + ": " + legacyEditValue);
+}
+
+void InspectorPanel::cancelLegacyEdit() {
+    legacyEditProperty.clear();
+    legacyEditValue.clear();
 }
 
 namespace {
