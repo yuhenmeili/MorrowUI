@@ -403,6 +403,14 @@ const SceneSubResourceRecord* SceneDocument::findSubResource(const std::string& 
     return iterator == m_subResources.end() ? nullptr : &*iterator;
 }
 
+void SceneDocument::upsertSubResource(const SceneSubResourceRecord& record) {
+    const auto iterator = std::find_if(m_subResources.begin(), m_subResources.end(), [&record](const SceneSubResourceRecord& existing) { return existing.id == record.id; });
+    if (iterator != m_subResources.end())
+        *iterator = record;
+    else
+        m_subResources.push_back(record);
+}
+
 bool SceneDocument::setNodeProperty(const std::string& nodeId, const std::string& property, std::string value, std::string& error) {
     auto node = findNode(nodeId);
     if (!node) {

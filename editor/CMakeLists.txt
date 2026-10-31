@@ -19,6 +19,7 @@ add_library(morrow_editor_document STATIC
     scene/SceneDocument.cpp
     scene/SceneEditorModel.cpp
     scene/NodePropertySchema.cpp
+    scene/AnimationService.cpp
     scene/EditorSession.cpp
     scene/NodeTypeCatalog.cpp
     commands/CommandHistory.cpp
@@ -45,6 +46,7 @@ add_library(morrow_editor_runtime STATIC
     ui/RenameNodeDialog.cpp
     panels/FileSystemPanel.cpp
     panels/InspectorPanel.cpp
+    panels/AnimationPanel.cpp
     panels/SceneTreePanel.cpp
     panels/ViewportPanel.cpp
     panels/ToolbarPanel.cpp

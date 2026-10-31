@@ -29,6 +29,10 @@ public:
     static bool updateNode(const SceneDocument& document, const SceneNodeRecord& record, const std::shared_ptr<Widget>& instance, const AssetDatabase* assets, std::string& error);
 
     static bool updateNodeTransform(const SceneNodeRecord& record, const std::shared_ptr<Widget>& instance, std::string& error);
+
+    /// 运行时单属性直写（动画采样预览用）：不经文档，直接应用到已实例化的 Widget。
+    static bool applyRuntimeProperty(const std::string& nodeType, const std::shared_ptr<Widget>& instance, const std::string& key, const std::string& value,
+                                     const AssetDatabase* assets, std::string& error);
 };
 } // namespace editor
 } // namespace morrow

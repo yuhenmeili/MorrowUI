@@ -13,6 +13,7 @@
 #include "assets/AssetDatabase.h"
 #include "assets/ImportQueue.h"
 #include "assets/ThemeAsset.h"
+#include "scene/AnimationService.h"
 #include "morrow/base/UIWidget.h"
 #include "build/BuildQueue.h"
 #include "morrow/core/Observable.h"
@@ -54,6 +55,7 @@ class ToolbarPanel;
 class AssetBrowserPanel;
 class OutputPanel;
 class BuildPanel;
+class AnimationPanel;
 class EditorLayoutController;
 
 class EditorShell {
@@ -75,6 +77,7 @@ private:
     friend class AssetBrowserPanel;
     friend class OutputPanel;
     friend class BuildPanel;
+    friend class AnimationPanel;
     friend class EditorLayoutController;
 
     void buildLayout();
@@ -128,6 +131,12 @@ private:
     /// 把另一个 .scene 装入当前编辑会话（FileSystem 右键 Open Scene）。
     void openScene(const std::filesystem::path& scenePath);
 
+    /// 场景重建后同步动画服务与面板。
+    void syncAnimation();
+
+    /// 动画采样直写运行时 Widget（预览/播放共用）。
+    void applyAnimationSample(const std::string& nodeId, const std::string& property, const std::string& value);
+
     /// 多选对齐/分布：基于选中并集的世界矩形计算逐节点位移，单条撤销。
     void editAlign(AlignMode mode);
 
@@ -155,7 +164,10 @@ private:
     std::unique_ptr<AssetBrowserPanel> m_assetsPanel;
     std::unique_ptr<OutputPanel> m_output;
     std::unique_ptr<BuildPanel> m_build;
+    std::unique_ptr<AnimationPanel> m_animation;
     std::unique_ptr<EditorLayoutController> m_layout;
+    AnimationService m_animationService;
+    Observable<>::Connection m_animationTickConnection;
     std::shared_ptr<MRSplitContainer> m_workspaceSplit;
     std::shared_ptr<MRSplitContainer> m_mainSplit;
     std::shared_ptr<MRSplitContainer> m_centerSplit;

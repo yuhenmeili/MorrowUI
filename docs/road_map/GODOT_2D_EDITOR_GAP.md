@@ -2,7 +2,7 @@
 
 > 状态:规划文档,不改动任何代码。结论基于 2026-10-31 的 `dev` 分支代码核查(文件:行号均以当日工作区为准)。
 >
-> **状态更新(2026-10-31 实施至 11-01)**:阶段一(编辑手感)、阶段二(布局表达)、阶段三(内容质量)已完成;阶段四(资产与主题)首批落地(2026-11-01)——**场景实例化**(子场景引用+递归防护+运行时支持)、**主题 MVP**(.theme 资产+项目默认主题+实例化默认值注入)、FileSystem 右键 Open Scene。详见第 6 节。剩余:StyleBox/九宫格、真实导入(Basis 转码/图集 UI)、多文档 Tab、主题类型继承(基类表作用于子类控件)。
+> **状态更新(2026-10-31 实施至 11-01)**:阶段一/二/三完成;阶段四首批(场景实例化+主题 MVP)、主题基类继承表、**阶段五动画时间线一期**(2026-11-01)已落地——Animation sub_resource + MRAnimationPlayer + AnimationService 播放引擎 + Animation Dock(轨道/菱形键帧/播放头/Key Selected),编辑器实时预览与 SceneRuntime 自动播放共用一套采样。剩余:StyleBox/九宫格、真实导入、多 Tab、曲线编辑/动画事件轨、easing。
 >
 > 关联文档:
 > - `docs/road_map/GODOT_2D_COMPONENT_GAP.md` —— 运行时**组件**层面对照 Godot 2D 的缺口(本文不重复其内容);
@@ -60,7 +60,7 @@
 | 7 | 多选对齐/分布 | 对齐左右上下/居中、等距分布工具栏 | P1 | 2~3 人日 | ✅ 已实施 |
 | 8 | 多场景/实例化 | 多文档 Tab、场景嵌套实例化(instance 子场景) | P1 | 8~12 人日 | ◐ 部分(实例化+Open Scene 已做;多文档 Tab/打散未做) |
 | 9 | 主题与样式 | Theme/StyleBox/九宫格/覆盖体系缺失 | P1 | 15~20 人日 | ◐ 部分(主题 MVP 已做:类型默认值表+项目级注入;StyleBox/九宫格未做) |
-| 10 | 动画时间线 | 无关键帧/时间线/dope sheet(库已有 Tween) | P1 | 20~30 人日 | 未开始 |
+| 10 | 动画时间线 | 无关键帧/时间线/dope sheet(库已有 Tween) | P1 | 20~30 人日 | ◐ 一期已实施(轨道/键帧/播放头/实时预览/运行时播放;曲线/事件轨/easing 待做) |
 | 11 | 分辨率/安全区预览 | 设备预设、安全区叠加、横竖屏(车机刚需) | P1 | 4~6 人日 | ✅ 已实施(6 预设含横竖屏;安全区为固定百分比红条,自定义配置待做) |
 | 12 | 真实资源导入 | 目前导入=逐字节拷贝;Basis/字体/图集转换未做 | P1 | 10~15 人日 | 未开始 |
 | 13 | 日志与诊断 | Output 仅 6 行上限、无过滤、无跳转 | P1 | 2~3 人日 | ◐ 部分(500 行环形 + Clear;过滤/跳转待做) |
@@ -265,7 +265,7 @@ Godot 运行时可在 Debugger 检视远程场景树并修改属性。MorrowUI �
 | **二:布局表达** | 多分辨率自适应的根本 | 5.3 锚点系统 A/B/C(20~30d)→ 5.10 分辨率/安全区预览(4~6d)→ 5.7 多选对齐分布(2~3d) | **26~39 人日** | ✅ 主体已实施(2026-10-31;grow 方向与安全区自定义待做) |
 | **三:内容质量** | 属性与序列化覆盖面 | 5.11 属性覆盖面(10~15d)→ 5.12 日志诊断(2~3d)→ UTF-8 修复 | **12~18 人日** | ✅ 主体已实施(2026-11-01;Output 过滤/跳转与特效参数待做) |
 | **四:资产与主题** | 皮肤与管线 | 5.7 主题/StyleBox/九宫格(15~20d)→ 5.9 真实导入(10~15d)→ 5.5 多场景/实例化(8~12d) | **33~47 人日** | ◐ 首批已实施(2026-11-01;主题 MVP + 场景实例化;StyleBox/九宫格/转码导入/多 Tab 待做) |
-| **五:动画** | 让 UI 动起来 | 5.8 动画一期(20~30d) | **20~30 人日** | 未开始 |
+| **五:动画** | 让 UI 动起来 | 5.8 动画一期(20~30d) | **20~30 人日** | ◐ 一期已实施(2026-11-01;曲线/事件轨/多片段切换待做) |
 | **六:调试与生态** | 提效与全球化 | 5.13 远程调试(8~12d)→ 5.14 基础设施(6~10d) | **14~22 人日** | 未开始 |
 
 ### 阶段一实施记录(2026-10-31,dev 分支,已通过 MSYS2 clang64 构建、未提交)
@@ -310,6 +310,16 @@ Godot 运行时可在 Debugger 检视远程场景树并修改属性。MorrowUI �
 - **5.5 场景实例化(MVP)**:新增 `MRSceneInstance` 节点类型(Core 分类,"Scene Instance"),属性 `scene_path`(相对父场景文件目录);`SceneInstantiator::instantiate` 检测到该类型即加载子场景文档并递归实例化到组节点下——**实例链(instanceChain)阻止 A→B→A 递归引用**;`SceneDocument` 新增 `sourcePath()` 作为相对路径解析基准;子场景内容对主文档只读(不在文档中的节点不可点选,同 Godot"需 editable children"语义);编辑器与 SceneRuntime 共用同一实例化路径,运行时预览天然支持。配套:FileSystem 面板右键 **Open Scene** 把任意 .scene 装入当前编辑会话(单会话切换,非多 Tab)。
 - **5.7 主题 MVP**:新增 `ThemeAsset`(.theme,类 INI:节点类型 → 属性默认值表);`.morrow` 项目文件加 `theme = <相对路径>` 即启用;`SceneInstantiator::instantiate` 增加可选 theme 参数,实例化时**先注入主题默认值再应用节点属性**(节点显式值优先,等同 Godot theme/override 关系);主题向子场景递归传递;主题属性即 5.11 的 50+ 属性全集(五色/对齐/圆角/行距等皆可主题化)。CreateAssetDialog 新增 Theme 资产类型(含 MRButton/MRLabel 示例模板)。
 - 限制(后续):主题按类型精确匹配(MRButton 表不自动作用于 CheckBox 子类——applyProperty 的 cast 实际兼容,待显式支持基类继承表);StyleBox/九宫格未做;多文档 Tab 未做。
+
+### 阶段四补充 + 阶段五一期实施记录(2026-11-01,dev 分支,已通过 MSYS2 clang64 构建、未提交)
+
+- **主题基类继承表**:`ThemeAsset::applyDefaults` 先精确类型再基类回落(MRButton→按钮子类、MRProgressBar→Slider、MRColor→分隔线、MRTextEdit→LineEdit),均不覆盖节点显式属性。
+- **5.8 动画一期**(数据→播放→编辑器→运行时全链路):
+  - **数据模型**:动画存为 `[sub_resource type="Animation"]`(duration/loop/track_count/track_N_target/_property/_keys,keys 用 `t=v;t=v` 打包);`MRAnimationPlayer` 节点(animation_id/autoplay/speed)驱动;新增 `SceneDocument::upsertSubResource` 支持写回。
+  - **播放引擎**:`AnimationService`(编辑器与 SceneRuntime 共用)——reload 扫描播放器节点、tick 由引擎 `onFrameBegin` 驱动(内部计时 dt)、数值/Vector/Color 分量线性插值(字符串阶梯保持)、循环回绕、play/pause/stop/previewAt;采样经 `SceneInstantiator::applyRuntimeProperty`(新增公开接口,临时记录走与文档属性完全相同的分发路径)**直写运行时 Widget,不动文档**——编辑器内实时预览所见即运行时所得。
+  - **Animation Dock**(底部新页签,旧布局自动迁移补齐):传输条(Play/Pause/Stop/Loop/Duration/时间标签)+ 轨道行(node.property 标签 + 菱形键帧)+ 橙色播放头;**Key Selected** 一键建轨(选中节点在播放头时刻打 position/rotation/scale 三键,取文档当前值;场景无播放器时自动创建 MRAnimationPlayer+空片段);键帧点击选中(橙)/拖动改时刻(松手写回并重排序);播放头点按/拖动即时预览采样;Del Key 删除选中键。
+  - **运行时播放**:SceneRuntime 实例化后 reload + onFrameBegin tick,autoplay=true 的片段开窗即播。
+  - 限制(后续二期):动画编辑不进撤销命令历史;easing/曲线/动画事件轨/多片段切换未做;锚定节点的 position 轨道会被锚点每帧覆盖(与 Godot 容器优先同理,建议动画非锚定节点或动画 offset)。
 
 依赖链:属性描述符表(阶段一)→ 属性覆盖面(阶段三)与关键帧化(阶段五)都靠它;锚点(阶段二)→ 分辨率预览(阶段二)与主题覆盖(阶段四)都受它约束;实例化(阶段四)建议在主题之前或并行,大型项目早受益。
 

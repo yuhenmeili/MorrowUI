@@ -162,6 +162,11 @@ const std::vector<PropertyDescriptor>* typeTable(const std::string& nodeType) {
     static const std::vector<PropertyDescriptor> sceneInstance = {
         {"scene_path", "string", "", "Properties", "Scene Path", true},
     };
+    static const std::vector<PropertyDescriptor> animationPlayer = {
+        {"animation_id", "string", "", "Properties", "Animation", true},
+        {"autoplay", "bool", "false", "Properties", "Autoplay", true},
+        {"speed", "number", "1.0", "Properties", "Speed", true, true, 0.1f, 10.0f, 0.1f},
+    };
 
     if (nodeType == "MRButton")
         return &button;
@@ -197,6 +202,8 @@ const std::vector<PropertyDescriptor>* typeTable(const std::string& nodeType) {
         return &scroll;
     if (nodeType == "MRSceneInstance")
         return &sceneInstance;
+    if (nodeType == "MRAnimationPlayer")
+        return &animationPlayer;
     if (nodeType == "MRCheckBox" || nodeType == "MRCheckButton" || nodeType == "MRToggle" || nodeType == "MRRadioButton" || nodeType == "MRSelectableButton")
         return &selectableTable();
     if (nodeType == "MRMenuButton" || nodeType == "MROptionButton" || nodeType == "MRTextureButton")

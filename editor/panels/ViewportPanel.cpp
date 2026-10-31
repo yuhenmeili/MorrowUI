@@ -148,6 +148,7 @@ void ViewportPanel::rebuildRuntime() {
     if (runtimeInstantiated) {
         m_shell.m_events.onRuntimeRebuilt.notify();
     }
+    m_shell.syncAnimation();
 }
 
 void ViewportPanel::refreshSelectionOverlay() {

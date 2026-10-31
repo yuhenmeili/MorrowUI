@@ -42,6 +42,8 @@ NodeTypeCatalog::NodeTypeCatalog() {
     };
 
     add("SceneNode3D", "Node", "Core", "A non-rendering scene container used to organize child nodes.");
+    add("MRAnimationPlayer", "Animation Player", "Animation", "Plays an Animation clip that animates node properties over time.",
+        {{"animation_id", ""}, {"autoplay", "false"}, {"speed", "1.0"}});
     add("MRSceneInstance", "Scene Instance", "Core", "Renders another .scene file as a reusable read-only sub-tree.",
         {{"scene_path", ""}, {"size", "Vector2(480.0, 320.0)"}});
 

@@ -23,6 +23,8 @@
 #include "layout/EditorLayoutController.h"
 #include "assets/AssetTypeCatalog.h"
 #include "panels/AssetBrowserPanel.h"
+#include "panels/AnimationPanel.h"
+#include "scene/SceneInstantiator.h"
 #include "panels/BuildPanel.h"
 #include "panels/InspectorPanel.h"
 #include "panels/OutputPanel.h"
@@ -116,7 +118,8 @@ EditorShell::EditorShell(const std::shared_ptr<Scene2D>& root, const std::shared
     m_scene2D(root), m_engine(engine), m_projectPath(std::move(projectPath)), m_scenePath(std::move(scenePath)), m_assetRoot(std::move(assetRoot)),
     m_inspector(std::make_unique<InspectorPanel>(*this)), m_sceneTree(std::make_unique<SceneTreePanel>(*this)), m_viewport(std::make_unique<ViewportPanel>(*this)),
     m_toolbar(std::make_unique<ToolbarPanel>(*this)), m_assetsPanel(std::make_unique<AssetBrowserPanel>(*this)), m_output(std::make_unique<OutputPanel>(*this)),
-    m_build(std::make_unique<BuildPanel>(*this)), m_layout(std::make_unique<EditorLayoutController>(*this)), m_session(std::make_shared<EditorSession>(m_scenePath)),
+    m_build(std::make_unique<BuildPanel>(*this)), m_animation(std::make_unique<AnimationPanel>(*this)), m_layout(std::make_unique<EditorLayoutController>(*this)),
+    m_session(std::make_shared<EditorSession>(m_scenePath)),
     m_dockLayoutPath(m_projectPath.parent_path() / ".morrow" / "editor.layout") {
     m_selectionChangedConnection = m_events.onSelectionChanged.connect([this](const SelectionState& selection) {
         m_selectedNodeId = selection.nodeIds.empty() ? std::string{} : selection.nodeIds.back();
@@ -154,6 +157,7 @@ bool EditorShell::notifySelectionChanged() {
     m_lastNotifiedSelection = selection.nodeIds;
     m_events.onSelectionChanged.notify(selection);
     m_sceneTree->refreshSelectionStyles();
+    m_animation->refresh();
     return true;
 }
 
@@ -262,6 +266,21 @@ void EditorShell::openScene(const std::filesystem::path& scenePath) {
     m_viewport->rebuildRuntime();
     m_inspector->refresh(true);
     setStatus("Opened scene " + scenePath.generic_string());
+}
+
+void EditorShell::syncAnimation() {
+    m_animationService.reload(m_session->document());
+    if (m_animation)
+        m_animation->refresh();
+}
+
+void EditorShell::applyAnimationSample(const std::string& nodeId, const std::string& property, const std::string& value) {
+    const auto* node = m_session->document().findNode(nodeId);
+    const auto instance = m_viewport->runtimeNodes.find(nodeId);
+    if (!node || instance == m_viewport->runtimeNodes.end())
+        return;
+    std::string error;
+    SceneInstantiator::applyRuntimeProperty(node->type, instance->second, property, value, &m_assets, error);
 }
 
 void EditorShell::editAlign(AlignMode mode) {
@@ -573,6 +592,9 @@ void EditorShell::buildLayout() {
     if (auto* bottomTabs = m_dockLayout.findTabs("bottom_dock")) {
         if (std::find(bottomTabs->panels.begin(), bottomTabs->panels.end(), "filesystem") == bottomTabs->panels.end())
             bottomTabs->panels.push_back("filesystem");
+        // 旧布局迁移：动画页签后来加入，补齐而不打断用户其余顺序
+        if (std::find(bottomTabs->panels.begin(), bottomTabs->panels.end(), "animation") == bottomTabs->panels.end())
+            bottomTabs->panels.push_back("animation");
         if (migratedFileSystemDock)
             bottomTabs->active = "output";
     }
@@ -583,6 +605,7 @@ void EditorShell::buildLayout() {
     m_inspector->panel = makePanel(0.0f, 0.0f, 300.0f, 570.0f, morrow::Math::Vector4(0.13f, 0.15f, 0.19f, 1.0f));
     m_output->panel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
     m_build->panel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
+    m_animation->panel = makePanel(0.0f, 0.0f, 1280.0f, 140.0f, morrow::Math::Vector4(0.11f, 0.13f, 0.16f, 1.0f));
     m_assetsPanel->view = FileSystemPanel::create(
         m_fileSystem,
         [this](const std::string& status) { setStatus(status); },
@@ -614,6 +637,7 @@ void EditorShell::buildLayout() {
     m_bottomTabs = MRTabContainer::create();
     m_bottomTabs->addTab("output", L"Output", m_output->panel);
     m_bottomTabs->addTab("build", L"Build", m_build->panel);
+    m_bottomTabs->addTab("animation", L"Animation", m_animation->panel);
     m_bottomTabs->addTab("filesystem", L"FileSystem", m_assetsPanel->view);
     m_dockDropOverlay = DockDropOverlay::create();
     m_sceneTree->createDialog = CreateNodeDialog::create(m_nodeTypeCatalog);
@@ -883,6 +907,7 @@ void EditorShell::buildLayout() {
     m_viewport->resizeToPanel();
     m_output->lines = m_outputLines;
     m_output->refresh();
+    m_animation->refresh();
 }
 
 void EditorShell::applyDockLayout() {
@@ -1091,6 +1116,7 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
             continue;
         if (handleDockDrag(event))
             continue;
+        m_animation->handlePointer(event);
         const bool activeViewportGesture = m_viewport->dragging || m_viewport->resizing || m_viewport->panning;
         const bool insideViewport = m_viewport->panel && m_viewport->panel->getWorldSpaceAABB().Contains(event.positionX, event.positionY);
         if (pointerEvent && (activeViewportGesture || insideViewport)) {
@@ -1268,6 +1294,16 @@ bool EditorShell::initialize(std::string& error) {
     m_assetsPanel->importAssets();
     m_sceneTree->refresh();
     m_viewport->rebuildRuntime();
+    if (m_engine) {
+        // 动画帧推进：编辑器内实时预览（采样直写运行时 Widget，不动文档）
+        m_animationTickConnection = m_engine->events().onFrameBegin.connect([this] {
+            m_animationService.tick([this](const std::string& nodeId, const std::string& property, const std::string& value) {
+                applyAnimationSample(nodeId, property, value);
+            });
+            if (m_bottomTabs && m_bottomTabs->currentTabId() == "animation")
+                m_animation->onTick();
+        });
+    }
     if (m_engine) {
         m_rawKeyConnection = m_engine->events().onRawKeyboardInput.connect([this](const TouchEvent& event) {
             if (event.eventType == TOUCH_EVENT_TYPE_KEY_DOWN) {

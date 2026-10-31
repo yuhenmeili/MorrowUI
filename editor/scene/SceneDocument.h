@@ -44,6 +44,9 @@ public:
 
     const SceneSubResourceRecord* findSubResource(const std::string& id) const;
 
+    /// 新增或按 id 替换 sub_resource（动画片段编辑写回用）。
+    void upsertSubResource(const SceneSubResourceRecord& record);
+
     bool setNodeProperty(const std::string& nodeId, const std::string& property, std::string value, std::string& error);
 
     bool removeNodeProperty(const std::string& nodeId, const std::string& property, std::string& error);

@@ -10,6 +10,7 @@
 #include "assets/ThemeAsset.h"
 #include "scene/SceneDocument.h"
 #include "scene/SceneInstantiator.h"
+#include "scene/AnimationService.h"
 
 namespace {
 
@@ -125,10 +126,26 @@ int main(int argc, char** argv) {
         {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"},
     });
 
-    if (!morrow::editor::SceneInstantiator::instantiate(document, scene, &assets, error, nullptr, nullptr, themeLoaded ? &theme : nullptr)) {
+    morrow::editor::SceneInstanceMap runtimeInstances;
+    if (!morrow::editor::SceneInstantiator::instantiate(document, scene, &assets, error, &runtimeInstances, nullptr, themeLoaded ? &theme : nullptr)) {
         std::cerr << "Failed to instantiate scene: " << error << '\n';
         return 6;
     }
+
+    // 动画播放：MRAnimationPlayer(autoplay=true) 的片段在帧回调中采样直写
+    morrow::editor::AnimationService animationService;
+    animationService.reload(document);
+    const auto animationTick = engine->events().onFrameBegin.connect([&animationService, &runtimeInstances, &document, &assets]() {
+        animationService.tick([&](const std::string& nodeId, const std::string& property, const std::string& value) {
+            const auto* node = document.findNode(nodeId);
+            const auto instance = runtimeInstances.find(nodeId);
+            if (!node || instance == runtimeInstances.end())
+                return;
+            std::string applyError;
+            morrow::editor::SceneInstantiator::applyRuntimeProperty(node->type, instance->second, property, value, &assets, applyError);
+        });
+    });
+    (void)animationTick;
 
     std::cout << "MorrowSceneRuntime\n"
               << "  project: " << project.projectPath() << '\n'

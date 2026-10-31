@@ -10,6 +10,21 @@ std::string trim(const std::string& value) {
     const auto last = value.find_last_not_of(" \t\r\n");
     return value.substr(first, last - first + 1);
 }
+
+/// 主题基类继承：子类控件没有专属表时回落到基类表
+/// （applyProperty 按 cast 分发，基类属性对子类控件天然可应用）。
+std::string themeBaseType(const std::string& type) {
+    if (type == "MRCheckBox" || type == "MRCheckButton" || type == "MRToggle" || type == "MRRadioButton" || type == "MRMenuButton" || type == "MROptionButton" ||
+        type == "MRSelectableButton" || type == "MRTextureButton")
+        return "MRButton";
+    if (type == "MRSlider")
+        return "MRProgressBar";
+    if (type == "MRHSeparator" || type == "MRVSeparator")
+        return "MRColor";
+    if (type == "MRLineEdit")
+        return "MRTextEdit";
+    return {};
+}
 }  // namespace
 
 namespace morrow::editor {
@@ -60,11 +75,17 @@ bool ThemeAsset::loadFromFile(const std::filesystem::path& path, ThemeAsset& the
 }
 
 void ThemeAsset::applyDefaults(SceneNodeRecord& record) const {
-    const auto typeEntry = typeProperties.find(record.type);
-    if (typeEntry == typeProperties.end())
-        return;
-    for (const auto& [key, value] : typeEntry->second)
-        record.properties.emplace(key, value);
+    // 先精确类型表，再基类回落表（均不覆盖节点显式属性）
+    const auto applyTable = [this, &record](const std::string& type) {
+        const auto typeEntry = typeProperties.find(type);
+        if (typeEntry == typeProperties.end())
+            return;
+        for (const auto& [key, value] : typeEntry->second)
+            record.properties.emplace(key, value);
+    };
+    applyTable(record.type);
+    if (const std::string base = themeBaseType(record.type); !base.empty() && base != record.type)
+        applyTable(base);
 }
 
 }  // namespace morrow::editor

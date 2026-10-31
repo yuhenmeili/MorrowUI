@@ -216,6 +216,10 @@ std::shared_ptr<morrow::Widget> createNode(const morrow::editor::SceneNodeRecord
         // 场景实例：非渲染组节点，子场景内容在 instantiateSubScene 中挂载
         return std::make_shared<SceneContainer2D>();
     }
+    if (record.type == "MRAnimationPlayer") {
+        // 动画播放器：非渲染组节点，播放逻辑由 AnimationService 驱动
+        return std::make_shared<SceneContainer2D>();
+    }
     if (record.type == "MRButton") {
         return morrow::MRButton::create();
     }
@@ -989,7 +993,7 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
     }
 
     // 编辑器元数据只进文档不进运行时（锁定标记等），静默跳过避免误报 unsupported
-    if (key == "locked") {
+    if (key == "locked" || key == "animation_id" || key == "autoplay" || key == "speed") {
         return true;
     }
     // 锚点三键由 updateNode 的 applyAnchors 组合应用，逐键循环里跳过
@@ -1139,6 +1143,20 @@ bool SceneInstantiator::updateNode(const SceneDocument& document, const SceneNod
         }
     }
     return true;
+}
+
+bool SceneInstantiator::applyRuntimeProperty(const std::string& nodeType, const std::shared_ptr<Widget>& instance, const std::string& key, const std::string& value,
+                                             const AssetDatabase* assets, std::string& error) {
+    if (!instance) {
+        error = "cannot apply a property to a null instance";
+        return false;
+    }
+    // 动画采样直写：临时记录只含当前键，走与文档属性相同的分发路径
+    SceneNodeRecord temp;
+    temp.type = nodeType;
+    temp.name = "animation";
+    temp.properties[key] = value;
+    return applyProperty(temp, instance, key, value, SceneDocument{}, assets, error);
 }
 
 bool SceneInstantiator::updateNodeTransform(const SceneNodeRecord& record, const std::shared_ptr<Widget>& instance, std::string& error) {
