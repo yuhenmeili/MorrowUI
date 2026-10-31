@@ -160,15 +160,38 @@ void AnimationPanel::refresh() {
         keyButton = m_shell.addButton(panel, L"Key Selected", 138.0f, 4.0f, 110.0f, 24.0f, [this] { keySelected(); });
         deleteKeyButton = m_shell.addButton(panel, L"Del Key", 252.0f, 4.0f, 76.0f, 24.0f, [this] { deleteSelectedKey(); });
         loopButton = m_shell.addButton(panel, L"Loop: On", 332.0f, 4.0f, 84.0f, 24.0f, [this] {
+            if (!workingValid)
+                return;
             workingClip.loop = !workingClip.loop;
             loopButton->setText(workingClip.loop ? L"Loop: On" : L"Loop: Off", "default");
+            commitClip();
+        });
+        interpButton = m_shell.addButton(panel, L"Interp: Linear", 420.0f, 4.0f, 116.0f, 24.0f, [this] {
+            // 循环切换选中键帧所在轨道的插值模式
+            if (!workingValid || selectedTrack < 0 || selectedTrack >= static_cast<int>(workingClip.tracks.size())) {
+                m_shell.setStatus("Select a keyframe to change its track interpolation");
+                return;
+            }
+            auto& track = workingClip.tracks[static_cast<size_t>(selectedTrack)];
+            static const wchar_t* labels[] = {L"Linear", L"Ease In", L"Ease Out", L"Ease In-Out"};
+            static const char* values[] = {"linear", "ease_in", "ease_out", "ease_in_out"};
+            int mode = 0;
+            for (int index = 0; index < 4; ++index) {
+                if (track.interpolation == values[index]) {
+                    mode = index;
+                    break;
+                }
+            }
+            mode = (mode + 1) % 4;
+            track.interpolation = values[mode];
+            interpButton->setText(std::wstring(L"Interp: ") + labels[mode], "default");
             commitClip();
         });
         durationEdit = MRLineEdit::create();
         durationEdit->setFontSize(13.0f);
         durationEdit->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
         durationEdit->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
-        durationEdit->getTransform()->setPosition(452.0f, 4.0f, 0.0f);
+        durationEdit->getTransform()->setPosition(544.0f, 4.0f, 0.0f);
         durationEdit->getTransform()->setSize(64.0f, 24.0f);
         editConnections.emplace_back(durationEdit->events().onSubmitted.connect([this](MRTextEdit&, const std::wstring& text) {
             try {
@@ -187,7 +210,7 @@ void AnimationPanel::refresh() {
         timeLabel->setFontSize(13.0f);
         timeLabel->setFontColor(0.70f, 0.76f, 0.84f, 1.0f);
         timeLabel->setAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
-        timeLabel->getTransform()->setPosition(528.0f, 4.0f, 0.0f);
+        timeLabel->getTransform()->setPosition(616.0f, 4.0f, 0.0f);
         timeLabel->getTransform()->setSize(120.0f, 24.0f);
         panel->addChild(timeLabel);
     }

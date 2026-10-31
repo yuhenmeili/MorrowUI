@@ -73,6 +73,18 @@ std::string composeValue(const std::string& prefix, const std::string& suffix, c
     return output.str();
 }
 
+/// 轨道插值模式：对线性比例施加缓动曲线（未知模式退回线性）。
+float easedRatio(const std::string& interpolation, float ratio) {
+    ratio = std::clamp(ratio, 0.0f, 1.0f);
+    if (interpolation == "ease_in")
+        return ratio * ratio;
+    if (interpolation == "ease_out")
+        return 1.0f - (1.0f - ratio) * (1.0f - ratio);
+    if (interpolation == "ease_in_out")
+        return ratio * ratio * (3.0f - 2.0f * ratio);
+    return ratio;
+}
+
 }  // namespace
 
 int AnimationTrack::keyIndexAt(float time) const {
@@ -124,6 +136,8 @@ bool AnimationClip::fromSubResource(const SceneSubResourceRecord& record, Animat
         AnimationTrack track;
         track.targetId = target->second;
         track.property = property->second;
+        if (const auto interp = record.properties.find(prefix + "_interp"); interp != record.properties.end())
+            track.interpolation = interp->second;
         // keys: "t=v;t=v;..."
         std::istringstream stream(keys->second);
         std::string entry;
@@ -165,6 +179,8 @@ SceneSubResourceRecord AnimationClip::toSubResource(const std::string& id) const
         const std::string prefix = "track_" + std::to_string(index);
         record.properties[prefix + "_target"] = tracks[index].targetId;
         record.properties[prefix + "_property"] = tracks[index].property;
+        if (tracks[index].interpolation != "linear")
+            record.properties[prefix + "_interp"] = tracks[index].interpolation;
         std::ostringstream packed;
         for (size_t key = 0; key < tracks[index].keys.size(); ++key) {
             if (key > 0)
@@ -191,14 +207,15 @@ bool AnimationClip::sample(const AnimationTrack& track, float time, std::string&
         if (time <= track.keys[index].first) {
             const auto& [leftTime, leftValue] = track.keys[index - 1];
             const auto& [rightTime, rightValue] = track.keys[index];
-            // 数值/向量分量线性插值；字符串值阶梯保持（取左值）
+            // 数值/向量分量插值（先按轨道插值模式变换比例）；字符串值阶梯保持（取左值）
             std::string leftPrefix, leftSuffix, rightPrefix, rightSuffix;
             std::vector<float> leftComponents, rightComponents;
             if (parseNumericComponents(leftValue, leftPrefix, leftSuffix, leftComponents) &&
                 parseNumericComponents(rightValue, rightPrefix, rightSuffix, rightComponents) && leftComponents.size() == rightComponents.size() &&
                 leftPrefix == rightPrefix) {
                 const float span = rightTime - leftTime;
-                const float ratio = span > 0.0f ? (time - leftTime) / span : 0.0f;
+                const float raw = span > 0.0f ? (time - leftTime) / span : 0.0f;
+                const float ratio = easedRatio(track.interpolation, raw);
                 std::vector<float> blended(leftComponents.size());
                 for (size_t component = 0; component < leftComponents.size(); ++component)
                     blended[component] = leftComponents[component] + (rightComponents[component] - leftComponents[component]) * ratio;

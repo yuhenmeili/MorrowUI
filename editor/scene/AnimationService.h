@@ -13,9 +13,11 @@
 namespace morrow::editor {
 
 /// 一条动画轨道：目标节点 + 属性 + 按 time 升序的关键帧（序列化值）。
+/// interpolation：linear / ease_in / ease_out / ease_in_out（作用于相邻键间的插值比例）。
 struct AnimationTrack {
     std::string targetId;
     std::string property;
+    std::string interpolation = "linear";
     std::vector<std::pair<float, std::string>> keys;
 
     /// 找到 time 的关键帧索引（容差 1e-4），找不到返回 -1。

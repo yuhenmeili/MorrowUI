@@ -48,6 +48,7 @@ private:
     std::shared_ptr<morrow::MRButton> keyButton;
     std::shared_ptr<morrow::MRButton> deleteKeyButton;
     std::shared_ptr<morrow::MRButton> loopButton;
+    std::shared_ptr<morrow::MRButton> interpButton;
     std::shared_ptr<morrow::MRLineEdit> durationEdit;
     std::shared_ptr<morrow::MRLabel> timeLabel;
     std::shared_ptr<morrow::MRColor> playhead;
