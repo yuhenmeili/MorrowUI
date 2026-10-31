@@ -80,12 +80,16 @@ public:
 
     const std::vector<SceneNodeRecord>& nodes() const;
 
+    /// 本文档的来源文件路径（loadFromFile 填写）；子场景实例的相对路径以此目录解析。
+    const std::filesystem::path& sourcePath() const;
+
 private:
     std::vector<SceneResourceRecord> m_externalResources;
     std::vector<SceneSubResourceRecord> m_subResources;
     std::vector<SceneNodeRecord> m_nodes;
     std::vector<float> m_guideXs;
     std::vector<float> m_guideYs;
+    std::filesystem::path m_sourcePath;
 };
 } // namespace morrow::editor
 

@@ -12,6 +12,7 @@
 #include "ProjectSettings.h"
 #include "assets/AssetDatabase.h"
 #include "assets/ImportQueue.h"
+#include "assets/ThemeAsset.h"
 #include "morrow/base/UIWidget.h"
 #include "build/BuildQueue.h"
 #include "morrow/core/Observable.h"
@@ -124,6 +125,9 @@ private:
     /// 清空视口参考线（场景树右键菜单）。
     void editClearGuides();
 
+    /// 把另一个 .scene 装入当前编辑会话（FileSystem 右键 Open Scene）。
+    void openScene(const std::filesystem::path& scenePath);
+
     /// 多选对齐/分布：基于选中并集的世界矩形计算逐节点位移，单条撤销。
     void editAlign(AlignMode mode);
 
@@ -164,6 +168,9 @@ private:
     ProjectFileSystemModel m_fileSystem;
     NodeTypeCatalog m_nodeTypeCatalog;
     ImportQueue m_importQueue;
+    /// 项目默认主题（.morrow 的 theme 项，可为空）。
+    ThemeAsset m_theme;
+    bool m_themeLoaded = false;
     BuildQueue m_buildQueue;
     ProjectSettings m_project;
     DockLayout m_dockLayout;

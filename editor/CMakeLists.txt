@@ -24,6 +24,7 @@ add_library(morrow_editor_document STATIC
     commands/CommandHistory.cpp
     assets/AssetDatabase.cpp
     assets/MaterialAsset.cpp
+    assets/ThemeAsset.cpp
     assets/ImportQueue.cpp
     filesystem/ProjectFileSystemModel.cpp
     filesystem/FileSystemWatcher.cpp

@@ -245,6 +245,25 @@ void EditorShell::editClearGuides() {
     setStatus("Cleared all guides");
 }
 
+void EditorShell::openScene(const std::filesystem::path& scenePath) {
+    auto session = std::make_shared<EditorSession>(scenePath);
+    std::string error;
+    if (!session->load(error)) {
+        setStatus("Failed to open scene: " + error);
+        return;
+    }
+    m_session = session;
+    m_scenePath = scenePath;
+    m_selectedNodeId.clear();
+    m_lastNotifiedSelection.clear();
+    m_inspector->clearAsset();
+    m_inspector->lastSchemaSignature.clear();
+    m_sceneTree->refresh();
+    m_viewport->rebuildRuntime();
+    m_inspector->refresh(true);
+    setStatus("Opened scene " + scenePath.generic_string());
+}
+
 void EditorShell::editAlign(AlignMode mode) {
     struct AlignItem {
         std::string id;
@@ -639,6 +658,7 @@ void EditorShell::buildLayout() {
     m_assetsPanel->contextMenu->addItem(L"Create Folder", 2);
     m_assetsPanel->contextMenu->addItem(L"Rename", 3);
     m_assetsPanel->contextMenu->addItem(L"Delete", 4);
+    m_assetsPanel->contextMenu->addItem(L"Open Scene", 5);
     m_assetsPanel->contextMenuConnection = m_assetsPanel->contextMenu->events().onItemSelected.connect(
         [this](MRPopupMenu&, int id, const std::wstring&) {
             if (id == 1)
@@ -649,6 +669,8 @@ void EditorShell::buildLayout() {
                 m_assetsPanel->renameSelected();
             else if (id == 4)
                 m_assetsPanel->deleteSelected();
+            else if (id == 5)
+                m_assetsPanel->openSceneFromContext();
         });
     m_assetsPanel->nameDialog = RenameNodeDialog::create();
     m_assetsPanel->nameDialogConnection = m_assetsPanel->nameDialog->events().onConfirmed.connect(
@@ -1230,6 +1252,18 @@ bool EditorShell::initialize(std::string& error) {
     buildLayout();
     if (m_engine) {
         m_framebufferSizeConnection = m_engine->events().onFramebufferSizeChanged.connect([this](const Vector2& size) { handleFramebufferResize(size); });
+    }
+    // 项目默认主题：.morrow 里 theme = <相对路径> 时加载并注入实例化默认值
+    const std::string themePath = m_project.value("theme", "");
+    m_themeLoaded = false;
+    if (!themePath.empty()) {
+        std::string themeError;
+        if (ThemeAsset::loadFromFile(m_project.projectRoot() / themePath, m_theme, themeError)) {
+            m_themeLoaded = true;
+            setStatus("Theme loaded: " + themePath);
+        } else {
+            setStatus("Theme load failed: " + themeError);
+        }
     }
     m_assetsPanel->importAssets();
     m_sceneTree->refresh();

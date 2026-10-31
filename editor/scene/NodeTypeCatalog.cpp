@@ -42,6 +42,8 @@ NodeTypeCatalog::NodeTypeCatalog() {
     };
 
     add("SceneNode3D", "Node", "Core", "A non-rendering scene container used to organize child nodes.");
+    add("MRSceneInstance", "Scene Instance", "Core", "Renders another .scene file as a reusable read-only sub-tree.",
+        {{"scene_path", ""}, {"size", "Vector2(480.0, 320.0)"}});
 
     add("MRButton", "Button", "Basic Controls", "A clickable text button.",
         {{"background_color", "Color(0.16, 0.31, 0.63, 1.0)"}, {"font_size", "18"}, {"size", "Vector2(180.0, 48.0)"}, {"text", "Button"}});

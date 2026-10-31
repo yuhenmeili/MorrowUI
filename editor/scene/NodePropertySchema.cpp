@@ -159,6 +159,9 @@ const std::vector<PropertyDescriptor>* typeTable(const std::string& nodeType) {
     static const std::vector<PropertyDescriptor> scroll = {
         {"scroll_step", "number", "48", "Properties", "Scroll Step", true, true, 1.0f, 200.0f, 1.0f},
     };
+    static const std::vector<PropertyDescriptor> sceneInstance = {
+        {"scene_path", "string", "", "Properties", "Scene Path", true},
+    };
 
     if (nodeType == "MRButton")
         return &button;
@@ -192,6 +195,8 @@ const std::vector<PropertyDescriptor>* typeTable(const std::string& nodeType) {
         return &textEdit;
     if (nodeType == "MRScrollContainer")
         return &scroll;
+    if (nodeType == "MRSceneInstance")
+        return &sceneInstance;
     if (nodeType == "MRCheckBox" || nodeType == "MRCheckButton" || nodeType == "MRToggle" || nodeType == "MRRadioButton" || nodeType == "MRSelectableButton")
         return &selectableTable();
     if (nodeType == "MRMenuButton" || nodeType == "MROptionButton" || nodeType == "MRTextureButton")

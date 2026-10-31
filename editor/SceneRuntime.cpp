@@ -7,6 +7,7 @@
 #include "FontManager.h"
 #include "ProjectSettings.h"
 #include "assets/AssetDatabase.h"
+#include "assets/ThemeAsset.h"
 #include "scene/SceneDocument.h"
 #include "scene/SceneInstantiator.h"
 
@@ -99,6 +100,16 @@ int main(int argc, char** argv) {
         return 5;
     }
 
+    // 项目默认主题（可选）
+    morrow::editor::ThemeAsset theme;
+    bool themeLoaded = false;
+    const std::string themePath = project.value("theme", "");
+    if (!themePath.empty() && morrow::editor::ThemeAsset::loadFromFile(project.projectRoot() / themePath, theme, error)) {
+        themeLoaded = true;
+    } else if (!themePath.empty()) {
+        std::cerr << "Warning: failed to load theme: " << error << '\n';
+    }
+
     morrow::EngineOptions engineOptions;
     engineOptions.multithread = false;
     engineOptions.enableRequestRender = false;
@@ -114,7 +125,7 @@ int main(int argc, char** argv) {
         {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"},
     });
 
-    if (!morrow::editor::SceneInstantiator::instantiate(document, scene, &assets, error)) {
+    if (!morrow::editor::SceneInstantiator::instantiate(document, scene, &assets, error, nullptr, nullptr, themeLoaded ? &theme : nullptr)) {
         std::cerr << "Failed to instantiate scene: " << error << '\n';
         return 6;
     }

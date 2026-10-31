@@ -139,7 +139,8 @@ void ViewportPanel::rebuildRuntime() {
     runtimeNodes.clear();
     refreshGuides();
     std::string error;
-    const bool runtimeInstantiated = SceneInstantiator::instantiate(m_shell.m_session->document(), previewRoot, &m_shell.m_assets, error, &runtimeNodes);
+    const bool runtimeInstantiated =
+        SceneInstantiator::instantiate(m_shell.m_session->document(), previewRoot, &m_shell.m_assets, error, &runtimeNodes, nullptr, m_shell.m_themeLoaded ? &m_shell.m_theme : nullptr);
     if (!runtimeInstantiated) {
         m_shell.setStatus(error);
     }

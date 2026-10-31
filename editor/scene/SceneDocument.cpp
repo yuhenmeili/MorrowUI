@@ -330,6 +330,7 @@ bool SceneDocument::loadFromFile(const std::filesystem::path& path, SceneDocumen
         error = "scene contains no nodes";
         return false;
     }
+    parsed.m_sourcePath = path;
     document = std::move(parsed);
     return true;
 }
@@ -558,6 +559,10 @@ const std::vector<SceneSubResourceRecord>& SceneDocument::subResources() const {
 
 const std::vector<SceneNodeRecord>& SceneDocument::nodes() const {
     return m_nodes;
+}
+
+const std::filesystem::path& SceneDocument::sourcePath() const {
+    return m_sourcePath;
 }
 
 }  // namespace morrow::editor

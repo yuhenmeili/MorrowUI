@@ -36,6 +36,9 @@ public:
 
     void showContextMenu(const ProjectFileEntry* entry, float x, float y);
 
+    /// 右键菜单：打开 contextPath 指向的 .scene 进当前编辑会话。
+    void openSceneFromContext();
+
     void createFolder();
 
     void renameSelected();

@@ -12,7 +12,9 @@ struct AssetTypeDescriptor {
 };
 
 inline const std::vector<AssetTypeDescriptor>& assetTypes() {
-    static const std::vector<AssetTypeDescriptor> types = {{"Material", "Material", ".mat"}, {"Shader", "Shader", ".glsl"},};
+    static const std::vector<AssetTypeDescriptor> types = {
+        {"Material", "Material", ".mat"}, {"Shader", "Shader", ".glsl"}, {"Theme", "Theme", ".theme"},
+    };
     return types;
 }
 }

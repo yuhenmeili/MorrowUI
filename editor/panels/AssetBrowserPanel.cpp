@@ -23,6 +23,14 @@ void AssetBrowserPanel::showContextMenu(const ProjectFileEntry* entry, float x, 
     contextMenu->popup(x, y);
 }
 
+void AssetBrowserPanel::openSceneFromContext() {
+    if (contextPath.extension() != ".scene") {
+        m_shell.setStatus("Open Scene only applies to .scene files");
+        return;
+    }
+    m_shell.openScene(m_shell.m_projectPath.parent_path() / contextPath);
+}
+
 void AssetBrowserPanel::createFolder() {
     contextPath = view ? view->currentDirectory() : std::filesystem::path{"."};
     nameDialog->show("create_folder", "NewFolder");
@@ -121,6 +129,9 @@ void AssetBrowserPanel::createAsset(const AssetTypeDescriptor& descriptor, const
         output << "[material]\nformat = 1\nshader = \"\"\n\n[properties]\ncolor = Color(1.0, 1.0, 1.0, 1.0)\n";
     } else if (descriptor.type == "Shader") {
         output << "#version 330 core\n\n";
+    } else if (descriptor.type == "Theme") {
+        output << "[theme]\nformat = 1\n\n[MRButton]\nbackground_color = Color(0.16, 0.31, 0.63, 1.0)\nfont_size = 18\n\n[MRLabel]\nfont_color = "
+                  "Color(1.0, 1.0, 1.0, 1.0)\n";
     }
     if (!output.good()) {
         m_shell.setStatus("Failed to create asset: " + path.string());

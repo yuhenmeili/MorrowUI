@@ -11,6 +11,7 @@
 #include "Vector4.h"
 #include "assets/AssetDatabase.h"
 #include "assets/MaterialAsset.h"
+#include "assets/ThemeAsset.h"
 #include "morrow/base/Transform.h"
 #include "morrow/base/MeshRenderer.h"
 #include "morrow/base/UIWidget.h"
@@ -209,6 +210,10 @@ std::shared_ptr<morrow::Widget> createNode(const morrow::editor::SceneNodeRecord
     if (record.type == "SceneNode3D") {
         // Phase 1 scenes are 2D editor documents. Use a non-rendering 2D
         // container so UI descendants retain the normal Transform chain.
+        return std::make_shared<SceneContainer2D>();
+    }
+    if (record.type == "MRSceneInstance") {
+        // 场景实例：非渲染组节点，子场景内容在 instantiateSubScene 中挂载
         return std::make_shared<SceneContainer2D>();
     }
     if (record.type == "MRButton") {
@@ -1041,8 +1046,37 @@ void applyAnchors(const morrow::editor::SceneNodeRecord& record, const std::shar
 
 namespace morrow::editor {
 
+/// 场景实例：MRSceneInstance 节点按 scene_path（相对父场景文件目录）加载子场景
+/// 并整体实例化到该组节点下；实例链阻止递归引用，主题向子场景传递。
+bool instantiateSubScene(const SceneDocument& parentDocument, const SceneNodeRecord& record, const std::shared_ptr<Widget>& groupWidget, const AssetDatabase* assets,
+                         std::string& error, const std::vector<std::filesystem::path>& instanceChain, const ThemeAsset* theme) {
+    const auto scenePathEntry = record.properties.find("scene_path");
+    if (scenePathEntry == record.properties.end() || scenePathEntry->second.empty())
+        return true;  // 未配置子场景的实例节点保持为空组
+    const std::filesystem::path baseDirectory = parentDocument.sourcePath().empty() ? std::filesystem::current_path() : parentDocument.sourcePath().parent_path();
+    std::filesystem::path subPath = (baseDirectory / scenePathEntry->second).lexically_normal();
+    if (subPath.is_relative())
+        subPath = (std::filesystem::current_path() / subPath).lexically_normal();
+    if (!std::filesystem::exists(subPath)) {
+        error = "scene instance '" + record.name + "' references missing scene: " + scenePathEntry->second;
+        return false;
+    }
+    for (const auto& active : instanceChain) {
+        if (active == subPath) {
+            error = "recursive scene instance detected at: " + subPath.string();
+            return false;
+        }
+    }
+    SceneDocument subDocument;
+    if (!SceneDocument::loadFromFile(subPath, subDocument, error))
+        return false;
+    std::vector<std::filesystem::path> childChain = instanceChain;
+    childChain.push_back(subPath);
+    return SceneInstantiator::instantiate(subDocument, groupWidget, assets, error, nullptr, &childChain, theme);
+}
+
 bool SceneInstantiator::instantiate(const SceneDocument& document, const std::shared_ptr<Widget>& stage, const AssetDatabase* assets, std::string& error,
-                                    SceneInstanceMap* instancesOut) {
+                                    SceneInstanceMap* instancesOut, const std::vector<std::filesystem::path>* instanceChain, const ThemeAsset* theme) {
     if (!stage) {
         error = "cannot instantiate scene without a stage widget";
         return false;
@@ -1050,7 +1084,11 @@ bool SceneInstantiator::instantiate(const SceneDocument& document, const std::sh
 
     std::unordered_map<std::string, std::shared_ptr<Widget>> instances;
     instances.reserve(document.nodes().size());
-    for (const auto& record : document.nodes()) {
+    for (const auto& sourceRecord : document.nodes()) {
+        // 主题默认值先注入（不覆盖节点显式属性），兄弟键组合 setter 也能看到主题值
+        SceneNodeRecord record = sourceRecord;
+        if (theme && !theme->empty())
+            theme->applyDefaults(record);
         auto instance = createNode(record, error);
         if (!instance) {
             error = "line " + std::to_string(record.line) + ": " + error;
@@ -1060,6 +1098,10 @@ bool SceneInstantiator::instantiate(const SceneDocument& document, const std::sh
         if (!updateNode(document, record, instance, assets, error)) {
             error = "line " + std::to_string(record.line) + ": " + error;
             return false;
+        }
+        if (record.type == "MRSceneInstance") {
+            if (!instantiateSubScene(document, record, instance, assets, error, instanceChain ? *instanceChain : std::vector<std::filesystem::path>{}, theme))
+                return false;
         }
         instances.emplace(record.id, std::move(instance));
     }
