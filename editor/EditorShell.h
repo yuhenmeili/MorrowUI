@@ -128,8 +128,12 @@ private:
     /// 清空视口参考线（场景树右键菜单）。
     void editClearGuides();
 
-    /// 把另一个 .scene 装入当前编辑会话（FileSystem 右键 Open Scene）。
+    /// 把另一个 .scene 装入当前编辑会话（FileSystem 右键 Open Scene / 场景切换器）。
+    /// 打开过的会话按路径缓存（含撤销历史），切回不丢状态。
     void openScene(const std::filesystem::path& scenePath);
+
+    /// 重建顶栏场景切换下拉的选项与文案。
+    void refreshSceneSwitcher();
 
     /// 场景重建后同步动画服务与面板。
     void syncAnimation();
@@ -203,6 +207,10 @@ private:
     std::vector<Observable<BaseButton&>::Connection> m_buttonConnections;
     Observable<MROptionButton&, int, const std::wstring&>::Connection m_anchorPresetConnection;
     Observable<MROptionButton&, int, const std::wstring&>::Connection m_canvasPresetConnection;
+    /// 打开过的场景会话缓存（路径 → session，含撤销历史），供切换器复用。
+    std::vector<std::pair<std::filesystem::path, std::shared_ptr<EditorSession>>> m_openScenes;
+    std::shared_ptr<MROptionButton> m_sceneSwitcher;
+    Observable<MROptionButton&, int, const std::wstring&>::Connection m_sceneSwitcherConnection;
     std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> m_copyConnections;
     std::string m_status;
     std::string m_selectedNodeId;

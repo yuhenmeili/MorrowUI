@@ -52,6 +52,8 @@ NodeTypeCatalog::NodeTypeCatalog() {
     add("MRLabel", "Label", "Basic Controls", "A text display control.", {{"font_size", "22"}, {"size", "Vector2(180.0, 40.0)"}, {"text", "Label"}});
     add("MRImage", "Image", "Basic Controls", "A rectangular image control.", {{"size", "Vector2(180.0, 120.0)"}, {"texture_asset", ""}});
     add("MRColor", "Color Rect", "Basic Controls", "A solid-color rectangular control.");
+    add("MRNinePatch", "Nine Patch Image", "Basic Controls", "A stretchable image with fixed corners (nine-slice).",
+        {{"texture_asset", ""}, {"inset", "12"}});
 
     add("MRCheckBox", "Check Box", "Input Controls", "A selectable check box control.");
     add("MRCheckButton", "Check Button", "Input Controls", "A compact selectable check button.");

@@ -38,6 +38,7 @@ set(MORROW_PUBLIC_ENTRIES
     "elements/MRLabel.h"
     "elements/MRLineEdit.h"
     "elements/MRMenuButton.h"
+    "elements/MRNinePatch.h"
     "elements/MROptionButton.h"
     "elements/MRParallax2D.h"
     "elements/MRParallaxBackground.h"

@@ -250,14 +250,44 @@ void EditorShell::editClearGuides() {
 }
 
 void EditorShell::openScene(const std::filesystem::path& scenePath) {
-    auto session = std::make_shared<EditorSession>(scenePath);
-    std::string error;
-    if (!session->load(error)) {
-        setStatus("Failed to open scene: " + error);
+    std::error_code normalizeError;
+    const auto normalized = std::filesystem::weakly_canonical(scenePath, normalizeError);
+    const auto key = normalizeError ? scenePath.lexically_normal() : normalized;
+    if (key == m_scenePath) {
+        refreshSceneSwitcher();
         return;
     }
+    // 当前会话入缓存（含撤销历史），目标会话优先复用
+    const auto upsertCurrent = [this]() {
+        const auto existing = std::find_if(m_openScenes.begin(), m_openScenes.end(), [this](const auto& entry) { return entry.first == m_scenePath; });
+        if (existing != m_openScenes.end())
+            existing->second = m_session;
+        else
+            m_openScenes.emplace_back(m_scenePath, m_session);
+    };
+    upsertCurrent();
+    std::shared_ptr<EditorSession> session;
+    const auto cached = std::find_if(m_openScenes.begin(), m_openScenes.end(), [&key](const auto& entry) { return entry.first == key; });
+    if (cached != m_openScenes.end()) {
+        session = cached->second;
+    } else {
+        session = std::make_shared<EditorSession>(key);
+        std::string error;
+        if (!session->load(error)) {
+            setStatus("Failed to open scene: " + error);
+            return;
+        }
+        m_openScenes.emplace_back(key, session);
+        // 缓存上限 8：淘汰最早的非当前项
+        for (size_t index = 0; m_openScenes.size() > 8 && index < m_openScenes.size();) {
+            if (m_openScenes[index].second != session)
+                m_openScenes.erase(m_openScenes.begin() + static_cast<long>(index));
+            else
+                ++index;
+        }
+    }
     m_session = session;
-    m_scenePath = scenePath;
+    m_scenePath = key;
     m_selectedNodeId.clear();
     m_lastNotifiedSelection.clear();
     m_inspector->clearAsset();
@@ -265,7 +295,20 @@ void EditorShell::openScene(const std::filesystem::path& scenePath) {
     m_sceneTree->refresh();
     m_viewport->rebuildRuntime();
     m_inspector->refresh(true);
-    setStatus("Opened scene " + scenePath.generic_string());
+    refreshSceneSwitcher();
+    setStatus("Opened scene " + key.generic_string());
+}
+
+void EditorShell::refreshSceneSwitcher() {
+    if (!m_sceneSwitcher)
+        return;
+    m_sceneSwitcher->clearOptions();
+    int id = 0;
+    for (const auto& entry : m_openScenes) {
+        m_sceneSwitcher->addOption(wide(entry.first.filename().generic_string()), id);
+        ++id;
+    }
+    m_sceneSwitcher->setText(L"Scene: " + wide(m_scenePath.filename().generic_string()), "default");
 }
 
 void EditorShell::syncAnimation() {
@@ -877,6 +920,24 @@ void EditorShell::buildLayout() {
             source.setText(L"Canvas: " + source.getSelectedText(), "default");
         });
         m_viewport->panel->addChild(canvasButton);
+        // 场景切换器：列出打开过的场景（会话缓存，切回不丢撤销）
+        auto sceneButton = MROptionButton::create();
+        sceneButton->setText(L"Scene: -", "default");
+        sceneButton->setTextFontSize(12.0f);
+        sceneButton->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
+        sceneButton->setBackgroundColor(Vector4(0.16f, 0.20f, 0.26f, 1.0f));
+        sceneButton->setHoverColor(Vector4(0.22f, 0.30f, 0.40f, 1.0f));
+        sceneButton->setPressedColor(Vector4(0.10f, 0.14f, 0.20f, 1.0f));
+        sceneButton->setCornerRadius(3.0f);
+        sceneButton->getTransform()->setPosition(772.0f, 5.0f, 0.0f);
+        sceneButton->getTransform()->setSize(180.0f, 22.0f);
+        m_sceneSwitcherConnection = sceneButton->selectionEvents().onSelected.connect([this](MROptionButton&, int id, const std::wstring&) {
+            if (id < 0 || id >= static_cast<int>(m_openScenes.size()))
+                return;
+            openScene(m_openScenes[static_cast<size_t>(id)].first);
+        });
+        m_sceneSwitcher = sceneButton;
+        m_viewport->panel->addChild(sceneButton);
     }
     addLabel(m_inspector->panel, "Inspector", 8.0f, 6.0f, 260.0f, 28.0f);
     addLabel(m_output->panel, "Output / Assets / Build", 8.0f, 2.0f, 360.0f, 22.0f);
@@ -1294,6 +1355,13 @@ bool EditorShell::initialize(std::string& error) {
     m_assetsPanel->importAssets();
     m_sceneTree->refresh();
     m_viewport->rebuildRuntime();
+    // 初始场景入缓存，供切换器列出（统一规范化路径形态，与 openScene 的 key 一致）
+    std::error_code normalizeError;
+    const auto normalizedScene = std::filesystem::weakly_canonical(m_scenePath, normalizeError);
+    if (!normalizeError)
+        m_scenePath = normalizedScene;
+    m_openScenes.emplace_back(m_scenePath, m_session);
+    refreshSceneSwitcher();
     if (m_engine) {
         // 动画帧推进：编辑器内实时预览（采样直写运行时 Widget，不动文档）
         m_animationTickConnection = m_engine->events().onFrameBegin.connect([this] {

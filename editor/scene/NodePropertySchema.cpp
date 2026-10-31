@@ -110,6 +110,10 @@ const std::vector<PropertyDescriptor>* typeTable(const std::string& nodeType) {
         {"texture_asset", "TextureAsset", "", "Properties", "Source Image", true},
         {"rounding", "number", "0", "Properties", "Corner Radius", true, true, 0.0f, 50.0f, 1.0f},
     };
+    static const std::vector<PropertyDescriptor> ninePatch = {
+        {"texture_asset", "TextureAsset", "", "Properties", "Source Image", true},
+        {"inset", "number", "12", "Properties", "Inset (4 Sides)", true, true, 0.0f, 100.0f, 1.0f},
+    };
     static const std::vector<PropertyDescriptor> colorRect = {
         {"color", "Color", "Color(1.0, 1.0, 1.0, 1.0)", "Properties", "Color", true},
         {"rounding", "number", "0", "Properties", "Corner Radius", true, true, 0.0f, 50.0f, 1.0f},
@@ -174,6 +178,8 @@ const std::vector<PropertyDescriptor>* typeTable(const std::string& nodeType) {
         return &label;
     if (nodeType == "MRImage")
         return &image;
+    if (nodeType == "MRNinePatch")
+        return &ninePatch;
     if (nodeType == "MRColor")
         return &colorRect;
     if (nodeType == "MRHSeparator" || nodeType == "MRVSeparator")

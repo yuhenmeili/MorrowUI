@@ -35,6 +35,7 @@
 #include "morrow/elements/MRLabel.h"
 #include "morrow/elements/MRLineEdit.h"
 #include "morrow/elements/MRMenuButton.h"
+#include "morrow/elements/MRNinePatch.h"
 #include "morrow/elements/MROptionButton.h"
 #include "morrow/elements/MRParallax2D.h"
 #include "morrow/elements/MRParallaxBackground.h"
@@ -231,6 +232,8 @@ std::shared_ptr<morrow::Widget> createNode(const morrow::editor::SceneNodeRecord
     }
     if (record.type == "MRColor")
         return morrow::MRColor::create();
+    if (record.type == "MRNinePatch")
+        return morrow::MRNinePatch::create();
     if (record.type == "MRCheckBox")
         return morrow::MRCheckBox::create();
     if (record.type == "MRCheckButton")
@@ -608,6 +611,33 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
                     button->setBackgroundColor(Vector4(components[0], components[1], components[2], components[3]));
                 }
             }
+            return true;
+        }
+    }
+
+    if (auto ninePatch = std::dynamic_pointer_cast<morrow::MRNinePatch>(widget)) {
+        if (key == "texture_asset") {
+            if (value.empty() || !assets) {
+                ninePatch->setTexture(nullptr);
+                return true;
+            }
+            const auto* asset = assets->findById(value);
+            if (!asset || asset->type != "Texture" || !asset->error.empty()) {
+                ninePatch->setTexture(nullptr);
+                return true;
+            }
+            auto texture = morrow::Texture::create();
+            texture->setImageUrl(assets->resolveSourcePath(value).string());
+            ninePatch->setTexture(texture);
+            return true;
+        }
+        if (key == "inset") {
+            float inset = 12.0f;
+            if (!parseFloatInto(value, inset)) {
+                error = "property 'inset' must be a number";
+                return false;
+            }
+            ninePatch->setInset(inset);
             return true;
         }
     }
