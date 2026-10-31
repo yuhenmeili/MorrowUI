@@ -13,6 +13,7 @@ struct SceneTreeItem {
     std::string name;
     std::string type;
     int depth = 0;
+    bool locked = false;
 };
 
 struct InspectorProperty {
@@ -23,6 +24,8 @@ struct InspectorProperty {
     bool mixed = false;
     std::string component;
     std::string displayName;
+    /// 与 schema 默认不同时的默认值（非空 → Inspector 显示重置按钮）。
+    std::string defaultValue;
 };
 
 struct SelectionState {

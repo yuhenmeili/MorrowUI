@@ -106,11 +106,32 @@ void InspectorPanel::inspectAsset(const ProjectFileEntry& entry) {
 }
 
 void InspectorPanel::clearAsset() {
-    if (selectedAssetId.empty())
-        return;
     selectedAssetId.clear();
     selectedAssetType.clear();
     refresh(true);
+}
+
+/// 搜索框是 Inspector 的常驻子控件（标题下第一行），资产视图时隐藏。
+/// 编辑复用 legacy 属性编辑通道（属性名 "__search__"），避免侵入键盘路由。
+void InspectorPanel::ensureSearchBox() {
+    if (searchBox || !panel)
+        return;
+    searchBox = MRLineEdit::create();
+    searchBox->setReadOnly(true);
+    searchBox->setFontSize(13.0f);
+    searchBox->setTextColor(Vector4(0.70f, 0.74f, 0.80f, 1.0f));
+    searchBox->setBackgroundColor(Vector4(0.075f, 0.085f, 0.105f, 1.0f));
+    searchBox->setFocusedBackgroundColor(Vector4(0.10f, 0.13f, 0.18f, 1.0f));
+    const float panelWidth = std::max(180.0f, panel->getTransform()->getSize().x);
+    searchBox->getTransform()->setPosition(12.0f, 36.0f, 0.0f);
+    searchBox->getTransform()->setSize(panelWidth - 24.0f, 26.0f);
+    panel->addChild(searchBox);
+    if (auto interaction = searchBox->getComponent<Interaction>()) {
+        searchClickConnection = interaction->addEventListener(TOUCH_EVENT_TYPE_RELEASE, [this](TouchEvent&) {
+            beginLegacyPropertyEdit("__search__", searchFilter);
+            searchBox->setText(L"");
+        });
+    }
 }
 
 void InspectorPanel::setAssetDropTarget(const std::string& property) {
@@ -130,12 +151,14 @@ void InspectorPanel::refresh(bool force) {
     if (!panel)
         return;
     if (!selectedAssetId.empty()) {
-        while (panel->m_children.size() > 1)
+        while (panel->m_children.size() > (searchBox ? 2u : 1u))
             panel->m_children.pop_back();
         editConnections.clear();
         checkConnections.clear();
         interactionConnections.clear();
         bindings.clear();
+        if (searchBox)
+            searchBox->setVisible(false);
         const auto* asset = m_shell.m_assets.findById(selectedAssetId);
         if (!asset) {
             selectedAssetId.clear();
@@ -214,8 +237,9 @@ void InspectorPanel::refresh(bool force) {
     }
     for (const auto& property : properties) {
         signature << property.component << '\x1f' << property.name << '\x1f' << property.type << '\x1f' << (property.editable ? '1' : '0') << '\x1f' << (property.mixed ? '1' : '0')
-                  << '\n';
+                  << '\x1f' << (property.defaultValue.empty() ? '0' : '1') << '\n';
     }
+    signature << "filter:" << searchFilter << '\n';
     const std::string schemaSignature = signature.str();
     if (!force && schemaSignature == lastSchemaSignature && !bindings.empty()) {
         updateValues(properties);
@@ -223,12 +247,18 @@ void InspectorPanel::refresh(bool force) {
     }
     lastSchemaSignature = schemaSignature;
 
-    while (panel->m_children.size() > 1) {
+    ensureSearchBox();
+    while (panel->m_children.size() > (searchBox ? 2u : 1u)) {
         panel->m_children.pop_back();
     }
     editConnections.clear();
     checkConnections.clear();
     bindings.clear();
+    if (searchBox) {
+        searchBox->setVisible(true);
+        searchBox->setText(wide(searchFilter));
+        searchBox->setPlaceholder(L"Filter... (click, type, Enter)");
+    }
     if (properties.empty())
         return;
 
@@ -237,10 +267,10 @@ void InspectorPanel::refresh(bool force) {
     const float labelWidth = std::clamp(fieldWidth * 0.34f, 88.0f, 124.0f);
     const float controlX = 12.0f + labelWidth;
     const float controlWidth = std::max(70.0f, fieldWidth - labelWidth);
-    float y = 38.0f;
+    float y = 72.0f;
     const std::vector<std::string> componentPriority = {"Transform", "Mesh Filter", "Mesh Renderer", "Properties"};
     const std::vector<std::string> propertyPriority = {"position",       "rotation",      "scale",        "size",    "mesh",          "renderer_enabled", "material",
-                                                       "material_color", "blend_enabled", "double_sided", "visible", "display_layer", "texture_asset"};
+                                                       "material_color", "blend_enabled", "double_sided", "visible", "locked",        "display_layer",    "texture_asset"};
     std::stable_sort(properties.begin(), properties.end(), [&componentPriority, &propertyPriority](const InspectorProperty& left, const InspectorProperty& right) {
         const auto order = [](const std::vector<std::string>& priority, const std::string& name) {
             const auto iterator = std::find(priority.begin(), priority.end(), name);
@@ -251,20 +281,49 @@ void InspectorPanel::refresh(bool force) {
         return leftComponent == rightComponent ? order(propertyPriority, left.name) < order(propertyPriority, right.name) : leftComponent < rightComponent;
     });
 
-    std::string activeComponent;
+    // 搜索过滤 + 折叠分组：命中过滤词或位于已折叠分组的行不渲染
+    const std::string filter = [&searchFilter = searchFilter]() {
+        std::string lowered;
+        for (const char character : searchFilter)
+            lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(character))));
+        return lowered;
+    }();
+    std::vector<InspectorProperty> shownProperties;
     for (const auto& property : properties) {
+        if (collapsedComponents.count(property.component) != 0)
+            continue;
+        if (!filter.empty()) {
+            std::string haystack;
+            for (const char character : property.displayName + " " + property.name + " " + property.component)
+                haystack.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(character))));
+            if (haystack.find(filter) == std::string::npos)
+                continue;
+        }
+        shownProperties.push_back(property);
+    }
+    if (shownProperties.empty()) {
+        if (!filter.empty())
+            addInspectorText(*this, "No matching properties", y);
+        return;
+    }
+
+    std::string activeComponent;
+    for (const auto& property : shownProperties) {
         if (property.component != activeComponent) {
             activeComponent = property.component;
+            const bool collapsed = collapsedComponents.count(activeComponent) != 0;
             auto header = MRButton::create();
-            header->setInteractive(false);
-            header->setText(L"v  " + wide(activeComponent), "default");
+            header->setText(collapsed ? L">  " + wide(activeComponent) : L"v  " + wide(activeComponent), "default");
             header->setTextFontSize(15.0f);
             header->setTextAlign(HorizontalAlignment::LEFT, VerticalAlignment::CENTER);
             header->setTextColor(Vector4(0.92f, 0.93f, 0.95f, 1.0f));
             header->setBackgroundColor(Vector4(0.20f, 0.21f, 0.23f, 1.0f));
+            header->setHoverColor(Vector4(0.26f, 0.28f, 0.31f, 1.0f));
             header->setCornerRadius(2.0f);
             header->getTransform()->setPosition(6.0f, y, 0.0f);
             header->getTransform()->setSize(panelWidth - 12.0f, 26.0f);
+            m_shell.m_buttonConnections.emplace_back(
+                header->events().onClicked.connect([this, component = activeComponent](BaseButton&) { toggleComponentCollapsed(component); }));
             panel->addChild(header);
             y += 30.0f;
         }
@@ -278,6 +337,26 @@ void InspectorPanel::refresh(bool force) {
         propertyLabel->getTransform()->setSize(labelWidth - 8.0f, 28.0f);
         panel->addChild(propertyLabel);
 
+        // 偏离默认值的可重置行右侧留出 ↺ 按钮，其余行占满整行
+        const bool hasReset = !property.defaultValue.empty() && !property.mixed && property.type != "TextureAsset" && property.type != "MaterialAsset";
+        const float rowControlWidth = controlWidth - (hasReset ? 30.0f : 0.0f);
+        if (hasReset) {
+            auto reset = MRButton::create();
+            reset->setText(L"R", "default");
+            reset->setTextFontSize(13.0f);
+            reset->setTextColor(Vector4(0.95f, 0.75f, 0.35f, 1.0f));
+            reset->setBackgroundColor(Vector4(0.16f, 0.16f, 0.18f, 1.0f));
+            reset->setHoverColor(Vector4(0.30f, 0.26f, 0.16f, 1.0f));
+            reset->setPressedColor(Vector4(0.12f, 0.10f, 0.06f, 1.0f));
+            reset->getTransform()->setPosition(controlX + controlWidth - 26.0f, y, 0.0f);
+            reset->getTransform()->setSize(26.0f, 28.0f);
+            m_shell.m_buttonConnections.emplace_back(reset->events().onClicked.connect([this, property](BaseButton&) {
+                applyValue(property.name, property.defaultValue);
+                m_shell.setStatus("Reset " + property.displayName + " to default");
+            }));
+            panel->addChild(reset);
+        }
+
         if (property.type == "bool" && !property.mixed) {
             auto checkBox = MRCheckBox::create();
             checkBox->setChecked(property.value == "true");
@@ -289,7 +368,7 @@ void InspectorPanel::refresh(bool force) {
             checkBox->setCheckedHoverColor(Vector4(0.12f, 0.15f, 0.20f, 1.0f));
             checkBox->setCheckedPressedColor(Vector4(0.12f, 0.15f, 0.20f, 1.0f));
             checkBox->getTransform()->setPosition(controlX, y, 0.0f);
-            checkBox->getTransform()->setSize(controlWidth, 28.0f);
+            checkBox->getTransform()->setSize(rowControlWidth, 28.0f);
             checkConnections.emplace_back(checkBox->selectionEvents().onCheckedChanged.connect([this, propertyName = property.name](MRSelectableButton& source, bool checked) {
                 if (m_applyingInspectorValue)
                     return;
@@ -376,7 +455,7 @@ void InspectorPanel::refresh(bool force) {
                 components.assign(property.type == "Vector2" ? 2 : (property.type == "Vector3" ? 3 : 4), "0.0");
             }
             const float gap = 3.0f;
-            const float width = (controlWidth - gap * static_cast<float>(components.size() - 1)) / static_cast<float>(components.size());
+            const float width = (rowControlWidth - gap * static_cast<float>(components.size() - 1)) / static_cast<float>(components.size());
             for (size_t index = 0; index < components.size(); ++index) {
                 auto edit = MRLineEdit::create();
                 edit->setFontSize(13.0f);
@@ -429,7 +508,7 @@ void InspectorPanel::refresh(bool force) {
             edit->setFocusedBackgroundColor(Vector4(0.10f, 0.13f, 0.18f, 1.0f));
             edit->setTextColor(property.editable ? Vector4(0.88f, 0.90f, 0.94f, 1.0f) : Vector4(0.60f, 0.62f, 0.66f, 1.0f));
             edit->getTransform()->setPosition(controlX, y, 0.0f);
-            edit->getTransform()->setSize(controlWidth, 28.0f);
+            edit->getTransform()->setSize(rowControlWidth, 28.0f);
             if (property.editable) {
                 editConnections.emplace_back(edit->events().onSubmitted.connect([this, property](MRTextEdit&, const std::wstring& text) {
                     const std::string value(text.begin(), text.end());
@@ -548,9 +627,26 @@ void InspectorPanel::beginLegacyPropertyEdit(const std::string& property, const 
     m_shell.setStatus("Editing " + property + ": type a value and press Enter");
 }
 
+void InspectorPanel::toggleComponentCollapsed(const std::string& component) {
+    if (collapsedComponents.count(component) != 0)
+        collapsedComponents.erase(component);
+    else
+        collapsedComponents.insert(component);
+    refresh(true);
+}
+
 void InspectorPanel::commitLegacyPropertyEdit() {
     if (legacyEditProperty.empty())
         return;
+    // 搜索框借用 legacy 编辑通道：Enter 提交过滤词而非属性值
+    if (legacyEditProperty == "__search__") {
+        searchFilter = legacyEditValue;
+        legacyEditProperty.clear();
+        legacyEditValue.clear();
+        refresh(true);
+        m_shell.setStatus(searchFilter.empty() ? "Property filter cleared" : "Property filter: " + searchFilter);
+        return;
+    }
     std::string error;
     bool changed = false;
     for (const auto& nodeId : m_shell.m_session->model().selection().nodeIds) {

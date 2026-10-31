@@ -69,8 +69,10 @@ void SceneTreePanel::refresh() {
     const float panelWidth = std::max(80.0f, panel->getTransform()->getSize().x);
     for (const auto& item : m_shell.m_session->model().buildSceneTree()) {
         const auto id = item.id;
-        auto button = m_shell.addButton(panel, std::wstring(item.depth * 2, L' ') + wide(item.name), 8.0f + item.depth * 12.0f, y,
-                                        std::max(40.0f, panelWidth - 16.0f - item.depth * 12.0f), 30.0f, [this, id] {
+        std::wstring label = std::wstring(item.depth * 2, L' ') + wide(item.name);
+        if (item.locked)
+            label += L"  [L]";
+        auto button = m_shell.addButton(panel, label, 8.0f + item.depth * 12.0f, y, std::max(40.0f, panelWidth - 16.0f - item.depth * 12.0f), 30.0f, [this, id] {
                                             std::string error;
                                             if (m_shell.m_session->selectNode(id, false, error)) {
                                                 m_shell.m_inspector->clearAsset();

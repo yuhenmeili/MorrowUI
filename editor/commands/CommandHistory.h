@@ -97,6 +97,27 @@ private:
     bool m_capturedPrevious = false;
 };
 
+/// 整组选中节点平移：多选拖拽与方向键微调共用，单条撤销记录，可按节点组连续合并。
+class MoveSelectionCommand final : public SceneCommand {
+public:
+    MoveSelectionCommand(std::vector<std::string> nodeIds, float dx, float dy);
+
+    bool execute(SceneDocument& document, std::string& error) override;
+
+    bool undo(SceneDocument& document, std::string& error) override;
+
+    bool canMergeWith(const SceneCommand& other) const override;
+
+    bool mergeFrom(const SceneCommand& other) override;
+
+private:
+    std::vector<std::string> m_nodeIds;
+    float m_dx = 0.0f;
+    float m_dy = 0.0f;
+    std::vector<std::string> m_previousPositions;
+    bool m_capturedPrevious = false;
+};
+
 class AddNodeCommand final : public SceneCommand {
 public:
     explicit AddNodeCommand(SceneNodeRecord node);
@@ -135,6 +156,34 @@ private:
     std::string m_sourceId;
     std::string m_duplicateId;
     std::vector<SceneNodeRecord> m_duplicates;
+};
+
+/// 批量添加整棵（或多棵）子树：粘贴与多选副本共用，撤销时整体移除。
+class AddNodesCommand final : public SceneCommand {
+public:
+    explicit AddNodesCommand(std::vector<SceneNodeRecord> nodes);
+
+    bool execute(SceneDocument& document, std::string& error) override;
+
+    bool undo(SceneDocument& document, std::string& error) override;
+
+private:
+    std::vector<SceneNodeRecord> m_nodes;
+    std::vector<std::string> m_rootIds;
+    bool m_capturedRoots = false;
+};
+
+/// 组合命令：execute 顺序执行全部子命令，undo 逆序回滚，作为单条历史记录。
+class MacroCommand final : public SceneCommand {
+public:
+    explicit MacroCommand(std::vector<std::unique_ptr<SceneCommand>> commands);
+
+    bool execute(SceneDocument& document, std::string& error) override;
+
+    bool undo(SceneDocument& document, std::string& error) override;
+
+private:
+    std::vector<std::unique_ptr<SceneCommand>> m_commands;
 };
 
 class CommandHistory {

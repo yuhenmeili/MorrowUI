@@ -5,6 +5,7 @@
 #include "panels/EditorPanel.h"
 
 namespace morrow {
+class MRButton;
 class UIWidget;
 }
 
@@ -17,12 +18,17 @@ public:
 
     void build();
 
+    /// 视口吸附开关/步长变化后刷新按钮文案。
+    void refreshSnapButtons();
+
 private:
     EditorShell& m_shell;
 
 public:
     std::shared_ptr<UIWidget>& panel = m_root;
+    std::shared_ptr<morrow::MRButton> snapButton;
+    std::shared_ptr<morrow::MRButton> stepButton;
 };
-} // namespace morrow::editor
+}  // namespace morrow::editor
 
 #endif

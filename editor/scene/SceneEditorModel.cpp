@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cctype>
 
+#include "NodePropertySchema.h"
+
 namespace morrow::editor {
 
 namespace {
@@ -25,22 +27,21 @@ bool parseComponents(const std::string& value, const std::string& type, std::vec
 }
 
 std::map<std::string, std::string> effectiveProperties(const SceneNodeRecord& node) {
-    std::map<std::string, std::string> properties = node.properties;
-    properties.emplace("position", "Vector3(0.0, 0.0, 0.0)");
-    properties.emplace("rotation", "Vector3(0.0, 0.0, 0.0)");
-    properties.emplace("scale", "Vector3(1.0, 1.0, 1.0)");
-    properties.emplace("size", "Vector2(100.0, 40.0)");
-    properties.emplace("visible", "true");
-    if (node.type != "SceneNode3D") {
-        properties.emplace("mesh", "Generated UI Quad");
-        properties.emplace("renderer_enabled", "true");
-        properties.emplace("material", "Default UI Material");
-        properties.emplace("material_color", "Color(1.0, 1.0, 1.0, 1.0)");
-        properties.emplace("blend_enabled", "true");
-        properties.emplace("double_sided", "false");
-    }
-    if (node.type == "MRImage")
-        properties.emplace("texture_asset", "");
+    // schema 驱动：默认值来自属性描述符表，文档实际值最后统一覆盖，
+    // schema 之外的手工属性也会保留展示（无默认值、无重置按钮）。
+    std::map<std::string, std::string> properties;
+    const bool sceneNode3D = node.type == "SceneNode3D";
+    const auto appendDefaults = [&properties](const std::vector<PropertyDescriptor>& table) {
+        for (const auto& descriptor : table)
+            properties.emplace(descriptor.name, descriptor.defaultValue);
+    };
+    appendDefaults(commonProperties(sceneNode3D));
+    if (!sceneNode3D)
+        appendDefaults(meshRendererProperties());
+    if (const auto* typeTable = typeProperties(node.type))
+        appendDefaults(*typeTable);
+    for (const auto& [key, value] : node.properties)
+        properties[key] = value;
     return properties;
 }
 
@@ -93,7 +94,8 @@ SceneEditorModel::SceneEditorModel(SceneDocument& document) : m_document(documen
 }
 
 void SceneEditorModel::appendTree(const SceneNodeRecord& node, int depth, std::vector<SceneTreeItem>& result) const {
-    result.push_back({node.id, node.parentId, node.name, node.type, depth});
+    const auto locked = node.properties.find("locked");
+    result.push_back({node.id, node.parentId, node.name, node.type, depth, locked != node.properties.end() && locked->second == "true"});
     for (const auto& child : m_document.nodes()) {
         if (child.parentId == node.id)
             appendTree(child, depth + 1, result);
@@ -195,24 +197,24 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
     const auto node = m_document.findNode(m_selection.nodeIds.front());
     if (!node)
         return result;
+    const bool sceneNode3D = node->type == "SceneNode3D";
     const auto properties = effectiveProperties(*node);
     result.reserve(properties.size());
     for (const auto& [name, value] : properties) {
-        std::string type = "string";
-        if (value == "true" || value == "false")
-            type = "bool";
-        else if (value.find("Vector2(") == 0)
-            type = "Vector2";
-        else if (value.find("Vector3(") == 0)
-            type = "Vector3";
-        else if (value.find("Color(") == 0)
-            type = "Color";
-        else if (name == "material")
-            type = "MaterialAsset";
-        else if (name == "texture_asset")
-            type = "TextureAsset";
-        else if (!value.empty() && (std::isdigit(static_cast<unsigned char>(value.front())) || value.front() == '-')) {
-            type = "number";
+        const auto* descriptor = findProperty(node->type, sceneNode3D, name);
+        std::string type = descriptor ? descriptor->type : std::string("string");
+        if (!descriptor) {
+            // schema 外的手工属性退回旧的值形态推断
+            if (value == "true" || value == "false")
+                type = "bool";
+            else if (value.find("Vector2(") == 0)
+                type = "Vector2";
+            else if (value.find("Vector3(") == 0)
+                type = "Vector3";
+            else if (value.find("Color(") == 0)
+                type = "Color";
+            else if (!value.empty() && (std::isdigit(static_cast<unsigned char>(value.front())) || value.front() == '-'))
+                type = "number";
         }
         bool mixed = false;
         for (size_t selectionIndex = 1; selectionIndex < m_selection.nodeIds.size(); ++selectionIndex) {
@@ -228,8 +230,13 @@ std::vector<InspectorProperty> SceneEditorModel::inspectSelected() const {
                 break;
             }
         }
-        const bool editable = name != "mesh" && name != "material";
-        result.push_back({name, mixed ? "<mixed>" : value, type, editable, mixed, inspectorComponent(name), inspectorDisplayName(name)});
+        const bool editable = descriptor ? descriptor->editable : true;
+        // 与默认不同的可重置属性才携带 defaultValue，驱动 Inspector 的 ↺ 按钮
+        std::string defaultValue;
+        if (descriptor && !descriptor->defaultValue.empty() && descriptor->defaultValue != value && !mixed)
+            defaultValue = descriptor->defaultValue;
+        result.push_back({name, mixed ? "<mixed>" : value, type, editable, mixed, descriptor ? descriptor->component : inspectorComponent(name),
+                          descriptor && !descriptor->displayName.empty() ? descriptor->displayName : inspectorDisplayName(name), std::move(defaultValue)});
     }
     return result;
 }

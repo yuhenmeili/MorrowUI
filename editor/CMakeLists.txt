@@ -18,6 +18,7 @@ add_library(morrow_editor_document STATIC
     ProjectSettings.cpp
     scene/SceneDocument.cpp
     scene/SceneEditorModel.cpp
+    scene/NodePropertySchema.cpp
     scene/EditorSession.cpp
     scene/NodeTypeCatalog.cpp
     commands/CommandHistory.cpp

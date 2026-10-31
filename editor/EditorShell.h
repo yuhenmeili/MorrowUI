@@ -105,6 +105,21 @@ private:
 
     void setStatus(const std::string& text);
 
+    /// 场景节点剪贴板操作（Ctrl+C/X/V/D 与场景树右键菜单共用）。
+    void editCopy();
+
+    void editCut();
+
+    void editPaste();
+
+    void editDuplicate();
+
+    /// 反转选中节点的 locked 标记：锁定节点在视口不可点选（Godot 的锁定语义）。
+    void editToggleLock();
+
+    /// 清空视口参考线（场景树右键菜单）。
+    void editClearGuides();
+
     bool notifySelectionChanged();
 
     void addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height);
@@ -161,8 +176,7 @@ private:
     std::vector<Observable<MRTextEdit&, const std::wstring&>::Connection> m_copyConnections;
     std::string m_status;
     std::string m_selectedNodeId;
-    std::string m_pendingAssetId;
-    std::shared_ptr<Widget> m_pendingAssetSource;
+    std::string m_pendingAssetId;    std::shared_ptr<Widget> m_pendingAssetSource;
     std::shared_ptr<MRButton> m_assetDragPreview;
     float m_assetDragStartX = 0.0f;
     float m_assetDragStartY = 0.0f;

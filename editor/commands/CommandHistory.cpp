@@ -1,10 +1,36 @@
 #include "CommandHistory.h"
 
+#include <algorithm>
+#include <cstdio>
+#include <iomanip>
+#include <sstream>
 #include <utility>
 
 #include "scene/SceneDocument.h"
 
 namespace morrow::editor {
+
+namespace {
+std::string nextAvailableNodeId(const SceneDocument& document) {
+    for (int index = 1;; ++index) {
+        std::ostringstream id;
+        id << "node_" << std::setw(4) << std::setfill('0') << index;
+        if (!document.findNode(id.str()))
+            return id.str();
+    }
+}
+
+void collectSubtree(const SceneDocument& document, const std::string& rootId, std::vector<const SceneNodeRecord*>& out) {
+    const auto* node = document.findNode(rootId);
+    if (!node)
+        return;
+    out.push_back(node);
+    for (const auto& child : document.nodes()) {
+        if (child.parentId == rootId)
+            collectSubtree(document, child.id, out);
+    }
+}
+}  // namespace
 
 SetNodePropertyCommand::SetNodePropertyCommand(std::string nodeId, std::string property, std::string value) :
     m_nodeId(std::move(nodeId)), m_property(std::move(property)), m_value(std::move(value)) {
@@ -149,6 +175,91 @@ bool SetNodeRectCommand::mergeFrom(const SceneCommand& other) {
     return true;
 }
 
+namespace {
+std::string offsetVector3Value(const std::string& value, float dx, float dy) {
+    if (value.empty() || value.back() != ')' || value.rfind("Vector3(", 0) != 0)
+        return {};
+    const std::string body = value.substr(8, value.size() - 9);
+    std::vector<float> components;
+    size_t start = 0;
+    while (start <= body.size()) {
+        const auto separator = body.find(',', start);
+        const auto part = body.substr(start, separator == std::string::npos ? std::string::npos : separator - start);
+        try {
+            components.push_back(std::stof(part));
+        } catch (...) {
+            return {};
+        }
+        if (separator == std::string::npos)
+            break;
+        start = separator + 1;
+    }
+    if (components.size() != 3)
+        return {};
+    char buffer[128];
+    std::snprintf(buffer, sizeof(buffer), "Vector3(%.3f, %.3f, %.3f)", components[0] + dx, components[1] + dy, components[2]);
+    return buffer;
+}
+}  // namespace
+
+MoveSelectionCommand::MoveSelectionCommand(std::vector<std::string> nodeIds, float dx, float dy) : m_nodeIds(std::move(nodeIds)), m_dx(dx), m_dy(dy) {
+}
+
+bool MoveSelectionCommand::execute(SceneDocument& document, std::string& error) {
+    if (!m_capturedPrevious) {
+        for (const auto& nodeId : m_nodeIds) {
+            const auto node = document.findNode(nodeId);
+            if (!node) {
+                error = "node '" + nodeId + "' was not found";
+                return false;
+            }
+            const auto position = node->properties.find("position");
+            m_previousPositions.push_back(position == node->properties.end() ? std::string{} : position->second);
+        }
+        m_capturedPrevious = true;
+    }
+    for (size_t index = 0; index < m_nodeIds.size(); ++index) {
+        const std::string offset = offsetVector3Value(m_previousPositions[index], m_dx, m_dy);
+        if (offset.empty()) {
+            error = "node '" + m_nodeIds[index] + "' requires a Vector3 position property";
+            return false;
+        }
+        if (!document.setNodeProperty(m_nodeIds[index], "position", offset, error))
+            return false;
+    }
+    return true;
+}
+
+bool MoveSelectionCommand::undo(SceneDocument& document, std::string& error) {
+    if (!m_capturedPrevious) {
+        error = "command has not been executed";
+        return false;
+    }
+    for (size_t index = 0; index < m_nodeIds.size(); ++index) {
+        if (m_previousPositions[index].empty()) {
+            if (!document.removeNodeProperty(m_nodeIds[index], "position", error))
+                return false;
+        } else if (!document.setNodeProperty(m_nodeIds[index], "position", m_previousPositions[index], error)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool MoveSelectionCommand::canMergeWith(const SceneCommand& other) const {
+    const auto* candidate = dynamic_cast<const MoveSelectionCommand*>(&other);
+    return candidate && candidate->m_nodeIds == m_nodeIds;
+}
+
+bool MoveSelectionCommand::mergeFrom(const SceneCommand& other) {
+    const auto* candidate = dynamic_cast<const MoveSelectionCommand*>(&other);
+    if (!candidate || !canMergeWith(other))
+        return false;
+    m_dx += candidate->m_dx;
+    m_dy += candidate->m_dy;
+    return true;
+}
+
 AddNodeCommand::AddNodeCommand(SceneNodeRecord node) : m_node(std::move(node)) {
 }
 
@@ -188,15 +299,28 @@ DuplicateNodeCommand::DuplicateNodeCommand(std::string sourceId, std::string dup
 
 bool DuplicateNodeCommand::execute(SceneDocument& document, std::string& error) {
     if (m_duplicates.empty()) {
-        const auto source = document.findNode(m_sourceId);
-        if (!source) {
+        // 深度优先收集整棵源子树，父节点先于子节点出现，保证父 id 重映射先就绪
+        std::vector<const SceneNodeRecord*> subtree;
+        collectSubtree(document, m_sourceId, subtree);
+        if (subtree.empty()) {
             error = "node '" + m_sourceId + "' was not found";
             return false;
         }
-        SceneNodeRecord copy = *source;
-        copy.id = m_duplicateId;
-        copy.name += " Copy";
-        m_duplicates.push_back(std::move(copy));
+        std::map<std::string, std::string> idMap{{m_sourceId, m_duplicateId}};
+        for (const auto* node : subtree) {
+            SceneNodeRecord copy = *node;
+            const auto mapped = idMap.find(copy.id);
+            copy.id = mapped != idMap.end() ? mapped->second : nextAvailableNodeId(document);
+            if (!copy.parentId.empty()) {
+                const auto mappedParent = idMap.find(copy.parentId);
+                if (mappedParent != idMap.end())
+                    copy.parentId = mappedParent->second;
+            }
+            if (node->id == m_sourceId)
+                copy.name += " Copy";
+            idMap[node->id] = copy.id;
+            m_duplicates.push_back(std::move(copy));
+        }
     }
     for (const auto& node : m_duplicates) {
         if (!document.addNode(node, error))
@@ -208,6 +332,55 @@ bool DuplicateNodeCommand::execute(SceneDocument& document, std::string& error) 
 bool DuplicateNodeCommand::undo(SceneDocument& document, std::string& error) {
     std::vector<SceneNodeRecord> removed;
     return document.removeNodeSubtree(m_duplicateId, removed, error);
+}
+
+AddNodesCommand::AddNodesCommand(std::vector<SceneNodeRecord> nodes) : m_nodes(std::move(nodes)) {
+}
+
+bool AddNodesCommand::execute(SceneDocument& document, std::string& error) {
+    if (!m_capturedRoots) {
+        // 批量记录中被其他记录引用为 parent 的不是根；根在 undo 时整棵移除
+        for (const auto& node : m_nodes) {
+            const bool referencedAsParent =
+                std::any_of(m_nodes.begin(), m_nodes.end(), [&node](const SceneNodeRecord& candidate) { return candidate.parentId == node.id; });
+            if (!referencedAsParent)
+                m_rootIds.push_back(node.id);
+        }
+        m_capturedRoots = true;
+    }
+    for (const auto& node : m_nodes) {
+        if (!document.addNode(node, error))
+            return false;
+    }
+    return true;
+}
+
+bool AddNodesCommand::undo(SceneDocument& document, std::string& error) {
+    for (const auto& rootId : m_rootIds) {
+        std::vector<SceneNodeRecord> removed;
+        if (!document.removeNodeSubtree(rootId, removed, error))
+            return false;
+    }
+    return true;
+}
+
+MacroCommand::MacroCommand(std::vector<std::unique_ptr<SceneCommand>> commands) : m_commands(std::move(commands)) {
+}
+
+bool MacroCommand::execute(SceneDocument& document, std::string& error) {
+    for (const auto& command : m_commands) {
+        if (!command->execute(document, error))
+            return false;
+    }
+    return true;
+}
+
+bool MacroCommand::undo(SceneDocument& document, std::string& error) {
+    for (auto command = m_commands.rbegin(); command != m_commands.rend(); ++command) {
+        if (!(*command)->undo(document, error))
+            return false;
+    }
+    return true;
 }
 
 bool CommandHistory::execute(std::unique_ptr<SceneCommand> command, SceneDocument& document, std::string& error) {

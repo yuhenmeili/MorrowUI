@@ -3,6 +3,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -78,11 +79,24 @@ private:
     std::string legacyEditProperty;
     std::string legacyEditValue;
     std::string lastSchemaSignature;
+    /// 属性搜索过滤词（Enter 提交生效）。
+    std::string searchFilter;
+    /// 已折叠的分组标题（会话内记忆）。
+    std::set<std::string> collapsedComponents;
+    std::shared_ptr<MRLineEdit> searchBox;
+    EventConnection searchClickConnection;
+    std::vector<Observable<BaseButton&>::Connection> headerConnections;
     std::string selectedAssetId;
     std::string selectedAssetType;
     bool m_applyingInspectorValue = false;
 
     void updateValues(const std::vector<InspectorProperty>& properties);
+
+    /// 常驻搜索框（懒创建，资产视图隐藏）。
+    void ensureSearchBox();
+
+    /// 分组标题点击：切换折叠并重建（会话内记忆）。
+    void toggleComponentCollapsed(const std::string& component);
 
     EditorShell& m_shell;
 };

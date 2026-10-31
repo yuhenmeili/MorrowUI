@@ -182,6 +182,7 @@ bool SceneDocument::loadFromFile(const std::filesystem::path& path, SceneDocumen
     size_t lineNumber = 0;
     SceneNodeRecord* currentNode = nullptr;
     SceneSubResourceRecord* currentSubResource = nullptr;
+    bool inGuides = false;
     while (std::getline(input, line)) {
         ++lineNumber;
         const auto content = trim(stripComment(line));
@@ -206,6 +207,7 @@ bool SceneDocument::loadFromFile(const std::filesystem::path& path, SceneDocumen
                 }
                 currentNode = nullptr;
                 currentSubResource = nullptr;
+                inGuides = false;
             } else if (sectionName == "external_resource") {
                 SceneResourceRecord resource;
                 resource.id = attributes["id"];
@@ -219,6 +221,7 @@ bool SceneDocument::loadFromFile(const std::filesystem::path& path, SceneDocumen
                 parsed.m_externalResources.push_back(std::move(resource));
                 currentNode = nullptr;
                 currentSubResource = nullptr;
+                inGuides = false;
             } else if (sectionName == "node") {
                 SceneNodeRecord node;
                 node.id = attributes["id"];
@@ -254,8 +257,39 @@ bool SceneDocument::loadFromFile(const std::filesystem::path& path, SceneDocumen
                 parsed.m_subResources.push_back(std::move(resource));
                 currentNode = nullptr;
                 currentSubResource = &parsed.m_subResources.back();
+                inGuides = false;
+            } else if (sectionName == "guides") {
+                currentNode = nullptr;
+                currentSubResource = nullptr;
+                inGuides = true;
             } else {
                 error = "line " + std::to_string(lineNumber) + ": unsupported section '" + sectionName + "'";
+                return false;
+            }
+            continue;
+        }
+
+        if (inGuides) {
+            if (content.compare(0, 9, "property ") != 0 || content.find('=') == std::string::npos) {
+                error = "line " + std::to_string(lineNumber) + ": expected 'property x = <value>' inside [guides]";
+                return false;
+            }
+            const auto assignment = content.find('=');
+            const auto guideAxis = trim(content.substr(9, assignment - 9));
+            const auto guideValue = trim(content.substr(assignment + 1));
+            float value = 0.0f;
+            try {
+                value = std::stof(guideValue);
+            } catch (...) {
+                error = "line " + std::to_string(lineNumber) + ": guide value must be a number";
+                return false;
+            }
+            if (guideAxis == "x") {
+                parsed.m_guideXs.push_back(value);
+            } else if (guideAxis == "y") {
+                parsed.m_guideYs.push_back(value);
+            } else {
+                error = "line " + std::to_string(lineNumber) + ": guide property must be x or y";
                 return false;
             }
             continue;
@@ -323,6 +357,13 @@ bool SceneDocument::saveToFile(const std::filesystem::path& path, std::string& e
         for (const auto& [property, value] : resource.properties) {
             output << "property " << property << " = " << serializePropertyValue(value) << "\n";
         }
+    }
+    if (!m_guideXs.empty() || !m_guideYs.empty()) {
+        output << "\n[guides]\n";
+        for (const float value : m_guideXs)
+            output << "property x = " << value << "\n";
+        for (const float value : m_guideYs)
+            output << "property y = " << value << "\n";
     }
     for (const auto& node : m_nodes) {
         output << "\n[node id=" << quote(node.id) << " type=" << quote(node.type);
@@ -468,6 +509,43 @@ bool SceneDocument::removeNodeSubtree(const std::string& nodeId, std::vector<Sce
     m_nodes.erase(std::remove_if(m_nodes.begin(), m_nodes.end(), [&ids](const SceneNodeRecord& node) { return std::find(ids.begin(), ids.end(), node.id) != ids.end(); }),
                   m_nodes.end());
     return true;
+}
+
+bool SceneDocument::isNodeLocked(const std::string& nodeId) const {
+    const auto* node = findNode(nodeId);
+    if (!node)
+        return false;
+    const auto locked = node->properties.find("locked");
+    return locked != node->properties.end() && locked->second == "true";
+}
+
+const std::vector<float>& SceneDocument::guideXs() const {
+    return m_guideXs;
+}
+
+const std::vector<float>& SceneDocument::guideYs() const {
+    return m_guideYs;
+}
+
+void SceneDocument::addGuideX(float value) {
+    m_guideXs.push_back(value);
+}
+
+void SceneDocument::addGuideY(float value) {
+    m_guideYs.push_back(value);
+}
+
+void SceneDocument::removeGuideX(float value) {
+    m_guideXs.erase(std::remove(m_guideXs.begin(), m_guideXs.end(), value), m_guideXs.end());
+}
+
+void SceneDocument::removeGuideY(float value) {
+    m_guideYs.erase(std::remove(m_guideYs.begin(), m_guideYs.end(), value), m_guideYs.end());
+}
+
+void SceneDocument::clearGuides() {
+    m_guideXs.clear();
+    m_guideYs.clear();
 }
 
 const std::vector<SceneResourceRecord>& SceneDocument::externalResources() const {

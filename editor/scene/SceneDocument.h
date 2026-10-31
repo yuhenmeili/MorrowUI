@@ -56,6 +56,24 @@ public:
 
     bool removeNodeSubtree(const std::string& nodeId, std::vector<SceneNodeRecord>& removed, std::string& error);
 
+    /// 编辑器锁定标记（节点属性 locked == "true"），锁定的节点在视口不可点选。
+    bool isNodeLocked(const std::string& nodeId) const;
+
+    /// 视口参考线（画布坐标系），随场景保存到 [guides] 段。
+    const std::vector<float>& guideXs() const;
+
+    const std::vector<float>& guideYs() const;
+
+    void addGuideX(float value);
+
+    void addGuideY(float value);
+
+    void removeGuideX(float value);
+
+    void removeGuideY(float value);
+
+    void clearGuides();
+
     const std::vector<SceneResourceRecord>& externalResources() const;
 
     const std::vector<SceneSubResourceRecord>& subResources() const;
@@ -66,6 +84,8 @@ private:
     std::vector<SceneResourceRecord> m_externalResources;
     std::vector<SceneSubResourceRecord> m_subResources;
     std::vector<SceneNodeRecord> m_nodes;
+    std::vector<float> m_guideXs;
+    std::vector<float> m_guideYs;
 };
 } // namespace morrow::editor
 

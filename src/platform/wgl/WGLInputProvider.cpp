@@ -288,6 +288,18 @@ void WGLInputProvider::key_callback(GLFWwindow* window, int key, int /*scancode*
         case GLFW_KEY_Y:
             mappedKey = TOUCH_KEY_Y;
             break;
+        case GLFW_KEY_V:
+            mappedKey = TOUCH_KEY_V;
+            break;
+        case GLFW_KEY_X:
+            mappedKey = TOUCH_KEY_X;
+            break;
+        case GLFW_KEY_D:
+            mappedKey = TOUCH_KEY_D;
+            break;
+        case GLFW_KEY_F:
+            mappedKey = TOUCH_KEY_F;
+            break;
         default:
             break;
     }

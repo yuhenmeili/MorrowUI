@@ -39,6 +39,11 @@ enum TouchKeyCode : int32_t {
     TOUCH_KEY_S,
     TOUCH_KEY_Z,
     TOUCH_KEY_Y,
+    // 桌面编辑器快捷键扩展（继续追加在尾部，保持既有枚举值稳定）
+    TOUCH_KEY_V,
+    TOUCH_KEY_X,
+    TOUCH_KEY_D,
+    TOUCH_KEY_F,
 };
 
 enum TouchMouseButton : int32_t {

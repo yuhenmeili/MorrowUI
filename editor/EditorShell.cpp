@@ -119,6 +119,94 @@ bool EditorShell::notifySelectionChanged() {
     return true;
 }
 
+void EditorShell::editCopy() {
+    std::string error;
+    if (!m_session->copySelection(error)) {
+        setStatus(error.empty() ? "Select a scene node to copy" : error);
+        return;
+    }
+    const size_t count = m_session->model().selection().nodeIds.size();
+    setStatus("Copied " + std::to_string(count) + " node(s)");
+}
+
+void EditorShell::editCut() {
+    const size_t count = m_session->model().selection().nodeIds.size();
+    std::string error;
+    if (!m_session->cutSelection(error)) {
+        setStatus(error.empty() ? "Select a scene node to cut" : error);
+        return;
+    }
+    m_selectedNodeId.clear();
+    notifySelectionChanged();
+    m_sceneTree->refresh();
+    m_viewport->rebuildRuntime();
+    m_inspector->refresh();
+    setStatus("Cut " + std::to_string(count) + " node(s) to clipboard");
+}
+
+void EditorShell::editPaste() {
+    std::vector<std::string> pastedRootIds;
+    std::string error;
+    if (!m_session->pasteClipboard(pastedRootIds, error)) {
+        setStatus(error.empty() ? "Clipboard is empty" : error);
+        return;
+    }
+    notifySelectionChanged();
+    m_sceneTree->refresh();
+    m_viewport->rebuildRuntime();
+    m_inspector->refresh();
+    setStatus("Pasted " + std::to_string(pastedRootIds.size()) + " node(s)");
+}
+
+void EditorShell::editDuplicate() {
+    std::string error;
+    if (!m_session->duplicateSelection(error)) {
+        setStatus(error.empty() ? "Select a scene node to duplicate" : error);
+        return;
+    }
+    notifySelectionChanged();
+    m_sceneTree->refresh();
+    m_viewport->rebuildRuntime();
+    m_inspector->refresh();
+    setStatus("Duplicated selection");
+}
+
+void EditorShell::editToggleLock() {
+    const auto selected = m_session->model().selection().nodeIds;
+    if (selected.empty()) {
+        setStatus("Select a scene node to lock/unlock");
+        return;
+    }
+    size_t lockedCount = 0;
+    size_t toggled = 0;
+    std::string error;
+    for (const auto& nodeId : selected) {
+        const bool locked = m_session->document().isNodeLocked(nodeId);
+        if (m_session->setProperty(nodeId, "locked", locked ? "false" : "true", false, error)) {
+            ++toggled;
+            if (!locked)
+                ++lockedCount;
+        } else if (!error.empty()) {
+            setStatus(error);
+            return;
+        }
+    }
+    m_sceneTree->refresh();
+    m_viewport->refreshSelectionOverlay();
+    m_inspector->refresh();
+    setStatus("Toggled lock on " + std::to_string(toggled) + " node(s)");
+}
+
+void EditorShell::editClearGuides() {
+    std::string error;
+    if (!m_session->clearGuides(error)) {
+        setStatus(error);
+        return;
+    }
+    m_viewport->refreshGuides();
+    setStatus("Cleared all guides");
+}
+
 void EditorShell::addLabel(const std::shared_ptr<UIWidget>& parent, const std::string& text, float x, float y, float width, float height) {
     auto label = std::make_shared<MRLabel>();
     label->setText(std::wstring(text.begin(), text.end()), "default");
@@ -248,6 +336,12 @@ void EditorShell::buildLayout() {
     m_sceneTree->contextMenu->addItem(L"Add Child Node...", 1);
     m_sceneTree->contextMenu->addItem(L"Rename...", 2);
     m_sceneTree->contextMenu->addItem(L"Delete", 3);
+    m_sceneTree->contextMenu->addItem(L"Cut", 10);
+    m_sceneTree->contextMenu->addItem(L"Copy", 11);
+    m_sceneTree->contextMenu->addItem(L"Paste", 12);
+    m_sceneTree->contextMenu->addItem(L"Duplicate", 13);
+    m_sceneTree->contextMenu->addItem(L"Toggle Lock", 14);
+    m_sceneTree->contextMenu->addItem(L"Clear Guides", 15);
     m_sceneTree->contextMenuConnection = m_sceneTree->contextMenu->events().onItemSelected.connect([this](MRPopupMenu&, int id, const std::wstring&) {
         if (id == 1)
             m_sceneTree->showCreateDialog(m_sceneTree->contextParentId);
@@ -255,6 +349,18 @@ void EditorShell::buildLayout() {
             m_sceneTree->beginRename(m_sceneTree->contextParentId);
         else if (id == 3)
             m_sceneTree->deleteSelected();
+        else if (id == 10)
+            editCut();
+        else if (id == 11)
+            editCopy();
+        else if (id == 12)
+            editPaste();
+        else if (id == 13)
+            editDuplicate();
+        else if (id == 14)
+            editToggleLock();
+        else if (id == 15)
+            editClearGuides();
     });
     m_assetsPanel->createAssetDialog = CreateAssetDialog::create();
     m_assetsPanel->assetCreateConnection = m_assetsPanel->createAssetDialog->events().onConfirmed.connect(
@@ -572,6 +678,7 @@ void EditorShell::handleInput(std::vector<TouchEvent>& events) {
         if (pointerEvent && m_sceneTree->createDialog && m_sceneTree->createDialog->isOpen()) {
             m_viewport->dragging = false;
             m_viewport->resizing = false;
+            m_viewport->rotating = false;
             m_viewport->resizeHandle = ResizeHandle::None;
             m_viewport->panning = false;
             m_viewport->transformChanged = false;
@@ -680,6 +787,55 @@ void EditorShell::handleKeyEvent(const TouchEvent& rawEvent) {
         if (key == TOUCH_KEY_BACKSPACE && !m_inspector->legacyEditValue.empty()) {
             m_inspector->legacyEditValue.pop_back();
             setStatus("Editing " + m_inspector->legacyEditProperty + ": " + m_inspector->legacyEditValue);
+            return;
+        }
+    }
+    // 属性文本编辑期间不触发节点快捷键，避免误操作场景
+    if (m_inspector->legacyEditProperty.empty()) {
+        // 方向键微调选中节点：步长取吸附步长（无吸附 1px），Shift ×10（长按重复同样生效，连续合并为一条撤销）
+        if (key == TOUCH_KEY_LEFT || key == TOUCH_KEY_RIGHT || key == TOUCH_KEY_UP || key == TOUCH_KEY_DOWN) {
+            const float baseStep = (m_viewport->snapEnabled && m_viewport->snapStep > 0.0f) ? m_viewport->snapStep : 1.0f;
+            const float step = (mods & TOUCH_MODIFIER_SHIFT) != 0 ? baseStep * 10.0f : baseStep;
+            float dx = 0.0f;
+            float dy = 0.0f;
+            if (key == TOUCH_KEY_LEFT)
+                dx = -step;
+            else if (key == TOUCH_KEY_RIGHT)
+                dx = step;
+            else if (key == TOUCH_KEY_UP)
+                dy = -step;
+            else
+                dy = step;
+            std::string error;
+            if (m_session->moveSelection(dx, dy, true, error)) {
+                m_viewport->syncSelectedRuntimeNodes(true);
+                m_viewport->refreshSelectionOverlay();
+                setStatus("Nudged selection by " + std::to_string(static_cast<int>(dx)) + ", " + std::to_string(static_cast<int>(dy)));
+            } else if (!error.empty()) {
+                setStatus(error);
+            }
+            return;
+        }
+        if (key == TOUCH_KEY_F && press && mods == TOUCH_MODIFIER_NONE) {
+            m_viewport->focusSelection();
+            return;
+        }
+    }
+    if ((mods & TOUCH_MODIFIER_CTRL) != 0 && press && m_inspector->legacyEditProperty.empty()) {
+        if (key == TOUCH_KEY_C) {
+            editCopy();
+            return;
+        }
+        if (key == TOUCH_KEY_X) {
+            editCut();
+            return;
+        }
+        if (key == TOUCH_KEY_V) {
+            editPaste();
+            return;
+        }
+        if (key == TOUCH_KEY_D) {
+            editDuplicate();
             return;
         }
     }

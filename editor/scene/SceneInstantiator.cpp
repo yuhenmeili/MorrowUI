@@ -491,6 +491,11 @@ bool applyProperty(const morrow::editor::SceneNodeRecord& record, const std::sha
         }
     }
 
+    // 编辑器元数据只进文档不进运行时（锁定标记等），静默跳过避免误报 unsupported
+    if (key == "locked") {
+        return true;
+    }
+
     error = "unsupported property '" + key + "' on node '" + record.type + "'";
     return false;
 }
