@@ -86,6 +86,10 @@ public:
     /// 本文档的来源文件路径（loadFromFile 填写）；子场景实例的相对路径以此目录解析。
     const std::filesystem::path& sourcePath() const;
 
+    /// 布局容器类型判定（HBox/VBox/Grid/Center/Margin/Split/Tab/Scroll）。
+    /// 容器子节点的 position 由容器每帧整排管理，编辑器不应直接拖动。
+    static bool isLayoutContainerType(const std::string& nodeType);
+
 private:
     std::vector<SceneResourceRecord> m_externalResources;
     std::vector<SceneSubResourceRecord> m_subResources;

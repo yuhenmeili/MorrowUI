@@ -151,9 +151,8 @@ public:
         engineOptions.multithread = false;
         engineOptions.enableRequestRender = false;
         engineOptions.windowInfo.name = "MorrowEditor Preview";
-        // 1280x760：保证 Inspector/底部面板在常见屏幕完整可见（framebuffer 跟随窗口客户区）
-        engineOptions.windowInfo.width = 1280;
-        engineOptions.windowInfo.height = 760;
+        engineOptions.windowInfo.width = 2200;
+        engineOptions.windowInfo.height = 1200;
 
         EngineSharedPtr engine = std::make_shared<morrow::Engine>(engineOptions);
         auto scene = engine->getScene2D();

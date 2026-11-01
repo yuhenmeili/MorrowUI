@@ -87,8 +87,9 @@ private:
     // ---- 锚定节点的 gizmo 行为 ----
     bool dragAnchored = false;
     bool resizeAnchored = false;
-    // ---- 吸附（网格 + 智能对齐） ----
-    bool snapEnabled = true;
+    // ---- 吸附（网格 + 智能对齐）----
+    /// Godot 对齐：默认无吸附；工具栏开关常开，或拖动时按住 Ctrl 临时启用。
+    bool snapEnabled = false;
     float snapStep = 10.0f;
     float dragStartPointerX = 0.0f;
     float dragStartPointerY = 0.0f;
@@ -190,6 +191,9 @@ private:
 
     /// 文档中节点是否带完整锚点键（anchor_min + anchor_max）。
     bool nodeAnchored(const std::string& nodeId) const;
+
+    /// 主选中节点的父级是否布局容器（位置由容器管理，不可拖动/微调）。
+    bool selectionManagedByContainer() const;
 
     /// 锚定节点的目标矩形 → 换算 anchor_offset 写回文档（保持锚点不变）。
     bool applyAnchoredRect(const std::string& nodeId, float x, float y, float width, float height, bool continuous);

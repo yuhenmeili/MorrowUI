@@ -24,6 +24,7 @@
 #include "assets/AssetTypeCatalog.h"
 #include "panels/AssetBrowserPanel.h"
 #include "panels/AnimationPanel.h"
+#include "scene/SceneDocument.h"
 #include "scene/SceneInstantiator.h"
 #include "panels/BuildPanel.h"
 #include "panels/InspectorPanel.h"
@@ -1330,10 +1331,28 @@ void EditorShell::handleKeyEvent(const TouchEvent& rawEvent) {
     }
     // 属性文本编辑期间不触发节点快捷键，避免误操作场景
     if (m_inspector->legacyEditProperty.empty()) {
-        // 方向键微调选中节点：步长取吸附步长（无吸附 1px），Shift ×10（长按重复同样生效，连续合并为一条撤销）
+        // 方向键微调选中节点：默认 1px；工具栏吸附开启或按住 Ctrl 时取吸附步长，Shift ×10
+        //（Godot 语义：容器子节点位置由容器管理，微调无效）
         if (key == TOUCH_KEY_LEFT || key == TOUCH_KEY_RIGHT || key == TOUCH_KEY_UP || key == TOUCH_KEY_DOWN) {
-            const float baseStep = (m_viewport->snapEnabled && m_viewport->snapStep > 0.0f) ? m_viewport->snapStep : 1.0f;
+            const bool snapActive = m_viewport->snapEnabled || (mods & TOUCH_MODIFIER_CTRL) != 0;
+            const float baseStep = (snapActive && m_viewport->snapStep > 0.0f) ? m_viewport->snapStep : 1.0f;
             const float step = (mods & TOUCH_MODIFIER_SHIFT) != 0 ? baseStep * 10.0f : baseStep;
+            const auto& selectionIds = m_session->model().selection().nodeIds;
+            bool anyManaged = false;
+            for (const auto& nodeId : selectionIds) {
+                const auto* node = m_session->document().findNode(nodeId);
+                if (node && !node->parentId.empty()) {
+                    const auto* parent = m_session->document().findNode(node->parentId);
+                    if (parent && SceneDocument::isLayoutContainerType(parent->type)) {
+                        anyManaged = true;
+                        break;
+                    }
+                }
+            }
+            if (anyManaged) {
+                setStatus("Selection is managed by a layout container (arrow keys disabled)");
+                return;
+            }
             float dx = 0.0f;
             float dy = 0.0f;
             if (key == TOUCH_KEY_LEFT)

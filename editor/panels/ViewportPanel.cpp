@@ -15,6 +15,7 @@
 #include "morrow/elements/MRColor.h"
 #include "morrow/elements/MRLabel.h"
 #include "panels/InspectorPanel.h"
+#include "scene/SceneDocument.h"
 #include "scene/SceneInstantiator.h"
 
 namespace morrow::editor {
@@ -212,7 +213,13 @@ void ViewportPanel::refreshSelectionOverlay() {
         {x + width, y + height},           {x + width * 0.5f, y + height}, {x, y + height},          {x, y + height * 0.5f},
         {x + width * 0.5f, y - rotateGap},
     };
+    // 容器子节点(位置由容器管理)只显示选中边框,不显示缩放/旋转手柄——Godot 语义
+    const bool managedByContainer = selectionManagedByContainer();
     for (size_t index = 0; index < points.size(); ++index) {
+        if (managedByContainer) {
+            selectionHandles[index]->setVisible(false);
+            continue;
+        }
         auto handle = std::dynamic_pointer_cast<MRColor>(selectionHandles[index]);
         if (handle)
             handle->setRounding(handleSize * 0.5f);
@@ -607,6 +614,15 @@ bool ViewportPanel::nodeAnchored(const std::string& nodeId) const {
     if (!node)
         return false;
     return node->properties.count("anchor_min") != 0 && node->properties.count("anchor_max") != 0;
+}
+
+bool ViewportPanel::selectionManagedByContainer() const {
+    const auto& document = m_shell.m_session->document();
+    const auto* node = document.findNode(m_shell.m_selectedNodeId);
+    if (!node || node->parentId.empty())
+        return false;
+    const auto* parent = document.findNode(node->parentId);
+    return parent && SceneDocument::isLayoutContainerType(parent->type);
 }
 
 bool ViewportPanel::nodeAnchorValues(const std::string& nodeId, float& minX, float& minY, float& maxX, float& maxY, float& parentWidth, float& parentHeight) const {
@@ -1043,8 +1059,10 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
         float selectedY = 0.0f;
         float selectedWidth = 0.0f;
         float selectedHeight = 0.0f;
+        const bool managedByContainer = selectionManagedByContainer();
         if (selectedRuntimeRect(selectedX, selectedY, selectedWidth, selectedHeight)) {
-            const ResizeHandle handle = resizeHandleAt(canvasX, canvasY, selectedX, selectedY, selectedWidth, selectedHeight);
+            const ResizeHandle handle =
+                managedByContainer ? ResizeHandle::None : resizeHandleAt(canvasX, canvasY, selectedX, selectedY, selectedWidth, selectedHeight);
             if (handle != ResizeHandle::None) {
                 if (m_shell.m_session->model().selectedLocalRect(resizeNodeStartX, resizeNodeStartY, resizeNodeStartZ, resizeNodeStartWidth, resizeNodeStartHeight)) {
                     resizeHandle = handle;
@@ -1057,7 +1075,7 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
                     return;
                 }
             }
-            if (rotationHandleAt(canvasX, canvasY, selectedX, selectedY, selectedWidth, selectedHeight)) {
+            if (!managedByContainer && rotationHandleAt(canvasX, canvasY, selectedX, selectedY, selectedWidth, selectedHeight)) {
                 const auto* node = m_shell.m_session->document().findNode(m_shell.m_selectedNodeId);
                 if (!parseVector3Property(node, "rotation", rotateStartRotationZ, rotateStartRotationZ, rotateStartRotationZ)) {
                     m_shell.setStatus("Node rotation property is malformed");
@@ -1096,7 +1114,10 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
                 m_shell.m_leftTabs->selectTab("scene_tree");
             resizing = false;
             resizeHandle = ResizeHandle::None;
-            dragging = true;
+            // Godot 语义:布局容器的子节点位置由容器管理,只允许选中不允许拖动
+            dragging = !managedByContainer;
+            if (managedByContainer)
+                m_shell.setStatus(screenTargetNodeId + " is managed by its layout container");
             transformChanged = false;
             lastPointerX = panelX;
             lastPointerY = panelY;
@@ -1137,7 +1158,7 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
             updateRubberBandOverlay();
         }
     } else if (event.eventType == TOUCH_EVENT_TYPE_MOVE && resizing && !m_shell.m_selectedNodeId.empty()) {
-        const bool snap = snapEnabled && (event.modifiers & TOUCH_MODIFIER_CTRL) == 0;
+        const bool snap = snapEnabled || (event.modifiers & TOUCH_MODIFIER_CTRL) != 0;
         const float dx = snap ? snapValue(canvasX) - snapValue(resizePointerStartX) : canvasX - resizePointerStartX;
         const float dy = snap ? snapValue(canvasY) - snapValue(resizePointerStartY) : canvasY - resizePointerStartY;
         float nodeX = resizeNodeStartX;
@@ -1210,7 +1231,8 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
         float dx = rawDx;
         float dy = rawDy;
         std::vector<std::pair<char, float>> matchedLines;
-        if (snapEnabled && (event.modifiers & TOUCH_MODIFIER_CTRL) == 0) {
+        // Godot 对齐:默认无吸附,按住 Ctrl 临时启用(工具栏开关为常开选项)
+        if (snapEnabled || (event.modifiers & TOUCH_MODIFIER_CTRL) != 0) {
             applyGridSnapToDelta(dx, dy);
             applySmartSnapToDelta(dx, dy, matchedLines);
         }

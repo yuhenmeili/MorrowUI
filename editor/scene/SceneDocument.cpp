@@ -1,7 +1,9 @@
 #include "SceneDocument.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <string_view>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -571,6 +573,13 @@ const std::vector<SceneNodeRecord>& SceneDocument::nodes() const {
 
 const std::filesystem::path& SceneDocument::sourcePath() const {
     return m_sourcePath;
+}
+
+bool SceneDocument::isLayoutContainerType(const std::string& nodeType) {
+    static const std::array<std::string_view, 8> containers = {
+        "HBoxContainer", "VBoxContainer", "GridContainer", "CenterContainer", "MarginContainer", "MRSplitContainer", "MRTabContainer", "MRScrollContainer",
+    };
+    return std::find(containers.begin(), containers.end(), nodeType) != containers.end();
 }
 
 }  // namespace morrow::editor
