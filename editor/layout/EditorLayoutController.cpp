@@ -4,8 +4,10 @@
 
 #include "EditorShell.h"
 #include "morrow/base/Transform.h"
+#include "morrow/base/UIWidget.h"
 #include "morrow/layout/MRSplitContainer.h"
 #include "morrow/layout/MRTabContainer.h"
+#include "panels/InspectorPanel.h"
 #include "ui/DockDropOverlay.h"
 
 namespace morrow::editor {

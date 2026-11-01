@@ -74,6 +74,7 @@ public:
 
 private:
     friend class EditorShell;
+    friend class EditorLayoutController;
 
     std::shared_ptr<UIWidget>& panel = m_root;
     std::shared_ptr<MRPopupMenu> assetMenu;

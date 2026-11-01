@@ -335,6 +335,13 @@ void EditorShell::refreshSceneSwitcher() {
     m_sceneSwitcher->setText(L"Scene: " + wide(m_scenePath.filename().generic_string()), "default");
 }
 
+void EditorShell::refreshSnapButtons() {
+    if (m_viewport->snapButton)
+        m_viewport->snapButton->setText(m_viewport->snapEnabled ? L"Snap: On" : L"Snap: Off", "default");
+    if (m_viewport->stepButton)
+        m_viewport->stepButton->setText(L"Step: " + std::to_wstring(static_cast<int>(m_viewport->snapStep)), "default");
+}
+
 void EditorShell::syncAnimation() {
     m_animationService.reload(m_session->document());
     if (m_animation)
@@ -678,7 +685,7 @@ void EditorShell::buildLayout() {
         [this](const std::string& status) { setStatus(status); },
         [this]() { m_assetsPanel->importAssets(); },
         [this](const ProjectFileEntry& entry) { m_inspector->inspectAsset(entry); });
-    m_viewport->previewRoot = makePanel(0.0f, 32.0f, 740.0f, 538.0f);
+    m_viewport->previewRoot = makePanel(0.0f, 68.0f, 740.0f, 502.0f);
     m_viewport->previewRoot->setWidgetName("PreviewRoot");
 
     m_workspaceSplit = MRSplitContainer::create();
@@ -879,8 +886,9 @@ void EditorShell::buildLayout() {
     m_sceneTree->createButton->getTransform()->setSize(34.0f, 28.0f);
     m_sceneTree->createButtonConnection = m_sceneTree->createButton->events().onClicked.connect([this](BaseButton&) { m_sceneTree->showCreateDialog(); });
     m_sceneTree->panel->addChild(m_sceneTree->createButton);
-    addLabel(m_viewport->panel, "2D Viewport", 8.0f, 6.0f, 220.0f, 28.0f);
-    // 多选对齐/分布按钮（选中 ≥2 时可见，分布在视口顶栏标题右侧）
+    addLabel(m_viewport->panel, "2D Viewport", 8.0f, 4.0f, 104.0f, 22.0f);
+    // 顶栏两行排布（适配窄 framebuffer）：行一 = 标题 + 对齐/分布按钮，
+    // 行二 = Anchor/Canvas/Scene 下拉 + Snap/Step；其下标尺条，画布从 kViewportTopInset 起。
     {
         struct AlignEntry {
             const wchar_t* label;
@@ -892,7 +900,7 @@ void EditorShell::buildLayout() {
         };
         float buttonX = 118.0f;
         for (const auto& entry : entries) {
-            auto button = addButton(m_viewport->panel, entry.label, buttonX, 5.0f, 30.0f, 22.0f, [this, mode = entry.mode] { editAlign(mode); });
+            auto button = addButton(m_viewport->panel, entry.label, buttonX, 3.0f, 30.0f, 22.0f, [this, mode = entry.mode] { editAlign(mode); });
             button->setTextFontSize(12.0f);
             button->setBackgroundColor(Vector4(0.16f, 0.20f, 0.26f, 1.0f));
             button->setHoverColor(Vector4(0.22f, 0.30f, 0.40f, 1.0f));
@@ -903,26 +911,22 @@ void EditorShell::buildLayout() {
             buttonX += 33.0f;
         }
     }
-    // 锚点预设下拉（选中节点后设置 anchor 三键，保持视觉矩形换算 offsets）
+    // 行二：预设下拉 + 吸附开关/步长（迁自工具栏，工具栏按窄窗口压缩）
     {
-        auto label = std::make_shared<MRLabel>();
-        label->setText(L"Anchors:", "default");
-        label->setFontSize(12.0f);
-        label->setFontColor(0.55f, 0.60f, 0.68f, 1.0f);
-        label->setAlign(HorizontalAlignment::RIGHT, VerticalAlignment::CENTER);
-        label->getTransform()->setPosition(384.0f, 5.0f, 0.0f);
-        label->getTransform()->setSize(64.0f, 22.0f);
-        m_viewport->panel->addChild(label);
+        const auto makeDropDown = [](const std::shared_ptr<MROptionButton>& button, float x, float y, float w) {
+            button->setTextFontSize(12.0f);
+            button->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
+            button->setBackgroundColor(Vector4(0.16f, 0.20f, 0.26f, 1.0f));
+            button->setHoverColor(Vector4(0.22f, 0.30f, 0.40f, 1.0f));
+            button->setPressedColor(Vector4(0.10f, 0.14f, 0.20f, 1.0f));
+            button->setCornerRadius(3.0f);
+            button->getTransform()->setPosition(x, y, 0.0f);
+            button->getTransform()->setSize(w, 22.0f);
+        };
+        // 锚点预设（选中节点后设置 anchor 三键，保持视觉矩形换算 offsets）
         auto presetButton = MROptionButton::create();
         presetButton->setText(L"Anchor Preset", "default");
-        presetButton->setTextFontSize(12.0f);
-        presetButton->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
-        presetButton->setBackgroundColor(Vector4(0.16f, 0.20f, 0.26f, 1.0f));
-        presetButton->setHoverColor(Vector4(0.22f, 0.30f, 0.40f, 1.0f));
-        presetButton->setPressedColor(Vector4(0.10f, 0.14f, 0.20f, 1.0f));
-        presetButton->setCornerRadius(3.0f);
-        presetButton->getTransform()->setPosition(452.0f, 5.0f, 0.0f);
-        presetButton->getTransform()->setSize(150.0f, 22.0f);
+        makeDropDown(presetButton, 8.0f, 28.0f, 118.0f);
         const wchar_t* presetNames[] = {L"Top Left", L"Top Center", L"Top Right", L"Middle Left", L"Center", L"Middle Right",
                                         L"Bottom Left", L"Bottom Center", L"Bottom Right", L"Full Rect", L"Stretch Horizontal", L"Stretch Vertical"};
         for (int index = 0; index < 12; ++index)
@@ -935,15 +939,8 @@ void EditorShell::buildLayout() {
         // 画布分辨率预设：固定尺寸预览触发容器/锚点真实重排（含安全区红条）
         auto canvasButton = MROptionButton::create();
         canvasButton->setText(L"Canvas: Fit", "default");
-        canvasButton->setTextFontSize(12.0f);
-        canvasButton->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
-        canvasButton->setBackgroundColor(Vector4(0.16f, 0.20f, 0.26f, 1.0f));
-        canvasButton->setHoverColor(Vector4(0.22f, 0.30f, 0.40f, 1.0f));
-        canvasButton->setPressedColor(Vector4(0.10f, 0.14f, 0.20f, 1.0f));
-        canvasButton->setCornerRadius(3.0f);
-        canvasButton->getTransform()->setPosition(614.0f, 5.0f, 0.0f);
-        canvasButton->getTransform()->setSize(150.0f, 22.0f);
-        const wchar_t* canvasNames[] = {L"Fit", L"1920 x 1080", L"1280 x 720", L"800 x 480", L"480 x 800", L"1920 x 720"};
+        makeDropDown(canvasButton, 132.0f, 28.0f, 118.0f);
+        const wchar_t* canvasNames[] = {L"Fit", L"1920x1080", L"1280x720", L"800x480", L"480x800", L"1920x720"};
         for (int index = 0; index < 6; ++index)
             canvasButton->addOption(canvasNames[index], index);
         m_canvasPresetConnection = canvasButton->selectionEvents().onSelected.connect([this](MROptionButton& source, int id, const std::wstring&) {
@@ -954,14 +951,7 @@ void EditorShell::buildLayout() {
         // 场景切换器：列出打开过的场景（会话缓存，切回不丢撤销）
         auto sceneButton = MROptionButton::create();
         sceneButton->setText(L"Scene: -", "default");
-        sceneButton->setTextFontSize(12.0f);
-        sceneButton->setTextColor(Vector4(0.88f, 0.90f, 0.94f, 1.0f));
-        sceneButton->setBackgroundColor(Vector4(0.16f, 0.20f, 0.26f, 1.0f));
-        sceneButton->setHoverColor(Vector4(0.22f, 0.30f, 0.40f, 1.0f));
-        sceneButton->setPressedColor(Vector4(0.10f, 0.14f, 0.20f, 1.0f));
-        sceneButton->setCornerRadius(3.0f);
-        sceneButton->getTransform()->setPosition(772.0f, 5.0f, 0.0f);
-        sceneButton->getTransform()->setSize(180.0f, 22.0f);
+        makeDropDown(sceneButton, 256.0f, 28.0f, 150.0f);
         m_sceneSwitcherConnection = sceneButton->selectionEvents().onSelected.connect([this](MROptionButton&, int id, const std::wstring&) {
             if (id < 0 || id >= static_cast<int>(m_openScenes.size()))
                 return;
@@ -969,6 +959,27 @@ void EditorShell::buildLayout() {
         });
         m_sceneSwitcher = sceneButton;
         m_viewport->panel->addChild(sceneButton);
+        // 吸附开关 + 步长循环（原工具栏迁入）
+        m_viewport->snapButton = addButton(m_viewport->panel, L"Snap: On", 414.0f, 28.0f, 78.0f, 22.0f, [this] {
+            m_viewport->snapEnabled = !m_viewport->snapEnabled;
+            m_viewport->refreshGuides();
+            refreshSnapButtons();
+            setStatus(m_viewport->snapEnabled ? "Snapping enabled" : "Snapping disabled");
+        });
+        m_viewport->stepButton = addButton(m_viewport->panel, L"Step: 10", 498.0f, 28.0f, 84.0f, 22.0f, [this] {
+            const float steps[] = {1.0f, 2.0f, 5.0f, 10.0f, 20.0f, 50.0f};
+            float& step = m_viewport->snapStep;
+            for (size_t index = 0; index < sizeof(steps) / sizeof(steps[0]); ++index) {
+                if (steps[index] == step) {
+                    step = steps[(index + 1) % (sizeof(steps) / sizeof(steps[0]))];
+                    break;
+                }
+            }
+            m_viewport->refreshGuides();
+            refreshSnapButtons();
+            setStatus("Snap step " + std::to_string(static_cast<int>(step)) + "px");
+        });
+        refreshSnapButtons();
     }
     addLabel(m_inspector->panel, "Inspector", 8.0f, 6.0f, 260.0f, 28.0f);
     addLabel(m_output->panel, "Output / Assets / Build", 8.0f, 2.0f, 360.0f, 22.0f);
@@ -1415,6 +1426,17 @@ bool EditorShell::initialize(std::string& error) {
     buildLayout();
     if (m_engine) {
         m_framebufferSizeConnection = m_engine->events().onFramebufferSizeChanged.connect([this](const Vector2& size) { handleFramebufferResize(size); });
+    }
+    // 启动默认选中场景根节点，Inspector 立即有内容可查
+    for (const auto& node : m_session->document().nodes()) {
+        if (node.parentId.empty()) {
+            std::string selectError;
+            if (m_session->selectNode(node.id, false, selectError)) {
+                m_selectedNodeId = node.id;
+                notifySelectionChanged();
+            }
+            break;
+        }
     }
     // 项目默认主题：.morrow 里 theme = <相对路径> 时加载并注入实例化默认值
     const std::string themePath = m_project.value("theme", "");

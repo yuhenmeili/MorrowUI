@@ -203,7 +203,7 @@ std::vector<CommandPalette::Entry> CommandPalette::collectEntries() const {
     add(L"Toggle Snapping", [this] {
         m_shell.m_viewport->snapEnabled = !m_shell.m_viewport->snapEnabled;
         m_shell.m_viewport->refreshGuides();
-        m_shell.m_toolbar->refreshSnapButtons();
+        m_shell.refreshSnapButtons();
     });
     add(L"Clear Guides", [this] { m_shell.editClearGuides(); });
     add(L"Toggle Lock Selected", [this] { m_shell.editToggleLock(); });

@@ -137,6 +137,9 @@ private:
     /// 重建顶栏场景切换下拉的选项与文案。
     void refreshSceneSwitcher();
 
+    /// 更新视口吸附开关/步长按钮文案（按钮在视口顶栏第二行）。
+    void refreshSnapButtons();
+
     /// 场景重建后同步动画服务与面板。
     void syncAnimation();
 

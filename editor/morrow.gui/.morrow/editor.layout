@@ -4,5 +4,5 @@ split center 0.637266
 split workspace 0.632505
 split left_stack 0.48
 tabs left_dock scene_tree 1 scene_tree
-tabs bottom_dock filesystem 3 filesystem output build
+tabs bottom_dock filesystem 4 filesystem output build animation
 tabs center_dock viewport 1 viewport

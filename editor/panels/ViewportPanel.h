@@ -32,9 +32,10 @@ enum class ResizeHandle {
     Left,
 };
 
-/// 标尺条厚度与视口顶栏留白（panel 局部系 px）。
+/// 标尺条厚度与视口顶栏留白（panel 局部系 px）。顶栏占两行（标题/对齐 + 预设下拉），
+/// 其下是标尺条，画布内容从 kViewportTopInset 开始。
 constexpr float kRulerThickness = 16.0f;
-constexpr float kViewportTopInset = 32.0f;
+constexpr float kViewportTopInset = 68.0f;
 
 class ViewportPanel : public EditorPanel {
 public:
@@ -105,6 +106,9 @@ private:
     std::vector<std::shared_ptr<morrow::MRLabel>> rulerLabels;
     /// 多选对齐/分布按钮（挂在 panel 顶栏，选中 ≥2 时可见）。
     std::vector<std::shared_ptr<morrow::MRButton>> alignButtons;
+    /// 吸附开关/步长按钮（EditorShell 创建于顶栏第二行，文案由 shell 维护）。
+    std::shared_ptr<morrow::MRButton> snapButton;
+    std::shared_ptr<morrow::MRButton> stepButton;
     /// 锚点指示方块（选中锚定节点时显示在父矩形上，最多 4 个角）。
     std::vector<std::shared_ptr<morrow::MRColor>> anchorIndicators;
     // ---- 分辨率/安全区预览 ----
