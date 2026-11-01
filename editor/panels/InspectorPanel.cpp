@@ -563,6 +563,8 @@ void InspectorPanel::refresh(bool force) {
             if (option->getSelectedId() < 0)
                 option->setText(property.value.empty() ? L"<unset>" : wide(property.value), "default");
             optionConnections.emplace_back(option->selectionEvents().onSelected.connect([this, property](MROptionButton&, int id, const std::wstring&) {
+                if (m_applyingInspectorValue)
+                    return;  // 程序化 setSelected 回写触发的通知,忽略避免 refresh 循环
                 if (id < 0 || id >= static_cast<int>(property.enumOptions.size()))
                     return;
                 applyValue(property.name, property.enumOptions[static_cast<size_t>(id)].first);
@@ -703,12 +705,14 @@ void InspectorPanel::updateValues(const std::vector<InspectorProperty>& properti
             m_applyingInspectorValue = false;
         }
         if (binding.optionButton && !property->enumOptions.empty()) {
+            m_applyingInspectorValue = true;
             for (size_t index = 0; index < property->enumOptions.size(); ++index) {
                 if (property->enumOptions[index].first == property->value) {
                     binding.optionButton->setSelected(static_cast<int>(index));
                     break;
                 }
             }
+            m_applyingInspectorValue = false;
         }
         if (!binding.edits.empty()) {
             const std::string value = property->mixed ? std::string{} : property->value;
