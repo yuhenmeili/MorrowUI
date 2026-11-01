@@ -340,7 +340,55 @@ bool ViewportPanel::runtimeNodeRect(const std::string& nodeId, float& x, float& 
 }
 
 bool ViewportPanel::selectedRuntimeRect(float& x, float& y, float& width, float& height) const {
-    return runtimeNodeRect(m_shell.m_selectedNodeId, x, y, width, height);
+    if (!runtimeNodeRect(m_shell.m_selectedNodeId, x, y, width, height))
+        return false;
+    // 选中框 = 自身矩形与全部子孙矩形的联合包围盒：容器(HBox 等)的 size
+    // 不随布局自动 fit 子控件,实际内容范围由子孙决定(Godot 同语义)
+    const auto& document = m_shell.m_session->document();
+    const auto* node = document.findNode(m_shell.m_selectedNodeId);
+    if (!node || node->type == "MRAnimationPlayer" || node->type == "MRSceneInstance")
+        return true;  // 播放器/场景实例的内容不是其视觉子孙,保持自身矩形
+    // 非渲染节点(布局容器/组织组):自身 size 只是布局提示,选中框完全由
+    // 可见子孙决定(容器 size 常大于内容,若并入会把框撑大)
+    const bool contentOnly = SceneDocument::isLayoutContainerType(node->type) || node->type == "SceneNode3D" || node->type == "MRRadioGroup";
+    float left = contentOnly ? std::numeric_limits<float>::max() : x;
+    float top = contentOnly ? std::numeric_limits<float>::max() : y;
+    float right = contentOnly ? std::numeric_limits<float>::lowest() : x + width;
+    float bottom = contentOnly ? std::numeric_limits<float>::lowest() : y + height;
+    const float selfLeft = x;
+    const float selfTop = y;
+    const float selfRight = x + width;
+    const float selfBottom = y + height;
+    const auto expandWith = [this, &document, &left, &top, &right, &bottom](auto&& self, const std::string& parentId) -> void {
+        for (const auto& child : document.nodes()) {
+            if (child.parentId != parentId)
+                continue;
+            float childX = 0.0f;
+            float childY = 0.0f;
+            float childWidth = 0.0f;
+            float childHeight = 0.0f;
+            if (runtimeNodeRect(child.id, childX, childY, childWidth, childHeight) && childWidth > 0.0f && childHeight > 0.0f) {
+                left = std::min(left, childX);
+                top = std::min(top, childY);
+                right = std::max(right, childX + childWidth);
+                bottom = std::max(bottom, childY + childHeight);
+            }
+            self(self, child.id);
+        }
+    };
+    expandWith(expandWith, m_shell.m_selectedNodeId);
+    if (contentOnly && left > right) {
+        // 无任何可见子孙:退回自身矩形
+        left = selfLeft;
+        top = selfTop;
+        right = selfRight;
+        bottom = selfBottom;
+    }
+    x = left;
+    y = top;
+    width = std::max(1.0f, right - left);
+    height = std::max(1.0f, bottom - top);
+    return true;
 }
 
 std::string ViewportPanel::runtimeNodeAt(float x, float y) const {
@@ -348,6 +396,10 @@ std::string ViewportPanel::runtimeNodeAt(float x, float y) const {
     const auto& nodes = document.nodes();
     for (auto node = nodes.rbegin(); node != nodes.rend(); ++node) {
         if (document.isNodeLocked(node->id))
+            continue;
+        // 布局容器不参与视口拾取(Godot 语义):点击容器区域/空隙不选中容器,
+        // 容器只能从场景树列表主动选中
+        if (SceneDocument::isLayoutContainerType(node->type))
             continue;
         const auto runtimeNode = runtimeNodes.find(node->id);
         if (runtimeNode == runtimeNodes.end() || !runtimeNode->second || !runtimeNode->second->getVisible())
@@ -1099,12 +1151,23 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
             for (const auto& [nodeId, runtimeNode] : runtimeNodes) {
                 if (m_shell.m_session->document().isNodeLocked(nodeId))
                     continue;
+                const auto* hitRecord = m_shell.m_session->document().findNode(nodeId);
+                if (hitRecord && SceneDocument::isLayoutContainerType(hitRecord->type))
+                    continue;
                 const auto uiNode = std::dynamic_pointer_cast<UIWidget>(runtimeNode);
                 if (uiNode && uiNode->getVisible() && uiNode->getWorldSpaceAABB().Contains(event.positionX, event.positionY)) {
                     screenTargetNodeId = nodeId;
                     break;
                 }
             }
+        }
+        // 拖动许可按「命中目标」的父级判定:旧选中可能是容器本身(父非容器),
+        // 若沿用旧判定会把容器子节点误标为可拖,产生与容器整排的跳变
+        const auto* hitNode = screenTargetNodeId.empty() ? nullptr : m_shell.m_session->document().findNode(screenTargetNodeId);
+        bool hitManagedByContainer = false;
+        if (hitNode && !hitNode->parentId.empty()) {
+            const auto* hitParent = m_shell.m_session->document().findNode(hitNode->parentId);
+            hitManagedByContainer = hitParent && SceneDocument::isLayoutContainerType(hitParent->type);
         }
         std::string error;
         if (!screenTargetNodeId.empty() && m_shell.m_session->selectNode(screenTargetNodeId, additive, error)) {
@@ -1115,8 +1178,8 @@ void ViewportPanel::handlePointer(const TouchEvent& event) {
             resizing = false;
             resizeHandle = ResizeHandle::None;
             // Godot 语义:布局容器的子节点位置由容器管理,只允许选中不允许拖动
-            dragging = !managedByContainer;
-            if (managedByContainer)
+            dragging = !hitManagedByContainer;
+            if (hitManagedByContainer)
                 m_shell.setStatus(screenTargetNodeId + " is managed by its layout container");
             transformChanged = false;
             lastPointerX = panelX;
