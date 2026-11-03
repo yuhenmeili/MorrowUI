@@ -31,6 +31,12 @@ public:
 
     void endFrame() override;
 
+    /// 空闲等待：阻塞至新输入唤醒（独立采集线程 notify）或超时（R1 方案 B）
+    void waitForEvents(double timeoutSeconds) override;
+
+    /// 唤醒空闲等待（RenderingThread::requestRender 在 worker 任务投递时调用）
+    void wakeEventLoop() override;
+
     void terminate() override;
 
     InputEventsManagerSharedPtr getInputManager() override;

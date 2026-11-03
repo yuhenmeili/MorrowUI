@@ -381,6 +381,19 @@ hittest 网格化属于量级驱动优化,列入观察不列入实施。
 
 ### R1:实现 QNX `waitForEvents` / `wakeEventLoop`(P1)
 
+> 实施状态:已于 2026-11-03 按方案 B 直接落地(跳过方案 A)。
+> `QNXInputProvider` 改为独立 screen 事件线程阻塞采集(`screen_get_event`
+> 200ms 看门狗替代 -1 无限阻塞,退出不依赖 pulse 注入)+ 有界队列(容量 256,
+> 溢出丢最旧,峰值/溢出诊断,不变量 13)+ generation 唤醒;主线程 poll 只排空
+> 本地队列,消费面(帧首、主线程、批量)不变,PROPERTY 事件不再截断当轮采集;
+> `QNXPlatform` 覆盖 `waitForEvents`(condvar 等待)/`wakeEventLoop`(notify)
+> 接通 `RenderingThread::requestRender` 唤醒契约。行为验证:host stub(可编程
+> screen 服务)并发逻辑测试——采集翻译、跨批次事件级 Δt(R3)、RELEASE 合成
+> 安全网、溢出丢最旧、唤醒延迟(0.1s 注入即醒)、析构 join——全部通过;
+> QNX 目标机交叉构建与触摸延迟、空闲功耗验收待做。Engine 空闲节拍(1/60)
+> 保留为心跳/objectSnapshot 命令轮询兜底,输入与任务唤醒不再受其限制;
+> 完全零节拍需后续调大 `idleWaitSeconds`(单独决策)。
+
 **做什么**:QNXPlatform 覆盖两个虚函数,把 Engine 空闲等待和
 `RenderingThread::requestRender` 的唤醒契约接到 OS 原语。按触摸-only 的
 产品定位,两个方案交付的不是同一组东西,收益要拆开算:

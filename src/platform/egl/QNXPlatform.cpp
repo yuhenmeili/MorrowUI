@@ -19,9 +19,11 @@ QNXPlatform::QNXPlatform(const WindowInfo& info) {
     m_egl = std::make_shared<EGLOperationsQNX>(m_requestedSamples);
     m_egl->initialize();
     if (const auto context = m_egl->getContext()) {
-        m_qnxInputProvider->setScreenContext(context->screen_ctx, context->screen_ev);
+        m_qnxInputProvider->setScreenContext(context->screen_ctx);
     }
     m_qnxInputProvider->setWindowOffset(info.x, info.y);
+    // 独立 screen 事件线程：输入到达即唤醒主线程空闲等待（R1 方案 B）
+    m_qnxInputProvider->startEventThread();
     m_inputEventsManager->setInputProvider(m_qnxInputProvider);
     m_window = EGLWindow::create(m_egl, info);
 }
@@ -59,6 +61,16 @@ void QNXPlatform::commitRenderPass(FrameStateSharedPtr frameState) {
 void QNXPlatform::endFrame() {
     RENDERINGTHREAD->present(std::static_pointer_cast<EGLWindow>(m_window)->nativeSurface());
     RENDERINGTHREAD->endFrame();
+}
+
+void QNXPlatform::waitForEvents(double timeoutSeconds) {
+    // 空闲等待：阻塞至新输入唤醒（采集线程投递事件时 notify）或超时。
+    // 输入与 worker 任务（requestRender → wakeEventLoop）不再受等待节拍限制。
+    m_qnxInputProvider->waitForEventLoopWakeup(timeoutSeconds);
+}
+
+void QNXPlatform::wakeEventLoop() {
+    m_qnxInputProvider->wakeEventLoop();
 }
 
 void QNXPlatform::terminate() {
