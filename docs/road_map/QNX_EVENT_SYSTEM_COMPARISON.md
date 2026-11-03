@@ -482,6 +482,9 @@ B——另加空闲画面触摸按下→首帧响应、静止画面 CPU 占空�
 
 ### R4:drain 超时改 0(P2)
 
+> 实施状态:已于 2026-11-03 落地(`QNXInputProvider.cpp` `kScreenEventWaitTimeNs`
+> 1ms → 0)。连续渲染模式帧时间收益需在 QNX 目标机上对比验收。
+
 **做什么**:`kScreenEventWaitTimeNs` 改为 0(纯排空);阻塞语义交 R1 的
 `waitForEvents`/事件线程承担。
 

@@ -11,7 +11,9 @@
 
 namespace morrow {
 namespace {
-constexpr int32_t kScreenEventWaitTimeNs = 1000000;
+// drain 超时 0:poll 只做纯排空，不产生等待。阻塞语义由 Platform::waitForEvents
+// （空闲）与帧节拍承担，避免无输入帧被计入 ≤1ms 的阻塞（road_map R4）。
+constexpr int32_t kScreenEventWaitTimeNs = 0;
 
 bool isUnhandledEventType(int32_t eventType) {
     return eventType != SCREEN_EVENT_NONE &&
