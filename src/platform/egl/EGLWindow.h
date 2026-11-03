@@ -6,6 +6,7 @@
 #define MORROW_EGL_WINDOW_H_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "EGLOperationsQNX.h"
@@ -68,6 +69,7 @@ private:
 
     //QNX Display
     EGLOperationsQNXSharedPtr m_platform;
+    std::string m_widgetName;  // WindowInfo::name，初始化失败日志用
     int32_t m_displayId = 0;
     int32_t m_zorder = 0;
     Vector2 m_windowPosition = {0.0f, 0.0f};

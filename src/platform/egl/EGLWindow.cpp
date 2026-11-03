@@ -157,23 +157,17 @@ void EGLWindow::terminate()
 }
 
 int32_t EGLWindow::getWindowSensitivity(WindowMask mask) {
-    if (mask == WindowMask::CONTINUE_MASK) {
-        return SCREEN_SENSITIVITY_MASK_CONTINUE;
-    }
-    else if (mask == WindowMask::ALWAYS_MASK) {
-        return SCREEN_SENSITIVITY_MASK_ALWAYS;
-    }
-    else if (mask == WindowMask::NEVER_MASK) {
-        return SCREEN_SENSITIVITY_MASK_NEVER;
-    }
-    return 0;
+    // WindowInfo.h 的 SCREEN_SENSITIVITY_MASK_* 值与 screen API 的灵敏度掩码
+    // 逐位一致（公共化时即按 screen 语义建模），此处恒等映射即可；位组合
+    // （如 ALWAYS | POINTER_BRUSH）也因此天然支持。
+    return static_cast<int32_t>(mask);
 }
 
 void EGLWindow::setClearColor(float r, float g, float b, float a)
 {
     if(m_clearColor.x != r || m_clearColor.y != g || m_clearColor.z != b || m_clearColor.w != a) {
         m_clearColor.set(r, g, b, a);
-        LOG_I("{}, {}, {}, {}, {}", this->getIdentityInfo().c_str(), r, g, b, a);
+        LOG_I("setClearColor {}, {}, {}, {}", r, g, b, a);
         requestRender("setClearColor");
     }
 }
@@ -182,7 +176,7 @@ void EGLWindow::setScreenAlpha(float alpha)
 {
     if (m_screenAlpha != alpha) {
         m_screenAlpha = alpha;
-        LOG_I("{}, {}", this->getIdentityInfo(), alpha);
+        LOG_I("setScreenAlpha {}", alpha);
         requestRender( "setScreenAlpha");
     }
 }
