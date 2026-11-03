@@ -53,6 +53,24 @@ void QNXInputProvider::setSkipEvents(bool skipEvents) {
     m_skipEvents = skipEvents;
 }
 
+double QNXInputProvider::toEngineTimeSeconds(int32_t rawTimestampMs) {
+    // SCREEN_PROPERTY_TIMESTAMP 为毫秒、32 位约 49.7 天回绕；累计回绕次数
+    // 扩展为单调 64 位毫秒（screen 事件时间戳单调递增，回绕表现为符号位翻转）。
+    if (m_lastRawTimestampValid && rawTimestampMs < m_lastRawTimestampMs) {
+        ++m_timestampWrapCount;
+    }
+    m_lastRawTimestampMs = rawTimestampMs;
+    m_lastRawTimestampValid = true;
+    const uint64_t totalMs = static_cast<uint64_t>(m_timestampWrapCount) * (1ULL << 32) +
+        static_cast<uint32_t>(rawTimestampMs);
+    const double seconds = static_cast<double>(totalMs) / 1000.0;
+    if (!m_timestampOffsetInitialized) {
+        m_timestampOffsetSeconds = Math::getCurrentMonotonicTime() - seconds;
+        m_timestampOffsetInitialized = true;
+    }
+    return seconds + m_timestampOffsetSeconds;
+}
+
 bool QNXInputProvider::hasTouchID(const std::vector<TouchEvent>& events, int32_t touchID) const {
     for (const auto& touchEvent : events) {
         if (touchID >= 0 && touchEvent.touchID == touchID) {
@@ -71,7 +89,9 @@ void QNXInputProvider::poll(std::vector<TouchEvent>& outEvents) {
     int32_t eventType = 0;
     int32_t touchID = 0;
     int32_t touchPos[2]{0, 0};
-    const double touchTime = Math::getCurrentMonotonicTime();
+    // 事件时间戳逐事件读取 SCREEN_PROPERTY_TIMESTAMP（R3）；nowSeconds 仅用于
+    // 属性读取失败回退与合成的 RELEASE（合成时刻即检测时刻，语义如实）。
+    const double nowSeconds = Math::getCurrentMonotonicTime();
 
     while (!screen_get_event(m_screenContext, m_screenEvent, kScreenEventWaitTimeNs)) {
         if (screen_get_event_property_iv(m_screenEvent, SCREEN_PROPERTY_TYPE, &eventType) != 0) {
@@ -115,7 +135,13 @@ void QNXInputProvider::poll(std::vector<TouchEvent>& outEvents) {
         touchEvent.touchID = touchID;
         touchEvent.positionX = static_cast<float>(touchPos[0] - m_windowX);
         touchEvent.positionY = static_cast<float>(touchPos[1] - m_windowY);
-        touchEvent.touchTime = touchTime;
+        int32_t rawTimestampMs = 0;
+        const bool hasTimestamp =
+            screen_get_event_property_iv(m_screenEvent, SCREEN_PROPERTY_TIMESTAMP, &rawTimestampMs) == 0;
+        if (!hasTimestamp) {
+            LOG_I("screen_get_event_property_iv(SCREEN_PROPERTY_TIMESTAMP) failed");
+        }
+        touchEvent.touchTime = hasTimestamp ? toEngineTimeSeconds(rawTimestampMs) : nowSeconds;
         touchEvent.eventType = mappedType;
         touchEvent.deviceType = TOUCH_DEVICE_TYPE_TOUCH;
         outEvents.emplace_back(touchEvent);
@@ -141,7 +167,7 @@ void QNXInputProvider::poll(std::vector<TouchEvent>& outEvents) {
             touchEvent.touchID = lastTouchEvent.touchID;
             touchEvent.positionX = lastTouchEvent.positionX;
             touchEvent.positionY = lastTouchEvent.positionY;
-            touchEvent.touchTime = touchTime;
+            touchEvent.touchTime = nowSeconds;
             touchEvent.eventType = TOUCH_EVENT_TYPE_RELEASE;
             touchEvent.deviceType = TOUCH_DEVICE_TYPE_TOUCH;
             outEvents.emplace_back(touchEvent);

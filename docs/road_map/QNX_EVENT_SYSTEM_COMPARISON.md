@@ -429,6 +429,12 @@ B——另加空闲画面触摸按下→首帧响应、静止画面 CPU 占空�
 
 ### R3:事件级时间戳(P2)
 
+> 实施状态:已于 2026-11-03 落地。`QNXInputProvider` 逐事件读
+> `SCREEN_PROPERTY_TIMESTAMP`,经固定 offset 换算到引擎 steady_clock 秒域
+> (事件间 Δt 精确,绝对值与 `getCurrentMonotonicTime()` 可比),32 位毫秒
+> 回绕扩展;属性读取失败回退单调时钟。单位为毫秒系按 Qt QPA 同一属性的用法
+> 推断,首次 QNX 交叉构建时需确认。
+
 **做什么**:每个事件读 `SCREEN_PROPERTY_TIMESTAMP`,写入 `TouchEvent.touchTime`;
 无时间戳的类型回退到单调时钟。
 

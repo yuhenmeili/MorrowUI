@@ -25,6 +25,17 @@ public:
 private:
     bool hasTouchID(const std::vector<TouchEvent>& events, int32_t touchID) const;
 
+    /// R3：SCREEN_PROPERTY_TIMESTAMP（毫秒）→ 引擎 steady_clock 秒域。
+    /// offset 仅初始化一次：事件间 Δt 精确（速度类消费），绝对值与
+    /// getCurrentMonotonicTime() 可比（Interaction 长按等阈值类消费）。
+    double toEngineTimeSeconds(int32_t rawTimestampMs);
+
+    double m_timestampOffsetSeconds = 0.0;
+    bool m_timestampOffsetInitialized = false;
+    int32_t m_lastRawTimestampMs = 0;
+    bool m_lastRawTimestampValid = false;
+    uint32_t m_timestampWrapCount = 0;
+
     screen_context_t m_screenContext = nullptr;
     screen_event_t m_screenEvent = nullptr;
     int32_t m_windowX = 0;
