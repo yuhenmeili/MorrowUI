@@ -74,7 +74,7 @@ private:
     Vector2 m_windowSize = {0.0f, 0.0f};
     int32_t m_windowAlpha = 255;
     int32_t m_windowAlphaMode = SCREEN_PRE_MULTIPLIED_ALPHA;
-    WindowMask m_winSensitivity = WindowMask::DEFAULT_MASK;
+    WindowMask m_winSensitivity = WindowMask::SCREEN_SENSITIVITY_MASK_ALWAYS;
     bool m_windowInited = false;
     int32_t m_initAttemptCounts = 0;
 

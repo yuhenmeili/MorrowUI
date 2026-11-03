@@ -72,7 +72,9 @@ int32_t EGLWindow::initWindow()
     screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_GLOBAL_ALPHA, &m_windowAlpha);
     screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_ALPHA_MODE, &m_windowAlphaMode);
     screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_ZORDER, &m_zorder);
-    if (m_winSensitivity != WindowMask::DEFAULT_MASK) {
+    // WindowInfo 公共默认即 SCREEN_SENSITIVITY_MASK_ALWAYS（旧 DEFAULT_MASK 哨兵
+    // 已随 Window.h 公共化移除），窗口创建时始终应用 sensitivity 配置。
+    {
         auto eglSensitivity = getWindowSensitivity(m_winSensitivity);
         screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_SENSITIVITY, &eglSensitivity);
     }
