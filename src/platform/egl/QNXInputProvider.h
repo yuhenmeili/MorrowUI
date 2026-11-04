@@ -60,6 +60,11 @@ private:
     /// getCurrentMonotonicTime() 可比（Interaction 长按等阈值类消费）。
     double toEngineTimeSeconds(int32_t rawTimestampMs);
 
+    // 事件线程私有：时间戳属性可用性降级锁存（采集线程单写单读，无需原子）。
+    // 部分 screen 栈不为触摸事件提供该属性（逐条查询恒失败），首次失败即置
+    // false：后续事件跳过查询（省一次 IPC 往返）并直接走本地单调时钟回退。
+    bool m_eventTimestampSupported = true;
+
     double m_timestampOffsetSeconds = 0.0;
     bool m_timestampOffsetInitialized = false;
     int32_t m_lastRawTimestampMs = 0;

@@ -140,10 +140,17 @@ void QNXInputProvider::eventThreadLoop() {
             continue;
         }
         int32_t rawTimestampMs = 0;
-        const bool hasTimestamp =
-            screen_get_event_property_iv(m_threadScreenEvent, SCREEN_PROPERTY_TIMESTAMP, &rawTimestampMs) == 0;
-        if (!hasTimestamp) {
-            LOG_I("screen_get_event_property_iv(SCREEN_PROPERTY_TIMESTAMP) failed");
+        // 时间戳属性按可用性锁存查询：支持的栈逐事件取硬件时间戳（精度优于
+        // 本地时钟，事件到达与读取之间的延迟不引入偏差）；不支持的栈首次失败
+        // 即降级——后续事件不再查询（每条事件省一次 IPC 往返），仅提示一次，
+        // 避免 MOVE 事件流逐条刷失败日志（QNX_EVENT_SYSTEM_COMPARISON.md R3）。
+        bool hasTimestamp = false;
+        if (m_eventTimestampSupported) {
+            hasTimestamp = screen_get_event_property_iv(m_threadScreenEvent, SCREEN_PROPERTY_TIMESTAMP, &rawTimestampMs) == 0;
+            if (!hasTimestamp) {
+                m_eventTimestampSupported = false;
+                LOG_W("SCREEN_PROPERTY_TIMESTAMP not supported by this screen stack, touch timestamps fall back to local monotonic clock");
+            }
         }
 
         TouchEvent touchEvent;

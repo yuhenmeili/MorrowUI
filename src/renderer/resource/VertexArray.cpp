@@ -88,7 +88,12 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, HwGPU
     bool hasColors = false;
     bool hasUVs = false;
     bool hasNormals = false;
+    // 批内 drawMode 以第一个有效 mesh 为基准（批分组哈希
+    // Mesh::getBatchCompatibilityHash 已含 drawMode，正常不会混批）。
+    // 不能用硬编码哨兵值初始化：此前以 TRIANGLES 起始，全 POINTS 批
+    // （GearsShine/GearsSelect 等）的首个 mesh 会触发 "was 4, now 0" 误报。
     PrimitiveType drawMode = PrimitiveType::TRIANGLES;
+    bool drawModeInitialized = false;
 
     for (const auto& meshFilter : meshFilters) {
         if (meshFilter && meshFilter->getMesh()) {
@@ -101,10 +106,12 @@ void VertexArray::updateFromMeshes(std::shared_ptr<FrameState> frameState, HwGPU
             hasUVs = hasUVs || !mesh->getUVs().empty();
             hasNormals = hasNormals || !mesh->getNormals().empty();
             // 防御性检查：同一批次中 drawMode 应保持一致
-            if (totalVertexCount > 0 && mesh->getDrawMode() != drawMode) {
+            if (!drawModeInitialized) {
+                drawMode = mesh->getDrawMode();
+                drawModeInitialized = true;
+            } else if (mesh->getDrawMode() != drawMode) {
                 LOG_WARN("VertexArray: mismatched drawMode in batch, was {}, now {}", static_cast<int>(drawMode), static_cast<int>(mesh->getDrawMode()));
             }
-            drawMode = mesh->getDrawMode();
         }
     }
 
