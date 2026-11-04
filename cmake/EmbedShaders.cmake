@@ -39,8 +39,12 @@ struct ShaderResource {
 ")
 
 foreach(SHADER_FILE IN LISTS SHADER_FILES)
-    get_filename_component(SHADER_NAME "${SHADER_FILE}" NAME)
-    string(MAKE_C_IDENTIFIER "${SHADER_NAME}" SHADER_IDENTIFIER)
+    # 嵌入 key = 相对 SHADER_DIR 的路径（含 common/ 目录前缀），
+    # 与 shader 内 #include "common/xxx.glsl" 的书写形式一致——否则
+    # Material::loadShader 的 chunk 查找 miss，fail-fast 清空源码，
+    # 设备端表现为 "INTERNAL ERROR: no main() function!"。
+    file(RELATIVE_PATH SHADER_KEY "${SHADER_DIR}" "${SHADER_FILE}")
+    string(MAKE_C_IDENTIFIER "${SHADER_KEY}" SHADER_IDENTIFIER)
     file(READ "${SHADER_FILE}" SHADER_CONTENT)
 
     # Convert the text into a C++ string literal while preserving line breaks
@@ -62,10 +66,10 @@ string(APPEND GENERATED_SOURCE
 ")
 
 foreach(SHADER_FILE IN LISTS SHADER_FILES)
-    get_filename_component(SHADER_NAME "${SHADER_FILE}" NAME)
-    string(MAKE_C_IDENTIFIER "${SHADER_NAME}" SHADER_IDENTIFIER)
+    file(RELATIVE_PATH SHADER_KEY "${SHADER_DIR}" "${SHADER_FILE}")
+    string(MAKE_C_IDENTIFIER "${SHADER_KEY}" SHADER_IDENTIFIER)
     string(APPEND GENERATED_SOURCE
-"    {\"${SHADER_NAME}\", kShader_${SHADER_IDENTIFIER}},
+"    {\"${SHADER_KEY}\", kShader_${SHADER_IDENTIFIER}},
 ")
 endforeach()
 

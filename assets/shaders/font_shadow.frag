@@ -17,8 +17,11 @@ const float SDF_PX_PER_UNIT = 15.9375f; // 255 / 16
 
 // erf 逼近（Abramowitz-Stegun 7.1.26，最大误差 ~1.5e-7）
 float erf(float x) {
-    const float t = 1.0 / (1.0 + 0.3275911 * abs(x));
-    const float poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+    // GLSL ES 的 const 局部变量要求编译期常量初始化，t/poly 依赖运行期入参
+    // x，只能声明为普通变量（桌面 460 core 下 const 不报错，ES profile 报
+    // "non-constant initializer: not supported with this profile: es"）。
+    float t = 1.0 / (1.0 + 0.3275911 * abs(x));
+    float poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
     return sign(x) * (1.0 - poly * exp(-x * x));
 }
 

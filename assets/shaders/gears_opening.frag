@@ -41,7 +41,7 @@ float calculateDisplacement(float distance)
 
 void main()
 {
-    fragColor = texture2D(u_texture, v_texCoord);
+    fragColor = texture(u_texture, v_texCoord);
     vec2 uvCenter = vec2(0.5, 0.5);
     float distance = 0.5 * u_imageSize.y + u_blurRadius;
     float displacement = u_duration == 0.0 ? distance : calculateDisplacement(distance);

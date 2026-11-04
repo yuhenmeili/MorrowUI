@@ -10,7 +10,7 @@ layout(location = 0) out vec4 fragColor;
 
 void main()
 {
-    vec4 base_color = texture2D(u_texture, v_texCoord.st);
+    vec4 base_color = texture(u_texture, v_texCoord.st);
     fragColor = v_color * base_color;
     fragColor.a *= u_alpha;
 }

@@ -15,7 +15,7 @@ layout(location = 0) out vec4 fragColor;
 
 void main()
 {
-    // vec4 result = vec4(texture2D(u_texture, v_texCoord.xy).a);
+    // vec4 result = vec4(texture(u_texture, v_texCoord.xy).a);
     vec4 result = vec4(0.0);
     float progress = u_timeDelta/u_duration;
     vec3 startPoint = vec3(u_displaySize.x/2.0,u_displaySize.y/2.0, 0.0);

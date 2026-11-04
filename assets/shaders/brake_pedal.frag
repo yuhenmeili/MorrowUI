@@ -8,15 +8,17 @@ uniform float u_alpha;
 
 layout(location = 0) in vec2 v_texCoord;
 
+layout(location = 0) out vec4 fragColor;
+
 const float PI=3.14159265358979323846;
 const float ANGLE_OFFSET = PI*0.5;
 const float TAU = 6.28318530717958647692;
 
 void main()
 {
-    vec4 gearsColor = vec4(texture2D(u_brakePedalTexture, v_texCoord.xy).a);
-    vec4 grayColor = vec4(texture2D(u_grayTexture, v_texCoord.xy).a);
-    vec4 whiteColor = vec4(texture2D(u_whiteTexture, v_texCoord.xy).a);
+    vec4 gearsColor = vec4(texture(u_brakePedalTexture, v_texCoord.xy).a);
+    vec4 grayColor = vec4(texture(u_grayTexture, v_texCoord.xy).a);
+    vec4 whiteColor = vec4(texture(u_whiteTexture, v_texCoord.xy).a);
     vec4 result = gearsColor + grayColor;
 
     float cd = u_duration * 1000.0;
@@ -29,6 +31,6 @@ void main()
     if( angle < endAngle){
         result += whiteColor;
     }
-    gl_FragColor = result;
-    gl_FragColor.a *= u_alpha;
+    fragColor = result;
+    fragColor.a *= u_alpha;
 }
