@@ -3,6 +3,17 @@
 #
 # 用法：cmake -DAPI_SURFACE_DIR=<include/morrow> -DENTRIES_FILE=<morrow_public_entries.cmake> -P CheckPublicApiSurface.cmake
 
+# 本脚本以 cmake -P 脚本模式运行：脚本模式没有 cmake_minimum_required 的
+# 策略提升，if(... IN_LIST ...)（CMP0057）默认 OLD 行为下直接报
+# "Unknown arguments specified"，此处显式开启。
+if(POLICY CMP0057)
+    cmake_policy(SET CMP0057 NEW)
+endif()
+# 同理：脚本模式下 CMP0007（list 不再忽略空元素）默认 OLD，逐行扫描会刷屏警告。
+if(POLICY CMP0007)
+    cmake_policy(SET CMP0007 NEW)
+endif()
+
 include(${ENTRIES_FILE})
 
 if(NOT DEFINED API_SURFACE_DIR)

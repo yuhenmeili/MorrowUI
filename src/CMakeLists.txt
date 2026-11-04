@@ -115,7 +115,9 @@ if(MORROW_PLATFORM STREQUAL "QNX")
     endif()
     file(GLOB_RECURSE EGL_SOURCES "platform/egl/*.cpp")
     list(APPEND PLATFORM_SRC ${EGL_SOURCES})
-    list(APPEND PLATFORM_LIBS screen EGL GLESv2 m)
+    # QNX 7.1 的 libc++ 把 std::filesystem 拆到独立的 libc++fs 库，
+    # 用到 std::filesystem 的翻译单元（ObjectRegistry/ShaderBinaryCache 等）链接时缺符号。
+    list(APPEND PLATFORM_LIBS screen EGL GLESv2 m c++fs)
 
     list(APPEND MORROW_PRIVATE_PLATFORM_DEFINES OPENGL_EGL QNX)
 elseif(MORROW_PLATFORM STREQUAL "Linux")
@@ -221,6 +223,7 @@ add_custom_target(morrow_gate_public_api
         -DAPI_GATE_FATAL=ON
         -P ${CMAKE_SOURCE_DIR}/cmake/CheckPublicApiGLFree.cmake
     COMMENT "M1 gate: public headers (include/morrow) must be GL/EGL/GLFW-free"
+    VERBATIM
 )
 add_dependencies(${MORROW_LIB_NAME} morrow_gate_public_api)
 
@@ -232,6 +235,7 @@ add_custom_target(morrow_gate_public_surface
         -DENTRIES_FILE=${CMAKE_SOURCE_DIR}/cmake/morrow_public_entries.cmake
         -P ${CMAKE_SOURCE_DIR}/cmake/CheckPublicApiSurface.cmake
     COMMENT "M3 gate: every public header must be entry-listed or reachable"
+    VERBATIM
 )
 add_dependencies(${MORROW_LIB_NAME} morrow_gate_public_surface)
 
