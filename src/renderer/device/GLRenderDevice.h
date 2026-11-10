@@ -18,8 +18,12 @@
 #include "ResourceRegistry.h"
 #include "ShaderBinaryCache.h"
 
+#include <utility>
+#include <vector>
+
 namespace morrow {
 class GLRenderDevice;
+class GlSSBO;
 // ---------------------------------------------------------------------------
 // GLRenderDevice – OpenGL/GLES 渲染后端的唯一公共类。
 // 持有 ResourceRegistry，负责 Handle ↔ GL 对象的映射。
@@ -125,6 +129,10 @@ public:
 
     void updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint);
 
+    /// 帧边界（GL 线程）：对本帧已写入的 SSBO 环形分段插入 fence，并推进帧序号。
+    /// 由 RenderDeviceProxy 在帧末（executeFrame 后 / 单线程 endFrame 内）调用。
+    void endSSBOFrame();
+
     void* insertFence();
 
     bool waitFence(void* fence, uint64_t timeoutNs);
@@ -213,6 +221,24 @@ private:
     bool upLoadTexture(GlTexture2D* textureImp, const TextureData& data);
 
     bool upLoadOESTexture(GlTexture2D* textureImp, const TextureData& data);
+
+    // ── SSBO 持久映射环形分段（仅 GL 线程访问，见 updateSSBO/endSSBOFrame）──
+    void ensureSSBOStorage(GlSSBO* glSsbo, size_t size);
+
+    /// 单段 fence 等待上限：稳态下该段 3 帧前写入、早已 signal，立即返回；
+    /// 只有渲染线程领先 GPU 超过 2 帧时才会短暂阻塞。
+    static constexpr uint64_t kSSBOSectionWaitTimeoutNs = 50ULL * 1000 * 1000;
+
+    uint32_t m_ssboFrameSequence = 0;
+    GLint m_ssboOffsetAlignment = 0;
+    bool m_ssboPersistentBroken = false;
+    bool m_ssboVersionValidated = false;
+    std::vector<std::pair<HwSSBO, uint32_t>> m_ssboFrameSectionWrites;
+    // 诊断计数（不变量 13/20），析构时汇总输出
+    uint64_t m_ssboPersistentCreateCount = 0;
+    uint64_t m_ssboPersistentRecreateCount = 0;
+    uint64_t m_ssboSectionWaitCount = 0;
+    uint64_t m_ssboSectionWaitTimeoutCount = 0;
 
     void enableBlend();
 

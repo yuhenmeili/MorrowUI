@@ -90,14 +90,29 @@ public:
 
 class GlSSBO {
 public:
+    // 持久映射环形分段数：与渲染命令环形槽位（kRingSize=3）同深，
+    // 每段独立 fence 做 GPU 帧隔离（写入前等待该段上一次写入的 fence）。
+    static constexpr uint32_t kSectionCount = 3;
+
     ~GlSSBO() {
         if (bufferID)
             glDeleteBuffers(1, &bufferID);
+        for (void*& fence : sectionFences) {
+            if (fence)
+                glDeleteSync(static_cast<GLsync>(fence));
+        }
     }
 
     GLuint bufferID = 0;
     size_t bufferSize = 0;
     uint32_t bindingPoint = 0;
+
+    // ── 持久映射环形分段（glBufferStorage，唯一上传路径，无回退）──
+    bool persistentMapped = false;
+    void* mappedBase = nullptr;
+    size_t sectionBytes = 0;
+    void* sectionFences[kSectionCount] = {};
+    bool bindingValidated = false;
 };
 
 class GlRenderTarget {

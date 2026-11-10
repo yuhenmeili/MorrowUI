@@ -898,6 +898,8 @@ void RenderDeviceProxy::submitCurrentBufferAndAdvance() {
 
 void RenderDeviceProxy::endFrame() {
     if (!m_threaded) {
+        // SSBO 持久环形分段：帧末 fence 落账 + 帧序号推进（GL 线程 = 主线程）
+        m_realDevice->endSSBOFrame();
         m_pendingFrames.push({m_realDevice->insertFence(), std::move(m_currentFrameRecyclables), std::move(m_currentFrameUBORecyclables), std::move(m_currentFrameSSBORecyclables),
                               std::move(m_currentFrameOESRecycle)});
         tryRecycle();
@@ -1006,6 +1008,10 @@ void RenderDeviceProxy::runCommand() {
             break;
 
         executeFrame(m_commandBuffers[readIdx]);
+
+        // SSBO 持久环形分段：帧末对本帧写入的 section 插入 fence 并推进帧序号
+        // （此时该帧全部命令已提交，fence 覆盖其所有 GPU 读取）
+        m_realDevice->endSSBOFrame();
 
         // 像素缓冲立即归还：glTexImage2D/glTexSubImage2D 均为同步调用，
         // 驱动已完成数据拷贝，无需等待 GPU Fence，比 VBO 回收更快。

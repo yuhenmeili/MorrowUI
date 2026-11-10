@@ -553,6 +553,14 @@ SSBO 路径按控件族维护实例布局（Button、Image、Font、ProgressBar�
 TextureButton、Bounce、DefaultColor、DefaultImage 等 layout），shader 名称
 决定实例数据布局与提交方式；新增可实例化控件时同步扩展对应 layout。
 
+实例数据经 `glBufferStorage` 持久映射环形分段上传：每个 SSBO 常驻 3 个分段，
+逐帧 memcpy 进当前分段并 `glBindBufferRange` 绑定段偏移，取代逐帧
+`glBufferData` 重分配；每段持有独立 fence，写入前等待该段上一次写入完成
+（稳态 3 帧前已 signal，零阻塞），构成 GPU 帧隔离。帧末由
+`RenderDeviceProxy` 调 `GLRenderDevice::endSSBOFrame()` 对本帧已写分段插入
+fence。桌面 GL ≥ 4.4 与 QNX（ES 3.2 目标）均为核心 API，无回退路径；创建/
+重建、段等待与超时计数在设备析构时汇总输出（不变量 13/20）。
+
 所有路径必须产生一致的视觉结果。性能优化不能改变材质、变换、透明度和绘制顺序语义。
 
 ### 7.7 Underlay（底层渲染项）
@@ -775,10 +783,14 @@ CommandBuffer 使用环形 frame slot。主线程只有在写入速度超过渲�
 
 VBO、UBO、SSBO 和像素上传数据使用可复用缓冲或对象池。
 
+SSBO 的 GPU 侧存储是常驻持久映射环形分段（见 7.6），不参与逐帧分配与回收；
+CPU 侧 SSBOData staging 仍走回收池，按 Fence 完成后归还。
+
 回收时机按数据用途区分：
 
 - CPU 数据仅被同步 OpenGL 调用读取时，可在命令执行后回收；
 - 数据可能被 GPU 异步读取时，需要等待对应 Fence；
+- SSBO 环形分段由每段独立 Fence 隔离，复用前等待；
 - 资源删除命令必须在最后一次使用命令之后执行。
 
 ---

@@ -6,6 +6,7 @@
 #include "GpuTypes.h"
 
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 
 #include "GlResourceObjects.h"
@@ -35,6 +36,12 @@ GLRenderDevice::GLRenderDevice(PlatformSharedPtr platform, const RenderDeviceOpt
 }
 
 GLRenderDevice::~GLRenderDevice() {
+    // 固定容量设施诊断汇总（不变量 13/20）
+    if (m_ssboPersistentCreateCount > 0 || m_ssboPersistentRecreateCount > 0) {
+        LOG_I("SSBO persistent ring summary: created={} recreated={} sectionWaits={} waitTimeouts={} frames={}",
+              m_ssboPersistentCreateCount, m_ssboPersistentRecreateCount,
+              m_ssboSectionWaitCount, m_ssboSectionWaitTimeoutCount, m_ssboFrameSequence);
+    }
 }
 
 void GLRenderDevice::makeCurrent(void* window) {
@@ -887,20 +894,151 @@ void GLRenderDevice::createSSBORender(HwSSBO handle) {
     m_registry.commitSSBO(handle, ssbo);
 }
 
-void GLRenderDevice::updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) {
-    auto* glSsbo = m_registry.getSSBO(ssbo);
-    if (!glSsbo)
+// ---------------------------------------------------------------------------
+// SSBO：持久映射环形分段（glBufferStorage，唯一上传路径，无回退）
+//
+// 每帧上传改为 memcpy 进常驻持久映射存储的分段，取代 glBufferData 整块重分配；
+// 段间用独立 fence 做 GPU 帧隔离：写入某段前必须等待该段上一次写入的 fence
+// （稳态下该段 3 帧前写入、GPU 早已完成，立即返回）。
+// desktop GL ≥ 4.4 / QNX ES 3.2 均为核心 API；驱动能力不足时输出 LOG_E 并
+// 跳过上传（无回退语义，仅防御硬崩溃）。
+// ---------------------------------------------------------------------------
+
+void GLRenderDevice::ensureSSBOStorage(GlSSBO* glSsbo, size_t size) {
+    if (glSsbo->persistentMapped && glSsbo->sectionBytes >= size) {
         return;
+    }
+
+#ifdef OPENGL_GLFW
+    if (!glBufferStorage) {
+        LOG_E("glBufferStorage unavailable (need OpenGL 4.4+), SSBO upload skipped");
+        m_ssboPersistentBroken = true;
+        return;
+    }
+#else
+    if (!m_ssboVersionValidated) {
+        m_ssboVersionValidated = true;
+        const char* versionStr = (const char*)glGetString(GL_VERSION);
+        if (!versionStr || !strstr(versionStr, "OpenGL ES 3.2")) {
+            LOG_E("SSBO persistent ring requires OpenGL ES 3.2, found: {}",
+                  versionStr ? versionStr : "unknown");
+        }
+    }
+#endif
+
+    if (m_ssboOffsetAlignment <= 0) {
+        glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &m_ssboOffsetAlignment);
+        if (m_ssboOffsetAlignment <= 0)
+            m_ssboOffsetAlignment = 256;
+    }
+
+    const size_t alignment = static_cast<size_t>(m_ssboOffsetAlignment);
+    const size_t sectionBytes = ((size + alignment - 1) / alignment) * alignment;
+    const GLsizeiptr capacity = static_cast<GLsizeiptr>(sectionBytes * GlSSBO::kSectionCount);
+    const bool recreate = glSsbo->persistentMapped;
+
+    if (glSsbo->bufferID)
+        glDeleteBuffers(1, &glSsbo->bufferID);
+    for (void*& fence : glSsbo->sectionFences) {
+        if (fence) {
+            glDeleteSync(static_cast<GLsync>(fence));
+            fence = nullptr;
+        }
+    }
+
+    glGenBuffers(1, &glSsbo->bufferID);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, glSsbo->bufferID);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, ssboData->size, ssboData->data.data(), GL_STREAM_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, glSsbo->bufferID);
+    glBufferStorage(GL_SHADER_STORAGE_BUFFER, capacity, nullptr,
+                    GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+    glSsbo->mappedBase = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, capacity,
+                                          GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    GLint boundBuffer = 0;
-    glGetIntegeri_v(GL_SHADER_STORAGE_BUFFER_BINDING, bindingPoint, &boundBuffer);
-    if (boundBuffer != glSsbo->bufferID) {
-        LOG_E("SSBO bound at point {}: {} (expected: {})", bindingPoint, boundBuffer, glSsbo->bufferID);
+    if (!glSsbo->mappedBase) {
+        LOG_E("SSBO persistent map failed (capacity {} bytes), SSBO upload skipped",
+              static_cast<size_t>(capacity));
+        glDeleteBuffers(1, &glSsbo->bufferID);
+        glSsbo->bufferID = 0;
+        m_ssboPersistentBroken = true;
+        return;
     }
+
+    glSsbo->persistentMapped = true;
+    glSsbo->sectionBytes = sectionBytes;
+
+    if (recreate) {
+        ++m_ssboPersistentRecreateCount;
+        if (m_ssboPersistentRecreateCount == 1 || m_ssboPersistentRecreateCount % 16 == 0) {
+            LOG_I("SSBO persistent ring recreated: sectionBytes={}B (count={})",
+                  sectionBytes, m_ssboPersistentRecreateCount);
+        }
+    } else {
+        ++m_ssboPersistentCreateCount;
+        LOG_I("SSBO persistent ring created: sectionBytes={}B sections={} capacity={}B",
+              sectionBytes, GlSSBO::kSectionCount, static_cast<size_t>(capacity));
+    }
+}
+
+void GLRenderDevice::updateSSBO(HwSSBO ssbo, std::shared_ptr<SSBOData> ssboData, uint32_t bindingPoint) {
+    if (m_ssboPersistentBroken)
+        return;
+    auto* glSsbo = m_registry.getSSBO(ssbo);
+    if (!glSsbo || !ssboData || ssboData->size == 0)
+        return;
+
+    ensureSSBOStorage(glSsbo, ssboData->size);
+    if (!glSsbo->persistentMapped)
+        return;
+
+    const uint32_t sectionIndex = m_ssboFrameSequence % GlSSBO::kSectionCount;
+
+    // 段隔离：等待该段上一次写入的 GPU fence（超时上限见 kSSBOSectionWaitTimeoutNs）
+    if (void* fence = glSsbo->sectionFences[sectionIndex]) {
+        if (!waitFence(fence, kSSBOSectionWaitTimeoutNs)) {
+            ++m_ssboSectionWaitTimeoutCount;
+            if (m_ssboSectionWaitTimeoutCount == 1 || m_ssboSectionWaitTimeoutCount % 100 == 0) {
+                LOG_W("SSBO section {} fence wait exceeded {}ms (timeouts={})",
+                      sectionIndex, kSSBOSectionWaitTimeoutNs / 1000000, m_ssboSectionWaitTimeoutCount);
+            }
+        }
+        glDeleteSync(static_cast<GLsync>(fence));
+        glSsbo->sectionFences[sectionIndex] = nullptr;
+        ++m_ssboSectionWaitCount;
+    }
+
+    uint8_t* dst = static_cast<uint8_t*>(glSsbo->mappedBase) + sectionIndex * glSsbo->sectionBytes;
+    std::memcpy(dst, ssboData->data.data(), ssboData->size);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, glSsbo->bufferID);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, bindingPoint, glSsbo->bufferID,
+                      static_cast<GLintptr>(sectionIndex * glSsbo->sectionBytes),
+                      static_cast<GLsizeiptr>(ssboData->size));
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    // 绑定校验：每个 SSBO 生命周期一次（此前每帧执行，构成每帧一次同步查询）
+    if (!glSsbo->bindingValidated) {
+        glSsbo->bindingValidated = true;
+        GLint boundBuffer = 0;
+        glGetIntegeri_v(GL_SHADER_STORAGE_BUFFER_BINDING, bindingPoint, &boundBuffer);
+        if (static_cast<GLuint>(boundBuffer) != glSsbo->bufferID) {
+            LOG_E("SSBO bound at point {}: {} (expected: {})", bindingPoint, boundBuffer, glSsbo->bufferID);
+        }
+    }
+
+    m_ssboFrameSectionWrites.emplace_back(ssbo, sectionIndex);
+}
+
+void GLRenderDevice::endSSBOFrame() {
+    for (const auto& [handle, section] : m_ssboFrameSectionWrites) {
+        auto* glSsbo = m_registry.getSSBO(handle);
+        if (!glSsbo)
+            continue;
+        if (glSsbo->sectionFences[section])
+            glDeleteSync(static_cast<GLsync>(glSsbo->sectionFences[section]));
+        glSsbo->sectionFences[section] = insertFence();
+    }
+    m_ssboFrameSectionWrites.clear();
+    ++m_ssboFrameSequence;
 }
 
 void* GLRenderDevice::insertFence() {
