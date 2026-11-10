@@ -141,6 +141,11 @@ public:
     /// Compatibility alias for existing callers.
     uint64_t getRevision() const;
 
+    /// 诊断：收集已设置的标量/向量/矩阵/数组参数名（无序，setter 逻辑名，
+    /// 不含 attributePrefix）。SSBO 合批路径只消费 layout 绑定表字段与纹理
+    /// （ARCHITECTURE.md 不变量 22），未登记参数会被静默丢弃；合批护栏据此判定违规。
+    void collectParamNames(std::vector<std::string>& out) const;
+
     bool isSSBOShader() const;
 
     void setSSBOLayout(SSBOLayoutComponentSharedPtr layout);

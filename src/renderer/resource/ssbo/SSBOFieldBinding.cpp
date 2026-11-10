@@ -118,4 +118,24 @@ void packSSBOLayoutUniforms(Material& material) {
         }
     }
 }
+
+void collectLayoutConsumedProperties(const SSBOLayout& layout, std::unordered_set<std::string>& consumed) {
+    for (const auto& field : layout.fields) {
+        // shaderField（color0/geomAttr 等槽位名）是标准路径 packSSBOLayoutUniforms
+        // 写入材质参数表的中间表示，与业务参数同住参数表但非业务参数，视为已消费。
+        consumed.insert(field.shaderField);
+        if (field.kind == SSBOFieldKind::MaterialVector) {
+            consumed.insert(field.materialProperty);
+            continue;
+        }
+        if (field.kind == SSBOFieldKind::PackedVector4) {
+            for (const auto& component : field.components) {
+                if (component.source == SSBOValueSource::MaterialFloat ||
+                    component.source == SSBOValueSource::MaterialVectorComponent) {
+                    consumed.insert(component.materialProperty);
+                }
+            }
+        }
+    }
+}
 }  // namespace morrow

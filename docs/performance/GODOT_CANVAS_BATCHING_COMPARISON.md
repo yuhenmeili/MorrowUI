@@ -21,9 +21,10 @@
    与 Godot「modulate 进实例数据、材质/纹理进批状态」完全同构。该准则应固化为不变量（见 B3）。
 4. **增量复用是 MorrowUI 的相对优势，保持。** Godot 每帧全量重录批次 + 全量重传实例数据；
    MorrowUI 帧间列表等价时整帧复用批次结构，VBO/SSBO 均有 revision 级跳过。
-5. **落地状态**：B2（SSBO 持久映射环形分段 + fence 帧隔离，无回退路径）已落地；
-   B3（per-instance 切分准则入不变量）待做；B1（屏幕空间剔除）经项目决策不做
-   （当前无屏幕外场景）；字形级实例流（B5）收益可观但需测量后决策。
+5. **落地状态**：B2（SSBO 持久映射环形分段 + fence 帧隔离，无回退路径）与
+   B3（控件差异化参数必须走实例槽，固化为不变量 22 + 参数绑定护栏）已落地；
+   B1（屏幕空间剔除）经项目决策不做（当前无屏幕外场景）；字形级实例流（B5）
+   收益可观但需测量后决策。
 
 ---
 
@@ -207,11 +208,22 @@ widget 场景，剔除无收益。若未来出现可滚动超界内容再评估�
 跳过帧需绑定最近已写分段，与环形轮转的同段并发需按 5.7 的 identical-content
 边界单独设计，建议拿到第一阶段基线数据后评估收益再实施。
 
-### B3 「per-instance 优先」固化为架构不变量（P0，零风险）
+### B3 控件各自的参数必须走实例槽，不进共享状态（「per-instance 优先」固化为架构铁律，已落地）
 
-在 `ARCHITECTURE.md` 第 14 节追加一条：**能以实例槽表达的控件参数（颜色、进度、状态位、
-动画参数）不得进入材质状态 hash、mesh revision 或新 shader 变体；新增 SSBO layout 时
-逐一核对字段归位。** 这是 Godot 整个合批体系的判定灵魂，也是未来扩展时最容易静默劣化的点。
+**已落地**：`ARCHITECTURE.md` 第 14 节不变量 22 + `SSBOManager::validateBatchParamBindings`
+诊断护栏——合并 SSBO 批填充时逐材质比对参数名与绑定表消费集合
+（`collectLayoutConsumedProperties` 纯 CPU 判定，消费集合按 layout 指针缓存，
+scratch 复用保证稳态零分配），未登记参数（会被 `applyBatch` 静默丢弃）
+按 (layout, 参数) 限流 LOG_W。`Material::collectParamNames` 为公共面只加 API。
+
+为什么是合批体系的判定灵魂：一次 draw 的成本结构是「批状态切换（= 断批，API 往返）」
+vs「实例数据（同一次 draw 内摊销）」——把参数从批状态挪进实例数据，语义不变地把
+「N 个对象 N 次 draw」变成「1 次 draw + N×字段字节数」。Godot 的教科书案例：
+文本 modulate 进实例数据 → 一页图集 1 个 draw；LCD 子像素路径颜色必须是 blend
+constant（批状态）→ 逐色断批（`gles3.cpp:915-918`）。MorrowUI 的失效模式是：
+新增控件参数做成 material uniform → 标准路径与单素材批正常 → 相邻两个同族控件
+合并后参数静默丢失（`applyBatch` 只应用 program + 纹理）——「单控件正确、
+多控件错」最难排查。护栏让违规在第一时间可见。
 
 ### B4 矩形类几何单位四边形实例化（P1，需测量）
 

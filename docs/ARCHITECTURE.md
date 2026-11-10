@@ -551,7 +551,8 @@ A → B → A
 
 SSBO 路径按控件族维护实例布局（Button、Image、Font、ProgressBar、
 TextureButton、Bounce、DefaultColor、DefaultImage 等 layout），shader 名称
-决定实例数据布局与提交方式；新增可实例化控件时同步扩展对应 layout。
+决定实例数据布局与提交方式；新增可实例化控件时同步扩展对应 layout，字段
+归位判定见不变量 22（参数绑定护栏对未登记参数限流告警）。
 
 实例数据经 `glBufferStorage` 持久映射环形分段上传：每个 SSBO 常驻 3 个分段，
 逐帧 memcpy 进当前分段并 `glBindBufferRange` 绑定段偏移，取代逐帧
@@ -999,6 +1000,9 @@ Present
 - **合批统计验收**：`BatchStatistics` 与断批原因枚举（DisplayLayer /
   MaterialState / Geometry / OrderBarrier）是合批回归的验收面；DebugDemo
   演示 `--report-json` / `--frames` / `--request-render` 无头验收。
+- **SSBO 参数绑定护栏**：合并 SSBO 批填充时检测材质中未被 layout 绑定表
+  消费的参数（该路径只消费绑定表字段与纹理，未登记参数静默丢弃，见不变量
+  22），按 (layout, 参数) 限流 LOG_W（`SSBOManager::validateBatchParamBindings`）。
 - 固定容量缓冲（CommandBuffer、RecyclePool）必须输出峰值与溢出诊断
   （不变量 13、20）。
 
@@ -1038,3 +1042,8 @@ Present
     （像素上传、模糊 VBO 等）单独收紧，禁止无界增长的回收池；
 21. 背景模糊是分段绘制而非全局后处理：模糊源仅包含分段边界以下内容，分段与
     面片绘制不得改变既有 painter's order 和 displayLayer 语义。
+22. 能以实例槽表达的控件参数（颜色、进度、状态位、动画相位等随控件实例变化的量）
+    必须经 SSBO layout 绑定表进实例槽（color0/color1/geomAttr/stateAttr/extraAttr），
+    不得进入材质状态 hash、mesh 顶点或新 shader 变体；批内恒定的量（AA 带宽、
+    texel size 等）不占实例槽。SSBO 合批路径只消费绑定表字段与纹理，未登记参数
+    会被静默丢弃；合并批填充时的参数绑定护栏按 (layout, 参数) 限流告警（LOG_W）。

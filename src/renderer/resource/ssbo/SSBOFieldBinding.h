@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <unordered_set>
 
 #include "BatchDataDefine.h"
 
@@ -138,6 +139,12 @@ bool writeSSBOField(const SSBOFieldBinding& field, void* destination, const Rend
 struct SSBOLayout;
 
 bool fillSSBOInstance(const SSBOLayout& layout, void* destination, const RenderBatch& batch, size_t index);
+
+// 诊断护栏（纯 CPU，不变量 22）：把 layout 绑定表消费的材质参数名写入 consumed。
+// SSBO 合批路径只消费绑定表字段与纹理，材质中未登记的参数会被静默丢弃；
+// SSBOManager 据此在合并批次填充时判定违规并限流告警。
+// 仅扫描 fields；filler-only layout 无法静态判定（consumed 保持为空）。
+void collectLayoutConsumedProperties(const SSBOLayout& layout, std::unordered_set<std::string>& consumed);
 
 class Material;
 

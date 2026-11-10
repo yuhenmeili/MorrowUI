@@ -6,6 +6,7 @@
 
 #include <cstdint>
 
+#include "morrow/Material.h"
 #include "morrow/utils/Log.h"
 #include "ssbo/SSBOFieldBinding.h"
 
@@ -38,6 +39,8 @@ void SSBOManager::updateSSBOForShader(const std::string& shaderName, RenderBatch
         return;
     }
 
+    validateBatchParamBindings(shaderName, *layout, batch);
+
     batch.ssbo->resize(batchSize * layout->elementSize);
     auto ptr = static_cast<uint8_t*>(batch.ssbo->getDataPtr());
     for (size_t i = 0; i < batchSize; i++) {
@@ -45,6 +48,42 @@ void SSBOManager::updateSSBOForShader(const std::string& shaderName, RenderBatch
         fillSSBOInstance(*layout, instanceData, batch, i);
     }
     batch.ssbo->update();
+}
+
+void SSBOManager::validateBatchParamBindings(const std::string& shaderName, const SSBOLayout& layout, const RenderBatch& batch) {
+    if (batch.materials.size() <= 1 || layout.fields.empty()) {
+        return;
+    }
+
+    auto cached = m_consumedPropertiesCache.find(&layout);
+    if (cached == m_consumedPropertiesCache.end()) {
+        cached = m_consumedPropertiesCache.emplace(&layout, std::unordered_set<std::string>()).first;
+        collectLayoutConsumedProperties(layout, cached->second);
+    }
+    const std::unordered_set<std::string>& consumed = cached->second;
+
+    for (const auto& material : batch.materials) {
+        if (!material) {
+            continue;
+        }
+        m_paramNamesScratch.clear();
+        material->collectParamNames(m_paramNamesScratch);
+        for (const auto& name : m_paramNamesScratch) {
+            if (consumed.find(name) != consumed.end()) {
+                continue;
+            }
+            ++m_droppedParamHits;
+            std::string key = layout.name;
+            key += '|';
+            key += name;
+            if (m_warnedParamKeys.insert(std::move(key)).second) {
+                LOG_W("SSBO batch '{}' ({} instances): material param '{}' is not bound by layout '{}' "
+                      "and is silently dropped in the merged SSBO path; route it through an SSBO slot "
+                      "(ARCHITECTURE.md invariant 22)",
+                      shaderName, batch.materials.size(), name, layout.name);
+            }
+        }
+    }
 }
 
 }  // namespace morrow

@@ -522,6 +522,35 @@ uint64_t Material::getUniformRevision() const {
     return m_uniformRevision;
 }
 
+void Material::collectParamNames(std::vector<std::string>& out) const {
+    out.reserve(out.size() + m_vectorMap.size() + m_floatMap.size() + m_intMap.size() +
+                m_matrix4Map.size() + m_intArrayMap.size());
+    // setter 存储键带 attributePrefix（"u_"），这里返回逻辑名（与 layout
+    // 绑定表的 materialProperty 同名空间），供合批护栏直接比对。
+    auto appendLogical = [this, &out](const std::string& key) {
+        if (key.rfind(m_attributePrefix, 0) == 0) {
+            out.emplace_back(key, m_attributePrefix.size(), key.size() - m_attributePrefix.size());
+        } else {
+            out.push_back(key);
+        }
+    };
+    for (const auto& entry : m_vectorMap) {
+        appendLogical(entry.first);
+    }
+    for (const auto& entry : m_floatMap) {
+        appendLogical(entry.first);
+    }
+    for (const auto& entry : m_intMap) {
+        appendLogical(entry.first);
+    }
+    for (const auto& entry : m_matrix4Map) {
+        appendLogical(entry.first);
+    }
+    for (const auto& entry : m_intArrayMap) {
+        appendLogical(entry.first);
+    }
+}
+
 uint64_t Material::getRenderRevisionHash() const {
     uint64_t hash = m_batchCompatibilityRevision;
     hash ^= m_uniformRevision + 0x9e3779b97f4a7c15ULL + (hash << 6U) + (hash >> 2U);
