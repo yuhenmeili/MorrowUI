@@ -78,7 +78,7 @@ Engine::Engine(const EngineOptions& options) {
         LOG_I("shader binary cache enabled: {}", deviceOptions.shaderBinaryCacheDir);
     }
 
-    m_platform = PlatformFactory::create(windowInfo);
+    m_platform = PlatformFactory::create(windowInfo, options.extraWindowInfos, options.screenMode);
     m_platform->initialize(options.multithread, deviceOptions);
     std::weak_ptr<RenderingThread> weakRenderingThread =
         GlobalObject::getInstance().getRenderingThread();
@@ -140,8 +140,12 @@ Engine::~Engine() {
     LOG_I("ENGINE_DTOR: done");
 }
 
-Scene2DSharedPtr Engine::getScene2D() const {
-    return m_platform && m_platform->getWindow() ? m_platform->getWindow()->scene2D() : nullptr;
+Scene2DSharedPtr Engine::getScene2D(int32_t index) const {
+    if (!m_platform || index < 0 || index >= static_cast<int32_t>(m_platform->getWindows().size())) {
+        return nullptr;
+    }
+    const auto& window = m_platform->getWindows()[static_cast<size_t>(index)];
+    return window ? window->scene2D() : nullptr;
 }
 
 void Engine::setClearColor(float r, float g, float b, float a) {
@@ -276,10 +280,25 @@ void Engine::render() {
         TweenManager::getInstance().update(m_frameState);
 
         // ── 阶段 3: 渲染管线 ──
-        m_platform->beginRenderPass(m_frameState);      // GPU 准备
-        m_platform->updateWidgets(m_frameState);         // Widget 树遍历 (standard update)
-        m_platform->lateUpdateWidgets(m_frameState);     // Widget 树 lateUpdate (依赖其他组件已更新)
-        m_platform->commitRenderPass(m_frameState);      // GPU 提交
+        // Mirror（多屏镜像）：主窗口 UI 管线进离屏 RT，其余屏由 PresentStage
+        // 贴图上屏；Independent / 单窗口：每窗口各自完整管线
+        const bool mirrorActive = m_platform->isMirrorActive();
+        if (mirrorActive) {
+            m_platform->beginContentPass(m_frameState);
+        }
+        const auto& windows = m_platform->getWindows();
+        for (const auto& window : windows) {
+            if (mirrorActive && window != windows.front()) {
+                continue;   // 镜像模式仅主窗口承载 UI 管线
+            }
+            window->beginRenderPass(m_frameState);      // GPU 准备
+            window->updateWidgets(m_frameState);        // Widget 树遍历 (standard update)
+            window->lateUpdateWidgets(m_frameState);    // Widget 树 lateUpdate (依赖其他组件已更新)
+            window->commitRenderPass(m_frameState);     // GPU 提交
+        }
+        if (mirrorActive) {
+            m_platform->endContentPass(m_frameState);
+        }
 
         // ── 阶段 4: 帧后处理 ──
         m_frameState->frameNumber++;

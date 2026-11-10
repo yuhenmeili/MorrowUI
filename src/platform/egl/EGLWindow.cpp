@@ -185,6 +185,10 @@ void EGLWindow::beginRenderPass(FrameStateSharedPtr frameState)
 {
     if (!m_windowInited) return;
 
+    // 多窗口必需：单 context 依次 current 到各 surface。单窗口场景被
+    // GLRenderDevice::makeCurrent 的去重判断短路，无额外开销
+    RENDERINGTHREAD->makeCurrent(m_eglSurface);
+
     if (auto transform = m_scene2D->getComponent<Transform>()) {
         const Vector3 size = transform->getSize();
         if (size.x != m_windowSize.x || size.y != m_windowSize.y) {

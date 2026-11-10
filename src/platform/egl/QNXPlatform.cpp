@@ -12,7 +12,9 @@
 #include "morrow/utils/Log.h"
 
 namespace morrow {
-QNXPlatform::QNXPlatform(const WindowInfo& info) {
+QNXPlatform::QNXPlatform(const WindowInfo& info,
+                         const std::vector<WindowInfo>& extraWindowInfos,
+                         ScreenRenderMode screenMode) {
     m_requestedSamples = std::max(info.samples, 1);
     m_inputEventsManager = std::make_shared<InputEventsManager>();
     m_qnxInputProvider = std::make_shared<QNXInputProvider>();
@@ -25,12 +27,33 @@ QNXPlatform::QNXPlatform(const WindowInfo& info) {
     // 独立 screen 事件线程：输入到达即唤醒主线程空闲等待（R1 方案 B）
     m_qnxInputProvider->startEventThread();
     m_inputEventsManager->setInputProvider(m_qnxInputProvider);
-    m_window = EGLWindow::create(m_egl, info);
+
+    std::vector<WindowSharedPtr> windows;
+    windows.reserve(1 + extraWindowInfos.size());
+    windows.push_back(EGLWindow::create(m_egl, info));
+    for (const auto& extra : extraWindowInfos) {
+        // 共享同一 EGL 上下文：镜像模式的内容 RT 纹理对各 surface 天然可见
+        windows.push_back(EGLWindow::create(m_egl, extra));
+    }
+    setWindows(std::move(windows));
+
+    m_mirrorActive = (screenMode == ScreenRenderMode::Mirror) && (getWindows().size() > 1);
+    if (m_mirrorActive) {
+        // 内容分辨率 = 主窗口尺寸（大屏 1:1 锐利，小屏贴图时等比缩小）
+        m_presentStage = std::make_shared<PresentStage>();
+        m_presentStage->setContentSize(info.width, info.height);
+        LOG_I("mirror mode active: {} windows, content {}x{}",
+              getWindows().size(), info.width, info.height);
+    } else if (getWindows().size() > 1) {
+        LOG_I("independent mode: {} windows render their own content", getWindows().size());
+    }
 }
 
 void QNXPlatform::initialize(bool multithread, const RenderDeviceOptions& deviceOptions) {
     Platform::initialize(multithread, deviceOptions);
-    m_window->initializeIfNeeded();
+    for (const auto& window : getWindows()) {
+        window->initializeIfNeeded();
+    }
     ensureRenderCapabilitiesInitialized();
 }
 
@@ -41,6 +64,9 @@ bool QNXPlatform::beginFrame(FrameStateSharedPtr frameState) {
     if (skipEvents) {
         --m_skipEventFrameCount;
     }
+    // 逐帧能力注入前移到输入阶段：Engine 的多窗口渲染循环直接调
+    // window->beginRenderPass，不再经过 platform->beginRenderPass
+    frameState->isSSBOSupport = m_isSSBOSupport;
     resolveInputTargets(frameState);
     return true;
 }
@@ -58,8 +84,27 @@ void QNXPlatform::commitRenderPass(FrameStateSharedPtr frameState) {
     m_window->commitRenderPass(frameState);
 }
 
+void QNXPlatform::beginContentPass(FrameStateSharedPtr frameState) {
+    if (m_mirrorActive) {
+        m_presentStage->beginContentPass();
+    }
+}
+
+void QNXPlatform::endContentPass(FrameStateSharedPtr frameState) {
+    if (m_mirrorActive) {
+        m_presentStage->endContentPass();
+    }
+}
+
 void QNXPlatform::endFrame() {
-    RENDERINGTHREAD->present(std::static_pointer_cast<EGLWindow>(m_window)->nativeSurface());
+    if (m_mirrorActive) {
+        // 各屏贴图 + present（PresentStage 内部逐窗口 makeCurrent/clear/blit/present）
+        m_presentStage->presentAll(getWindows());
+    } else {
+        for (const auto& window : getWindows()) {
+            RENDERINGTHREAD->present(window->nativeSurface());
+        }
+    }
     RENDERINGTHREAD->endFrame();
 }
 
@@ -74,7 +119,14 @@ void QNXPlatform::wakeEventLoop() {
 }
 
 void QNXPlatform::terminate() {
-    m_window->terminate();
+    // PresentStage 的 RT/VBO 必须在渲染设备仍存活时释放（Engine::render 末尾
+    // 统一 terminate，早于 GlobalObject::destroy）
+    if (m_presentStage) {
+        m_presentStage->releaseResources();
+    }
+    for (const auto& window : getWindows()) {
+        window->terminate();
+    }
 }
 
 InputEventsManagerSharedPtr QNXPlatform::getInputManager() {

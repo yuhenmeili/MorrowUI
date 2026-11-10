@@ -39,6 +39,15 @@ enum WindowMask : int32_t {
     SCREEN_SENSITIVITY_MASK_CLIPPED = (1 << 11),
 };
 
+/// 多屏渲染模式（仅当配置了多块屏时生效）：
+/// Mirror —— UI 只渲染一次到离屏 RT，各屏贴图上屏（等比缩放 + 黑边适配
+/// 分辨率差异，内容分辨率取主窗口尺寸）；
+/// Independent —— 每个窗口（displayId）各自渲染各自的 Scene2D 子树。
+enum class ScreenRenderMode : int32_t {
+    Mirror = 0,
+    Independent = 1,
+};
+
 struct WindowInfo {
     virtual ~WindowInfo() = default;
     std::string name = "default";

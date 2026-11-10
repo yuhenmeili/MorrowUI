@@ -17,7 +17,7 @@ WGLPlatform::WGLPlatform(const WindowInfo& info) {
     m_wglInputProvider = std::make_shared<WGLInputProvider>();
     m_inputManager->setInputProvider(m_wglInputProvider);
     m_wglWindow = std::make_shared<WGLWindow>(info);
-    m_window = m_wglWindow;
+    setWindow(m_wglWindow);
     m_wglInputProvider->setWindow(m_wglWindow->nativeWindowHandle());
 };
 
@@ -31,6 +31,9 @@ void WGLPlatform::initialize(bool multithread, const RenderDeviceOptions& device
 bool WGLPlatform::beginFrame(FrameStateSharedPtr frameState) {
     glfwPollEvents();
     m_inputManager->poll();
+    // 逐帧能力注入前移到输入阶段：Engine 的多窗口渲染循环直接调
+    // window->beginRenderPass，不再经过 platform->beginRenderPass
+    frameState->isSSBOSupport = m_isSSBOSupport;
     resolveInputTargets(frameState);
     return true;
 }

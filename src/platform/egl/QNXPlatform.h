@@ -5,17 +5,23 @@
 #ifndef QNXPLATFORM_H
 #define QNXPLATFORM_H
 #include <atomic>
+#include <vector>
 
 #include "EGLOperationsQNX.h"
 #include "EGLWindow.h"
 #include "InputEventsManager.h"
 #include "Platform.h"
 #include "QNXInputProvider.h"
+#include "PresentStage.h"
 
 namespace morrow {
 class QNXPlatform : public Platform {
 public:
-    QNXPlatform(const WindowInfo& info);
+    /// info 为主窗口（UI 管线承载者）；extraWindowInfos 为第二块屏起的窗口
+    ///（displayId 须与主窗口不同）。screenMode 见 ScreenRenderMode。
+    QNXPlatform(const WindowInfo& info,
+                const std::vector<WindowInfo>& extraWindowInfos = {},
+                ScreenRenderMode screenMode = ScreenRenderMode::Mirror);
 
     ~QNXPlatform() override = default;
 
@@ -41,12 +47,21 @@ public:
 
     InputEventsManagerSharedPtr getInputManager() override;
 
+    /// 多屏镜像：绑定/解绑离屏内容 RT（Engine 在主窗口 UI 管线前后调用）
+    void beginContentPass(FrameStateSharedPtr frameState) override;
+
+    void endContentPass(FrameStateSharedPtr frameState) override;
+
+    [[nodiscard]] bool isMirrorActive() const override { return m_mirrorActive; }
+
     ESContextSharedPtr getContext();
 
 private:
     EGLOperationsQNXSharedPtr m_egl;
     InputEventsManagerSharedPtr m_inputEventsManager;
     std::shared_ptr<QNXInputProvider> m_qnxInputProvider;
+    std::shared_ptr<PresentStage> m_presentStage;
+    bool m_mirrorActive = false;
     /**
     * 休眠恢复之后抛弃事件的帧数，暂时没有完美解决方案，多线程方案上下文移除的时候会异常
     */
@@ -57,4 +72,3 @@ using QnxPlatformSharedPtr = std::shared_ptr<QNXPlatform>;
 } // morrow
 
 #endif //QNXPLATFORM_H
-

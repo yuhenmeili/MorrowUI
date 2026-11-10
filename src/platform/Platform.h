@@ -6,6 +6,7 @@
 #define PLATFORM_H
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include "morrow/scene3d/FrameState.h"
 #include "InputEventsManager.h"
@@ -61,7 +62,30 @@ public:
 
     virtual InputEventsManagerSharedPtr getInputManager() = 0;
 
+    /// 多屏镜像：渲染前绑定离屏内容 RT（Mirror 模式下由 Engine 在 UI 管线
+    /// 前后调用）；基类空实现。
+    virtual void beginContentPass(FrameStateSharedPtr frameState) {
+    }
+
+    /// 多屏镜像：解绑内容 RT（内含 MSAA resolve）
+    virtual void endContentPass(FrameStateSharedPtr frameState) {
+    }
+
+    /// 镜像模式是否激活（Mirror 且配置了多块屏）；激活时 endFrame 由
+    /// PresentStage 负责各屏贴图 + present
+    [[nodiscard]] virtual bool isMirrorActive() const { return false; }
+
     [[nodiscard]] WindowSharedPtr getWindow() const;
+
+    /// 全部窗口（第一个即 getWindow()）。Mirror 模式下仅第一个窗口承载 UI
+    /// 管线；Independent 模式下每个窗口各自渲染各自的 Scene2D 子树
+    [[nodiscard]] const std::vector<WindowSharedPtr>& getWindows() const;
+
+    /// 由平台子类在创建窗口后调用；m_window 恒指向第一个窗口
+    void setWindows(std::vector<WindowSharedPtr> windows);
+
+    /// 单窗口平台（如 WGL/GLFW）使用：等价于 setWindows({window})
+    void setWindow(WindowSharedPtr window);
 
     [[nodiscard]] bool shouldClose() const;
 
@@ -83,6 +107,8 @@ protected:
     void ensureRenderCapabilitiesInitialized();
 
     WindowSharedPtr m_window;
+    /// 全部窗口，m_window 恒等于 m_windows 的第一个；单窗口场景只有一个元素
+    std::vector<WindowSharedPtr> m_windows;
     int32_t m_requestedSamples = 1;
     bool m_isSSBOSupport = false;
     /// SSBO 能力预设（RenderDeviceOptions::ssboSupportPreset），见 ensureRenderCapabilitiesInitialized。

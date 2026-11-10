@@ -34,6 +34,13 @@ struct EngineOptions {
     std::string objectSnapshotPath;
     std::string objectSnapshotCommandPath;
     WindowInfo windowInfo = {};
+    /// 多屏配置：第二块屏起的窗口（displayId 须与主窗口不同）。仅 QNX/EGL
+    /// 平台生效；其他平台忽略并打日志。
+    std::vector<WindowInfo> extraWindowInfos;
+    /// 多屏渲染模式开关（仅配置了多块屏时生效）：
+    /// Mirror（默认）= UI 只渲染一次到离屏 RT，各屏贴图上屏（等比缩放 + 黑边）；
+    /// Independent = 每块屏各自渲染各自的 Scene2D 子树（经 getScene2D(index)）。
+    ScreenRenderMode screenMode = ScreenRenderMode::Mirror;
 
     // ── 启动速度 / 轻量化配置 ──
     /// 渲染设备启动配置：CommandBuffer 容量、shader 二进制缓存目录、
@@ -57,11 +64,12 @@ struct EngineOptions {
 };
 
 // ---------------------------------------------------------------------------
-// Engine — 引擎入口（单窗口假设）。
+// Engine — 引擎入口。
 //
 // Window / Platform 为引擎内部对象（§6.7）：应用经 EngineOptions::windowInfo
-// 配置窗口，经 getScene2D() 取得 2D UI 根搭建界面；窗口清屏色与原始键盘
-// 输入、framebuffer 尺寸变化经下方公共接口/事件获得。
+// 配置窗口（多屏时另配 extraWindowInfos + screenMode，见 WindowInfo.h 的
+// ScreenRenderMode），经 getScene2D() 取得 2D UI 根搭建界面；窗口清屏色与
+// 原始键盘输入、framebuffer 尺寸变化经下方公共接口/事件获得。
 // ---------------------------------------------------------------------------
 class Engine
 {
@@ -70,8 +78,10 @@ public:
 
     virtual ~Engine();
 
-    /// 2D UI 根节点：向其 addChild 搭建界面。
-    [[nodiscard]] Scene2DSharedPtr getScene2D() const;
+    /// 2D UI 根节点：向其 addChild 搭建界面。多窗口时按窗口序号取
+    ///（0 = 主窗口；Independent 模式下向非主窗口的 Scene2D 挂各屏独立内容），
+    /// 越界返回 nullptr。
+    [[nodiscard]] Scene2DSharedPtr getScene2D(int32_t index = 0) const;
 
     /// 不透明帧上下文（deltaTime / 帧号等只读视图）。
     [[nodiscard]] FrameStateSharedPtr getFrameState() const;

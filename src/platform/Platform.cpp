@@ -27,6 +27,26 @@ WindowSharedPtr Platform::getWindow() const {
     return m_window;
 }
 
+const std::vector<WindowSharedPtr>& Platform::getWindows() const {
+    return m_windows;
+}
+
+void Platform::setWindows(std::vector<WindowSharedPtr> windows) {
+    if (windows.empty()) {
+        return;
+    }
+    m_windows = std::move(windows);
+    m_window = m_windows.front();
+}
+
+void Platform::setWindow(WindowSharedPtr window) {
+    if (!window) {
+        return;
+    }
+    m_window = std::move(window);
+    m_windows = {m_window};
+}
+
 void Platform::waitForEvents(double timeoutSeconds) {
     if (timeoutSeconds <= 0.0)
         return;

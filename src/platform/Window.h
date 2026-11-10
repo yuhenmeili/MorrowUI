@@ -40,6 +40,15 @@ public:
 
     virtual bool isWindowShouldClose();
 
+    /// 窗口（screen window / EGL surface）是否已初始化成功，
+    /// 多屏 present / 渲染时跳过初始化失败的窗口
+    virtual bool isWindowInited() const { return true; }
+
+    /// 原生窗口 surface（平台私有实现层专用，不出公共接口）：
+    /// EGL 平台为 EGLSurface，GLFW 平台为 GLFWwindow*；镜像上屏
+    /// （PresentStage）据此逐窗口 makeCurrent / present。
+    virtual void* nativeSurface() const { return nullptr; }
+
     virtual void setClearColor(float r, float g, float b, float a);
 
     virtual void setCursorShape(CursorShape shape);

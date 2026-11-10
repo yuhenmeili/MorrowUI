@@ -27,6 +27,8 @@ public:
 
     bool initializeIfNeeded() override;
 
+    bool isWindowInited() const override { return m_windowInited; }
+
     void beginRenderPass(FrameStateSharedPtr frameState) override;
     void updateWidgets(FrameStateSharedPtr frameState) override;
     void commitRenderPass(FrameStateSharedPtr frameState) override;
@@ -44,8 +46,8 @@ public:
 
     std::string clipboardText() const override { return {}; }
 
-    /// 实现层专用：EGLSurface，不出公共接口
-    void* nativeSurface() const { return m_eglSurface; }
+    /// 实现层专用：EGLSurface，不出公共接口（Window::nativeSurface 虚接口）
+    void* nativeSurface() const override { return m_eglSurface; }
 
 private:
     EGLWindow(EGLOperationsQNXSharedPtr context, const WindowInfo& info);
