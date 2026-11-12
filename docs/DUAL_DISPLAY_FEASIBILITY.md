@@ -312,7 +312,7 @@ engineOptions.screenMode = ScreenRenderMode::Mirror; // 默认值，可省略；
 - **单窗口**（未配 extras）：`mirrorActive=false`，Engine 走窗口循环（等价原单窗口路径），零回归；
 - **Mirror**：仅主窗口跑 UI 管线 → 内容 RT → 各屏贴图上屏；副屏分辨率不同时等比缩放 + 黑边居中（内容分辨率取主窗口尺寸，建议配较大屏）；
 - **Independent**：每窗口各自 `beginRenderPass → update → lateUpdate → commit → present`；
-- **v1 已知边界**：① Windows (GLFW) 平台忽略 extras（单窗口运行并打日志）；② 副屏触摸未路由（事件仍只作用于主窗口树），后续可经 `SCREEN_PROPERTY_SOURCE_WINDOW` 升级；③ present shader 原样拷贝 RT 内容（straight alpha），与引擎直写窗口的 alpha 行为一致；
+- **v1 已知边界**：① Windows (GLFW) 平台忽略 extras（单窗口运行并打日志）；② 副屏触摸已路由（§九.3，`TouchEvent.windowIndex` + `SCREEN_PROPERTY_WINDOW` 反查）；③ present shader 原样拷贝 RT 内容（straight alpha），与引擎直写窗口的 alpha 行为一致；
 - **关机顺序**：PresentStage 资源在 `QNXPlatform::terminate()`（render() 末尾）释放，早于 Engine 析构中的 `GlobalObject::destroy()`，与 BackdropBlurManager 的释放时序约定一致。
 
 ### 8.4 验证记录（2026-11-10）
@@ -321,3 +321,70 @@ engineOptions.screenMode = ScreenRenderMode::Mirror; // 默认值，可省略；
 - Windows 运行回归：`TextDemo`（单窗口零回归）与 `MultiScreenDemo`（extras 忽略 + WARN、Mirror 单窗口不激活）运行正常、无错误日志；
 - QNX 分支：用本机 QNX 8.0 aarch64 交叉编译器（`q++ -Vgcc_ntoaarch64le -c`，真实 screen.h/EGL 头）编译全部改动文件通过；
 - **待 QNX 目标机验证**：双屏绑定（`TargetDisplayId` 日志）、Mirror 内容一致性与 letterbox、Independent 两屏内容独立、`enableRequestRender` 门控下两屏同步更新。
+
+---
+
+## 九、下游验证问题修复（2026-11-11）
+
+第八节实现经下游项目（QianliRender）目标机验证发现三处问题，修复已回移植本仓库。
+问题均只影响**多窗口**路径，单窗口行为不变。
+
+### 9.1 VertexArray 同池 key 不同批次 → 顶点不重传（新旧内容交替闪烁）
+
+`RenderBatchPool` 以 `shaderName|isSSBO` 为 key 池化 `RenderBatch`（含 `VertexArray`）。
+同 key 的多个池对象会在**逻辑批次间轮换（LIFO）**：批次结构变化重建时（`buildBatches`
+先 `releaseAll` 再逐组 `acquire`），上一帧批次 A 持有的 VertexArray 下一帧可能被
+批次 B 持有。而 `VertexArray` 的网格上传缓存（mesh 指针 + revision 比对）会在以下
+两类场景**误命中/残留**：
+
+- 缓存记录指向上一任逻辑批次的网格列表，持有者切换后若列表恰好等价（数量一致），
+  缓存判定通过 → 跳过上传 → 画出上一任批次的旧顶点数据；
+- 缓存存的是 `weak_ptr<Mesh>`，Mesh 释放后堆地址被新 Mesh 复用且 revision 巧合
+  相同时，指针比对失效。多屏 Independent 模式双窗口共享全局池、树内容各自独立
+  变化，轮换与地址复用高频发生，表现为两屏新旧内容交替闪烁。
+
+**修复**：`VertexArray` 新增 `invalidateMeshCache()`（清空 `m_uploadedMeshes`），
+`RenderBatchPool::release / releaseAll` 归还池对象时调用。批次结构稳定的帧仍走
+增量缓存路径（不 rebuild 就不归还），上传跳过优化保留；仅重建帧强制首帧重传。
+
+### 9.2 Independent 多屏显示异常（先画的屏不上屏）
+
+`eglSwapBuffers` 要求目标 surface 是**调用线程当前的 draw surface**，否则报
+`EGL_BAD_MATCH` 且静默失败。Independent 模式渲染顺序 A→B，帧末 current 停留在
+最后一屏 B；原 `QNXPlatform::endFrame` 逐窗口直接 `present` 不先 `makeCurrent`，
+A 屏 swap 失败 → 只有最后一屏有画面/内容异常。
+
+**修复**：`endFrame` Independent 分支逐窗口 `makeCurrent(surface)` 后再
+`present(surface)`（与 `PresentStage::presentAll` 的顺序一致），并跳过
+`isWindowInited() == false` 的窗口（某屏未上电/初始化失败不阻塞另一屏 present）。
+
+### 9.3 多屏输入按来源窗口路由（TouchEvent.windowIndex）
+
+原输入链路不区分来源窗口：QNX 触摸坐标只减固定的主窗口偏移，命中测试只查主窗口
+树；共享相机在渲染 pass 中被各窗口反复改写，事件阶段按最后渲染的窗口换算坐标，
+A 屏触摸会按错误坐标系在错误窗口树里找目标；两屏 touchID 各自从 0 编号，裸 ID
+按压捕获表跨屏冲突。
+
+**修复**（三段）：
+
+| 位置 | 改动 |
+|------|------|
+| `TouchEvent` | 新增 `windowIndex` 字段（0 = 主窗口，非 QNX 平台恒为 0） |
+| `QNXInputProvider` | 新增 `ScreenWindowSource`（句柄 + 偏移）反查表与 `setScreenWindows`；独立采集线程逐事件查 `SCREEN_PROPERTY_WINDOW` 反查序号、按各窗口位置换算局部坐标（表由主线程 initialize 写入，互斥锁保护、快照后查表）；合成 RELEASE 按 `(windowIndex, touchID)` 追踪，两屏独立 |
+| `Platform::resolveInputTargets` | 按事件 `windowIndex` 选来源窗口：共享相机按来源窗口 pos/size 重配后再 `screenToWorld`；命中测试在来源窗口的 Scene2D 树进行；按压捕获表 key 改 `(windowIndex << 32) \| touchID` 复合键 |
+
+配套：`Window` 基类新增 `getWindowPosition() / getWindowSize()` 虚访问器，
+`EGLWindow` 实现（渲染 pass 与输入换算使用同一套窗口参数）并暴露
+`getScreenWindow()` 句柄；`QNXPlatform::initialize` 在窗口初始化后注册句柄表。
+
+单窗口 / Windows 平台回归评估：`windowIndex` 恒 0 → `sourceWindow == m_window`，
+相机重配参数与渲染 pass 一致（幂等）；WGL 窗口 `getWindowSize()` 返回 {0,0} →
+不触发相机重配，行为与改动前一致。
+
+### 9.4 修复验证（2026-11-11）
+
+- QNX 8.0 aarch64 交叉编译器（`q++ -Vgcc_ntoaarch64le -c`，真实 screen.h/EGL 头）
+  编译全部改动文件通过：RenderBatchPool / Platform / QNXPlatform / EGLWindow /
+  QNXInputProvider；
+- 待目标机回归：Independent 双屏各自内容正确且两屏均持续上屏；双屏各自触摸
+  命中各自控件树；Mirror 模式与单窗口零回归。

@@ -54,6 +54,23 @@ void QNXPlatform::initialize(bool multithread, const RenderDeviceOptions& device
     for (const auto& window : getWindows()) {
         window->initializeIfNeeded();
     }
+    // 多屏输入：注册窗口句柄表，采集线程按事件的 SCREEN_PROPERTY_WINDOW
+    // 反查归属窗口（窗口创建时已各自绑定到指定 display）
+    std::vector<QNXInputProvider::ScreenWindowSource> screenWindows;
+    screenWindows.reserve(getWindows().size());
+    for (const auto& window : getWindows()) {
+        const auto eglWindow = std::dynamic_pointer_cast<EGLWindow>(window);
+        if (!eglWindow || !eglWindow->isWindowInited()) {
+            continue;
+        }
+        const Vector2 pos = eglWindow->getWindowPosition();
+        screenWindows.push_back({eglWindow->getScreenWindow(),
+                                 static_cast<int32_t>(pos.x),
+                                 static_cast<int32_t>(pos.y)});
+    }
+    if (!screenWindows.empty()) {
+        m_qnxInputProvider->setScreenWindows(screenWindows);
+    }
     ensureRenderCapabilitiesInitialized();
 }
 
@@ -101,7 +118,15 @@ void QNXPlatform::endFrame() {
         // 各屏贴图 + present（PresentStage 内部逐窗口 makeCurrent/clear/blit/present）
         m_presentStage->presentAll(getWindows());
     } else {
+        // eglSwapBuffers 要求目标 surface 是调用线程当前的 draw surface，
+        // 否则报 EGL_BAD_MATCH 且静默失败（多屏渲染顺序 A→B 结束时 current
+        // 停留在最后一屏，先画的屏直接 swap 会上屏失败），所以逐窗口
+        // 先 makeCurrent 再 present（与 PresentStage::presentAll 的顺序一致）
         for (const auto& window : getWindows()) {
+            if (!window || !window->isWindowInited()) {
+                continue;
+            }
+            RENDERINGTHREAD->makeCurrent(window->nativeSurface());
             RENDERINGTHREAD->present(window->nativeSurface());
         }
     }

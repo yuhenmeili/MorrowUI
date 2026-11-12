@@ -84,6 +84,9 @@ enum TouchEventType : int32_t {
 
 struct TouchEvent {
     int32_t touchID = -1;  // 0,1,2...
+    /// 事件来源窗口在 Platform::getWindows() 中的序号（QNX 按事件的
+    /// SCREEN_PROPERTY_WINDOW 反查；0 = 主窗口，非 QNX 平台恒为 0）
+    int32_t windowIndex = 0;
     // 位置为世界系（中心原点、X 向右、Y 向上）：Platform::resolveInputTargets
     // 派发前已把平台屏幕像素统一转换，监听器与控件世界 AABB 直接同系使用。
     float positionX = 0.0f;

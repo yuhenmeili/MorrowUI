@@ -113,7 +113,9 @@ protected:
     bool m_isSSBOSupport = false;
     /// SSBO 能力预设（RenderDeviceOptions::ssboSupportPreset），见 ensureRenderCapabilitiesInitialized。
     int32_t m_ssboSupportPreset = -1;
-    std::unordered_map<int32_t, std::weak_ptr<Widget>> m_pointerCaptureTargets;
+    /// 按压捕获表。key = (windowIndex << 32) | touchID：多屏下两块屏的
+    /// 触摸各自从 id=0 开始编号，裸 touchID 会跨屏冲突
+    std::unordered_map<int64_t, std::weak_ptr<Widget>> m_pointerCaptureTargets;
     std::weak_ptr<Widget> m_hoverTarget;
     std::weak_ptr<Widget> m_keyboardFocusTarget;
 };

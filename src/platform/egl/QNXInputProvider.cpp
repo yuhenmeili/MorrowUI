@@ -65,6 +65,11 @@ void QNXInputProvider::setWindowOffset(int32_t windowX, int32_t windowY) {
     m_windowY = windowY;
 }
 
+void QNXInputProvider::setScreenWindows(const std::vector<ScreenWindowSource>& windows) {
+    std::lock_guard<std::mutex> lock(m_windowTableMutex);
+    m_screenWindows = windows;
+}
+
 void QNXInputProvider::setSkipEvents(bool skipEvents) {
     m_skipEvents = skipEvents;
 }
@@ -153,10 +158,38 @@ void QNXInputProvider::eventThreadLoop() {
             }
         }
 
+        // 事件归属窗口：Screen 把触摸派发给命中的 screen window，用句柄反查
+        // 我们的窗口序号；未注册窗口表或句柄不匹配时回退主窗口（序号 0）。
+        // 表由主线程 initialize 写入（晚于采集线程启动），锁内拷贝快照后
+        // 无锁查表，screen 属性查询不持锁
+        int32_t windowIndex = 0;
+        int32_t offsetX = m_windowX;
+        int32_t offsetY = m_windowY;
+        std::vector<ScreenWindowSource> screenWindows;
+        {
+            std::lock_guard<std::mutex> lock(m_windowTableMutex);
+            screenWindows = m_screenWindows;
+        }
+        if (!screenWindows.empty()) {
+            screen_window_t eventWindow = nullptr;
+            if (screen_get_event_property_pv(m_threadScreenEvent, SCREEN_PROPERTY_WINDOW, (void**) &eventWindow) == 0
+                && eventWindow != nullptr) {
+                for (int32_t i = 0; i < static_cast<int32_t>(screenWindows.size()); ++i) {
+                    if (screenWindows[i].handle == eventWindow) {
+                        windowIndex = i;
+                        offsetX = screenWindows[i].offsetX;
+                        offsetY = screenWindows[i].offsetY;
+                        break;
+                    }
+                }
+            }
+        }
+
         TouchEvent touchEvent;
         touchEvent.touchID = touchID;
-        touchEvent.positionX = static_cast<float>(touchPos[0] - m_windowX);
-        touchEvent.positionY = static_cast<float>(touchPos[1] - m_windowY);
+        touchEvent.windowIndex = windowIndex;
+        touchEvent.positionX = static_cast<float>(touchPos[0] - offsetX);
+        touchEvent.positionY = static_cast<float>(touchPos[1] - offsetY);
         touchEvent.touchTime = hasTimestamp ? toEngineTimeSeconds(rawTimestampMs) : Math::getCurrentMonotonicTime();
         touchEvent.eventType = mappedType;
         touchEvent.deviceType = TOUCH_DEVICE_TYPE_TOUCH;
@@ -222,9 +255,11 @@ double QNXInputProvider::toEngineTimeSeconds(int32_t rawTimestampMs) {
     return seconds + m_timestampOffsetSeconds;
 }
 
-bool QNXInputProvider::hasTouchID(const std::vector<TouchEvent>& events, int32_t touchID) const {
+bool QNXInputProvider::hasTouchID(const std::vector<TouchEvent>& events, int32_t touchID, int32_t windowIndex) const {
     for (const auto& touchEvent : events) {
-        if (touchID >= 0 && touchEvent.touchID == touchID) {
+        // (windowIndex, touchID) 联合判定：两块屏的 touchID 各自从 0 编号，
+        // 裸 ID 匹配会把另一块屏的存活触摸误当作本屏追踪还在
+        if (touchID >= 0 && touchEvent.touchID == touchID && touchEvent.windowIndex == windowIndex) {
             return true;
         }
     }
@@ -252,12 +287,14 @@ void QNXInputProvider::poll(std::vector<TouchEvent>& outEvents) {
     }
 
     const double nowSeconds = Math::getCurrentMonotonicTime();
-    // 防止 release 事件不触发，安全冗余：上一帧 TOUCH/MOVE 的 touchID 本帧消失时合成 RELEASE
+    // 防止 release 事件不触发，安全冗余：上一帧 TOUCH/MOVE 的触摸本帧消失时
+    // 合成 RELEASE（按来源窗口分别追踪）
     for (const auto& lastTouchEvent : m_lastFrameInputEvents) {
         if ((lastTouchEvent.eventType == TOUCH_EVENT_TYPE_TOUCH || lastTouchEvent.eventType == TOUCH_EVENT_TYPE_MOVE) &&
-            !hasTouchID(outEvents, lastTouchEvent.touchID)) {
+            !hasTouchID(outEvents, lastTouchEvent.touchID, lastTouchEvent.windowIndex)) {
             TouchEvent touchEvent;
             touchEvent.touchID = lastTouchEvent.touchID;
+            touchEvent.windowIndex = lastTouchEvent.windowIndex;
             touchEvent.positionX = lastTouchEvent.positionX;
             touchEvent.positionY = lastTouchEvent.positionY;
             touchEvent.touchTime = nowSeconds;

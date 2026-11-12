@@ -900,7 +900,8 @@ void GLRenderDevice::createSSBORender(HwSSBO handle) {
 // 每帧上传改为 memcpy 进常驻持久映射存储的分段，取代 glBufferData 整块重分配；
 // 段间用独立 fence 做 GPU 帧隔离：写入某段前必须等待该段上一次写入的 fence
 // （稳态下该段 3 帧前写入、GPU 早已完成，立即返回）。
-// desktop GL ≥ 4.4 / QNX ES 3.2 均为核心 API；驱动能力不足时输出 LOG_E 并
+// desktop GL ≥ 4.4 为核心 API；ES（含 3.2）从未纳入核心，走 EXT_buffer_storage
+// 扩展入口点（eglGetProcAddress 运行时加载）。驱动能力不足时输出 LOG_E 并
 // 跳过上传（无回退语义，仅防御硬崩溃）。
 // ---------------------------------------------------------------------------
 
@@ -922,6 +923,19 @@ void GLRenderDevice::ensureSSBOStorage(GlSSBO* glSsbo, size_t size) {
         if (!versionStr || !strstr(versionStr, "OpenGL ES 3.2")) {
             LOG_E("SSBO persistent ring requires OpenGL ES 3.2, found: {}",
                   versionStr ? versionStr : "unknown");
+        }
+    }
+    // ES 无核心 glBufferStorage（EXT_buffer_storage 扩展专用），入口点按扩展
+    // 函数规范经 eglGetProcAddress 运行时加载；加载失败与后续映射失败同样走
+    // m_ssboPersistentBroken 防御路径。渲染线程单线程访问，无需原子。
+    static PFNGLBUFFERSTORAGEEXTPROC bufferStorageFn = nullptr;
+    if (!bufferStorageFn) {
+        bufferStorageFn = reinterpret_cast<PFNGLBUFFERSTORAGEEXTPROC>(
+            eglGetProcAddress("glBufferStorageEXT"));
+        if (!bufferStorageFn) {
+            LOG_E("glBufferStorageEXT unavailable (need GL_EXT_buffer_storage), SSBO upload skipped");
+            m_ssboPersistentBroken = true;
+            return;
         }
     }
 #endif
@@ -948,8 +962,13 @@ void GLRenderDevice::ensureSSBOStorage(GlSSBO* glSsbo, size_t size) {
 
     glGenBuffers(1, &glSsbo->bufferID);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, glSsbo->bufferID);
+#ifdef OPENGL_GLFW
     glBufferStorage(GL_SHADER_STORAGE_BUFFER, capacity, nullptr,
                     GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+#else
+    bufferStorageFn(GL_SHADER_STORAGE_BUFFER, capacity, nullptr,
+                    GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+#endif
     glSsbo->mappedBase = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, capacity,
                                           GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);

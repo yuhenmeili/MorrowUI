@@ -109,6 +109,29 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
     resolvedEvents.reserve(inputEvents.size() * 3);
 
     for (auto& touchEvent : inputEvents) {
+        // 事件来源窗口：多屏场景触摸可能落在任一窗口上（QNX 按事件的
+        // SCREEN_PROPERTY_WINDOW 归属），命中测试必须用来源窗口自己的
+        // Scene2D 树和相机参数——共享相机在各窗口渲染 pass 中被反复改写，
+        // 事件阶段必须按来源窗口重配后再换算坐标
+        WindowSharedPtr sourceWindow = m_window;
+        if (touchEvent.windowIndex >= 0
+            && touchEvent.windowIndex < static_cast<int32_t>(m_windows.size())) {
+            sourceWindow = m_windows[static_cast<size_t>(touchEvent.windowIndex)];
+        }
+        if (sourceWindow) {
+            const Vector2 srcPos = sourceWindow->getWindowPosition();
+            const Vector2 srcSize = sourceWindow->getWindowSize();
+            if (srcSize.x > 0.0f && srcSize.y > 0.0f) {
+                frameState->camera->update(srcPos.x, srcPos.y, srcSize.x, srcSize.y);
+            }
+        }
+
+        // 按压捕获复合键：(windowIndex, touchID)，两屏的 touchID 各自从 0
+        // 编号，裸 ID 会跨屏冲突
+        const int64_t captureKey =
+            (static_cast<int64_t>(touchEvent.windowIndex) << 32)
+            | (static_cast<uint32_t>(touchEvent.touchID));
+
         // 统一坐标：派发给控件层的事件一律为世界系（中心原点、Y 向上），
         // 与控件 AABB / Interaction 命中矩形同系，处理器无需再做转换。
         const auto worldPoint = frameState->camera->screenToWorld(touchEvent.positionX, touchEvent.positionY);
@@ -124,7 +147,7 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
         }
         const bool isCapturedEvent = touchEvent.eventType == TOUCH_EVENT_TYPE_MOVE || touchEvent.eventType == TOUCH_EVENT_TYPE_RELEASE;
         if (!isKeyboardEvent && isCapturedEvent) {
-            auto captureIt = m_pointerCaptureTargets.find(touchEvent.touchID);
+            auto captureIt = m_pointerCaptureTargets.find(captureKey);
             if (captureIt != m_pointerCaptureTargets.end()) {
                 resolvedTarget = captureIt->second.lock();
                 fromCapture = (resolvedTarget != nullptr);
@@ -134,7 +157,7 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
             }
         }
         if (!isKeyboardEvent && !resolvedTarget) {
-            resolvedTarget = findTopmostInteractiveWidget(m_window->scene2D(), touchEvent.positionX, touchEvent.positionY);
+            resolvedTarget = findTopmostInteractiveWidget(sourceWindow->scene2D(), touchEvent.positionX, touchEvent.positionY);
         }
         touchEvent.target = resolvedTarget;
 
@@ -145,7 +168,7 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
             // 二者在同一坐标下命中结果一致，直接复用 resolvedTarget，省一次全树遍历。
             // 滚轮也要刷新 hover：指针不动但内容已从指针下滚走，否则按钮
             // hover 状态卡在滚走的控件上。
-            std::shared_ptr<Widget> hoverTarget = fromCapture ? findTopmostInteractiveWidget(m_window->scene2D(), touchEvent.positionX, touchEvent.positionY) : resolvedTarget;
+            std::shared_ptr<Widget> hoverTarget = fromCapture ? findTopmostInteractiveWidget(sourceWindow->scene2D(), touchEvent.positionX, touchEvent.positionY) : resolvedTarget;
             auto previousHover = m_hoverTarget.lock();
             if (previousHover != hoverTarget) {
                 if (previousHover) {
@@ -181,12 +204,12 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
                 m_keyboardFocusTarget = nextFocus;
             }
             if (resolvedTarget) {
-                m_pointerCaptureTargets[touchEvent.touchID] = resolvedTarget;
+                m_pointerCaptureTargets[captureKey] = resolvedTarget;
             } else {
-                m_pointerCaptureTargets.erase(touchEvent.touchID);
+                m_pointerCaptureTargets.erase(captureKey);
             }
         } else if (touchEvent.eventType == TOUCH_EVENT_TYPE_RELEASE) {
-            m_pointerCaptureTargets.erase(touchEvent.touchID);
+            m_pointerCaptureTargets.erase(captureKey);
         }
 
         resolvedEvents.push_back(std::move(touchEvent));

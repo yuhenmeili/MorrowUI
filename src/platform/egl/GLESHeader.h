@@ -27,21 +27,35 @@
 #include <GLES2/gl2ext.h>
 #endif
 
-// 引擎按 OpenGL ES 3.2 目标使用 glBufferStorage（ES 3.2 核心 API，SSBO 持久映射
-// 环形分段的唯一上传路径，无回退）。旧 SDK 头文件只到 gl31 时补齐原型与常量
-// （值与 ES 3.2 / EXT_buffer_storage 一致），符号由 libGLESv2 直接链接导出。
-#ifndef GL_ES_VERSION_3_2
+// ── buffer storage 兼容 ──
+// glBufferStorage / GL_MAP_PERSISTENT_BIT / GL_MAP_COHERENT_BIT 是桌面 GL 4.4
+// 的核心 API；OpenGL ES 任何版本（含 3.2）都未将其纳入核心，只有
+// EXT_buffer_storage 扩展（常量与函数名带 _EXT 后缀）。因此不能用
+// GL_ES_VERSION_3_2 等版本宏判断符号可用性——QNX SDP 自带 gl32.h，但其中
+// 并无这些符号。
+// 常量按「先 _EXT 后数值」补齐；glBufferStorageEXT 原型在 gl2ext.h 中包在
+// GL_GLEXT_PROTOTYPES 里（默认只有 PFNGLBUFFERSTORAGEEXTPROC typedef），
+// 按扩展函数规范由调用方经 eglGetProcAddress 运行时加载（见
+// GLRenderDevice::ensureSSBOStorage），此处不做链接期声明。
 #ifndef GL_MAP_PERSISTENT_BIT
+#ifdef GL_MAP_PERSISTENT_BIT_EXT
+#define GL_MAP_PERSISTENT_BIT GL_MAP_PERSISTENT_BIT_EXT
+#else
 #define GL_MAP_PERSISTENT_BIT 0x0040
 #endif
+#endif
 #ifndef GL_MAP_COHERENT_BIT
+#ifdef GL_MAP_COHERENT_BIT_EXT
+#define GL_MAP_COHERENT_BIT GL_MAP_COHERENT_BIT_EXT
+#else
 #define GL_MAP_COHERENT_BIT 0x0080
 #endif
+#endif
 #ifndef GL_DYNAMIC_STORAGE_BIT
+#ifdef GL_DYNAMIC_STORAGE_BIT_EXT
+#define GL_DYNAMIC_STORAGE_BIT GL_DYNAMIC_STORAGE_BIT_EXT
+#else
 #define GL_DYNAMIC_STORAGE_BIT 0x0100
 #endif
-extern "C" {
-GL_APICALL void GL_APIENTRY glBufferStorage(GLenum target, GLsizeiptr size, const void *data, GLbitfield flags);
-}
 #endif
 #endif //GLESHEADER_H

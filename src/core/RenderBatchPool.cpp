@@ -40,6 +40,12 @@ void RenderBatchPool::release(RenderBatch&& batch) {
     batch.transforms.clear();
     batch.ssboLayout.reset();
     batch.clipRect = {};
+    // 同 key 的多个池对象会在逻辑批次间轮换（LIFO），归还时必须作废其
+    // VertexArray 的网格缓存，否则下一帧的持有者会因缓存命中跳过上传，
+    // 画出该对象上一任逻辑批次的旧顶点数据（新旧内容交替闪烁）
+    if (batch.vertexArray) {
+        batch.vertexArray->invalidateMeshCache();
+    }
 
     std::string key = makeKey(batch.shaderName, batch.isSSBOShader);
     m_pool[key].emplace_back(std::move(batch));
@@ -53,6 +59,11 @@ void RenderBatchPool::releaseAll(std::vector<RenderBatch>& batches) {
         batch.transforms.clear();
         batch.ssboLayout.reset();
         batch.clipRect = {};
+        // 同 release：轮换复用前必须作废网格缓存（buildBatches 归还后立即
+        // 按 新的可渲染列表 重新 acquire，不作废会命中上一任批次的旧数据）
+        if (batch.vertexArray) {
+            batch.vertexArray->invalidateMeshCache();
+        }
 
         std::string key = makeKey(batch.shaderName, batch.isSSBOShader);
         m_pool[key].emplace_back(std::move(batch));

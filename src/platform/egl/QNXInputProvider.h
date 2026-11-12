@@ -28,12 +28,24 @@ namespace morrow {
 
 class QNXInputProvider : public IInputProvider {
 public:
+    /// 事件归属反查表的一项：窗口句柄 + 窗口位置（触摸坐标按窗口局部系换算）
+    struct ScreenWindowSource {
+        screen_window_t handle = nullptr;
+        int32_t offsetX = 0;
+        int32_t offsetY = 0;
+    };
+
     ~QNXInputProvider() override;
 
     /// 提供采集线程使用的 screen context（不转移所有权，EGLOperationsQNX 持有）
     void setScreenContext(screen_context_t screenContext);
 
     void setWindowOffset(int32_t windowX, int32_t windowY);
+
+    /// 多屏：注册全部窗口句柄，采集线程按事件的 SCREEN_PROPERTY_WINDOW
+    /// 反查来源窗口（窗口序号写入 TouchEvent::windowIndex，触摸坐标按
+    /// 各窗口位置换算为窗口局部系）。可在采集线程启动后调用（互斥保护）。
+    void setScreenWindows(const std::vector<ScreenWindowSource>& windows);
 
     void setSkipEvents(bool skipEvents);
 
@@ -53,7 +65,7 @@ public:
 
 private:
     void eventThreadLoop();
-    bool hasTouchID(const std::vector<TouchEvent>& events, int32_t touchID) const;
+    bool hasTouchID(const std::vector<TouchEvent>& events, int32_t touchID, int32_t windowIndex) const;
 
     /// R3：SCREEN_PROPERTY_TIMESTAMP（毫秒）→ 引擎 steady_clock 秒域。
     /// offset 仅初始化一次：事件间 Δt 精确（速度类消费），绝对值与
@@ -75,6 +87,10 @@ private:
     screen_event_t m_threadScreenEvent = nullptr;  // 采集线程私有事件对象
     int32_t m_windowX = 0;
     int32_t m_windowY = 0;
+    // 事件归属反查表：主线程 initialize 晚于采集线程启动写入，采集线程逐
+    // 事件读取——互斥锁保护（表极小、触摸事件低频，拷贝快照后无锁查表）
+    std::mutex m_windowTableMutex;
+    std::vector<ScreenWindowSource> m_screenWindows;
 
     std::atomic_bool m_quit{false};
     std::thread m_eventThread;

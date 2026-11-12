@@ -44,6 +44,12 @@ public:
     /// 多屏 present / 渲染时跳过初始化失败的窗口
     virtual bool isWindowInited() const { return true; }
 
+    /// 窗口逻辑位置（多屏输入坐标换算与渲染 pass 相机使用同一套参数）
+    virtual Vector2 getWindowPosition() const { return {0.0f, 0.0f}; }
+
+    /// 窗口逻辑尺寸（多屏输入命中与共享相机重配用；EGL 即窗口创建尺寸）
+    virtual Vector2 getWindowSize() const { return {0.0f, 0.0f}; }
+
     /// 原生窗口 surface（平台私有实现层专用，不出公共接口）：
     /// EGL 平台为 EGLSurface，GLFW 平台为 GLFWwindow*；镜像上屏
     /// （PresentStage）据此逐窗口 makeCurrent / present。

@@ -29,6 +29,13 @@ public:
 
     bool isWindowInited() const override { return m_windowInited; }
 
+    Vector2 getWindowPosition() const override { return m_windowPosition; }
+
+    Vector2 getWindowSize() const override { return m_windowSize; }
+
+    /// screen window 句柄（触摸事件 SCREEN_PROPERTY_WINDOW 反查归属用）
+    screen_window_t getScreenWindow() const { return screen_win; }
+
     void beginRenderPass(FrameStateSharedPtr frameState) override;
     void updateWidgets(FrameStateSharedPtr frameState) override;
     void commitRenderPass(FrameStateSharedPtr frameState) override;
