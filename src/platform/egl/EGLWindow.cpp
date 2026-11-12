@@ -44,6 +44,22 @@ bool EGLWindow::initializeIfNeeded() {
     return m_windowInited;
 }
 
+void EGLWindow::setVisible(bool visible) {
+    // widget 树同步显隐：隐藏期间 update/命中测试一并停
+    if (auto scene = PlatformWindow::scene2D()) {
+        scene->setVisible(visible);
+    }
+    if (m_screenVisible == visible) {
+        return;
+    }
+    m_screenVisible = visible;
+    // 窗口尚未初始化时只记状态，initWindow 创建完 buffer 后按此值应用
+    if (m_windowInited) {
+        const int32_t screenVisible = visible ? 1 : 0;
+        screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_VISIBLE, &screenVisible);
+    }
+}
+
 void EGLWindow::initialize()
 {
     if(m_initAttemptCounts <= 3) {
@@ -86,6 +102,10 @@ int32_t EGLWindow::initWindow()
         LOG_I("screen_create_window_buffers failed");
         return EXIT_FAILURE;
     }
+
+    // 应用懒初始化前设置的显隐状态（初始化前调 setVisible 只记状态）
+    const int32_t screenVisible = m_screenVisible ? 1 : 0;
+    screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_VISIBLE, &screenVisible);
     return EXIT_SUCCESS;
 }
 
@@ -183,7 +203,7 @@ void EGLWindow::setScreenAlpha(float alpha)
 
 void EGLWindow::beginRenderPass(FrameStateSharedPtr frameState)
 {
-    if (!m_windowInited) return;
+    if (!m_windowInited || !m_screenVisible) return;
 
     // 多窗口必需：单 context 依次 current 到各 surface。单窗口场景被
     // GLRenderDevice::makeCurrent 的去重判断短路，无额外开销
@@ -213,14 +233,14 @@ void EGLWindow::beginRenderPass(FrameStateSharedPtr frameState)
 
 void EGLWindow::updateWidgets(FrameStateSharedPtr frameState)
 {
-    if (m_windowInited) {
+    if (m_windowInited && m_screenVisible) {
         PlatformWindow::updateWidgets(frameState);
     }
 }
 
 void EGLWindow::commitRenderPass(FrameStateSharedPtr frameState)
 {
-    if (m_windowInited) {
+    if (m_windowInited && m_screenVisible) {
         m_batchManager->renderBatches(frameState);
     }
 }

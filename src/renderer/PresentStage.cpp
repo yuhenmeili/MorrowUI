@@ -69,7 +69,7 @@ void PresentStage::presentAll(const std::vector<PlatformWindowSharedPtr>& window
     const int32_t contentHeight = m_contentRT.getHeight();
 
     for (const auto& window : windows) {
-        if (!window || !window->isWindowInited()) {
+        if (!window || !window->isWindowInited() || !window->isScreenVisible()) {
             continue;
         }
         void* surface = window->nativeSurface();

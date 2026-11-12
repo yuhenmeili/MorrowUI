@@ -33,6 +33,16 @@ public:
 
     Vector2 getWindowSize() const override { return m_windowSize; }
 
+    int32_t getDisplayId() const override { return m_displayId; }
+
+    /// 显隐同时作用于 widget 树（Scene2D 根）与 Screen 合成器
+    ///（SCREEN_PROPERTY_VISIBLE）：隐藏期间跳过该窗口的渲染 pass 与
+    /// present，重新显示恢复原状。窗口未初始化时只记状态，
+    /// initWindow 创建完 buffer 后按此值应用。
+    void setVisible(bool visible) override;
+
+    bool isScreenVisible() const override { return m_windowInited && m_screenVisible; }
+
     /// screen window 句柄（触摸事件 SCREEN_PROPERTY_WINDOW 反查归属用）
     screen_window_t getScreenWindow() const { return screen_win; }
 
@@ -87,6 +97,7 @@ private:
     int32_t m_windowAlphaMode = SCREEN_PRE_MULTIPLIED_ALPHA;
     WindowMask m_winSensitivity = WindowMask::SCREEN_SENSITIVITY_MASK_ALWAYS;
     bool m_windowInited = false;
+    bool m_screenVisible = true;
     int32_t m_initAttemptCounts = 0;
 
     Vector4 m_clearColor = {0.0f, 0.0f, 0.0f, 0.0f};

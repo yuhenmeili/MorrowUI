@@ -2,7 +2,7 @@
 // WindowInfo — 窗口创建配置（公共）。
 //
 // 窗口实现为引擎内部对象（见 docs/road_map/PUBLIC_API_ENCAPSULATION_PROPOSAL.md
-// §6.7）：应用经 EngineOptions::windowInfo 配置主窗口，经 Engine::getWindow(index)
+// §6.7）：应用经 EngineOptions::windowInfo 配置主窗口，经 Engine::getWindow() / getWindow(displayId)
 // 取得窗口门面 morrow::Window 操作运行时能力。
 //
 

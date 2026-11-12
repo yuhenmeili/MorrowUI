@@ -2,8 +2,9 @@
 // Window — 窗口公共门面（多屏模型，§6.7 修订）。
 //
 // 多屏后 Engine 不再是单窗口 facade：窗口相关能力（清屏色 / 剪贴板 /
-// 光标形态 / framebuffer 查询 / 各窗口事件 / Scene2D 根）归属本门面，
-// 应用经 Engine::getWindow(index) 持有（0 = 主窗口）。
+// 光标形态 / framebuffer 查询 / 显隐 / 各窗口事件 / Scene2D 根）归属本
+// 门面，应用经 Engine::getWindow()（主窗口）或 Engine::getWindow(displayId)
+// （物理屏 WindowInfo.displayId）持有。
 // 引擎内部职责——渲染 pass（beginRenderPass 等）、生命周期（terminate）、
 // 原生 surface——仍留在内部实现类（PlatformWindow），不出公共接口。
 //
@@ -42,6 +43,17 @@ public:
 
     /// framebuffer 尺寸（像素）。窗口未就绪时返回 {0, 0}。
     [[nodiscard]] Vector2 framebufferSize() const;
+
+    /// 窗口创建时绑定的物理屏 displayId（与 WindowInfo.displayId 一致）。
+    [[nodiscard]] int32_t displayId() const;
+
+    /// 窗口显隐（QNX 走 Screen 合成器 SCREEN_PROPERTY_VISIBLE：隐藏期间
+    /// 该窗口的渲染 pass 与 present 一并跳过，重新显示恢复原状；窗口未
+    /// 初始化时只记状态，初始化完成后应用。桌面平台为空操作）。
+    void setVisible(bool visible);
+
+    /// 窗口在合成器侧是否可见。
+    [[nodiscard]] bool isScreenVisible() const;
 
     /// 本窗口的 2D UI 根节点（向其 addChild 搭建各屏界面）。
     [[nodiscard]] std::shared_ptr<Scene2D> scene2D() const;

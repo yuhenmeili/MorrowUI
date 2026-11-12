@@ -56,8 +56,9 @@ int main() {
 
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    // 公共面：应用经 getWindow(index) 持有各屏窗口门面（0 = 主窗口），
-    // Scene2D 根与清屏色等窗口能力都在 Window 上。
+    // 公共面：应用经 getWindow()（主窗口）/ getWindow(displayId)（按物理屏
+    // WindowInfo.displayId 查找）持有各屏窗口门面，Scene2D 根与清屏色等
+    // 窗口能力都在 Window 上。
     auto primaryWindow = engine->getWindow();
     auto primaryScene = primaryWindow->scene2D();
     // 透明背景（与 Cluster 的窗口透明模式一致：清屏 alpha=0，半透明内容
@@ -76,30 +77,43 @@ int main() {
     primaryScene->addChild(title);
 
     auto button = MRButton::create();
-    button->setText(L"点我计数", fontName);
+    button->setText(L"隐藏副屏", fontName);
     button->setTextFontSize(26.0f);
     button->getComponent<Transform>()->setPosition(760.0f, 260.0f, 0.0f);
     button->getComponent<Transform>()->setSize(200.0f, 90.0f);
     primaryScene->addChild(button);
 
-    auto counter = createLabel(L"点击次数：0", fontName, 660.0f, 400.0f, 600.0f, 60.0f, 28.0f);
-    primaryScene->addChild(counter);
+    auto statusLabel = createLabel(L"副屏状态：显示中", fontName, 660.0f, 400.0f, 600.0f, 60.0f, 28.0f);
+    primaryScene->addChild(statusLabel);
 
-    int clickCount = 0;
     // Observable::connect 返回 RAII Connection，临时对象语句结束即析构断开：
     // 连接必须保活到 render() 退出，否则 onClicked 永远进不到应用回调
-    // （表现为 MouseDown 有日志、点击计数不增）
+    // （表现为 MouseDown 有日志、点击无反应）
     std::vector<Observable<BaseButton&>::Connection> clickConnections;
+    // 主屏按钮：切换副屏显隐（演示窗口门面 Window::setVisible，QNX 走 Screen
+    // 合成器 SCREEN_PROPERTY_VISIBLE，隐藏期间副屏渲染与 present 一并跳过；
+    // displayId 与副屏创建时的 WindowInfo.displayId 一致）
+    bool secondaryVisible = true;
     clickConnections.push_back(button->events().onClicked.connect([&](BaseButton&) {
-        ++clickCount;
-        counter->setText(L"点击次数：" + std::to_wstring(clickCount), fontName);
-        LOG_INFO("Button clicked: {}", clickCount);
+        secondaryVisible = !secondaryVisible;
+        auto secondaryWin = engine->getWindow(secondary.displayId);
+        const bool applied = secondaryWin != nullptr;
+        if (secondaryWin) {
+            secondaryWin->setVisible(secondaryVisible);
+        }
+        button->setText(secondaryVisible ? L"隐藏副屏" : L"显示副屏", fontName);
+        statusLabel->setText(applied
+                                 ? (secondaryVisible ? L"副屏状态：显示中" : L"副屏状态：已隐藏")
+                                 : L"接口未生效：未找到副屏",
+                             fontName);
+        LOG_INFO("Toggle secondary visible={}, applied={}", secondaryVisible, applied);
     }));
 
     // Independent 模式：副屏挂自己的子树（widget 不能同时挂两个窗口，
     // addChild 会自动从旧父节点摘除）；副屏独立清屏色经窗口门面设置
-    //（Windows 等忽略 extraWindowInfos 的平台 getWindow(1) 为 nullptr，整块跳过）。
-    auto secondaryWindow = engine->getWindow(1);
+    //（Windows 等忽略 extraWindowInfos 的平台按 displayId 查不到副屏，
+    // 返回 nullptr，整块跳过）。
+    auto secondaryWindow = engine->getWindow(secondary.displayId);
     if (engineOptions.screenMode == ScreenRenderMode::Independent && secondaryWindow) {
         secondaryWindow->setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         auto secondaryScene = secondaryWindow->scene2D();

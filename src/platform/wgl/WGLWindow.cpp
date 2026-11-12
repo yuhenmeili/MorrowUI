@@ -12,6 +12,7 @@
 
 namespace morrow {
 WGLWindow::WGLWindow(const WindowInfo& info) {
+    m_displayId = info.displayId;
     if (!glfwInit()) {
         LOG_E("Failed to initialize GLFW");
         return;

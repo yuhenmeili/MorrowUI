@@ -35,6 +35,18 @@ Vector2 Window::framebufferSize() const {
     return m_impl->framebufferSize();
 }
 
+int32_t Window::displayId() const {
+    return m_impl->getDisplayId();
+}
+
+void Window::setVisible(bool visible) {
+    m_impl->setVisible(visible);
+}
+
+bool Window::isScreenVisible() const {
+    return m_impl->isScreenVisible();
+}
+
 std::shared_ptr<Scene2D> Window::scene2D() const {
     return m_impl->scene2D();
 }

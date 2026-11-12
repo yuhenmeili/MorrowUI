@@ -123,7 +123,7 @@ void QNXPlatform::endFrame() {
         // 停留在最后一屏，先画的屏直接 swap 会上屏失败），所以逐窗口
         // 先 makeCurrent 再 present（与 PresentStage::presentAll 的顺序一致）
         for (const auto& window : getWindows()) {
-            if (!window || !window->isWindowInited()) {
+            if (!window || !window->isWindowInited() || !window->isScreenVisible()) {
                 continue;
             }
             RENDERINGTHREAD->makeCurrent(window->nativeSurface());

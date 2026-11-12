@@ -90,7 +90,7 @@ Engine::Engine(const EngineOptions& options) {
     });
 
     // 内部 WindowEvents → 公共 EngineEvents 转播：仅桥接主窗口（index 0），
-    // 多屏时其他窗口的事件由应用经 Window::events()（getWindow(i)）订阅
+    // 多屏时其他窗口的事件由应用经 Window::events()（getWindow(displayId)）订阅
     if (auto window = m_platform->getWindow()) {
         m_rawKeyBridge = window->events().onRawKeyboardInput.connect(
             [this](const TouchEvent& event) { m_events.onRawKeyboardInput.notify(event); });
@@ -144,7 +144,31 @@ Engine::~Engine() {
     LOG_I("ENGINE_DTOR: done");
 }
 
-std::shared_ptr<Window> Engine::getWindow(int32_t index) const {
+std::shared_ptr<Window> Engine::getWindow() const {
+    return getWindowAt(0);
+}
+
+std::shared_ptr<Window> Engine::getWindow(int32_t displayId) const {
+    if (!m_platform) {
+        return nullptr;
+    }
+    // 按窗口创建时绑定的物理屏 displayId（WindowInfo.displayId）查找，
+    // 命中多个时返回第一个（重复 displayId 属配置错误）。displayId 不存在
+    //（含 GLFW 等丢弃 extraWindowInfos 的平台）返回 nullptr
+    const auto& windows = m_platform->getWindows();
+    for (size_t i = 0; i < windows.size(); ++i) {
+        if (windows[i] && windows[i]->getDisplayId() == displayId) {
+            return getWindowAt(static_cast<int32_t>(i));
+        }
+    }
+    return nullptr;
+}
+
+int32_t Engine::windowCount() const {
+    return m_platform ? static_cast<int32_t>(m_platform->getWindows().size()) : 0;
+}
+
+std::shared_ptr<Window> Engine::getWindowAt(int32_t index) const {
     if (!m_platform || index < 0 || index >= static_cast<int32_t>(m_platform->getWindows().size())) {
         return nullptr;
     }
@@ -152,7 +176,7 @@ std::shared_ptr<Window> Engine::getWindow(int32_t index) const {
     if (!implWindow) {
         return nullptr;
     }
-    // 门面对象按窗口缓存：重复 getWindow(index) 返回同一实例
+    // 门面对象按窗口缓存：重复取同一窗口返回同一实例
     if (static_cast<int32_t>(m_windowFacades.size()) <= index) {
         m_windowFacades.resize(static_cast<size_t>(index) + 1);
     }
@@ -161,10 +185,6 @@ std::shared_ptr<Window> Engine::getWindow(int32_t index) const {
         facade.reset(new Window(implWindow));
     }
     return facade;
-}
-
-int32_t Engine::windowCount() const {
-    return m_platform ? static_cast<int32_t>(m_platform->getWindows().size()) : 0;
 }
 
 void Engine::setBackdropBlurQuality(BackdropBlurQuality quality) {

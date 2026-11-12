@@ -10,48 +10,58 @@
 #include <unordered_map>
 
 namespace morrow {
-
-class WGLWindow: public PlatformWindow{
+class WGLWindow : public PlatformWindow {
 public:
     explicit WGLWindow(const WindowInfo& info);
 
     bool initializeIfNeeded() override;
+
+    int32_t getDisplayId() const override {
+        return m_displayId;
+    }
 
     void setClearColor(float r, float g, float b, float a) override;
 
     void setCursorShape(CursorShape shape) override;
 
     void beginRenderPass(FrameStateSharedPtr frameState) override;
+
     void updateWidgets(FrameStateSharedPtr frameState) override;
+
     void commitRenderPass(FrameStateSharedPtr frameState) override;
 
     bool isWindowShouldClose() override;
 
     void terminate() override;
 
-    Vector2 framebufferSize() const override { return m_framebufferSize; }
+    Vector2 framebufferSize() const override {
+        return m_framebufferSize;
+    }
 
     void setClipboardText(const std::string& text) override;
 
     std::string clipboardText() const override;
 
     /// 实现层专用：原生窗口句柄（GLFWwindow*），不出公共接口。
-    void* nativeWindowHandle() const { return m_window; }
+    void* nativeWindowHandle() const {
+        return m_window;
+    }
 
 private:
-    static void window_size_callback(GLFWwindow *window, int width, int height);
+    static void window_size_callback(GLFWwindow* window, int width, int height);
 
-    static void framebuffer_size_callback(GLFWwindow *window, int width, int height);
+    static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
     static void content_scale_callback(GLFWwindow* window, float xscale, float yscale);
 
-    static void mouse_callback(GLFWwindow *window, double xposIn, double yposIn);
+    static void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
 
-    static void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
+    static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
     static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
     GLFWwindow* m_window = nullptr;
+    int32_t m_displayId = 0;
     Vector2 m_windowPosition;
     Vector2 m_windowSize;
     Vector2 m_framebufferSize;
@@ -59,7 +69,6 @@ private:
     Vector4 m_clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
     std::unordered_map<int, GLFWcursor*> m_cursors;
 };
-
 } // morrow
 
 #endif //WINDOWWINDOW_H

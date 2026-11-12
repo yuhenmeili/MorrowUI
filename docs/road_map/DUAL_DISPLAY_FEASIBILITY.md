@@ -290,7 +290,7 @@ engineOptions.extraWindowInfos.push_back(secondary);// 副屏，displayId 须不
 engineOptions.screenMode = ScreenRenderMode::Mirror; // 默认值，可省略；改 Independent 则各自渲染
 ```
 
-- Independent 模式给副屏挂内容：`engine->getWindow(1)->scene2D()->addChild(...)`（widget 不能同时挂两个窗口；副屏独立清屏色经 `engine->getWindow(1)->setClearColor(...)`）。
+- Independent 模式给副屏挂内容：`engine->getWindow(4)->scene2D()->addChild(...)`（4 = 副屏 WindowInfo.displayId）（widget 不能同时挂两个窗口；副屏独立清屏色经 `engine->getWindow(4)->setClearColor(...)`）。
 
 ### 8.2 改动清单
 
@@ -303,7 +303,7 @@ engineOptions.screenMode = ScreenRenderMode::Mirror; // 默认值，可省略；
 | `src/platform/PlatformFactory.h/.cpp` | `create(info, extraWindowInfos = {}, screenMode = Mirror)`；GLFW 分支忽略 extras 并 LOG_WARN |
 | `src/platform/egl/QNXPlatform.h/.cpp` | 多窗口创建（共享同一 EGL 上下文）；持有 PresentStage；`endFrame` 按 mirror / 逐窗口 present 分流；`terminate` 先释放 PresentStage 资源（早于 GlobalObject::destroy） |
 | `src/platform/egl/EGLWindow.cpp` | **关键修复**：`beginRenderPass` 开头补每帧 `makeCurrent`（多窗口必需，单窗口被去重短路）；新增 `isWindowInited` / `getWindowSize` |
-| `src/core/Engine.h/.cpp` | `EngineOptions` 新增 `extraWindowInfos` / `screenMode`；`render()` 渲染段改为窗口循环 + mirror 分支（主窗口管线包在 RT 内）；新增 `getWindow(index)` / `windowCount()` 窗口门面访问（公共门面类 `include/morrow/Window.h`，内部实现类 `PlatformWindow`） |
+| `src/core/Engine.h/.cpp` | `EngineOptions` 新增 `extraWindowInfos` / `screenMode`；`render()` 渲染段改为窗口循环 + mirror 分支（主窗口管线包在 RT 内）；新增 `getWindow()` / `getWindow(displayId)` / `windowCount()` 窗口门面访问（公共门面类 `include/morrow/Window.h`，内部实现类 `PlatformWindow`） |
 | `samples/MultiScreenDemo.cpp` | **新增**：双屏演示（副屏 1920×720 vs 主屏 1920×1080，演示 letterbox + 各屏独立清屏色），Mirror/Independent 可切换 |
 | `docs/road_map/DUAL_DISPLAY_FEASIBILITY.md` | 本节 |
 

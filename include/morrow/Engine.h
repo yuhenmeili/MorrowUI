@@ -69,11 +69,11 @@ struct EngineOptions {
 // Platform 为引擎内部对象；窗口经公共门面 morrow::Window 暴露（§6.7 修订，
 // 多屏后 Engine 不再是单窗口 facade）：应用经 EngineOptions::windowInfo 配置
 // 主窗口（多屏另配 extraWindowInfos + screenMode，见 WindowInfo.h 的
-// ScreenRenderMode），经 getWindow(index) 持有各窗口——清屏色 / 剪贴板 /
-// 光标 / framebuffer 查询 / 各窗口事件 / Scene2D 根都在 Window 上
-//（getWindow(i)->scene2D() 搭建界面）。Engine 只保留引擎全局能力：字体 /
-// FPS / 背景模糊档位 / 调试覆盖层 / EngineEvents（仅转播主窗口的原始键盘
-// 与 framebuffer 事件）/ 主线程队列 / 渲染循环。
+// ScreenRenderMode），经 getWindow() / getWindow(displayId) 持有各窗口——
+// 清屏色 / 剪贴板 / 光标 / framebuffer 查询 / 显隐 / 各窗口事件 / Scene2D
+// 根都在 Window 上（getWindow()->scene2D() 搭建界面）。Engine 只保留引擎
+// 全局能力：字体 / FPS / 背景模糊档位 / 调试覆盖层 / EngineEvents（仅转播
+// 主窗口的原始键盘与 framebuffer 事件）/ 主线程队列 / 渲染循环。
 // ---------------------------------------------------------------------------
 class Engine
 {
@@ -82,10 +82,14 @@ public:
 
     virtual ~Engine();
 
-    /// 窗口门面（0 = 主窗口，序号即 extraWindowInfos 配置顺序）。
-    /// 越界或平台初始化失败（如非 QNX 平台丢弃了 extraWindowInfos）返回
-    /// nullptr；重复取同一 index 返回同一实例。
-    std::shared_ptr<Window> getWindow(int32_t index = 0) const;
+    /// 窗口门面：主窗口（等价 getWindow(windowInfo.displayId)，但不受
+    /// displayId 配置影响）。
+    std::shared_ptr<Window> getWindow() const;
+
+    /// 窗口门面：按窗口创建时绑定的物理屏 displayId（WindowInfo.displayId）
+    /// 查找。displayId 不存在——含非 QNX 平台丢弃了 extraWindowInfos——返回
+    /// nullptr；同一窗口重复取返回同一实例。
+    std::shared_ptr<Window> getWindow(int32_t displayId) const;
 
     /// 窗口总数（主窗口 + extraWindowInfos 中被平台接受的窗口）。
     [[nodiscard]] int32_t windowCount() const;
@@ -123,6 +127,9 @@ public:
     bool writeObjectSnapshot(const std::string& path) const;
 
 private:
+    /// 按窗口序号取/建门面（两个公共 getWindow 重载共用）
+    std::shared_ptr<Window> getWindowAt(int32_t index) const;
+
     Engine(const Engine&) = delete;
     Engine& operator=(const Engine&) = delete;
 
@@ -146,7 +153,7 @@ private:
     std::shared_ptr<Platform> m_platform;
     std::shared_ptr<DebugPlane> m_debugPlane;
 
-    /// getWindow(index) 的门面缓存（与 Platform::getWindows() 序号对齐）
+    /// getWindow 的门面缓存（与 Platform::getWindows() 序号对齐）
     mutable std::vector<std::shared_ptr<Window>> m_windowFacades;
 
     // 内部 WindowEvents → EngineEvents 转播连接
