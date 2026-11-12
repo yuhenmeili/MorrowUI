@@ -8,7 +8,6 @@
 #include <memory>
 
 namespace morrow {
-class Window;
 struct FrameState;
 class MRLabel;
 

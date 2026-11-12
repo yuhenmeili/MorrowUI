@@ -67,7 +67,7 @@ file(GLOB_RECURSE GLTF_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gltf/*.
 set(PLATFORM_SRC
     platform/PlatformFactory.cpp
     platform/Platform.cpp
-    platform/Window.cpp
+    platform/PlatformWindow.cpp
     platform/InputEventsManager.cpp
     platform/utils/OpenglUtils.cpp)
 

@@ -631,7 +631,7 @@ void EditorShell::buildLayout() {
     float windowWidth = 1280.0f;
     float windowHeight = 720.0f;
     if (m_engine) {
-        const Vector2 framebuffer = m_engine ? m_engine->framebufferSize() : Vector2{0.0f, 0.0f};
+        const Vector2 framebuffer = m_engine ? m_engine->getWindow()->framebufferSize() : Vector2{0.0f, 0.0f};
         if (framebuffer.x > 0 && framebuffer.y > 0) {
             windowWidth = framebuffer.x;
             windowHeight = framebuffer.y;
@@ -998,7 +998,7 @@ void EditorShell::buildLayout() {
         m_copyConnections.emplace_back(edit->events().onCopyRequested.connect([this](MRTextEdit&, const std::wstring& selected) {
             if (!m_engine)
                 return;
-            m_engine->setClipboardText(narrow(selected));
+            m_engine->getWindow()->setClipboardText(narrow(selected));
         }));
         panel->addChild(edit);
         return edit;

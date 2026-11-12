@@ -19,8 +19,8 @@ int main(int argc, char** argv) {
     engineOptions.windowInfo = windowInfo;
     engineOptions.samples = 4;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
-    auto scene = engine->getScene2D();
-    engine->setClearColor(0.15f, 0.15f, 0.15f, 1.0f);
+    auto scene = engine->getWindow()->scene2D();
+    engine->getWindow()->setClearColor(0.15f, 0.15f, 0.15f, 1.0f);
 
     auto scene3DView = MR3DSceneView::create(windowInfo.width, windowInfo.height);
     scene3DView->setSceneClearColor(Vector4(0.22f, 0.23f, 0.31f, 1.0f));

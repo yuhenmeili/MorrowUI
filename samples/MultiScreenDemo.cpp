@@ -56,10 +56,13 @@ int main() {
 
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    // 公共面（Engine.h §6.7）：Window 是引擎内部对象，应用经 getScene2D(index)
-    // 取各屏 UI 根（0 = 主窗口）；setClearColor 目前仅作用于主窗口。
-    auto primaryScene = engine->getScene2D(0);
-    engine->setClearColor(0.98f, 0.97f, 0.94f, 1.0f);
+    // 公共面：应用经 getWindow(index) 持有各屏窗口门面（0 = 主窗口），
+    // Scene2D 根与清屏色等窗口能力都在 Window 上。
+    auto primaryWindow = engine->getWindow();
+    auto primaryScene = primaryWindow->scene2D();
+    // 透明背景（与 Cluster 的窗口透明模式一致：清屏 alpha=0，半透明内容
+    // 由 Screen 合成器按 PRE_MULTIPLIED_ALPHA 与下层图层合成）
+    primaryWindow->setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
     FontInfo fontInfo = {"debug_morrow_20", "assets/fonts/MorrowSansCN1.1-Regular.otf"};
     engine->addFonts({fontInfo});
@@ -94,9 +97,12 @@ int main() {
     }));
 
     // Independent 模式：副屏挂自己的子树（widget 不能同时挂两个窗口，
-    // addChild 会自动从旧父节点摘除）；副屏独立清屏色暂无公共接口。
-    auto secondaryScene = engine->getScene2D(1);
-    if (engineOptions.screenMode == ScreenRenderMode::Independent && secondaryScene) {
+    // addChild 会自动从旧父节点摘除）；副屏独立清屏色经窗口门面设置
+    //（Windows 等忽略 extraWindowInfos 的平台 getWindow(1) 为 nullptr，整块跳过）。
+    auto secondaryWindow = engine->getWindow(1);
+    if (engineOptions.screenMode == ScreenRenderMode::Independent && secondaryWindow) {
+        secondaryWindow->setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        auto secondaryScene = secondaryWindow->scene2D();
         secondaryScene->addChild(createLabel(L"副屏独立内容 Independent", fontName,
                                              460.0f, 240.0f, 1000.0f, 60.0f, 34.0f));
         secondaryScene->addChild(createLabel(L"主屏的标题/按钮/计数不会出现在本屏", fontName,

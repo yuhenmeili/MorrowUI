@@ -57,8 +57,8 @@ int main() {
     EngineOptions options;
     options.windowInfo.name = "SceneEffectsDemo";
     auto engine = std::make_shared<Engine>(options);
-    auto scene = engine->getScene2D();
-    engine->setClearColor(0.04f, 0.07f, 0.13f, 1.0f);
+    auto scene = engine->getWindow()->scene2D();
+    engine->getWindow()->setClearColor(0.04f, 0.07f, 0.13f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",

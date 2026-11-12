@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "Platform.h"
-#include "Window.h"
+#include "PlatformWindow.h"
 
 namespace morrow {
 class PlatformFactory {

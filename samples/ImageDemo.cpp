@@ -117,8 +117,8 @@ int main() {
     EngineOptions engineOptions;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto scene = engine->getScene2D();
-    engine->setClearColor(0.92f, 0.95f, 0.98f, 1.0f);
+    auto scene = engine->getWindow()->scene2D();
+    engine->getWindow()->setClearColor(0.92f, 0.95f, 0.98f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",

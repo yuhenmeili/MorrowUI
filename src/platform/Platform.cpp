@@ -10,7 +10,7 @@
 #include "FontManager.h"
 #include "GlobalObject.h"
 #include "RenderDeviceProxy.h"
-#include "Window.h"
+#include "PlatformWindow.h"
 #include "morrow/OrthographicCamera.h"
 #include "morrow/base/Interaction.h"
 #include "morrow/base/TouchEvent.h"
@@ -23,15 +23,15 @@ void Platform::initialize(bool multithread, const RenderDeviceOptions& deviceOpt
     GlobalObject::getInstance().getRenderingThread()->run(shared_from_this(), multithread, deviceOptions);
 }
 
-WindowSharedPtr Platform::getWindow() const {
+PlatformWindowSharedPtr Platform::getWindow() const {
     return m_window;
 }
 
-const std::vector<WindowSharedPtr>& Platform::getWindows() const {
+const std::vector<PlatformWindowSharedPtr>& Platform::getWindows() const {
     return m_windows;
 }
 
-void Platform::setWindows(std::vector<WindowSharedPtr> windows) {
+void Platform::setWindows(std::vector<PlatformWindowSharedPtr> windows) {
     if (windows.empty()) {
         return;
     }
@@ -39,7 +39,7 @@ void Platform::setWindows(std::vector<WindowSharedPtr> windows) {
     m_window = m_windows.front();
 }
 
-void Platform::setWindow(WindowSharedPtr window) {
+void Platform::setWindow(PlatformWindowSharedPtr window) {
     if (!window) {
         return;
     }
@@ -113,7 +113,7 @@ void Platform::resolveInputTargets(const FrameStateSharedPtr& frameState) {
         // SCREEN_PROPERTY_WINDOW 归属），命中测试必须用来源窗口自己的
         // Scene2D 树和相机参数——共享相机在各窗口渲染 pass 中被反复改写，
         // 事件阶段必须按来源窗口重配后再换算坐标
-        WindowSharedPtr sourceWindow = m_window;
+        PlatformWindowSharedPtr sourceWindow = m_window;
         if (touchEvent.windowIndex >= 0
             && touchEvent.windowIndex < static_cast<int32_t>(m_windows.size())) {
             sourceWindow = m_windows[static_cast<size_t>(touchEvent.windowIndex)];

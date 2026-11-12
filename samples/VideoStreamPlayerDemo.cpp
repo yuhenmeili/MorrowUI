@@ -88,8 +88,8 @@ bool generateFrame(uint64_t frameIndex, std::vector<unsigned char>& pixels) {
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto scene = engine->getScene2D();
-    engine->setClearColor(0.04f, 0.07f, 0.12f, 1.0f);
+    auto scene = engine->getWindow()->scene2D();
+    engine->getWindow()->setClearColor(0.04f, 0.07f, 0.12f, 1.0f);
     engine->addFonts({FontInfo{.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"}});
 
     scene->addChild(createLabel(L"MRVideoStreamPlayer 视频播放", 100.0f, 42.0f, 1000.0f, 54.0f, 34.0f));

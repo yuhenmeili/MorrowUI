@@ -21,11 +21,11 @@ struct EngineEvents {
     /// Fired after endFrame/present and one-shot frame callbacks complete.
     Observable<> onFrameEnd;
 
-    /// 原始键盘/字符输入（KEY_DOWN / CHARACTER），在 Widget 派发前由引擎转播
-    /// （Window 内部化后的公共输入入口，见 §6.7）。
+    /// 原始键盘/字符输入（KEY_DOWN / CHARACTER），在 Widget 派发前由引擎
+    /// 转播。仅主窗口（index 0）桥接至此；其他窗口经 Window::events() 订阅。
     Observable<const TouchEvent&> onRawKeyboardInput;
 
-    /// framebuffer 尺寸变化（Engine 转播内部窗口事件）。
+    /// framebuffer 尺寸变化（Engine 转播主窗口事件；其他窗口经 Window::events()）。
     Observable<const Vector2&> onFramebufferSizeChanged;
 };
 }

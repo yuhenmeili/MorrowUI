@@ -7,7 +7,7 @@
 #include <algorithm>
 
 #include "GlobalObject.h"
-#include "Window.h"
+#include "PlatformWindow.h"
 #include "morrow/utils/Log.h"
 
 namespace morrow {
@@ -60,7 +60,7 @@ void PresentStage::endContentPass() {
     RENDERINGTHREAD->unbindRenderTarget();
 }
 
-void PresentStage::presentAll(const std::vector<WindowSharedPtr>& windows) {
+void PresentStage::presentAll(const std::vector<PlatformWindowSharedPtr>& windows) {
     if (!m_contentRTCreated || !m_contentRT.getRenderTarget().isValid()) {
         return;
     }

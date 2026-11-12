@@ -41,8 +41,8 @@ target_link_libraries(your_app PRIVATE morrow)
 
 | 域 | 头（省略 `morrow/` 前缀） | 说明 |
 | --- | --- | --- |
-| 引擎入口 | `Engine.h`、`EngineEvents.h`、`WindowInfo.h`、`FontInfo.h`、`RenderDeviceOptions.h`、`version.h` | 生命周期、窗口配置（`WindowInfo`）、字体注册（`FontInfo` + `Engine::addFonts`）、清屏色/剪贴板/光标/背景模糊运行时开关、原始键盘与帧尺寸事件 |
-| UI 树与控件 | `base/UIWidget.h`、`base/Scene2D.h`、`base/{Transform,Interaction,Shadow,TouchEvent}.h`、`elements/MR*.h`、`layout/*.h`、`controllers/OrbitController.h`、`helpers/Tween.h` | 全部 MR* 控件、布局容器、Tween 动画；UI 挂载经 `Engine::getScene2D()` |
+| 引擎入口 | `Engine.h`、`Window.h`、`WindowEvents.h`、`EngineEvents.h`、`WindowInfo.h`、`FontInfo.h`、`RenderDeviceOptions.h`、`version.h` | 生命周期、窗口配置（`WindowInfo`）、窗口门面（`Engine::getWindow(index)` → `Window`：清屏色/剪贴板/光标/帧尺寸/各窗口事件/`scene2D()`）、字体注册（`FontInfo` + `Engine::addFonts`）、背景模糊运行时开关、原始键盘与帧尺寸事件（EngineEvents 仅转播主窗口） |
+| UI 树与控件 | `base/UIWidget.h`、`base/Scene2D.h`、`base/{Transform,Interaction,Shadow,TouchEvent}.h`、`elements/MR*.h`、`layout/*.h`、`controllers/OrbitController.h`、`helpers/Tween.h` | 全部 MR* 控件、布局容器、Tween 动画；UI 挂载经 `Window::scene2D()`（`engine->getWindow()`） |
 | 事件 | `base/EventDispatcher.h`、`core/Observable.h` | 事件分发与可观察对象 |
 | 资源 | `Texture.h`、`Material.h`、`DriverEnums.h`、`ResourceHandle.h`、`StaticAtlasManager.h`、`atlas/TextureAtlas.h` | 纹理加载/内存构造/更新、材质参数、自研枚举与 Hw 句柄 |
 | 相机与 3D | `Camera.h`、`PerspectiveCamera.h`、`OrthographicCamera.h`、`OrbitCamera.h`、`elements/MR3DSceneView.h`、`helpers/Scene3DAsyncLoader.h`、`scene3d/{FrameState,IBLPrecompute}.h`、`GLTFTypes.h` | 3D 场景视图、异步加载、IBL 预计算、GLTF 公共数据模型 |
@@ -121,11 +121,11 @@ material->setFloat("u_alpha", 0.8f);
 | 旧用法 | 公共替代 |
 | --- | --- |
 | `#include "Engine.h"` 等 src 内部/相对路径 | `#include "morrow/Engine.h"` 等公共路径 |
-| `engine->getWindow()->setClearColor(...)` | `engine->setClearColor(...)` |
-| `getWindow()->events()` 键盘回调、`GLFW_KEY_*` 键值 | `engine->events().onRawKeyboardInput`（`TouchEvent`/`TouchKeyCode`，含桌面键值） |
-| `getWindow()->events()` 尺寸回调、`glfwGetFramebufferSize` | `engine->events().onFramebufferSizeChanged`、`engine->framebufferSize()` |
-| `glfwSetClipboardString` 等剪贴板直调 | `engine->setClipboardText(...)` / `engine->clipboardText()` |
-| `Window::getSurface()` 强转 `GLFWwindow*`/`EGLSurface` | 已删除；原生能力经 Engine API 补位（帧尺寸/剪贴板/光标形状），无句柄回吐 |
+| `engine->getWindow()->setClearColor(...)` | `engine->getWindow()->setClearColor(...)`（多屏后经窗口门面，各屏独立设置） |
+| `getWindow()->events()` 键盘回调、`GLFW_KEY_*` 键值 | `engine->events().onRawKeyboardInput`（`TouchEvent`/`TouchKeyCode`，含桌面键值；仅主窗口，其他窗口经 `getWindow(i)->events()`） |
+| `getWindow()->events()` 尺寸回调、`glfwGetFramebufferSize` | `engine->getWindow()->events().onFramebufferSizeChanged`、`engine->getWindow()->framebufferSize()`（主窗口事件亦转播至 `engine->events()`） |
+| `glfwSetClipboardString` 等剪贴板直调 | `engine->getWindow()->setClipboardText(...)` / `->clipboardText()` |
+| `Window::getSurface()` 强转 `GLFWwindow*`/`EGLSurface` | 已删除；原生能力经窗口门面补位（帧尺寸/剪贴板/光标形状），无句柄回吐 |
 | `Material::setShaderFromMemory(name, vert, frag)` | 已删除；`Material::setShader(具名)` + 参数接口（§3） |
 | 废弃 `Shader` 类（`GLuint m_ID`） | 已删除；同上 |
 | `FontManager`/`FontGlyph` 直接操作 | `Engine::addFonts(std::vector<FontInfo>)` + 控件字体名参数 |

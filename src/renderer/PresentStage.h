@@ -16,8 +16,8 @@
 
 namespace morrow {
 
-class Window;
-using WindowSharedPtr = std::shared_ptr<Window>;
+class PlatformWindow;
+using PlatformWindowSharedPtr = std::shared_ptr<PlatformWindow>;
 
 /**
  * 多屏镜像上屏阶段（ScreenRenderMode::Mirror）：
@@ -48,7 +48,7 @@ public:
     void endContentPass();
 
     /// 对每个已初始化窗口：makeCurrent → 清屏（黑边）→ 贴图 quad → present
-    void presentAll(const std::vector<WindowSharedPtr>& windows);
+    void presentAll(const std::vector<PlatformWindowSharedPtr>& windows);
 
     /// 释放 GPU 资源（必须在 GlobalObject::destroy 之前、渲染设备仍存活时调用）
     void releaseResources();

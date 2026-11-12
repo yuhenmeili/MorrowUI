@@ -1,16 +1,19 @@
 //
 // Created by 0060328 on 25-9-18.
 //
-// Window — 引擎内部平台窗口（不再对外暴露，见 §6.7）。
-// 只负责 surface / swap / 输入泵 / 清屏色 / 剪贴板等窗口职责，并持有
-// 2D UI 根（Scene2D）；UI 树经 Scene2D 对外（Engine::getScene2D）。
+// PlatformWindow — 引擎内部平台窗口实现（不出公共接口，§6.7）。
+// 窗口职责的公共面在 include/morrow/Window.h 门面（经 Engine::getWindow
+// 持有）；本类只负责 surface / swap / 输入泵 / 清屏色 / 剪贴板等平台
+// 职责，并持有 2D UI 根（Scene2D）；渲染 pass 与生命周期由 Engine
+// 渲染循环驱动。
 //
 
-#ifndef WINDOW_H
-#define WINDOW_H
+#ifndef PLATFORMWINDOW_H
+#define PLATFORMWINDOW_H
 #include <memory>
 #include <string>
 
+#include "morrow/WindowEvents.h"
 #include "morrow/WindowInfo.h"
 #include "morrow/base/Scene2D.h"
 #include "morrow/base/TouchEvent.h"
@@ -19,22 +22,13 @@
 
 namespace morrow {
 
-struct WindowEvents {
-    Observable<const Vector2&> onWindowSizeChanged;
-    Observable<const Vector2&> onFramebufferSizeChanged;
-    Observable<float> onContentScaleChanged;
-    /// 原始键盘/字符输入（KEY_DOWN / CHARACTER），在 Widget 派发前广播；
-    /// 由 Engine 转播到 EngineEvents::onRawKeyboardInput。
-    Observable<const TouchEvent&> onRawKeyboardInput;
-};
-
 class BatchManager;
 
-class Window {
+class PlatformWindow {
 public:
-    Window();
+    PlatformWindow();
 
-    virtual ~Window() = default;
+    virtual ~PlatformWindow() = default;
 
     virtual bool initializeIfNeeded();
 
@@ -84,7 +78,7 @@ public:
 
     virtual std::string clipboardText() const;
 
-    /// 渲染请求（原 UIWidget::requestRender；Window 内部回调使用）。
+    /// 渲染请求（原 UIWidget::requestRender；PlatformWindow 内部回调使用）。
     void requestRender(const char* reason = nullptr);
 
 protected:
@@ -93,7 +87,7 @@ protected:
     WindowEvents m_events;
 };
 
-using WindowSharedPtr = std::shared_ptr<Window>;
+using PlatformWindowSharedPtr = std::shared_ptr<PlatformWindow>;
 }
 
-#endif //WINDOW_H
+#endif //PLATFORMWINDOW_H

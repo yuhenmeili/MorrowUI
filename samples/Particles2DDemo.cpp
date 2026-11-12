@@ -32,8 +32,8 @@ std::shared_ptr<MRColor> createPanel(float x, float y, float width, float height
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto scene = engine->getScene2D();
-    engine->setClearColor(0.015f, 0.025f, 0.055f, 1.0f);
+    auto scene = engine->getWindow()->scene2D();
+    engine->getWindow()->setClearColor(0.015f, 0.025f, 0.055f, 1.0f);
 
     FontInfo fontInfo = {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
     engine->addFonts({fontInfo});

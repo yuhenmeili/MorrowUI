@@ -144,8 +144,8 @@ int main(int argc, char** argv) {
     engineOptions.backdropBlur = quality;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto scene = engine->getScene2D();
-    engine->setClearColor(0.90f, 0.93f, 0.96f, 1.0f);
+    auto scene = engine->getWindow()->scene2D();
+    engine->getWindow()->setClearColor(0.90f, 0.93f, 0.96f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",

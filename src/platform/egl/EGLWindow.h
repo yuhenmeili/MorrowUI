@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "EGLOperationsQNX.h"
-#include "Window.h"
+#include "PlatformWindow.h"
 #include <screen/screen.h>
 
 namespace morrow
@@ -18,7 +18,7 @@ namespace morrow
 class EGLWindow;
 
 using EGLWindowSharedPtr = std::shared_ptr<EGLWindow>;
-class EGLWindow : public Window
+class EGLWindow : public PlatformWindow
 {
 public:
     static EGLWindowSharedPtr create(EGLOperationsQNXSharedPtr context, const WindowInfo& info);
@@ -53,7 +53,7 @@ public:
 
     std::string clipboardText() const override { return {}; }
 
-    /// 实现层专用：EGLSurface，不出公共接口（Window::nativeSurface 虚接口）
+    /// 实现层专用：EGLSurface，不出公共接口（PlatformWindow::nativeSurface 虚接口）
     void* nativeSurface() const override { return m_eglSurface; }
 
 private:

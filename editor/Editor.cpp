@@ -155,8 +155,8 @@ public:
         engineOptions.windowInfo.height = 1200;
 
         EngineSharedPtr engine = std::make_shared<morrow::Engine>(engineOptions);
-        auto scene = engine->getScene2D();
-        engine->setClearColor(0.12f, 0.14f, 0.17f, 1.0f);
+        auto scene = engine->getWindow()->scene2D();
+        engine->getWindow()->setClearColor(0.12f, 0.14f, 0.17f, 1.0f);
 
         FontInfo fontInfo = {.name = "default", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
         engine->addFonts({fontInfo});

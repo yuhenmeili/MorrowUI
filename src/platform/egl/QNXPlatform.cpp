@@ -28,7 +28,7 @@ QNXPlatform::QNXPlatform(const WindowInfo& info,
     m_qnxInputProvider->startEventThread();
     m_inputEventsManager->setInputProvider(m_qnxInputProvider);
 
-    std::vector<WindowSharedPtr> windows;
+    std::vector<PlatformWindowSharedPtr> windows;
     windows.reserve(1 + extraWindowInfos.size());
     windows.push_back(EGLWindow::create(m_egl, info));
     for (const auto& extra : extraWindowInfos) {

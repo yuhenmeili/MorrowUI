@@ -133,7 +133,7 @@ void WGLWindow::beginRenderPass(FrameStateSharedPtr frameState) {
 }
 
 void WGLWindow::updateWidgets(FrameStateSharedPtr frameState) {
-    Window::updateWidgets(frameState);
+    PlatformWindow::updateWidgets(frameState);
 }
 
 void WGLWindow::commitRenderPass(FrameStateSharedPtr frameState) {

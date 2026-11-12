@@ -17,8 +17,8 @@ namespace morrow {
 struct WindowInfo;
 using WindowInfoSharedPtr = std::shared_ptr<WindowInfo>;
 
-class Window;
-using WindowSharedPtr = std::shared_ptr<Window>;
+class PlatformWindow;
+using PlatformWindowSharedPtr = std::shared_ptr<PlatformWindow>;
 
 class Platform : public std::enable_shared_from_this<Platform> {
 public:
@@ -75,17 +75,17 @@ public:
     /// PresentStage 负责各屏贴图 + present
     [[nodiscard]] virtual bool isMirrorActive() const { return false; }
 
-    [[nodiscard]] WindowSharedPtr getWindow() const;
+    [[nodiscard]] PlatformWindowSharedPtr getWindow() const;
 
     /// 全部窗口（第一个即 getWindow()）。Mirror 模式下仅第一个窗口承载 UI
     /// 管线；Independent 模式下每个窗口各自渲染各自的 Scene2D 子树
-    [[nodiscard]] const std::vector<WindowSharedPtr>& getWindows() const;
+    [[nodiscard]] const std::vector<PlatformWindowSharedPtr>& getWindows() const;
 
     /// 由平台子类在创建窗口后调用；m_window 恒指向第一个窗口
-    void setWindows(std::vector<WindowSharedPtr> windows);
+    void setWindows(std::vector<PlatformWindowSharedPtr> windows);
 
     /// 单窗口平台（如 WGL/GLFW）使用：等价于 setWindows({window})
-    void setWindow(WindowSharedPtr window);
+    void setWindow(PlatformWindowSharedPtr window);
 
     [[nodiscard]] bool shouldClose() const;
 
@@ -106,9 +106,9 @@ protected:
 
     void ensureRenderCapabilitiesInitialized();
 
-    WindowSharedPtr m_window;
+    PlatformWindowSharedPtr m_window;
     /// 全部窗口，m_window 恒等于 m_windows 的第一个；单窗口场景只有一个元素
-    std::vector<WindowSharedPtr> m_windows;
+    std::vector<PlatformWindowSharedPtr> m_windows;
     int32_t m_requestedSamples = 1;
     bool m_isSSBOSupport = false;
     /// SSBO 能力预设（RenderDeviceOptions::ssboSupportPreset），见 ensureRenderCapabilitiesInitialized。

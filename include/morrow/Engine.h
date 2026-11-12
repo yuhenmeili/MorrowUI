@@ -13,6 +13,7 @@
 #include "morrow/FontInfo.h"
 #include "morrow/OrthographicCamera.h"
 #include "morrow/RenderDeviceOptions.h"
+#include "morrow/Window.h"
 #include "morrow/WindowInfo.h"
 #include "morrow/effects/BackdropBlur.h"
 #include "morrow/scene3d/FrameState.h"
@@ -21,7 +22,6 @@ namespace morrow
 {
 class DebugPlane;
 class Platform;
-class Window;
 class MainThreadDispatcher;
 class FPSController;
 
@@ -66,10 +66,14 @@ struct EngineOptions {
 // ---------------------------------------------------------------------------
 // Engine — 引擎入口。
 //
-// Window / Platform 为引擎内部对象（§6.7）：应用经 EngineOptions::windowInfo
-// 配置窗口（多屏时另配 extraWindowInfos + screenMode，见 WindowInfo.h 的
-// ScreenRenderMode），经 getScene2D() 取得 2D UI 根搭建界面；窗口清屏色与
-// 原始键盘输入、framebuffer 尺寸变化经下方公共接口/事件获得。
+// Platform 为引擎内部对象；窗口经公共门面 morrow::Window 暴露（§6.7 修订，
+// 多屏后 Engine 不再是单窗口 facade）：应用经 EngineOptions::windowInfo 配置
+// 主窗口（多屏另配 extraWindowInfos + screenMode，见 WindowInfo.h 的
+// ScreenRenderMode），经 getWindow(index) 持有各窗口——清屏色 / 剪贴板 /
+// 光标 / framebuffer 查询 / 各窗口事件 / Scene2D 根都在 Window 上
+//（getWindow(i)->scene2D() 搭建界面）。Engine 只保留引擎全局能力：字体 /
+// FPS / 背景模糊档位 / 调试覆盖层 / EngineEvents（仅转播主窗口的原始键盘
+// 与 framebuffer 事件）/ 主线程队列 / 渲染循环。
 // ---------------------------------------------------------------------------
 class Engine
 {
@@ -78,10 +82,13 @@ public:
 
     virtual ~Engine();
 
-    /// 2D UI 根节点：向其 addChild 搭建界面。多窗口时按窗口序号取
-    ///（0 = 主窗口；Independent 模式下向非主窗口的 Scene2D 挂各屏独立内容），
-    /// 越界返回 nullptr。
-    [[nodiscard]] Scene2DSharedPtr getScene2D(int32_t index = 0) const;
+    /// 窗口门面（0 = 主窗口，序号即 extraWindowInfos 配置顺序）。
+    /// 越界或平台初始化失败（如非 QNX 平台丢弃了 extraWindowInfos）返回
+    /// nullptr；重复取同一 index 返回同一实例。
+    std::shared_ptr<Window> getWindow(int32_t index = 0) const;
+
+    /// 窗口总数（主窗口 + extraWindowInfos 中被平台接受的窗口）。
+    [[nodiscard]] int32_t windowCount() const;
 
     /// 不透明帧上下文（deltaTime / 帧号等只读视图）。
     [[nodiscard]] FrameStateSharedPtr getFrameState() const;
@@ -89,20 +96,6 @@ public:
     void addFonts(const std::vector<FontInfo>& fontsUrl);
 
     void setFPS(int32_t fps);
-
-    /// 窗口清屏色。
-    void setClearColor(float r, float g, float b, float a);
-
-    /// framebuffer 尺寸（像素）。窗口未就绪时返回 {0, 0}。
-    [[nodiscard]] Vector2 framebufferSize() const;
-
-    /// 系统剪贴板读写（平台不支持时为空操作/空串）。
-    void setClipboardText(const std::string& text);
-
-    [[nodiscard]] std::string clipboardText() const;
-
-    /// 鼠标指针形态。
-    void setCursorShape(CursorShape shape);
 
     /// 背景模糊运行档位（懒重建，见 EngineOptions::backdropBlur）。
     void setBackdropBlurQuality(BackdropBlurQuality quality);
@@ -152,6 +145,9 @@ private:
 
     std::shared_ptr<Platform> m_platform;
     std::shared_ptr<DebugPlane> m_debugPlane;
+
+    /// getWindow(index) 的门面缓存（与 Platform::getWindows() 序号对齐）
+    mutable std::vector<std::shared_ptr<Window>> m_windowFacades;
 
     // 内部 WindowEvents → EngineEvents 转播连接
     Observable<const TouchEvent&>::Connection m_rawKeyBridge;

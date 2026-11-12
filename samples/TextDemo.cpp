@@ -47,8 +47,8 @@ int main() {
     engineOptions.multithread = false;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto scene = engine->getScene2D();
-    engine->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    auto scene = engine->getWindow()->scene2D();
+    engine->getWindow()->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     FontInfo fontInfo = {.name = "debug_morrow_20", .path = "assets/fonts/MorrowSansCN1.1-Regular.otf"};
     engine->addFonts({fontInfo});

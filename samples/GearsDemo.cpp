@@ -26,8 +26,8 @@ std::shared_ptr<MRLabel> createLabel(const std::wstring& text, float x, float y,
 
 int main() {
     auto engine = std::make_shared<Engine>();
-    auto scene = engine->getScene2D();
-    engine->setClearColor(0.02f, 0.025f, 0.04f, 1.0f);
+    auto scene = engine->getWindow()->scene2D();
+    engine->getWindow()->setClearColor(0.02f, 0.025f, 0.04f, 1.0f);
     engine->addFonts({FontInfo{
         .name = "default",
         .path = "assets/fonts/MorrowSansCN1.1-Regular.otf",

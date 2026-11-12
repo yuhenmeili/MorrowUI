@@ -11,7 +11,7 @@
 #include "morrow/base/Widget.h"
 #include "GlobalObject.h"
 #include "PlatformFactory.h"
-#include "Window.h"
+#include "PlatformWindow.h"
 #include "Platform.h"
 #include "InputEventsManager.h"
 #include "MainThreadDispatcher.h"
@@ -89,7 +89,8 @@ Engine::Engine(const EngineOptions& options) {
         }
     });
 
-    // 内部 WindowEvents → 公共 EngineEvents 转播（Window 内部化，§6.7）
+    // 内部 WindowEvents → 公共 EngineEvents 转播：仅桥接主窗口（index 0），
+    // 多屏时其他窗口的事件由应用经 Window::events()（getWindow(i)）订阅
     if (auto window = m_platform->getWindow()) {
         m_rawKeyBridge = window->events().onRawKeyboardInput.connect(
             [this](const TouchEvent& event) { m_events.onRawKeyboardInput.notify(event); });
@@ -129,6 +130,9 @@ Engine::~Engine() {
     //   调试覆盖层 → 帧上下文 → 平台窗口（含 Scene2D UI 树 / BatchManager）
     //   → 渲染线程与全局服务。
     LOG_I("ENGINE_DTOR: begin");
+    // 窗口门面先释放（持有内部 PlatformWindow 强引用），避免窗口存活到
+    // GlobalObject::destroy 之后析构（GPU 资源顺序）
+    m_windowFacades.clear();
     m_debugPlane.reset();
     m_frameState.reset();
     LOG_I("ENGINE_DTOR: frameState done, renderingThread={}",
@@ -140,42 +144,31 @@ Engine::~Engine() {
     LOG_I("ENGINE_DTOR: done");
 }
 
-Scene2DSharedPtr Engine::getScene2D(int32_t index) const {
+std::shared_ptr<Window> Engine::getWindow(int32_t index) const {
     if (!m_platform || index < 0 || index >= static_cast<int32_t>(m_platform->getWindows().size())) {
         return nullptr;
     }
-    const auto& window = m_platform->getWindows()[static_cast<size_t>(index)];
-    return window ? window->scene2D() : nullptr;
+    const auto& implWindow = m_platform->getWindows()[static_cast<size_t>(index)];
+    if (!implWindow) {
+        return nullptr;
+    }
+    // 门面对象按窗口缓存：重复 getWindow(index) 返回同一实例
+    if (static_cast<int32_t>(m_windowFacades.size()) <= index) {
+        m_windowFacades.resize(static_cast<size_t>(index) + 1);
+    }
+    auto& facade = m_windowFacades[static_cast<size_t>(index)];
+    if (!facade) {
+        facade.reset(new Window(implWindow));
+    }
+    return facade;
 }
 
-void Engine::setClearColor(float r, float g, float b, float a) {
-    if (m_platform && m_platform->getWindow()) {
-        m_platform->getWindow()->setClearColor(r, g, b, a);
-    }
+int32_t Engine::windowCount() const {
+    return m_platform ? static_cast<int32_t>(m_platform->getWindows().size()) : 0;
 }
 
 void Engine::setBackdropBlurQuality(BackdropBlurQuality quality) {
     BackdropBlurManager::getInstance().setQuality(quality);
-}
-
-Vector2 Engine::framebufferSize() const {
-    return m_platform && m_platform->getWindow() ? m_platform->getWindow()->framebufferSize() : Vector2{0.0f, 0.0f};
-}
-
-void Engine::setClipboardText(const std::string& text) {
-    if (m_platform && m_platform->getWindow()) {
-        m_platform->getWindow()->setClipboardText(text);
-    }
-}
-
-std::string Engine::clipboardText() const {
-    return m_platform && m_platform->getWindow() ? m_platform->getWindow()->clipboardText() : std::string{};
-}
-
-void Engine::setCursorShape(CursorShape shape) {
-    if (m_platform && m_platform->getWindow()) {
-        m_platform->getWindow()->setCursorShape(shape);
-    }
 }
 
 void Engine::setBackdropBlurEnabled(bool enabled) {

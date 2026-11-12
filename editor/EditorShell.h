@@ -30,7 +30,6 @@
 
 namespace morrow {
 class Engine;
-class Window;
 class BaseButton;
 class MRButton;
 class MRLabel;

@@ -4,14 +4,14 @@
 
 #ifndef WINDOWWINDOW_H
 #define WINDOWWINDOW_H
-#include "Window.h"
+#include "PlatformWindow.h"
 #include "OpenglHeader.h"
 
 #include <unordered_map>
 
 namespace morrow {
 
-class WGLWindow: public Window{
+class WGLWindow: public PlatformWindow{
 public:
     explicit WGLWindow(const WindowInfo& info);
 

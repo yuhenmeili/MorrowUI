@@ -6,7 +6,7 @@
 #include "morrow/base/TouchEvent.h"
 #include "morrow/base/Transform.h"
 #include "morrow/elements/MRButton.h"
-#include "Window.h"
+#include "PlatformWindow.h"
 
 namespace morrow {
 
@@ -239,7 +239,7 @@ void MRSplitContainer::updateRatioFromPointer(float x, float y) {
 void MRSplitContainer::updateCursor(bool active) {
     std::shared_ptr<Widget> current = m_parent;
     while (current) {
-        if (auto window = std::dynamic_pointer_cast<Window>(current)) {
+        if (auto window = std::dynamic_pointer_cast<PlatformWindow>(current)) {
             window->setCursorShape(
                 active
                     ? (m_orientation == SplitOrientation::Horizontal

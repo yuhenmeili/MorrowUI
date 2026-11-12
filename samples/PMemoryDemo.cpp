@@ -15,8 +15,8 @@ int main() {
 #ifdef QNX
     EngineSharedPtr engine = std::make_shared<Engine>();
 
-    auto scene = engine->getScene2D();
-    engine->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    auto scene = engine->getWindow()->scene2D();
+    engine->getWindow()->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     void* pmem_hdl;
 

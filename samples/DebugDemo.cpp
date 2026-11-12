@@ -73,8 +73,8 @@ int main(int argc, char** argv) {
     engineOptions.objectSnapshotCommandPath = objectSnapshotCommandPath;
     EngineSharedPtr engine = std::make_shared<Engine>(engineOptions);
 
-    auto scene = engine->getScene2D();
-    engine->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    auto scene = engine->getWindow()->scene2D();
+    engine->getWindow()->setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     // ---------------------------------------------------------------------
     // 验收基准场景：10 张共享同一纹理的图片 + 2 个带阴影的组件。
